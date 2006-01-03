@@ -1,5 +1,3 @@
-/* onlykey.h
-*/
 
 /* Tim Steiner
  * Copyright (c) 2016 , CryptoTrust LLC.
@@ -48,30 +46,34 @@
  * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
  * OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
  */
+
+#ifdef US_VERSION
+
+#include <Ed25519.h>
+
  
-#ifndef ONLYKEY_H
-#define ONLYKEY_H
+#ifndef OKGPG_H
+#define OKGPG_H
 
-#define DEBUG //Enable Serial Monitor 
-#define US_VERSION //Define for US Version Firmare
 
-#include "okcore.h"
 
 #ifdef __cplusplus
 extern "C"
 {
 #endif
 
-#include "okeeprom.h"
-#ifdef US_VERSION
-#include "okssh.h"
-#include "okgpg.h"
-#include "oku2f.h"
-#endif
 
+
+extern void GPGinit();
+extern void SIGNGPGCHALLENGE (uint8_t *buffer);
+extern void SETGPGPRIV (uint8_t *buffer);
+extern void WIPEGPGPRIV (uint8_t *buffer);
+extern void GETGPGPUBKEY ();
 
 #ifdef __cplusplus
 }
+#endif
 #endif
 #endif

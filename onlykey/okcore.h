@@ -79,7 +79,11 @@ extern "C"
 #define OKGETSSHPUBKEY          (TYPE_INIT | 0x6C)//
 #define OKSIGNSSHCHALLENGE      (TYPE_INIT | 0x6D)//
 #define OKWIPESSHPRIV           (TYPE_INIT | 0x6E)//
-#define OKSETSSHPRIV            (TYPE_INIT | 0x6F)// Last vendor defined command
+#define OKSETSSHPRIV            (TYPE_INIT | 0x6F)// 
+#define OKGETGPGPUBKEY          (TYPE_INIT | 0x70)//
+#define OKSIGNGPGCHALLENGE      (TYPE_INIT | 0x71)//
+#define OKWIPEGPGPRIV           (TYPE_INIT | 0x72)//
+#define OKSETGPGPRIV            (TYPE_INIT | 0x73)// Last vendor defined command
 
 
 extern int getCounter();
@@ -153,8 +157,15 @@ extern void onlykey_flashset_common (uint8_t *ptr, uintptr_t adr, int len);
 extern void onlykey_flashget_common (uint8_t *ptr, uintptr_t adr, int len);
 extern int onlykey_flashget_totpkey (uint8_t *ptr, int slot);
 extern void onlykey_flashset_totpkey (uint8_t *ptr, int size, int slot);
+extern int onlykey_flashget_username (uint8_t *ptr, int slot);
+extern void onlykey_flashset_username (uint8_t *ptr, int size, int slot);
+extern int onlykey_flashget_url (uint8_t *ptr, int slot);
+extern void onlykey_flashset_url (uint8_t *ptr, int size, int slot);
+extern void onlykey_flashget_label (uint8_t *ptr, int slot);
+extern void onlykey_flashset_label (uint8_t *ptr, int slot);
 extern void onlykey_flashget_U2F ();
 extern int onlykey_flashget_SSH ();
+extern int onlykey_flashget_GPG ();
 extern void yubikeyinit();
 extern void yubikeysim(char *ptr);
 extern void yubikey_incr_time();
