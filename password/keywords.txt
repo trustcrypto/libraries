@@ -1,0 +1,6 @@
+Password	KEYWORD1
+set	KEYWORD2
+is	KEYWORD2
+append	KEYWORD2
+reset	KEYWORD2
+evaluate	KEYWORD2
