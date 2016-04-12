@@ -61,6 +61,10 @@ extern "C"
 #define EElen_labellen	1
 #define EElen_usernamelen	1
 #define EElen_totpkeylen	1
+#define EElen_U2Fprivlen	1
+#define EElen_U2Fcertlen	2
+#define EElen_U2Fprivpos	1
+#define EElen_U2Fcertpos	1
 
 #define EEpos_aeskey	0
 #define EEpos_public	(EEpos_aeskey + EElen_aeskey)
@@ -227,8 +231,10 @@ extern "C"
 #define EEpos_ctrlen	(EEpos_keylen + EElen_keylen)
 #define EEpos_prvlen	(EEpos_ctrlen + EElen_ctrlen)
 #define EEpos_publen	(EEpos_prvlen + EElen_prvlen)
-
-
+#define EEpos_U2Fprivlen	(EEpos_publen + EElen_publen)
+#define EEpos_U2Fcertlen	(EEpos_U2Fprivlen + EElen_U2Fprivlen)
+#define EEpos_U2Fprivpos	(EEpos_U2Fcertlen + EElen_U2Fcertlen)
+#define EEpos_U2Fcertpos	(EEpos_U2Fprivpos + EElen_U2Fprivpos)
 
 extern int  yubikey_eeget_aeskey (uint8_t *ptr);
 extern void yubikey_eeset_aeskey (uint8_t *ptr, int len);
@@ -268,6 +274,18 @@ extern void yubikey_eeset_delay1 (uint8_t *ptr, int slot);
 
 extern int  yubikey_eeget_delay2 (uint8_t *ptr, int slot);
 extern void yubikey_eeset_delay2 (uint8_t *ptr, int slot);
+
+extern int  yubikey_eeget_U2Fprivlen (uint8_t *ptr);
+extern void yubikey_eeset_U2Fprivlen (uint8_t *ptr);
+
+extern int  yubikey_eeget_U2Fcertlen (uint8_t *ptr);
+extern void yubikey_eeset_U2Fcertlen (uint8_t *ptr);
+
+extern int  yubikey_eeget_U2Fprivpos (uint8_t *ptr);
+extern void yubikey_eeset_U2Fprivpos (uint8_t *ptr);
+
+extern int  yubikey_eeget_U2Fcertpos (uint8_t *ptr);
+extern void yubikey_eeset_U2Fcertpos (uint8_t *ptr);
 
 extern int  yubikey_eeget_keylen (uint8_t *ptr);
 extern void yubikey_eeset_keylen (uint8_t *ptr);

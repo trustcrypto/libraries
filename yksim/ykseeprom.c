@@ -32,6 +32,53 @@ void yubikey_eeset_common(
 
 /*********************************/
 
+int yubikey_eeget_U2Fprivlen (uint8_t *ptr) {
+    yubikey_eeget_common(ptr, EEpos_U2Fprivlen, EElen_U2Fprivlen);
+    return EElen_U2Fprivlen;
+}
+void yubikey_eeset_U2Fprivlen (uint8_t *ptr) {
+    yubikey_eeset_common(ptr, EEpos_U2Fprivlen, EElen_U2Fprivlen);
+}
+
+/*********************************/
+
+/*********************************/
+
+int yubikey_eeget_U2Fcertlen (uint8_t *ptr) {
+    yubikey_eeget_common(ptr, EEpos_U2Fcertlen, EElen_U2Fcertlen);
+    return EElen_U2Fcertlen;
+}
+void yubikey_eeset_U2Fcertlen (uint8_t *ptr) {
+    yubikey_eeset_common(ptr, EEpos_U2Fcertlen, EElen_U2Fcertlen);
+}
+
+/*********************************/
+/*********************************/
+
+int yubikey_eeget_U2Fprivpos (uint8_t *ptr) {
+    yubikey_eeget_common(ptr, EEpos_U2Fprivpos, EElen_U2Fprivpos);
+    return EElen_U2Fprivpos;
+}
+void yubikey_eeset_U2Fprivpos (uint8_t *ptr) {
+    yubikey_eeset_common(ptr, EEpos_U2Fprivpos, EElen_U2Fprivpos);
+}
+
+/*********************************/
+
+/*********************************/
+
+int yubikey_eeget_U2Fcertpos (uint8_t *ptr) {
+    yubikey_eeget_common(ptr, EEpos_U2Fcertpos, EElen_U2Fcertpos);
+    return EElen_U2Fcertpos;
+}
+void yubikey_eeset_U2Fcertpos (uint8_t *ptr) {
+    yubikey_eeset_common(ptr, EEpos_U2Fcertpos, EElen_U2Fcertpos);
+}
+
+/*********************************/
+
+/*********************************/
+
 int yubikey_eeget_keylen (uint8_t *ptr) {
     yubikey_eeget_common(ptr, EEpos_keylen, EElen_keylen);
     return EElen_keylen;
