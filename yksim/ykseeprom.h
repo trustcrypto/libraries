@@ -63,8 +63,8 @@ extern "C"
 #define EElen_totpkeylen	1
 #define EElen_U2Fprivlen	1
 #define EElen_U2Fcertlen	2
-#define EElen_U2Fprivpos	1
-#define EElen_U2Fcertpos	1
+#define EElen_U2Fprivpos	2
+#define EElen_U2Fcertpos	2
 
 #define EEpos_aeskey	0
 #define EEpos_public	(EEpos_aeskey + EElen_aeskey)
