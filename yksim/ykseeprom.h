@@ -42,6 +42,9 @@ extern "C"
 {
 #endif
 
+#define EElen_pinhash	32
+#define EElen_selfdestructhash	32
+#define EElen_plausdenyhash	32
 #define EElen_aeskey	16
 #define EElen_public	6
 #define EElen_private	6
@@ -66,7 +69,10 @@ extern "C"
 #define EElen_U2Fprivpos	2
 #define EElen_U2Fcertpos	2
 
-#define EEpos_aeskey	0
+#define EEpos_pinhash	0
+#define EEpos_selfdestructhash	(EEpos_pinhash + EElen_pinhash)
+#define EEpos_plausdenyhash	(EEpos_selfdestructhash + EElen_selfdestructhash)
+#define EEpos_aeskey	(EEpos_plausdenyhash + EElen_plausdenyhash)
 #define EEpos_public	(EEpos_aeskey + EElen_aeskey)
 #define EEpos_private	(EEpos_public + EElen_public)
 #define EEpos_counter	(EEpos_private + EElen_private)
@@ -235,6 +241,15 @@ extern "C"
 #define EEpos_U2Fcertlen	(EEpos_U2Fprivlen + EElen_U2Fprivlen)
 #define EEpos_U2Fprivpos	(EEpos_U2Fcertlen + EElen_U2Fcertlen)
 #define EEpos_U2Fcertpos	(EEpos_U2Fprivpos + EElen_U2Fprivpos)
+
+extern int  yubikey_eeget_pinhash (uint8_t *ptr);
+extern void yubikey_eeset_pinhash(uint8_t *ptr);
+
+extern int  yubikey_eeget_selfdestructhash (uint8_t *ptr);
+extern void yubikey_eeset_selfdestructhash (uint8_t *ptr);
+
+extern int  yubikey_eeget_plausdenyhash (uint8_t *ptr);
+extern void yubikey_eeset_plausdenyhash (uint8_t *ptr);
 
 extern int  yubikey_eeget_aeskey (uint8_t *ptr);
 extern void yubikey_eeset_aeskey (uint8_t *ptr, int len);

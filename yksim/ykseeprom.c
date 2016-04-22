@@ -32,6 +32,41 @@ void yubikey_eeset_common(
 
 /*********************************/
 
+int yubikey_eeget_pinhash (uint8_t *ptr) {
+    yubikey_eeget_common(ptr, EEpos_pinhash, EElen_pinhash);
+    return EElen_pinhash;
+}
+void yubikey_eeset_pinhash (uint8_t *ptr) {
+    yubikey_eeset_common(ptr, EEpos_pinhash, EElen_pinhash);
+}
+
+/*********************************/
+/*********************************/
+
+int yubikey_eeget_selfdestructhash (uint8_t *ptr) {
+    yubikey_eeget_common(ptr, EEpos_selfdestructhash, EElen_selfdestructhash);
+    return EElen_selfdestructhash;
+}
+void yubikey_eeset_selfdestructhash (uint8_t *ptr) {
+    yubikey_eeset_common(ptr, EEpos_selfdestructhash, EElen_selfdestructhash);
+}
+
+/*********************************/
+/*********************************/
+
+int yubikey_eeget_plausdenyhash (uint8_t *ptr) {
+    yubikey_eeget_common(ptr, EEpos_plausdenyhash, EElen_plausdenyhash);
+    return EElen_plausdenyhash;
+}
+void yubikey_eeset_plausdenyhash (uint8_t *ptr) {
+    yubikey_eeset_common(ptr, EEpos_plausdenyhash, EElen_plausdenyhash);
+}
+
+/*********************************/
+
+
+/*********************************/
+
 int yubikey_eeget_U2Fprivlen (uint8_t *ptr) {
     yubikey_eeget_common(ptr, EEpos_U2Fprivlen, EElen_U2Fprivlen);
     return EElen_U2Fprivlen;
