@@ -30,7 +30,10 @@
 ||
 */
 
+#include "sha256.h"
 #include "password.h"
+#include "yksim.h"
+#include <EEPROM.h>
 
 //construct object in memory, set all variables
 Password::Password(char* pass){
@@ -60,6 +63,7 @@ bool Password::append(char character){
 	}else{
 		guess[currentIndex++] = character;
 		guess[currentIndex] = STRING_TERMINATOR; //ensure a valid c string
+		
 	}
 	return true;
 }
@@ -82,7 +86,6 @@ bool Password::evaluate(){
 		}else if (pass!=guessed || pass==STRING_TERMINATOR || guessed==STRING_TERMINATOR){
 			return false; //difference OR end of string has been reached
 		}
-		
 		//read next char
 		pass = target[i];
 		guessed = guess[i];
@@ -90,11 +93,69 @@ bool Password::evaluate(){
 	return false; //a 'true' condition has not been met
 }
 
+
+//is the hash of the current guessed password equal to the stored hash?
+bool Password::hashevaluate(){ 
+	uint8_t temp[32];
+	uint8_t hash[32];
+	uint8_t *ptr;
+	ptr = temp;
+	
+	  
+	//Copy characters to byte array
+			for (int i =0; i <= strlen(guess); i++) {
+			temp[i] = (byte)guess[i];
+			}
+			SHA256_CTX pinhash;
+			sha256_init(&pinhash);
+			sha256_update(&pinhash, temp, strlen(guess)); //Add new PIN to hash
+			yubikey_eeget_noncehash (ptr); //Get nonce from EEPROM
+			
+			Serial.print(F("NONCE HASH:")); //TODO remove debug
+      for (int i =0; i < 32; i++) {
+        Serial.print(temp[i], HEX);
+      }
+	  Serial.println();
+	  
+			sha256_update(&pinhash, temp, 32); //Add nonce to hash
+			sha256_final(&pinhash, temp); //Create hash and store in temp
+			ptr = hash;
+			yubikey_eeget_pinhash (ptr); //store valid pinhash in hash
+	
+	Serial.print(F("Guessed Hash:")); //TODO remove debug
+      for (int i =0; i < 32; i++) {
+        Serial.print(temp[i], HEX);
+      }
+	  Serial.println();
+	  Serial.print(F("PIN Hash:")); //TODO remove debug
+      for (int i =0; i < 32; i++) {
+        Serial.print(hash[i], HEX);
+      }
+	  Serial.println();
+	  
+	char pass2 = hash[0];
+	char guessed2 = temp[0];
+	for (byte i=1; i<32; i++){
+		
+		//check if guessed char is equal to the password char
+		if (pass2==STRING_TERMINATOR && guessed2==STRING_TERMINATOR){
+			return true; //both strings ended and all previous characters are equal 
+		}else if (pass2!=guessed2 || pass2==STRING_TERMINATOR || guessed2==STRING_TERMINATOR){
+			return false; //difference OR end of string has been reached
+		}
+		
+		//read next char
+		pass2 = hash[i];
+		guessed2 = temp[i];
+	}
+	return false; //a 'true' condition has not been met
+}
 //set password using operator =
 Password &Password::operator=(char* pass){
 	set( pass );
 	return *this;
 }
+
 
 //test password using ==
 bool Password::operator==(char* pass){

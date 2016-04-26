@@ -55,6 +55,7 @@ public:
 	bool append(char character);
 	void reset();
 	bool evaluate();
+	bool hashevaluate();
 	
 	//char* getPassword();
 	//char* getGuess();
@@ -65,10 +66,12 @@ public:
 	bool operator!=(char* pass);
 	Password &operator<<(char character);
 	
+	char guess[ MAX_PASSWORD_LENGTH ];
+	byte currentIndex;  
+	
 private:
 	char* target;
-	char guess[ MAX_PASSWORD_LENGTH ];
-	byte currentIndex;
+	
 };
 
 #endif

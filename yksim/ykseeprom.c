@@ -32,6 +32,30 @@ void yubikey_eeset_common(
 
 /*********************************/
 
+int yubikey_eeget_failedlogins (uint8_t *ptr) {
+    yubikey_eeget_common(ptr, EEpos_failedlogins, EElen_failedlogins);
+    return EElen_failedlogins;
+}
+void yubikey_eeset_failedlogins (uint8_t *ptr) {
+    yubikey_eeset_common(ptr, EEpos_failedlogins, EElen_failedlogins);
+}
+
+/*********************************/
+
+/*********************************/
+
+int yubikey_eeget_noncehash (uint8_t *ptr) {
+    yubikey_eeget_common(ptr, EEpos_noncehash , EElen_noncehash);
+    return EElen_noncehash;
+}
+void yubikey_eeset_noncehash (uint8_t *ptr) {
+    yubikey_eeset_common(ptr, EEpos_noncehash, EElen_noncehash);
+}
+
+/*********************************/
+
+/*********************************/
+
 int yubikey_eeget_pinhash (uint8_t *ptr) {
     yubikey_eeget_common(ptr, EEpos_pinhash, EElen_pinhash);
     return EElen_pinhash;

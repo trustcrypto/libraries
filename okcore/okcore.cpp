@@ -65,6 +65,10 @@
 #include "ykcore.h"
 #include "yksim.h"
 #include "onlykey.h"
+#include <password.h>
+#include <Crypto.h>
+#include <RNG.h>
+#include <transistornoisesource.h>
 
 uint32_t unixTimeStamp;
 const int ledPin = 13;
@@ -77,6 +81,7 @@ byte recv_buffer[64];
 byte resp_buffer[64];
 byte handle[64];
 byte sha256_hash[32];
+Password password = Password( "not used" );
 
 const char attestation_key[] = "\xf3\xfc\xcc\x0d\x00\xd8\x03\x19\x54\xf9"
   "\x08\x64\xd4\x3c\x24\x7f\x4b\xf5\xf0\x66\x5c\x6b\x50\xcc"
@@ -314,7 +319,7 @@ void sendLargeResponse(byte *request, int len)
 
 
 int getCounter() {
-  unsigned int eeAddress = 0; //EEPROM address to start reading from
+  unsigned int eeAddress = EEpos_U2Fcounter; //EEPROM address to start reading from
   unsigned int counter;
   EEPROM.get( eeAddress, counter );
   return counter;
@@ -322,7 +327,7 @@ int getCounter() {
 
 void setCounter(int counter)
 {
-  unsigned int eeAddress = 0; //EEPROM address to start reading from
+  unsigned int eeAddress = EEpos_U2Fcounter; //EEPROM address to start reading from
   EEPROM.put( eeAddress, counter );
 }
 
@@ -929,15 +934,96 @@ void recvmsg() {
   }
 }
 
+int PINSET = 0;
+
+
+
+
 void SETPIN (byte *buffer)
 {
       Serial.println("OKSETPIN MESSAGE RECEIVED");
-      char cmd = buffer[4]; //cmd or continuation
-#ifdef DEBUG
-      Serial.println((int)cmd, HEX);
-#endif
+	  
+	switch (PINSET) {
+      case 0:
+      Serial.println("Enter PIN");
+      PINSET = 1;
+      return;
+      case 1:
+	  PINSET = 2;
+      if(strlen(password.guess) >= 7 && strlen(password.guess) < 11)
+      {
+        Serial.println("Storing PIN");
+		static char passguess[10];
+      for (int i =0; i <= strlen(password.guess); i++) {
+		passguess[i] = password.guess[i];
+      }
+		password.set(passguess);
+        password.reset();
+      }
+      else
+      {
+        
+		Serial.println("Error PIN is not between 7 - 10 characters");
+        password.reset();
+		PINSET = 0;
+      }
+      
+      return;
+      case 2:
+      Serial.println("Confirm PIN");
+      PINSET = 3;
+      return;
+      case 3:
+	  PINSET = 0;
+       if(strlen(password.guess) >= 7 && strlen(password.guess) < 11)
+      {
+	  
+          if (password.evaluate() == true) {
+            Serial.println("Both PINs Match");
+			uint8_t temp[32];
+			uint8_t *ptr;
+			ptr = temp;
+			//Copy characters to byte array
+			for (int i =0; i <= strlen(password.guess); i++) {
+			temp[i] = (byte)password.guess[i];
+			}
+			SHA256_CTX pinhash;
+			sha256_init(&pinhash);
+			sha256_update(&pinhash, temp, strlen(password.guess)); //Add new PIN to hash
+			getrng(ptr, 32); //Fill temp with random data
+			Serial.println("Generating NONCE");
+			yubikey_eeset_noncehash (ptr); //Store in eeprom
+			
+			sha256_update(&pinhash, temp, 32); //Add nonce to hash
+			sha256_final(&pinhash, temp); //Create hash and store in temp
+			Serial.println("Hashing PIN and storing to EEPROM");
+			yubikey_eeset_pinhash (ptr);
+			Serial.print(F("PIN Hash:")); //TODO remove debug
+      for (int i =0; i < 32; i++) {
+        Serial.print(temp[i], HEX);
+      }
+	  Serial.println();
+            password.reset();
+          }
+          else {
+            Serial.println("Error PINs Don't Match");
+            password.reset();
+			PINSET = 0;
+          }
+      }
+      else
+      {
+        Serial.println("Error PIN is not between 7 - 10 characters");
+		
+        password.reset();
+		PINSET = 0;
+      }
+      
+      return;
+      
       blink(3);
       return;
+}
 }
 
 void SETTIME (byte *buffer)
@@ -959,21 +1045,15 @@ void SETTIME (byte *buffer)
       setTime(t2); 
       Serial.print(F("Current Time Set to: "));
       digitalClockDisplay();  
-            //TODO Check if PIN is set first
-      //if pin set 
-     resp_buffer[0] = 0x49;
-      resp_buffer[1] = 0x4e;
-      resp_buffer[2] = 0x49;
-      resp_buffer[3] = 0x54;
-      resp_buffer[4] = 0x49;
-      resp_buffer[5] = 0x41;
-      resp_buffer[6] = 0x4c;
-      resp_buffer[7] = 0x49;
-      resp_buffer[8] = 0x5a;
-      resp_buffer[9] = 0x45;
-      resp_buffer[10] = 0x44;
-      //else
-      /*
+            
+	  char temp2 [32];
+	  uint8_t temp [32];
+	  uint8_t *ptr;
+	  ptr=temp;
+	  yubikey_eeget_pinhash (ptr);
+	  CharToByte(temp2, temp, 32);
+	  if( temp2[0] == '\0' )
+	  {
       resp_buffer[0] = 0x55;
       resp_buffer[1] = 0x4e;
       resp_buffer[0] = 0x49;
@@ -987,7 +1067,21 @@ void SETTIME (byte *buffer)
       resp_buffer[8] = 0x5a;
       resp_buffer[9] = 0x45;
       resp_buffer[10] = 0x44;
-      */
+	  }
+      else
+      {
+	  resp_buffer[0] = 0x49;
+      resp_buffer[1] = 0x4e;
+      resp_buffer[2] = 0x49;
+      resp_buffer[3] = 0x54;
+      resp_buffer[4] = 0x49;
+      resp_buffer[5] = 0x41;
+      resp_buffer[6] = 0x4c;
+      resp_buffer[7] = 0x49;
+      resp_buffer[8] = 0x5a;
+      resp_buffer[9] = 0x45;
+      resp_buffer[10] = 0x44;
+	  }
       RawHID.send(resp_buffer, 0);
       blink(3);
       return;
@@ -1004,9 +1098,11 @@ void GETLABELS (byte *buffer)
       return;
 }
 
+
+
 void SETSLOT (byte *buffer)
 {
-
+	
       char cmd = buffer[4]; //cmd or continuation
       int slot = buffer[5];
       int value = buffer[6];
@@ -1434,30 +1530,41 @@ void blink(int times){
 }
 
 int RNG2(uint8_t *dest, unsigned size) {
-    // Use the least-significant bits from the ADC for an unconnected pin (or connected to a source of
-    // random noise). This can take a long time to generate random data if the result of analogRead(0)
-    // doesn't change very frequently.
-    while (size) {
-      uint8_t val = 0;
-      for (unsigned i = 0; i < 8; ++i) {
-        int init = analogRead(0);
-        int count = 0;
-        while (analogRead(0) == init) {
-          ++count;
-        }
-
-        if (count == 0) {
-          val = (val << 1) | (init & 0x01);
-        } else {
-          val = (val << 1) | (count & 0x01);
-        }
-      }
-      *dest = val;
-      ++dest;
-      --size;
-    }
-    // NOTE: it would be a good idea to hash the resulting random data using SHA-256 or similar.
+    getrng(dest, size);
+	printHex(dest, size); //TODO debug remove
+    
     return 1;
   }
 
+void getrng(uint8_t *ptr, unsigned size) {
+    // Generate output whenever 32 bytes of entropy have been accumulated.
+    // The first time through, we wait for 48 bytes for a full entropy pool.
+    size_t length = 48; // First block should wait for the pool to fill up.
+    if (RNG.available(length)) {
+        RNG.rand(ptr, size);
+        printHex(ptr, size);  //TODO debug remove
+        length = 32;
+    }
+}
 
+void printHex(const byte *data, unsigned len)
+{
+    static char const hexchars[] = "0123456789ABCDEF";
+    while (len > 0) {
+        int b = *data++;
+        Serial.print(hexchars[(b >> 4) & 0x0F]);
+        Serial.print(hexchars[b & 0x0F]);
+        --len;
+    }
+    Serial.println();
+}
+
+void ByteToChar(byte* bytes, char* chars, unsigned int count){
+    for(unsigned int i = 0; i < count; i++)
+    	 chars[i] = (char)bytes[i];
+}
+
+void CharToByte(char* chars, byte* bytes, unsigned int count){
+    for(unsigned int i = 0; i < count; i++)
+    	bytes[i] = (byte)chars[i];
+}
