@@ -170,7 +170,7 @@ extern void getrng(uint8_t *ptr, unsigned size);
 extern void printHex(const byte *data, unsigned len);
 extern void ByteToChar(byte* bytes, char* chars, unsigned int count);
 extern void CharToByte(char* chars, byte* bytes, unsigned int count);
-
+extern void hidprint(char* chars);
 
 
 

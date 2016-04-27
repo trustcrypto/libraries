@@ -34,6 +34,7 @@
 #include "password.h"
 #include "yksim.h"
 #include <EEPROM.h>
+#include "flashkinetis.h"
 
 //construct object in memory, set all variables
 Password::Password(char* pass){
@@ -100,8 +101,7 @@ bool Password::hashevaluate(){
 	uint8_t hash[32];
 	uint8_t *ptr;
 	ptr = temp;
-	
-	  
+
 	//Copy characters to byte array
 			for (int i =0; i <= strlen(guess); i++) {
 			temp[i] = (byte)guess[i];
@@ -138,10 +138,10 @@ bool Password::hashevaluate(){
 	for (byte i=1; i<32; i++){
 		
 		//check if guessed char is equal to the password char
-		if (pass2==STRING_TERMINATOR && guessed2==STRING_TERMINATOR){
+		if (i == 31 && pass2==guessed2){
 			return true; //both strings ended and all previous characters are equal 
-		}else if (pass2!=guessed2 || pass2==STRING_TERMINATOR || guessed2==STRING_TERMINATOR){
-			return false; //difference OR end of string has been reached
+		}else if (pass2!=guessed2){
+			return false; //difference 
 		}
 		
 		//read next char

@@ -83,6 +83,7 @@ byte handle[64];
 byte sha256_hash[32];
 Password password = Password( "not used" );
 
+
 const char attestation_key[] = "\xf3\xfc\xcc\x0d\x00\xd8\x03\x19\x54\xf9"
   "\x08\x64\xd4\x3c\x24\x7f\x4b\xf5\xf0\x66\x5c\x6b\x50\xcc"
   "\x17\x74\x9a\x27\xd1\xcf\x76\x64";
@@ -708,6 +709,7 @@ void recvmsg() {
   int n;
   int c;
   int z;
+  
   //Serial.print("");
   n = RawHID.recv(recv_buffer, 0); // 0 timeout = do not wait
 #ifdef DEBUG   
@@ -724,6 +726,79 @@ void recvmsg() {
     for (z=0; z<64; z++) {
         Serial.print(recv_buffer[z], HEX);
     }
+	
+	   //Support for additional vendor defined commands
+char cmd_or_cont = recv_buffer[4]; //cmd or continuation
+
+  switch (cmd_or_cont) {
+      case OKSETPIN:
+      SETPIN(recv_buffer);
+      return;
+      break;
+      case OKSETTIME:
+      SETTIME(recv_buffer);
+      return;
+      break;
+      case OKGETLABELS:
+	  if(FTFL_FSEC!=0x64) {
+			hidprint("No PIN set, You must set a PIN first");
+			return;
+		}
+      GETLABELS(recv_buffer);
+      return;
+      break;
+      case OKSETSLOT:
+	   if(FTFL_FSEC!=0x64) {
+			hidprint("No PIN set, You must set a PIN first");
+			return;
+		}
+      SETSLOT(recv_buffer);
+      return;
+      break;
+      case OKWIPESLOT:
+	  if(FTFL_FSEC!=0x64) {
+			hidprint("No PIN set, You must set a PIN first");
+			return;
+		}
+      WIPESLOT(recv_buffer);
+      return;
+      break;
+      case OKSETU2FPRIV:
+	  if(FTFL_FSEC!=0x64) {
+			hidprint("No PIN set, You must set a PIN first");
+			return;
+		}
+      SETU2FPRIV(recv_buffer);
+      return;
+      break;
+      case OKWIPEU2FPRIV:
+	  if(FTFL_FSEC!=0x64) {
+			hidprint("No PIN set, You must set a PIN first");
+			return;
+		}
+      WIPEU2FPRIV(recv_buffer);
+      break;
+      case OKSETU2FCERT:
+	  if(FTFL_FSEC!=0x64) {
+			hidprint("No PIN set, You must set a PIN first");
+			return;
+		}
+      SETU2FCERT(recv_buffer);
+      return;
+      break;
+      case OKWIPEU2FCERT:
+	  if(FTFL_FSEC!=0x64) {
+			hidprint("No PIN set, You must set a PIN first");
+			return;
+		}
+      WIPEU2FCERT(recv_buffer);
+      return;
+      break;
+      default: 
+      break;
+    }
+
+	
 #endif    
     int cid = *(int*)recv_buffer;
 #ifdef DEBUG    
@@ -737,9 +812,6 @@ void recvmsg() {
       return;
     }
 
-    char cmd_or_cont = recv_buffer[4]; //cmd or continuation
-
-
     int len = (recv_buffer[5]) << 8 | recv_buffer[6];
 
 #ifdef DEBUG
@@ -748,48 +820,7 @@ void recvmsg() {
       Serial.println((int)len);
     }
 #endif
-    //Support for additional vendor defined commands
-
-  switch (cmd_or_cont) {
-      case OKSETPIN:
-      SETPIN(recv_buffer);
-      return;
-      break;
-      case OKSETTIME:
-      SETTIME(recv_buffer);
-      return;
-      break;
-      case OKGETLABELS:
-      GETLABELS(recv_buffer);
-      return;
-      break;
-      case OKSETSLOT:
-      SETSLOT(recv_buffer);
-      return;
-      break;
-      case OKWIPESLOT:
-      WIPESLOT(recv_buffer);
-      return;
-      break;
-      case OKSETU2FPRIV:
-      SETU2FPRIV(recv_buffer);
-      return;
-      break;
-      case OKWIPEU2FPRIV:
-      WIPEU2FPRIV(recv_buffer);
-      break;
-      case OKSETU2FCERT:
-      SETU2FCERT(recv_buffer);
-      return;
-      break;
-      case OKWIPEU2FCERT:
-      WIPEU2FCERT(recv_buffer);
-      return;
-      break;
-      default: 
-      break;
-    }
-
+ 
     //don't care about cid
     if (cmd_or_cont==U2FHID_INIT) {
       setOtherTimeout();
@@ -964,6 +995,7 @@ void SETPIN (byte *buffer)
       {
         
 		Serial.println("Error PIN is not between 7 - 10 characters");
+		hidprint("Error PIN is not between 7 - 10 characters");
         password.reset();
 		PINSET = 0;
       }
@@ -1003,10 +1035,21 @@ void SETPIN (byte *buffer)
         Serial.print(temp[i], HEX);
       }
 	  Serial.println();
+			//Now that a pin is set lock the flash		
+		    flashSecurityLockBits(0x64);
+			int nn;
+			//nn=flashSecurityLockBits();
+			Serial.print("FTFL_FSEC=0x");
+      Serial.println(FTFL_FSEC,HEX);
+      Serial.print("Flash security bits ");
+      if(nn) Serial.print("not ");
+      Serial.println("written successfully");
+			hidprint("Successfully set PIN");
             password.reset();
           }
           else {
             Serial.println("Error PINs Don't Match");
+			hidprint("Error PINs Don't Match");
             password.reset();
 			PINSET = 0;
           }
@@ -1014,7 +1057,7 @@ void SETPIN (byte *buffer)
       else
       {
         Serial.println("Error PIN is not between 7 - 10 characters");
-		
+		hidprint("Error PIN is not between 7 - 10 characters");
         password.reset();
 		PINSET = 0;
       }
@@ -1046,42 +1089,16 @@ void SETTIME (byte *buffer)
       Serial.print(F("Current Time Set to: "));
       digitalClockDisplay();  
             
-	  char temp2 [32];
-	  uint8_t temp [32];
-	  uint8_t *ptr;
-	  ptr=temp;
-	  yubikey_eeget_pinhash (ptr);
-	  CharToByte(temp2, temp, 32);
-	  if( temp2[0] == '\0' )
+		
+	  if( FTFL_FSEC!=0x64 ) //TODO remove
 	  {
-      resp_buffer[0] = 0x55;
-      resp_buffer[1] = 0x4e;
-      resp_buffer[0] = 0x49;
-      resp_buffer[1] = 0x4e;
-      resp_buffer[2] = 0x49;
-      resp_buffer[3] = 0x54;
-      resp_buffer[4] = 0x49;
-      resp_buffer[5] = 0x41;
-      resp_buffer[6] = 0x4c;
-      resp_buffer[7] = 0x49;
-      resp_buffer[8] = 0x5a;
-      resp_buffer[9] = 0x45;
-      resp_buffer[10] = 0x44;
+		hidprint("UNINITIALIZED");
 	  }
       else
       {
-	  resp_buffer[0] = 0x49;
-      resp_buffer[1] = 0x4e;
-      resp_buffer[2] = 0x49;
-      resp_buffer[3] = 0x54;
-      resp_buffer[4] = 0x49;
-      resp_buffer[5] = 0x41;
-      resp_buffer[6] = 0x4c;
-      resp_buffer[7] = 0x49;
-      resp_buffer[8] = 0x5a;
-      resp_buffer[9] = 0x45;
-      resp_buffer[10] = 0x44;
+	    hidprint("INITIALIZED");
 	  }
+	  
       RawHID.send(resp_buffer, 0);
       blink(3);
       return;
@@ -1090,10 +1107,58 @@ void SETTIME (byte *buffer)
 void GETLABELS (byte *buffer)
 {
       Serial.println("OKGETLABELS MESSAGE RECEIVED");
-      char cmd = buffer[4]; //cmd or continuation
-#ifdef DEBUG
-      Serial.println((int)cmd, HEX);
-#endif
+	  uint8_t label[EElen_label];
+	  uint8_t *ptr;
+	  char labelchar[EElen_label];
+	  ptr=label;
+	  yubikey_eeget_label(ptr, 1);
+	  ByteToChar(label, labelchar, EElen_label);
+	  hidprint(labelchar);
+	  
+	  yubikey_eeget_label(ptr, 2);
+	  ByteToChar(label, labelchar, EElen_label);
+      hidprint(labelchar);
+	  
+	  yubikey_eeget_label(ptr, 3);
+	  ByteToChar(label, labelchar, EElen_label);
+      hidprint(labelchar);
+	  
+	  yubikey_eeget_label(ptr, 4);
+	  ByteToChar(label, labelchar, EElen_label);
+      hidprint(labelchar);
+	  
+	  yubikey_eeget_label(ptr, 5);
+	  ByteToChar(label, labelchar, EElen_label);
+      hidprint(labelchar);
+	  
+	  yubikey_eeget_label(ptr, 6);
+	  ByteToChar(label, labelchar, EElen_label);
+      hidprint(labelchar);
+	  
+	  yubikey_eeget_label(ptr, 7);
+	  ByteToChar(label, labelchar, EElen_label);
+      hidprint(labelchar);
+	  
+	  yubikey_eeget_label(ptr, 8);
+	  ByteToChar(label, labelchar, EElen_label);
+      hidprint(labelchar);
+	  
+	  yubikey_eeget_label(ptr, 9);
+	  ByteToChar(label, labelchar, EElen_label);
+      hidprint(labelchar);
+	  
+	  yubikey_eeget_label(ptr, 10);
+	  ByteToChar(label, labelchar, EElen_label);
+      hidprint(labelchar);
+	  
+	  yubikey_eeget_label(ptr, 11);
+	  ByteToChar(label, labelchar, EElen_label);
+      hidprint(labelchar);
+	  
+	  yubikey_eeget_label(ptr, 12);
+	  ByteToChar(label, labelchar, EElen_label);
+      hidprint(labelchar);
+	  
       blink(3);
       return;
 }
@@ -1154,6 +1219,7 @@ void SETSLOT (byte *buffer)
             Serial.println(); //newline
             Serial.print("Writing Label Value to EEPROM...");
             yubikey_eeset_label((buffer + 7), EElen_label, slot);
+			hidprint("Successfully set Label");
             return;
             break;
             case 2:
@@ -1161,6 +1227,7 @@ void SETSLOT (byte *buffer)
             Serial.println(); //newline
             Serial.print("Writing Username Value to EEPROM...");
             yubikey_eeset_username((buffer + 7), EElen_username, slot);
+			hidprint("Successfully set Username");
             return;
             break;
             case 3:
@@ -1168,6 +1235,7 @@ void SETSLOT (byte *buffer)
             Serial.println(); //newline
             Serial.print("Writing Additional Character1 to EEPROM...");
             yubikey_eeset_addchar1((buffer + 7), slot);
+			hidprint("Successfully set Character1");
             return;
             break;
             case 4:
@@ -1175,6 +1243,7 @@ void SETSLOT (byte *buffer)
             Serial.println(); //newline
             Serial.print("Writing Delay1 to EEPROM...");
             yubikey_eeset_delay1((buffer + 7), slot);
+			hidprint("Successfully set Delay1");
             return;
             break;
             case 5:
@@ -1182,6 +1251,7 @@ void SETSLOT (byte *buffer)
             Serial.println(); //newline
             Serial.print("Writing Password to EEPROM...");
             yubikey_eeset_password((buffer + 7), length, slot);
+			hidprint("Successfully set Password");
             return;
             break;
             case 6:
@@ -1189,6 +1259,7 @@ void SETSLOT (byte *buffer)
             Serial.println(); //newline
             Serial.print("Writing Additional Character2 to EEPROM...");
             yubikey_eeset_addchar2((buffer + 7), slot);
+			hidprint("Successfully set Character2");
             return;
             break;
             case 7:
@@ -1196,6 +1267,7 @@ void SETSLOT (byte *buffer)
             Serial.println(); //newline
             Serial.print("Writing Delay2 to EEPROM...");
             yubikey_eeset_delay2((buffer + 7), slot);
+			hidprint("Successfully set Delay2");
             return;
             break;
             case 8:
@@ -1203,6 +1275,7 @@ void SETSLOT (byte *buffer)
             Serial.println(); //newline
             Serial.print("Writing 2FA Type to EEPROM...");
             yubikey_eeset_2FAtype((buffer + 7), slot);
+			hidprint("Successfully set 2FA Type");
             return;
             break;
             case 9:
@@ -1210,6 +1283,7 @@ void SETSLOT (byte *buffer)
             Serial.println(); //newline
             Serial.print("Writing TOTP Key to EEPROM...");
             yubikey_eeset_totpkey((buffer + 7), EElen_totpkey, slot);
+			hidprint("Successfully set TOTP Key");
             return;
             break;
             case 10:
@@ -1219,6 +1293,7 @@ void SETSLOT (byte *buffer)
             yubikey_eeset_aeskey((buffer + 7), EElen_aeskey);
             yubikey_eeset_private((buffer + 7 + EElen_aeskey));
             yubikey_eeset_public((buffer + 7 + EElen_aeskey + EElen_private), EElen_public);
+			hidprint("Successfully set Yubikey AES Key, Priviate ID, and Public ID");
             return;
             break;
             default: 
@@ -1567,4 +1642,16 @@ void ByteToChar(byte* bytes, char* chars, unsigned int count){
 void CharToByte(char* chars, byte* bytes, unsigned int count){
     for(unsigned int i = 0; i < count; i++)
     	bytes[i] = (byte)chars[i];
+}
+
+void hidprint(char* chars) 
+{ 
+int i=0;
+while(*chars) {
+     resp_buffer[i] = (byte)*chars;
+     chars++;
+	 i++;
+  }
+  RawHID.send(resp_buffer, 0);
+  blink(3);
 }

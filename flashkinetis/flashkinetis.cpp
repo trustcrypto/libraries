@@ -186,9 +186,9 @@ int flashSecurityLockBits(uint8_t newValueForFSEC)
 	FTFL_FCCOB2 = 4;
 	FTFL_FCCOB3 = 0xC;
   
-	FTFL_FCCOB4 = 0xFF; // It is not possible to turn bits on without erasing a larger block, I am
-	FTFL_FCCOB5 = 0xFF; // using all on value 
-	FTFL_FCCOB6 = 0xFF; // 
+	FTFL_FCCOB4 = 0x00; // It is not possible to turn bits on without erasing a larger block, I am
+	FTFL_FCCOB5 = 0x00; // using all on value 
+	FTFL_FCCOB6 = 0x00; // 
 	FTFL_FCCOB7 = newValueForFSEC;
 	__disable_irq();
   flashExec(&FTFL_FSTAT);
