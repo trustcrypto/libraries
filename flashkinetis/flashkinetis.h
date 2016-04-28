@@ -13,8 +13,8 @@
 */
 
 
-#ifndef flashKinetis_h_
-#define flashKinetis_h_
+#ifndef flashkinetis_h_
+#define flashkinetis_h_
 
 #if defined(__MK20DX128__)
 #define FLASH_SIZE			0x0001FFFF

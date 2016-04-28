@@ -69,6 +69,7 @@ void yubikey_init1(
     ctx->timestamp = yk_time1;
 
     /* Initiate pseudo-random generator */
+    
     randomSeed (seed1);
 }
 
@@ -127,7 +128,7 @@ void yubikey_disable_eeprom()
     yubikey_eeset_passwordlen4 (&length);
     yubikey_eeset_passwordlen5 (&length);
     yubikey_eeset_passwordlen6 (&length);
-	yubikey_eeset_passwordlen7 (&length);
+    yubikey_eeset_passwordlen7 (&length);
     yubikey_eeset_passwordlen8 (&length);
     yubikey_eeset_passwordlen9 (&length);
     yubikey_eeset_passwordlen10 (&length);
