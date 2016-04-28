@@ -1036,13 +1036,13 @@ void SETPIN (byte *buffer)
       }
 	  Serial.println();
 			//Now that a pin is set lock the flash		
-		    flashSecurityLockBits(0x64);
-			int nn;
+		    //flashSecurityLockBits(0x64);
+			//int nn;
 			//nn=flashSecurityLockBits();
 			Serial.print("FTFL_FSEC=0x");
       Serial.println(FTFL_FSEC,HEX);
       Serial.print("Flash security bits ");
-      if(nn) Serial.print("not ");
+      //if(nn) Serial.print("not ");
       Serial.println("written successfully");
 			hidprint("Successfully set PIN");
             password.reset();
@@ -1627,8 +1627,8 @@ void printHex(const byte *data, unsigned len)
     static char const hexchars[] = "0123456789ABCDEF";
     while (len > 0) {
         int b = *data++;
-        Serial.print(hexchars[(b >> 4) & 0x0F]);
-        Serial.print(hexchars[b & 0x0F]);
+        Keyboard.print(hexchars[(b >> 4) & 0x0F]);
+        Keyboard.print(hexchars[b & 0x0F]);
         --len;
     }
     Serial.println();

@@ -12,7 +12,7 @@
 	In every case, keep this header.
 */
 
-#include "flashkinetis.h"
+#include "flashKinetis.h"
 
 #define FCMD_READ_1S_BLOCK          	0x00
 #define FCMD_READ_1S_SECTION        	0x01
@@ -171,7 +171,7 @@ B1–B0 SEC Flash Security
   10 MCU security status is unsecure (The standard shipping condition of the flash memory module is unsecure.)
   11 MCU security status is secure
 
-    FTFL_FSEC=0x64; // 01100100 = 100 = the value robsoles will recommend locking up with.
+    FTFL_FSEC=0x64; // 0b1100100 = 100 = the value robsoles will recommend locking up with.
   
 */
 
@@ -186,9 +186,9 @@ int flashSecurityLockBits(uint8_t newValueForFSEC)
 	FTFL_FCCOB2 = 4;
 	FTFL_FCCOB3 = 0xC;
   
-	FTFL_FCCOB4 = 0x00; // It is not possible to turn bits on without erasing a larger block, I am
-	FTFL_FCCOB5 = 0x00; // using all on value 
-	FTFL_FCCOB6 = 0x00; // 
+	FTFL_FCCOB4 = 0xFF; // It is not possible to turn bits on without erasing a larger block, I am
+	FTFL_FCCOB5 = 0xFF; // using all on value 
+	FTFL_FCCOB6 = 0xFF; // 
 	FTFL_FCCOB7 = newValueForFSEC;
 	__disable_irq();
   flashExec(&FTFL_FSTAT);

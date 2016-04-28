@@ -36,7 +36,7 @@ int flashProgramWord(unsigned long *address, unsigned long *data, bool allowFirs
 void flashSetFlexRAM(void);
 unsigned long flashFirstEmptySector(void); //returns first unused sector
 
-int flashSecurityLockBits(uint8_t newValueForFSEC); // 0x64 appears to be one of the safer values to use here.
+int flashSecurityLockBits(uint8_t newValueForFSEC=0x64); // 0x64 appears to be one of the safer values to use here.
 void flashQuickUnlockBits();
 #endif
 
