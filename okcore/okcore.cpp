@@ -83,7 +83,7 @@ byte handle[64];
 byte sha256_hash[32];
 Password password = Password( "not used" );
 int PINSET = 0;
-static bool unlocked;
+bool unlocked = false;
 
 const char attestation_key[] = "\xf3\xfc\xcc\x0d\x00\xd8\x03\x19\x54\xf9"
   "\x08\x64\xd4\x3c\x24\x7f\x4b\xf5\xf0\x66\x5c\x6b\x50\xcc"
@@ -1162,10 +1162,11 @@ void SETPIN (byte *buffer)
 			//Now that a pin is set lock the flash		
 			int nn;
 			//TODO change to 0x64
-			nn=flashSecurityLockBits(0x44);
+			nn=flashSecurityLockBits();
 			Serial.print("Flash security bits ");
 			if(nn) Serial.print("not ");
 			Serial.println("written successfully");
+			Serial.println("Successfully set PIN, you must remove OnlyKey and reinsert to configure");
 			hidprint("Successfully set PIN, you must remove OnlyKey and reinsert to configure");
             password.reset();
           }
@@ -1193,16 +1194,19 @@ void SETPIN (byte *buffer)
 
 void SETTIME (byte *buffer)
 {
-      Serial.println("OKSETTIME MESSAGE RECEIVED");        
+      Serial.println();
+	  Serial.println("OKSETTIME MESSAGE RECEIVED");        
 		
 	  if(FTFL_FSEC==0xDE) 
 	  {
 		hidprint("UNINITIALIZED");
+		Serial.print("UNINITIALIZED");
 	  }
 	  //TODO change to 0x64
       else if (FTFL_FSEC==0x44) 
       {
 	    hidprint("INITIALIZED");
+		Serial.print("INITIALIZED");
     int i, j;                
     for(i=0, j=3; i<4; i++, j--){
     unixTimeStamp |= ((uint32_t)buffer[j + 5] << (i*8) );
@@ -1228,7 +1232,8 @@ void SETTIME (byte *buffer)
 
 void GETLABELS (byte *buffer)
 {
-      Serial.println("OKGETLABELS MESSAGE RECEIVED");
+      Serial.println();
+	  Serial.println("OKGETLABELS MESSAGE RECEIVED");
 	  uint8_t label[EElen_label];
 	  uint8_t *ptr;
 	  char labelchar[EElen_label];
@@ -1775,7 +1780,6 @@ while(*chars) {
 	 i++;
   }
   RawHID.send(resp_buffer, 0);
-  blink(3);
 }
 
 void factorydefault() {

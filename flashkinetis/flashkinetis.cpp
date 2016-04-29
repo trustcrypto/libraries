@@ -12,7 +12,7 @@
 	In every case, keep this header.
 */
 
-#include "flashkinetis.h"
+#include "flashKinetis.h"
 
 #define FCMD_READ_1S_BLOCK          	0x00
 #define FCMD_READ_1S_SECTION        	0x01
@@ -206,9 +206,9 @@ int eraseSecurityLockBits(uint8_t newValueForFSEC)
 	FTFL_FCCOB2 = 4;
 	FTFL_FCCOB3 = 0xC;
   
-	FTFL_FCCOB4 = 0x00; // It is not possible to turn bits on without erasing a larger block, I am
-	FTFL_FCCOB5 = 0x00; // using all on value 
-	FTFL_FCCOB6 = 0x00; // 
+	FTFL_FCCOB4 = 0xFF; // It is not possible to turn bits on without erasing a larger block, I am
+	FTFL_FCCOB5 = 0xFF; // using all on value 
+	FTFL_FCCOB6 = 0xFF; // 
 	FTFL_FCCOB7 = newValueForFSEC;
 	__disable_irq();
   flashExec(&FTFL_FSTAT);

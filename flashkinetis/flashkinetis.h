@@ -13,8 +13,8 @@
 */
 
 
-#ifndef flashkinetis_h_
-#define flashkinetis_h_
+#ifndef flashKinetis_h_
+#define flashKinetis_h_
 
 #if defined(__MK20DX128__)
 #define FLASH_SIZE			0x0001FFFF
@@ -36,8 +36,8 @@ int flashProgramWord(unsigned long *address, unsigned long *data, bool allowFirs
 void flashSetFlexRAM(void);
 unsigned long flashFirstEmptySector(void); //returns first unused sector
 
-int flashSecurityLockBits(uint8_t newValueForFSEC); // 0x64 appears to be one of the safer values to use here.
-int eraseSecurityLockBits(uint8_t newValueForFSEC=0xFE);
+int flashSecurityLockBits(uint8_t newValueForFSEC=0x44); // 0x64 appears to be one of the safer values to use here.
+int eraseSecurityLockBits(uint8_t newValueForFSEC=0x00);
 void flashQuickUnlockBits();
 #endif
 
