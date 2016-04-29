@@ -1199,13 +1199,11 @@ void SETTIME (byte *buffer)
 		
 	  if(FTFL_FSEC==0xDE) 
 	  {
-		hidprint("UNINITIALIZED");
 		Serial.print("UNINITIALIZED");
 	  }
 	  //TODO change to 0x64
       else if (FTFL_FSEC==0x44) 
       {
-	    hidprint("INITIALIZED");
 		Serial.print("INITIALIZED");
     int i, j;                
     for(i=0, j=3; i<4; i++, j--){
@@ -1222,7 +1220,7 @@ void SETTIME (byte *buffer)
 	  }
 	  else
 	  {
-	    hidprint("ERROR FLASH VALUE");
+	    Serial.print("FLASH ERROR");
 		factorydefault();
 	  }
       RawHID.send(resp_buffer, 0);
