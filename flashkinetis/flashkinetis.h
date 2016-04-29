@@ -31,12 +31,13 @@
 
 
 int flashCheckSectorErased(unsigned long *address);
-int flashEraseSector(unsigned long *address, bool allowFirstSector=false);
-int flashProgramWord(unsigned long *address, unsigned long *data, bool allowFirstSector=false, bool overrideSafetyForConfig=false);
+int flashEraseSector(unsigned long *address, bool allowFirstSector=true);
+int flashProgramWord(unsigned long *address, unsigned long *data, bool allowFirstSector=true, bool overrideSafetyForConfig=true);
 void flashSetFlexRAM(void);
 unsigned long flashFirstEmptySector(void); //returns first unused sector
 
-int flashSecurityLockBits(uint8_t newValueForFSEC=0x64); // 0x64 appears to be one of the safer values to use here.
+int flashSecurityLockBits(uint8_t newValueForFSEC); // 0x64 appears to be one of the safer values to use here.
+int eraseSecurityLockBits(uint8_t newValueForFSEC=0xFE);
 void flashQuickUnlockBits();
 #endif
 

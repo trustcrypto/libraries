@@ -82,7 +82,8 @@ byte resp_buffer[64];
 byte handle[64];
 byte sha256_hash[32];
 Password password = Password( "not used" );
-
+int PINSET = 0;
+static bool unlocked;
 
 const char attestation_key[] = "\xf3\xfc\xcc\x0d\x00\xd8\x03\x19\x54\xf9"
   "\x08\x64\xd4\x3c\x24\x7f\x4b\xf5\xf0\x66\x5c\x6b\x50\xcc"
@@ -740,58 +741,184 @@ char cmd_or_cont = recv_buffer[4]; //cmd or continuation
       return;
       break;
       case OKGETLABELS:
-	  if(FTFL_FSEC!=0x64) {
-			hidprint("No PIN set, You must set a PIN first");
-			return;
+	   if(FTFL_FSEC==0xDE) 
+		{
+		hidprint("No PIN set, You must set a PIN first");
+		return;
 		}
-      GETLABELS(recv_buffer);
+		//TODO change to 0x64
+		else if (FTFL_FSEC==0x44) 
+		{
+			if (unlocked==true) 
+			{
+			GETLABELS(recv_buffer);
+			}
+			else
+			{
+			hidprint("ERROR DEVICE LOCKED");
+			return;
+			}
+		}
+		else
+		{
+	    hidprint("ERROR FLASH VALUE");
+		factorydefault();
+		}
       return;
       break;
       case OKSETSLOT:
-	   if(FTFL_FSEC!=0x64) {
-			hidprint("No PIN set, You must set a PIN first");
-			return;
+	   if(FTFL_FSEC==0xDE) 
+		{
+		hidprint("No PIN set, You must set a PIN first");
+		return;
 		}
-      SETSLOT(recv_buffer);
+		//TODO change to 0x64
+		else if (FTFL_FSEC==0x44) 
+		{
+			if (unlocked==true) 
+			{
+			SETSLOT(recv_buffer);
+			}
+			else
+			{
+			hidprint("ERROR DEVICE LOCKED");
+			return;
+			}	    
+		}
+		else
+		{
+	    hidprint("ERROR FLASH VALUE");
+		factorydefault();
+		}
       return;
       break;
       case OKWIPESLOT:
-	  if(FTFL_FSEC!=0x64) {
-			hidprint("No PIN set, You must set a PIN first");
-			return;
+	   if(FTFL_FSEC==0xDE) 
+		{
+		hidprint("No PIN set, You must set a PIN first");
+		return;
 		}
-      WIPESLOT(recv_buffer);
+		//TODO change to 0x64
+		else if (FTFL_FSEC==0x44) 
+		{
+			if (unlocked==true) 
+			{
+			WIPESLOT(recv_buffer);
+			}
+			else
+			{
+			hidprint("ERROR DEVICE LOCKED");
+			return;
+			}
+		}
+		else
+		{
+	    hidprint("ERROR FLASH VALUE");
+		factorydefault();
+		}
       return;
       break;
       case OKSETU2FPRIV:
-	  if(FTFL_FSEC!=0x64) {
-			hidprint("No PIN set, You must set a PIN first");
-			return;
+	   if(FTFL_FSEC==0xDE) 
+		{
+		hidprint("No PIN set, You must set a PIN first");
+		return;
 		}
-      SETU2FPRIV(recv_buffer);
+		//TODO change to 0x64
+		else if (FTFL_FSEC==0x44) 
+		{
+			if (unlocked==true) 
+			{
+			SETU2FPRIV(recv_buffer);
+			}
+			else
+			{
+			hidprint("ERROR DEVICE LOCKED");
+			return;
+			}
+		}
+		else
+		{
+	    hidprint("ERROR FLASH VALUE");
+		factorydefault();
+		}
       return;
       break;
       case OKWIPEU2FPRIV:
-	  if(FTFL_FSEC!=0x64) {
-			hidprint("No PIN set, You must set a PIN first");
-			return;
+	   if(FTFL_FSEC==0xDE) 
+		{
+		hidprint("No PIN set, You must set a PIN first");
+		return;
 		}
-      WIPEU2FPRIV(recv_buffer);
+		//TODO change to 0x64
+		else if (FTFL_FSEC==0x44) 
+		{
+			if (unlocked==true) 
+			{
+			WIPEU2FPRIV(recv_buffer);
+			}
+			else
+			{
+			hidprint("ERROR DEVICE LOCKED");
+			return;
+			}
+		}
+		else
+		{
+	    hidprint("ERROR FLASH VALUE");
+		factorydefault();
+		}
       break;
       case OKSETU2FCERT:
-	  if(FTFL_FSEC!=0x64) {
-			hidprint("No PIN set, You must set a PIN first");
-			return;
+	   if(FTFL_FSEC==0xDE) 
+		{
+		hidprint("No PIN set, You must set a PIN first");
+		return;
 		}
-      SETU2FCERT(recv_buffer);
+		//TODO change to 0x64
+		else if (FTFL_FSEC==0x44) 
+		{
+			if (unlocked==true) 
+			{
+			SETU2FCERT(recv_buffer);
+			}
+			else
+			{
+			hidprint("ERROR DEVICE LOCKED");
+			return;
+			}	    
+		}
+		else
+		{
+	    hidprint("ERROR FLASH VALUE");
+		factorydefault();
+		}
       return;
       break;
       case OKWIPEU2FCERT:
-	  if(FTFL_FSEC!=0x64) {
-			hidprint("No PIN set, You must set a PIN first");
-			return;
+	   if(FTFL_FSEC==0xDE) 
+		{
+		hidprint("No PIN set, You must set a PIN first");
+		return;
 		}
-      WIPEU2FCERT(recv_buffer);
+		//TODO change to 0x64
+		else if (FTFL_FSEC==0x44) 
+		{
+			if (unlocked==true) 
+			{
+			WIPEU2FCERT(recv_buffer);
+			}
+			else
+			{
+			hidprint("ERROR DEVICE LOCKED");
+			return;
+			}	 
+		}
+		else
+		{
+	    hidprint("ERROR FLASH VALUE");
+		factorydefault();
+		}
       return;
       break;
       default: 
@@ -965,9 +1092,6 @@ char cmd_or_cont = recv_buffer[4]; //cmd or continuation
   }
 }
 
-int PINSET = 0;
-
-
 
 
 void SETPIN (byte *buffer)
@@ -1036,15 +1160,13 @@ void SETPIN (byte *buffer)
       }
 	  Serial.println();
 			//Now that a pin is set lock the flash		
-		    //flashSecurityLockBits(0x64);
-			//int nn;
-			//nn=flashSecurityLockBits();
-			Serial.print("FTFL_FSEC=0x");
-      Serial.println(FTFL_FSEC,HEX);
-      Serial.print("Flash security bits ");
-      //if(nn) Serial.print("not ");
-      Serial.println("written successfully");
-			hidprint("Successfully set PIN");
+			int nn;
+			//TODO change to 0x64
+			nn=flashSecurityLockBits(0x44);
+			Serial.print("Flash security bits ");
+			if(nn) Serial.print("not ");
+			Serial.println("written successfully");
+			hidprint("Successfully set PIN, you must remove OnlyKey and reinsert to configure");
             password.reset();
           }
           else {
@@ -1071,11 +1193,16 @@ void SETPIN (byte *buffer)
 
 void SETTIME (byte *buffer)
 {
-      Serial.println("OKSETTIME MESSAGE RECEIVED");
-      char cmd = buffer[4]; //cmd or continuation
-#ifdef DEBUG
-      Serial.println((int)cmd, HEX);
-#endif
+      Serial.println("OKSETTIME MESSAGE RECEIVED");        
+		
+	  if(FTFL_FSEC==0xDE) 
+	  {
+		hidprint("UNINITIALIZED");
+	  }
+	  //TODO change to 0x64
+      else if (FTFL_FSEC==0x44) 
+      {
+	    hidprint("INITIALIZED");
     int i, j;                
     for(i=0, j=3; i<4; i++, j--){
     unixTimeStamp |= ((uint32_t)buffer[j + 5] << (i*8) );
@@ -1088,17 +1215,12 @@ void SETTIME (byte *buffer)
       setTime(t2); 
       Serial.print(F("Current Time Set to: "));
       digitalClockDisplay();  
-            
-		
-	  if( FTFL_FSEC!=0x64 ) //TODO remove
+	  }
+	  else
 	  {
-		hidprint("UNINITIALIZED");
+	    hidprint("ERROR FLASH VALUE");
+		factorydefault();
 	  }
-      else
-      {
-	    hidprint("INITIALIZED");
-	  }
-	  
       RawHID.send(resp_buffer, 0);
       blink(3);
       return;
@@ -1655,3 +1777,20 @@ while(*chars) {
   RawHID.send(resp_buffer, 0);
   blink(3);
 }
+
+void factorydefault() {
+  //To do add function from flashKinetis to wipe secure flash and eeprom values and flashQuickUnlockBits 
+        uint8_t temp [32];
+        uint8_t *ptr;
+        for (int i = 0; i < 32; i++)
+        {
+        temp[i] = 0x00;
+        }
+        ptr=temp;
+        yubikey_eeset_pinhash (ptr);
+        yubikey_eeset_noncehash (ptr);
+        yubikey_eeset_failedlogins (0);
+        flashQuickUnlockBits();
+        Serial.println("factory reset has been completed");
+}
+/*************************************/

@@ -82,20 +82,7 @@ int flashCheckSectorErased(unsigned long *address) 									// Check if sector i
 	return (FTFL_FSTAT & (FTFL_STAT_ACCERR | FTFL_STAT_FPVIOL | FTFL_STAT_MGSTAT0));
 }
 
-int flashEraseSector(unsigned long *address, bool allowFirstSector)					// Erase Flash Sector
-{
-	FLASH_ALIGN(address, FLASH_SECTOR_SIZE);
-	if((unsigned long)address<FLASH_SECTOR_SIZE) if(!allowFirstSector) return -1;	// Won't erase first sector unless flagged end user is sure.
-	if (flashCheckSectorErased(address)  && (address > 0) )
-		{
-			flashInitCommand(FCMD_ERASE_FLASH_SECTOR, address);
-			__disable_irq();
-			flashExec(&FTFL_FSTAT);
-			__enable_irq();
-			return (FTFL_FSTAT & (FTFL_STAT_ACCERR | FTFL_STAT_FPVIOL | FTFL_STAT_MGSTAT0));			
-		}
-	return 0;
-}
+
 
 int flashProgramWord(unsigned long *address, unsigned long *data, bool aFS, bool oSFC)	// Program Flash, one long word (32 Bit)
 {
@@ -176,6 +163,20 @@ B1–B0 SEC Flash Security
 */
 
 
+int flashEraseSector(unsigned long *address, bool allowFirstSector)					// Erase Flash Sector
+{
+	FLASH_ALIGN(address, FLASH_SECTOR_SIZE);
+	if((unsigned long)address<FLASH_SECTOR_SIZE) if(!allowFirstSector) return -1;	// Won't erase first sector unless flagged end user is sure.
+	if (flashCheckSectorErased(address)  && (address > 0) )
+		{
+			flashInitCommand(FCMD_ERASE_FLASH_SECTOR, address);
+			__disable_irq();
+			flashExec(&FTFL_FSTAT);
+			__enable_irq();
+			return (FTFL_FSTAT & (FTFL_STAT_ACCERR | FTFL_STAT_FPVIOL | FTFL_STAT_MGSTAT0));			
+		}
+	return 0;
+}
 
 int flashSecurityLockBits(uint8_t newValueForFSEC)
 {
@@ -189,6 +190,25 @@ int flashSecurityLockBits(uint8_t newValueForFSEC)
 	FTFL_FCCOB4 = 0xFF; // It is not possible to turn bits on without erasing a larger block, I am
 	FTFL_FCCOB5 = 0xFF; // using all on value 
 	FTFL_FCCOB6 = 0xFF; // 
+	FTFL_FCCOB7 = newValueForFSEC;
+	__disable_irq();
+  flashExec(&FTFL_FSTAT);
+	__enable_irq();
+	return (FTFL_FSTAT & (FTFL_STAT_ACCERR | FTFL_STAT_FPVIOL | FTFL_STAT_MGSTAT0));
+}
+
+int eraseSecurityLockBits(uint8_t newValueForFSEC)
+{
+  while (!(FTFL_FSTAT & FTFL_STAT_CCIF)) {;}
+	FTFL_FSTAT  = 0x30;
+	FTFL_FCCOB0 = FCMD_PROGRAM_LONG_WORD;
+	FTFL_FCCOB1 = 0;
+	FTFL_FCCOB2 = 4;
+	FTFL_FCCOB3 = 0xC;
+  
+	FTFL_FCCOB4 = 0x00; // It is not possible to turn bits on without erasing a larger block, I am
+	FTFL_FCCOB5 = 0x00; // using all on value 
+	FTFL_FCCOB6 = 0x00; // 
 	FTFL_FCCOB7 = newValueForFSEC;
 	__disable_irq();
   flashExec(&FTFL_FSTAT);

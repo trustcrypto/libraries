@@ -171,7 +171,7 @@ extern void printHex(const byte *data, unsigned len);
 extern void ByteToChar(byte* bytes, char* chars, unsigned int count);
 extern void CharToByte(char* chars, byte* bytes, unsigned int count);
 extern void hidprint(char* chars);
-
+extern void factorydefault();
 
 
 
