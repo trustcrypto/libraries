@@ -12,7 +12,7 @@
 	In every case, keep this header.
 */
 
-#include "flashKinetis.h"
+#include "flashkinetis.h"
 
 #define FCMD_READ_1S_BLOCK          	0x00
 #define FCMD_READ_1S_SECTION        	0x01
