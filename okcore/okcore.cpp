@@ -82,8 +82,11 @@ byte resp_buffer[64];
 byte handle[64];
 byte sha256_hash[32];
 Password password = Password( "not used" );
+Password sdpassword = Password( "not used" );
+Password pdpassword = Password( "not used" );
 int PINSET = 0;
 bool unlocked = false;
+bool PDmode = false;
 
 const char attestation_key[] = "\xf3\xfc\xcc\x0d\x00\xd8\x03\x19\x54\xf9"
   "\x08\x64\xd4\x3c\x24\x7f\x4b\xf5\xf0\x66\x5c\x6b\x50\xcc"
@@ -736,6 +739,14 @@ char cmd_or_cont = recv_buffer[4]; //cmd or continuation
       SETPIN(recv_buffer);
       return;
       break;
+      case OKSETSDPIN:
+      SETSDPIN(recv_buffer);
+      return;
+      break;
+      case OKSETPDPIN:
+      SETPDPIN(recv_buffer);
+      return;
+      break;
       case OKSETTIME:
       SETTIME(recv_buffer);
       return;
@@ -1182,6 +1193,184 @@ void SETPIN (byte *buffer)
         Serial.println("Error PIN is not between 7 - 10 characters");
 		hidprint("Error PIN is not between 7 - 10 characters");
         password.reset();
+		PINSET = 0;
+      }
+      
+      return;
+      
+      blink(3);
+      return;
+}
+}
+
+void SETSDPIN (byte *buffer)
+{
+      Serial.println("OKSETSDPIN MESSAGE RECEIVED");
+	  
+	switch (PINSET) {
+      case 0:
+      Serial.println("Enter PIN");
+      PINSET = 4;
+      return;
+      case 4:
+	  PINSET = 5;
+      if(strlen(sdpassword.guess) >= 7 && strlen(sdpassword.guess) < 11)
+      {
+        Serial.println("Storing PIN");
+		static char passguess[10];
+      for (int i =0; i <= strlen(sdpassword.guess); i++) {
+		passguess[i] = sdpassword.guess[i];
+      }
+		sdpassword.set(passguess);
+        sdpassword.reset();
+      }
+      else
+      {
+        
+		Serial.println("Error PIN is not between 7 - 10 characters");
+		hidprint("Error PIN is not between 7 - 10 characters");
+        sdpassword.reset();
+		PINSET = 0;
+      }
+      
+      return;
+      case 5:
+      Serial.println("Confirm PIN");
+      PINSET = 6;
+      return;
+      case 6:
+	  PINSET = 0;
+       if(strlen(sdpassword.guess) >= 7 && strlen(sdpassword.guess) < 11)
+      {
+	  
+          if (sdpassword.evaluate() == true) {
+            Serial.println("Both PINs Match");
+			uint8_t temp[32];
+			uint8_t *ptr;
+			ptr = temp;
+			//Copy characters to byte array
+			for (int i =0; i <= strlen(sdpassword.guess); i++) {
+			temp[i] = (byte)sdpassword.guess[i];
+			}
+			SHA256_CTX pinhash;
+			sha256_init(&pinhash);
+			sha256_update(&pinhash, temp, strlen(sdpassword.guess)); //Add new PIN to hash
+			Serial.println("Getting NONCE");
+			yubikey_eeget_noncehash (ptr); //Store in eeprom
+			
+			sha256_update(&pinhash, temp, 32); //Add nonce to hash
+			sha256_final(&pinhash, temp); //Create hash and store in temp
+			Serial.println("Hashing SDPIN and storing to EEPROM");
+			yubikey_eeset_selfdestructhash (ptr);
+			Serial.print(F("SDPIN Hash:")); //TODO remove debug
+      for (int i =0; i < 32; i++) {
+        Serial.print(temp[i], HEX);
+      }
+	  
+			hidprint("Successfully set PIN, you must remove OnlyKey and reinsert to configure");
+            sdpassword.reset();
+          }
+          else {
+            Serial.println("Error PINs Don't Match");
+			hidprint("Error PINs Don't Match");
+            sdpassword.reset();
+			PINSET = 0;
+          }
+      }
+      else
+      {
+        Serial.println("Error PIN is not between 7 - 10 characters");
+		hidprint("Error PIN is not between 7 - 10 characters");
+        sdpassword.reset();
+		PINSET = 0;
+      }
+      
+      return;
+      
+      blink(3);
+      return;
+}
+}
+
+void SETPDPIN (byte *buffer)
+{
+      Serial.println("OKSETPDPIN MESSAGE RECEIVED");
+	  
+	switch (PINSET) {
+      case 0:
+      Serial.println("Enter PIN");
+      PINSET = 7;
+      return;
+      case 7:
+	  PINSET = 8;
+      if(strlen(pdpassword.guess) >= 7 && strlen(pdpassword.guess) < 11)
+      {
+        Serial.println("Storing PIN");
+		static char passguess[10];
+      for (int i =0; i <= strlen(pdpassword.guess); i++) {
+		passguess[i] = pdpassword.guess[i];
+      }
+		pdpassword.set(passguess);
+        pdpassword.reset();
+      }
+      else
+      {
+        
+		Serial.println("Error PIN is not between 7 - 10 characters");
+		hidprint("Error PIN is not between 7 - 10 characters");
+        pdpassword.reset();
+		PINSET = 0;
+      }
+      
+      return;
+      case 8:
+      Serial.println("Confirm PIN");
+      PINSET = 9;
+      return;
+      case 9:
+	  PINSET = 0;
+       if(strlen(pdpassword.guess) >= 7 && strlen(pdpassword.guess) < 11)
+      {
+	  
+          if (pdpassword.evaluate() == true) {
+            Serial.println("Both PINs Match");
+			uint8_t temp[32];
+			uint8_t *ptr;
+			ptr = temp;
+			//Copy characters to byte array
+			for (int i =0; i <= strlen(pdpassword.guess); i++) {
+			temp[i] = (byte)pdpassword.guess[i];
+			}
+			SHA256_CTX pinhash;
+			sha256_init(&pinhash);
+			sha256_update(&pinhash, temp, strlen(pdpassword.guess)); //Add new PIN to hash
+			Serial.println("Getting NONCE");
+			yubikey_eeget_noncehash (ptr); //Store in eeprom
+			
+			sha256_update(&pinhash, temp, 32); //Add nonce to hash
+			sha256_final(&pinhash, temp); //Create hash and store in temp
+			Serial.println("Hashing PDPIN and storing to EEPROM");
+			yubikey_eeset_plausdenyhash (ptr);
+			Serial.print(F("PDPIN Hash:")); //TODO remove debug
+      for (int i =0; i < 32; i++) {
+        Serial.print(temp[i], HEX);
+      }
+	  
+			hidprint("Successfully set PDPIN, you must remove OnlyKey and reinsert to configure");
+            pdpassword.reset();
+          }
+          else {
+            Serial.println("Error PINs Don't Match");
+			hidprint("Error PINs Don't Match");
+            pdpassword.reset();
+			PINSET = 0;
+          }
+      }
+      else
+      {
+        Serial.println("Error PIN is not between 7 - 10 characters");
+		hidprint("Error PIN is not between 7 - 10 characters");
+        pdpassword.reset();
 		PINSET = 0;
       }
       

@@ -83,14 +83,16 @@ extern "C"
 #define U2FHID_ERROR        (TYPE_INIT | 0x3f)  // Error response
 
 #define OKSETPIN 			(TYPE_INIT | 0x61)  // First vendor defined command
-#define OKSETTIME 			(TYPE_INIT | 0x62)  // 
-#define OKGETLABELS 		(TYPE_INIT | 0x63)  //
-#define OKSETSLOT  			(TYPE_INIT | 0x64)  // 
-#define OKWIPESLOT  		(TYPE_INIT | 0x65)  // 
-#define OKSETU2FPRIV 		(TYPE_INIT | 0x66)  // 
-#define OKWIPEU2FPRIV 		(TYPE_INIT | 0x67)  // 
-#define OKSETU2FCERT 		(TYPE_INIT | 0x68)  // 
-#define OKWIPEU2FCERT  		(TYPE_INIT | 0x69)  // Last vendor defined command
+#define OKSETSDPIN 			(TYPE_INIT | 0x62)  // First vendor defined command
+#define OKSETPDPIN 			(TYPE_INIT | 0x63)  // First vendor defined command
+#define OKSETTIME 			(TYPE_INIT | 0x64)  // 
+#define OKGETLABELS 		(TYPE_INIT | 0x65)  //
+#define OKSETSLOT  			(TYPE_INIT | 0x66)  // 
+#define OKWIPESLOT  		(TYPE_INIT | 0x67)  // 
+#define OKSETU2FPRIV 		(TYPE_INIT | 0x68)  // 
+#define OKWIPEU2FPRIV 		(TYPE_INIT | 0x69)  // 
+#define OKSETU2FCERT 		(TYPE_INIT | 0x6A)  // 
+#define OKWIPEU2FCERT  		(TYPE_INIT | 0x6B)  // Last vendor defined command
 
 // Errors
 #define ERR_NONE  0
@@ -154,6 +156,8 @@ extern void SETU2FPRIV (byte *buffer);
 extern void WIPESLOT (byte *buffer);
 extern void SETSLOT (byte *buffer);
 extern void SETPIN (byte *buffer);
+extern void SETPDPIN (byte *buffer);
+extern void SETSDPIN (byte *buffer);
 extern void setOtherTimeout();
 extern void processPacket(byte *buffer);
 extern void setCounter(int counter);
@@ -173,6 +177,7 @@ extern void CharToByte(char* chars, byte* bytes, unsigned int count);
 extern void hidprint(char* chars);
 extern void factorydefault();
 extern bool unlocked;
+extern bool PDmode;
 
 
 

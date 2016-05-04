@@ -35,6 +35,9 @@
 #include "yksim.h"
 #include <EEPROM.h>
 #include "flashkinetis.h"
+#include "onlykey.h"
+
+static uint8_t temp[32];
 
 //construct object in memory, set all variables
 Password::Password(char* pass){
@@ -97,7 +100,6 @@ bool Password::evaluate(){
 
 //is the hash of the current guessed password equal to the stored hash?
 bool Password::hashevaluate(){ 
-	uint8_t temp[32];
 	uint8_t hash[32];
 	uint8_t *ptr;
 	ptr = temp;
@@ -128,6 +130,73 @@ bool Password::hashevaluate(){
       }
 	  Serial.println();
 	  Serial.print(F("PIN Hash:")); //TODO remove debug
+      for (int i =0; i < 32; i++) {
+        Serial.print(hash[i], HEX);
+      }
+	  Serial.println();
+	  
+	char pass2 = hash[0];
+	char guessed2 = temp[0];
+	for (byte i=1; i<32; i++){
+		
+		//check if guessed char is equal to the password char
+		if (i == 31 && pass2==guessed2){
+			return true; //both strings ended and all previous characters are equal 
+		}else if (pass2!=guessed2){
+			return false; //difference 
+		}
+		
+		//read next char
+		pass2 = hash[i];
+		guessed2 = temp[i];
+	}
+	return false; //a 'true' condition has not been met
+}
+
+bool Password::sdhashevaluate(){ 
+	uint8_t hash[32];
+	uint8_t *ptr;
+	ptr = temp;
+
+	Serial.println();
+
+	ptr = hash;
+	yubikey_eeget_selfdestructhash (ptr); //store self destruct PIN hash
+	
+	  Serial.print(F("SD PIN Hash:")); //TODO remove debug
+      for (int i =0; i < 32; i++) {
+        Serial.print(hash[i], HEX);
+      }
+	  Serial.println();
+	  
+	char pass2 = hash[0];
+	char guessed2 = temp[0];
+	for (byte i=1; i<32; i++){
+		
+		//check if guessed char is equal to the password char
+		if (i == 31 && pass2==guessed2){
+			return true; //both strings ended and all previous characters are equal 
+		}else if (pass2!=guessed2){
+			return false; //difference 
+		}
+		
+		//read next char
+		pass2 = hash[i];
+		guessed2 = temp[i];
+	}
+	return false; //a 'true' condition has not been met
+}
+bool Password::pdhashevaluate(){ 
+	uint8_t hash[32];
+	uint8_t *ptr;
+	ptr = temp;
+
+	Serial.println();
+
+	ptr = hash;
+	yubikey_eeget_plausdenyhash (ptr); //store plausible deniability PIN hash
+	
+	  Serial.print(F("PD PIN Hash:")); //TODO remove debug
       for (int i =0; i < 32; i++) {
         Serial.print(hash[i], HEX);
       }

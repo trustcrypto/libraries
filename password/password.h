@@ -56,7 +56,8 @@ public:
 	void reset();
 	bool evaluate();
 	bool hashevaluate();
-	
+	bool sdhashevaluate();
+	bool pdhashevaluate();
 	//char* getPassword();
 	//char* getGuess();
 	
