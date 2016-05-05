@@ -82,7 +82,9 @@ void Password::reset(){
 bool Password::evaluate(){ 
 	char pass = target[0];
 	char guessed = guess[0];
+	
 	for (byte i=1; i<MAX_PASSWORD_LENGTH; i++){
+	
 		
 		//check if guessed char is equal to the password char
 		if (pass==STRING_TERMINATOR && guessed==STRING_TERMINATOR){

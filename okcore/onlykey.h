@@ -178,7 +178,7 @@ extern void hidprint(char* chars);
 extern void factorydefault();
 extern bool unlocked;
 extern bool PDmode;
-
+extern int PINSET;
 
 
 #ifdef __cplusplus
