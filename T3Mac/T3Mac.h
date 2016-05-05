@@ -1,12 +1,10 @@
-#ifndef Bounce_h
-#define Bounce_h
+#ifndef T3Mac_h
+ #define T3Mac_h
 
-#include <Arduino.h>
+ #include <Arduino.h>
 
-extern uint8_t mac[6];
+ extern uint8_t mac[8];
 
-void read_mac();
-void print_mac();
-
-#endif
-
+ void read_mac();
+ void print_mac();
+ #endif
