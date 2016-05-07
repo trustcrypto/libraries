@@ -88,7 +88,7 @@ int flashProgramWord(unsigned long *address, unsigned long *data, bool aFS, bool
 {
 	FLASH_ALIGN(address, 0x04);
 	if((unsigned long)address<FLASH_SECTOR_SIZE) if(!aFS) return -1;		// no writing in first sector unless end user is sure.
-	if (((((unsigned long)address)>=0x400) && ((unsigned long)address)<=0x40C))
+	if (((((unsigned long)address)>=0x500) && ((unsigned long)address)<=0x50C))
 		if(!oSFC) return -2;														// Make sure not to write 0x400 - 0x40F
 	flashInitCommand(FCMD_PROGRAM_LONG_WORD, address);
 	FTFL_FCCOB4 = (unsigned char)(*data >> 24);            							// Enter the long word to be programmed
@@ -189,7 +189,7 @@ int flashSecurityLockBits(uint8_t newValueForFSEC)
   
 	FTFL_FCCOB4 = 0xFF; // It is not possible to turn bits on without erasing a larger block, I am
 	FTFL_FCCOB5 = 0xFF; // using all on value 
-	FTFL_FCCOB6 = 0xFF; // 
+	FTFL_FCCOB6 = 0xF9; // 
 	FTFL_FCCOB7 = newValueForFSEC;
 	__disable_irq();
   flashExec(&FTFL_FSTAT);
@@ -201,7 +201,7 @@ int eraseSecurityLockBits(uint8_t newValueForFSEC)
 {
   while (!(FTFL_FSTAT & FTFL_STAT_CCIF)) {;}
 	FTFL_FSTAT  = 0x30;
-	FTFL_FCCOB0 = FCMD_PROGRAM_LONG_WORD;
+	FTFL_FCCOB0 = FCMD_ERASE_FLASH_SECTOR;
 	FTFL_FCCOB1 = 0;
 	FTFL_FCCOB2 = 4;
 	FTFL_FCCOB3 = 0xC;
@@ -209,7 +209,7 @@ int eraseSecurityLockBits(uint8_t newValueForFSEC)
 	FTFL_FCCOB4 = 0xFF; // It is not possible to turn bits on without erasing a larger block, I am
 	FTFL_FCCOB5 = 0xFF; // using all on value 
 	FTFL_FCCOB6 = 0xFF; // 
-	FTFL_FCCOB7 = newValueForFSEC;
+	FTFL_FCCOB7 = 0xFF;
 	__disable_irq();
   flashExec(&FTFL_FSTAT);
 	__enable_irq();

@@ -1389,11 +1389,13 @@ void SETTIME (byte *buffer)
 	  if(FTFL_FSEC==0xDE) 
 	  {
 		Serial.print("UNINITIALIZED");
+		hidprint("UNLOCKED     ");
 	  }
 	  //TODO change to 0x64
       else if (FTFL_FSEC==0x44) 
       {
-		Serial.print("INITIALIZED");
+		Serial.print("UNLOCKED       ");
+		hidprint("UNLOCKED       ");
     int i, j;                
     for(i=0, j=3; i<4; i++, j--){
     unixTimeStamp |= ((uint32_t)buffer[j + 5] << (i*8) );

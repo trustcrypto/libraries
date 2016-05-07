@@ -34,7 +34,6 @@ of being able to use the unlocking method reliably repeatedly.
 
 
 void setup() {
-  //if(FTFL_FSEC!=0x64) flashSecurityLockBits();
   Serial.begin(Serial.baud());
 }
 
