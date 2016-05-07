@@ -1389,7 +1389,7 @@ void SETTIME (byte *buffer)
 	  if(FTFL_FSEC==0xDE) 
 	  {
 		Serial.print("UNINITIALIZED");
-		hidprint("UNLOCKED     ");
+		hidprint("UNINITIALIZED");
 	  }
 	  //TODO change to 0x64
       else if (FTFL_FSEC==0x44) 
