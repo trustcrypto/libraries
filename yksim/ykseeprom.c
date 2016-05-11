@@ -725,84 +725,84 @@ void yubikey_eeset_password (uint8_t *ptr, int size, int slot) {
 		switch (slot) {
 			uint8_t length;
         case 1:
-		if (size > EElen_password) size = EElen_password;
+		
 			if (size > EElen_password) size = EElen_password;
 			yubikey_eeset_common(ptr, EEpos_password1, size);
 			length = (uint8_t) size;
 			yubikey_eeset_passwordlen1(&length);
             break;
 		case 2:
-		if (size > EElen_password) size = EElen_password;
+		
 			if (size > EElen_password) size = EElen_password;
 			yubikey_eeset_common(ptr, EEpos_password2, size);
 			length = (uint8_t) size;
 			yubikey_eeset_passwordlen2(&length);
             break;
 		case 3:
-		if (size > EElen_password) size = EElen_password;
+		
 			if (size > EElen_password) size = EElen_password;
 			yubikey_eeset_common(ptr, EEpos_password3, size);
 			length = (uint8_t) size;
 			yubikey_eeset_passwordlen3(&length);
             break;
 		case 4:
-		if (size > EElen_password) size = EElen_password;
+		
 			if (size > EElen_password) size = EElen_password;
 			yubikey_eeset_common(ptr, EEpos_password4, size);
 			length = (uint8_t) size;
 			yubikey_eeset_passwordlen4(&length);
             break;
 		case 5:
-		if (size > EElen_password) size = EElen_password;
+		
 			if (size > EElen_password) size = EElen_password;
 			yubikey_eeset_common(ptr, EEpos_password5, size);
 			length = (uint8_t) size;
 			yubikey_eeset_passwordlen5(&length);
             break;
 		case 6:
-		if (size > EElen_password) size = EElen_password;
+		
 			if (size > EElen_password) size = EElen_password;
 			yubikey_eeset_common(ptr, EEpos_password6, size);
 			length = (uint8_t) size;
 			yubikey_eeset_passwordlen6(&length);
             break;
 		case 7:
-		if (size > EElen_password) size = EElen_password;
+		
 			if (size > EElen_password) size = EElen_password;
 			yubikey_eeset_common(ptr, EEpos_password7, size);
 			length = (uint8_t) size;
 			yubikey_eeset_passwordlen7(&length);
             break;
 		case 8:
-		if (size > EElen_password) size = EElen_password;
+		
 			if (size > EElen_password) size = EElen_password;
 			yubikey_eeset_common(ptr, EEpos_password8, size);
 			length = (uint8_t) size;
 			yubikey_eeset_passwordlen8(&length);
             break;
 		case 9:
-		if (size > EElen_password) size = EElen_password;
+		
 			if (size > EElen_password) size = EElen_password;
 			yubikey_eeset_common(ptr, EEpos_password9, size);
 			length = (uint8_t) size;
 			yubikey_eeset_passwordlen9(&length);
             break;
 		case 10:
-		if (size > EElen_password) size = EElen_password;
+		
 			if (size > EElen_password) size = EElen_password;
 			yubikey_eeset_common(ptr, EEpos_password10, size);
 			length = (uint8_t) size;
 			yubikey_eeset_passwordlen10(&length);
             break;
 		case 11:
-		if (size > EElen_password) size = EElen_password;
+		
 			if (size > EElen_password) size = EElen_password;
 			yubikey_eeset_common(ptr, EEpos_password11, size);
 			length = (uint8_t) size;
 			yubikey_eeset_passwordlen11(&length);
             break;
 		case 12:
-		if (size > EElen_password) size = EElen_password;
+		
 			if (size > EElen_password) size = EElen_password;
 			yubikey_eeset_common(ptr, EEpos_password12, size);
 			length = (uint8_t) size;
@@ -1555,84 +1555,84 @@ void yubikey_eeset_username (uint8_t *ptr, int size, int slot) {
 		switch (slot) {
 			uint8_t length;
         case 1:
-		if (size > EElen_username) size = EElen_username;
+			
 			if (size > EElen_username) size = EElen_username;
 			yubikey_eeset_common(ptr, EEpos_username1, size);
 			length = (uint8_t) size;
 			yubikey_eeset_usernamelen1(&length);
             break;
 		case 2:
-		if (size > EElen_username) size = EElen_username;
+		
 			if (size > EElen_username) size = EElen_username;
 			yubikey_eeset_common(ptr, EEpos_username2, size);
 			length = (uint8_t) size;
 			yubikey_eeset_usernamelen2(&length);
             break;
 		case 3:
-		if (size > EElen_username) size = EElen_username;
+		
 			if (size > EElen_username) size = EElen_username;
 			yubikey_eeset_common(ptr, EEpos_username3, size);
 			length = (uint8_t) size;
 			yubikey_eeset_usernamelen3(&length);
             break;
 		case 4:
-		if (size > EElen_username) size = EElen_username;
+		
 			if (size > EElen_username) size = EElen_username;
 			yubikey_eeset_common(ptr, EEpos_username4, size);
 			length = (uint8_t) size;
 			yubikey_eeset_usernamelen4(&length);
             break;
 		case 5:
-		if (size > EElen_username) size = EElen_username;
+		
 			if (size > EElen_username) size = EElen_username;
 			yubikey_eeset_common(ptr, EEpos_username5, size);
 			length = (uint8_t) size;
 			yubikey_eeset_usernamelen5(&length);
             break;
 		case 6:
-		if (size > EElen_username) size = EElen_username;
+		
 			if (size > EElen_username) size = EElen_username;
 			yubikey_eeset_common(ptr, EEpos_username6, size);
 			length = (uint8_t) size;
 			yubikey_eeset_usernamelen6(&length);
             break;
 		case 7:
-		if (size > EElen_username) size = EElen_username;
+		
 			if (size > EElen_username) size = EElen_username;
 			yubikey_eeset_common(ptr, EEpos_username7, size);
 			length = (uint8_t) size;
 			yubikey_eeset_usernamelen7(&length);
             break;
 		case 8:
-		if (size > EElen_username) size = EElen_username;
+		
 			if (size > EElen_username) size = EElen_username;
 			yubikey_eeset_common(ptr, EEpos_username8, size);
 			length = (uint8_t) size;
 			yubikey_eeset_usernamelen8(&length);
             break;
 		case 9:
-		if (size > EElen_username) size = EElen_username;
+		
 			if (size > EElen_username) size = EElen_username;
 			yubikey_eeset_common(ptr, EEpos_username9, size);
 			length = (uint8_t) size;
 			yubikey_eeset_usernamelen9(&length);
             break;
 		case 10:
-		if (size > EElen_username) size = EElen_username;
+		
 			if (size > EElen_username) size = EElen_username;
 			yubikey_eeset_common(ptr, EEpos_username10, size);
 			length = (uint8_t) size;
 			yubikey_eeset_usernamelen10(&length);
             break;
 		case 11:
-		if (size > EElen_username) size = EElen_username;
+		
 			if (size > EElen_username) size = EElen_username;
 			yubikey_eeset_common(ptr, EEpos_username11, size);
 			length = (uint8_t) size;
 			yubikey_eeset_usernamelen11(&length);
             break;
 		case 12:
-		if (size > EElen_username) size = EElen_username;
+		
 			if (size > EElen_username) size = EElen_username;
 			yubikey_eeset_common(ptr, EEpos_username12, size);
 			length = (uint8_t) size;

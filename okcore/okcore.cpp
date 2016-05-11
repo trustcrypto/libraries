@@ -1492,7 +1492,7 @@ void SETSLOT (byte *buffer)
       delay(1000);
 #endif
 	//TODO consider using something other than PINHASH for AES key
-	uint8_t aeskey1[16]; 
+	uint8_t aeskey1[32]; 
       	uint8_t *ptr = aeskey1;
       	yubikey_eeget_pinhash (ptr);
       
@@ -1517,20 +1517,23 @@ void SETSLOT (byte *buffer)
       Serial.println(length);
       Serial.print("Encrypted packet = ");
 #endif
-      yubikey_aes_encrypt ((buffer + 7), aeskey1);
-      yubikey_aes_encrypt ((buffer + 23), aeskey1);
+      ptr=buffer + 7;
+      //yubikey_aes_encrypt (ptr, aeskey1);
+      ptr=buffer + 23;
+      //yubikey_aes_encrypt (ptr, aeskey1);
 #ifdef DEBUG
       for (int z = 0; z < 32; z++) {
       Serial.print(buffer[z + 7], HEX);
         }
       
 #endif      
+	    ptr=buffer + 7;
             switch (value) {
             case 1:
             //Set value in EEPROM
             Serial.println(); //newline
             Serial.print("Writing Label Value to EEPROM...");
-            yubikey_eeset_label((buffer + 7), EElen_label, slot);
+            yubikey_eeset_label(ptr, length, slot);
 			hidprint("Successfully set Label");
             return;
             //break;
@@ -1538,7 +1541,7 @@ void SETSLOT (byte *buffer)
             //Set value in EEPROM
             Serial.println(); //newline
             Serial.print("Writing Username Value to EEPROM...");
-            yubikey_eeset_username((buffer + 7), EElen_username, slot);
+            yubikey_eeset_username(ptr, length, slot);
 			hidprint("Successfully set Username");
             return;
             //break;
@@ -1546,7 +1549,7 @@ void SETSLOT (byte *buffer)
             //Set value in EEPROM
             Serial.println(); //newline
             Serial.print("Writing Additional Character1 to EEPROM...");
-            yubikey_eeset_addchar1((buffer + 7), slot);
+            yubikey_eeset_addchar1(ptr, slot);
 			hidprint("Successfully set Character1");
             return;
             //break;
@@ -1554,7 +1557,7 @@ void SETSLOT (byte *buffer)
             //Set value in EEPROM
             Serial.println(); //newline
             Serial.print("Writing Delay1 to EEPROM...");
-            yubikey_eeset_delay1((buffer + 7), slot);
+            yubikey_eeset_delay1(ptr, slot);
 			hidprint("Successfully set Delay1");
             return;
             //break;
@@ -1562,7 +1565,7 @@ void SETSLOT (byte *buffer)
             //Set value in EEPROM
             Serial.println(); //newline
             Serial.print("Writing Password to EEPROM...");
-            yubikey_eeset_password((buffer + 7), length, slot);
+            yubikey_eeset_password(ptr, length, slot);
 			hidprint("Successfully set Password");
             return;
             //break;
@@ -1570,7 +1573,7 @@ void SETSLOT (byte *buffer)
             //Set value in EEPROM
             Serial.println(); //newline
             Serial.print("Writing Additional Character2 to EEPROM...");
-            yubikey_eeset_addchar2((buffer + 7), slot);
+            yubikey_eeset_addchar2(ptr, slot);
 			hidprint("Successfully set Character2");
             return;
             //break;
@@ -1578,7 +1581,7 @@ void SETSLOT (byte *buffer)
             //Set value in EEPROM
             Serial.println(); //newline
             Serial.print("Writing Delay2 to EEPROM...");
-            yubikey_eeset_delay2((buffer + 7), slot);
+            yubikey_eeset_delay2(ptr, slot);
 			hidprint("Successfully set Delay2");
             return;
             //break;
@@ -1586,7 +1589,7 @@ void SETSLOT (byte *buffer)
             //Set value in EEPROM
             Serial.println(); //newline
             Serial.print("Writing 2FA Type to EEPROM...");
-            yubikey_eeset_2FAtype((buffer + 7), slot);
+            yubikey_eeset_2FAtype(ptr, slot);
 			hidprint("Successfully set 2FA Type");
             return;
             //break;
@@ -1594,7 +1597,7 @@ void SETSLOT (byte *buffer)
             //Set value in EEPROM
             Serial.println(); //newline
             Serial.print("Writing TOTP Key to EEPROM...");
-            yubikey_eeset_totpkey((buffer + 7), EElen_totpkey, slot);
+            yubikey_eeset_totpkey(ptr, length, slot);
 			hidprint("Successfully set TOTP Key");
             return;
             //break;
@@ -1602,9 +1605,9 @@ void SETSLOT (byte *buffer)
             //Set value in EEPROM
             Serial.println(); //newline
             Serial.print("Writing Yubikey AES Key, Priviate ID, and Public ID to EEPROM...");
-            yubikey_eeset_aeskey((buffer + 7), EElen_aeskey);
-            yubikey_eeset_private((buffer + 7 + EElen_aeskey));
-            yubikey_eeset_public((buffer + 7 + EElen_aeskey + EElen_private), EElen_public);
+            yubikey_eeset_aeskey(ptr, EElen_aeskey);
+            yubikey_eeset_private((ptr + EElen_aeskey));
+            yubikey_eeset_public((ptr + EElen_aeskey + EElen_private), EElen_public);
 			hidprint("Successfully set Yubikey AES Key, Priviate ID, and Public ID");
             return;
             //break;
@@ -1674,14 +1677,14 @@ void WIPESLOT (byte *buffer)
             //Set value in EEPROM
             Serial.println(); //newline
             Serial.print("Wiping Label Value...");
-            yubikey_eeset_label((buffer + 7), EElen_label, slot);
+            yubikey_eeset_label((buffer + 7), length, slot);
             return;
             break;
             case 2:
             //Set value in EEPROM
             Serial.println(); //newline
             Serial.print("Wiping Username Value...");
-            yubikey_eeset_username((buffer + 7), EElen_username, slot);
+            yubikey_eeset_username((buffer + 7), length, slot);
             return;
             break;
             case 3:
@@ -1730,7 +1733,7 @@ void WIPESLOT (byte *buffer)
             //Set value in EEPROM
             Serial.println(); //newline
             Serial.print("Writing TOTP Key to EEPROM...");
-            yubikey_eeset_totpkey((buffer + 7), EElen_totpkey, slot);
+            yubikey_eeset_totpkey((buffer + 7), length, slot);
             return;
             break;
             case 10:
@@ -1918,7 +1921,6 @@ void blink(int times){
 
 int RNG2(uint8_t *dest, unsigned size) {
     getrng(dest, size);
-	printHex(dest, size); //TODO debug remove
     
     return 1;
   }
@@ -1929,7 +1931,6 @@ void getrng(uint8_t *ptr, unsigned size) {
     size_t length = 48; // First block should wait for the pool to fill up.
     if (RNG.available(length)) {
         RNG.rand(ptr, size);
-        printHex(ptr, size);  //TODO debug remove
         length = 32;
     }
 }
