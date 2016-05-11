@@ -69,7 +69,6 @@ extern "C"
 #endif
 
 #define DEBUG
-#define SIMULATE_BUTTON
 #define CID_BROADCAST           0xffffffff  // Broadcast channel id
 #define TYPE_MASK               0x80  // Frame type mask
 #define TYPE_INIT               0x80  // Initial frame identifier
@@ -174,11 +173,14 @@ extern void getrng(uint8_t *ptr, unsigned size);
 extern void printHex(const byte *data, unsigned len);
 extern void ByteToChar(byte* bytes, char* chars, unsigned int count);
 extern void CharToByte(char* chars, byte* bytes, unsigned int count);
+extern void ByteToChar2(byte* bytes, char* chars, unsigned int count, unsigned int index);
+extern void CharToByte2(char* chars, byte* bytes, unsigned int count, unsigned int index);
 extern void hidprint(char* chars);
 extern void factorydefault();
 extern bool unlocked;
 extern bool PDmode;
 extern int PINSET;
+extern int u2f_button;
 
 
 #ifdef __cplusplus

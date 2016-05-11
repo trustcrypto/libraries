@@ -336,10 +336,9 @@ void setCounter(int counter)
   EEPROM.put( eeAddress, counter );
 }
 
-#ifdef SIMULATE_BUTTON
-//for now just simulate this
-int button_pressed = 0;
-#endif
+
+int u2f_button = 0;
+
 
 void processMessage(byte *buffer)
 {
@@ -377,18 +376,15 @@ void processMessage(byte *buffer)
         return;
       }
 
-#ifdef SIMULATE_BUTTON      
-      if (button_pressed==0) {
+   
+      if (u2f_button==0) {
         respondErrorPDU(buffer, SW_CONDITIONS_NOT_SATISFIED);
-        if (touchRead(1) > 1000){
-          Serial.println("U2F button pressed for register");
-         delay(1000);
-         
-        button_pressed = 1;
         }
+      else if (u2f_button==1) {
+          Serial.println("U2F button pressed for register");
         return;
       }
-#endif      
+    
 
       byte *datapart = message + 7;
       byte *challenge_parameter = datapart;
@@ -504,9 +500,9 @@ void processMessage(byte *buffer)
       byte *last = large_resp_buffer+len;
       APPEND_SW_NO_ERROR(last);
       len += 2;
-#ifdef SIMULATE_BUTTON      
-      button_pressed = 0;
-#endif      
+    
+      u2f_button = 0;
+     
       sendLargeResponse(buffer, len);
     }
 
@@ -531,16 +527,14 @@ void processMessage(byte *buffer)
         respondErrorPDU(buffer, SW_WRONG_DATA);
         return;
       }
-#ifdef SIMULATE_BUTTON      
-      if (button_pressed==0) {
+     
+      if (u2f_button==0) {
         respondErrorPDU(buffer, SW_CONDITIONS_NOT_SATISFIED);
-        if (touchRead(1) > 1000) { 
-                    Serial.println("U2F button pressed for authenticate");
-                 button_pressed = 1; 
         }
+      else if (u2f_button==1) { 
+                    Serial.println("U2F button pressed for authenticate");
         return;
       }
-#endif
 
       memcpy(handle, client_handle, 64);
       for (int i =0; i < 64; i++) {
@@ -605,9 +599,9 @@ void processMessage(byte *buffer)
         Serial.print("Len to send ");
         Serial.println(len);
 #endif
-#ifdef SIMULATE_BUTTON              
-        button_pressed = 0;
-#endif        
+           
+        u2f_button = 0;
+      
         sendLargeResponse(buffer, len);
 
         setCounter(counter+1);
@@ -1497,9 +1491,11 @@ void SETSLOT (byte *buffer)
       Serial.println((int)value, DEC);
       delay(1000);
 #endif
-
-      uint8_t aeskey1[16] = "abcdefghijklmno"; //128 Bit Key
-      //TODO change to root key generated on first startup
+	//TODO consider using something other than PINHASH for AES key
+	uint8_t aeskey1[16]; 
+      	uint8_t *ptr = aeskey1;
+      	yubikey_eeget_pinhash (ptr);
+      
 #ifdef DEBUG 
       //Encrypt each block
       Serial.print("Using AES Key = ");
@@ -1537,7 +1533,7 @@ void SETSLOT (byte *buffer)
             yubikey_eeset_label((buffer + 7), EElen_label, slot);
 			hidprint("Successfully set Label");
             return;
-            break;
+            //break;
             case 2:
             //Set value in EEPROM
             Serial.println(); //newline
@@ -1545,7 +1541,7 @@ void SETSLOT (byte *buffer)
             yubikey_eeset_username((buffer + 7), EElen_username, slot);
 			hidprint("Successfully set Username");
             return;
-            break;
+            //break;
             case 3:
             //Set value in EEPROM
             Serial.println(); //newline
@@ -1553,7 +1549,7 @@ void SETSLOT (byte *buffer)
             yubikey_eeset_addchar1((buffer + 7), slot);
 			hidprint("Successfully set Character1");
             return;
-            break;
+            //break;
             case 4:
             //Set value in EEPROM
             Serial.println(); //newline
@@ -1561,7 +1557,7 @@ void SETSLOT (byte *buffer)
             yubikey_eeset_delay1((buffer + 7), slot);
 			hidprint("Successfully set Delay1");
             return;
-            break;
+            //break;
             case 5:
             //Set value in EEPROM
             Serial.println(); //newline
@@ -1569,7 +1565,7 @@ void SETSLOT (byte *buffer)
             yubikey_eeset_password((buffer + 7), length, slot);
 			hidprint("Successfully set Password");
             return;
-            break;
+            //break;
             case 6:
             //Set value in EEPROM
             Serial.println(); //newline
@@ -1577,7 +1573,7 @@ void SETSLOT (byte *buffer)
             yubikey_eeset_addchar2((buffer + 7), slot);
 			hidprint("Successfully set Character2");
             return;
-            break;
+            //break;
             case 7:
             //Set value in EEPROM
             Serial.println(); //newline
@@ -1585,7 +1581,7 @@ void SETSLOT (byte *buffer)
             yubikey_eeset_delay2((buffer + 7), slot);
 			hidprint("Successfully set Delay2");
             return;
-            break;
+            //break;
             case 8:
             //Set value in EEPROM
             Serial.println(); //newline
@@ -1593,7 +1589,7 @@ void SETSLOT (byte *buffer)
             yubikey_eeset_2FAtype((buffer + 7), slot);
 			hidprint("Successfully set 2FA Type");
             return;
-            break;
+            //break;
             case 9:
             //Set value in EEPROM
             Serial.println(); //newline
@@ -1601,7 +1597,7 @@ void SETSLOT (byte *buffer)
             yubikey_eeset_totpkey((buffer + 7), EElen_totpkey, slot);
 			hidprint("Successfully set TOTP Key");
             return;
-            break;
+            //break;
             case 10:
             //Set value in EEPROM
             Serial.println(); //newline
@@ -1611,9 +1607,9 @@ void SETSLOT (byte *buffer)
             yubikey_eeset_public((buffer + 7 + EElen_aeskey + EElen_private), EElen_public);
 			hidprint("Successfully set Yubikey AES Key, Priviate ID, and Public ID");
             return;
-            break;
+            //break;
             default: 
-            break;
+            return;
           }
 
 
@@ -1960,6 +1956,16 @@ void CharToByte(char* chars, byte* bytes, unsigned int count){
     	bytes[i] = (byte)chars[i];
 }
 
+void ByteToChar2(byte* bytes, char* chars, unsigned int count, unsigned int index){
+    for(unsigned int i = 0; i < count; i++)
+    	 chars[i+index] = (char)bytes[i];
+}
+
+void CharToByte2(char* chars, byte* bytes, unsigned int count, unsigned int index){
+    for(unsigned int i = 0; i < count; i++)
+    	bytes[i+index] = (byte)chars[i];
+}
+
 void hidprint(char* chars) 
 { 
 int i=0;
@@ -1986,4 +1992,5 @@ void factorydefault() {
         flashQuickUnlockBits();
         Serial.println("factory reset has been completed");
 }
+
 /*************************************/
