@@ -69,6 +69,8 @@
 #include <Crypto.h>
 #include <RNG.h>
 #include <transistornoisesource.h>
+#include <AES.h>
+#include <GCM.h>
 
 uint32_t unixTimeStamp;
 const int ledPin = 13;
@@ -1153,12 +1155,12 @@ void SETPIN (byte *buffer)
 			sha256_update(&pinhash, temp, strlen(password.guess)); //Add new PIN to hash
 			getrng(ptr, 32); //Fill temp with random data
 			Serial.println("Generating NONCE");
-			yubikey_eeset_noncehash (ptr); //Store in eeprom
+			onlykey_eeset_noncehash (ptr); //Store in eeprom
 			
 			sha256_update(&pinhash, temp, 32); //Add nonce to hash
 			sha256_final(&pinhash, temp); //Create hash and store in temp
 			Serial.println("Hashing PIN and storing to EEPROM");
-			yubikey_eeset_pinhash (ptr);
+			onlykey_eeset_pinhash (ptr);
 			Serial.print(F("PIN Hash:")); //TODO remove debug
       for (int i =0; i < 32; i++) {
         Serial.print(temp[i], HEX);
@@ -1250,12 +1252,12 @@ void SETSDPIN (byte *buffer)
 			sha256_init(&pinhash);
 			sha256_update(&pinhash, temp, strlen(sdpassword.guess)); //Add new PIN to hash
 			Serial.println("Getting NONCE");
-			yubikey_eeget_noncehash (ptr); //Store in eeprom
+			onlykey_eeget_noncehash (ptr, 32); //Store in eeprom
 			
 			sha256_update(&pinhash, temp, 32); //Add nonce to hash
 			sha256_final(&pinhash, temp); //Create hash and store in temp
 			Serial.println("Hashing SDPIN and storing to EEPROM");
-			yubikey_eeset_selfdestructhash (ptr);
+			onlykey_eeset_selfdestructhash (ptr);
 			Serial.print(F("SDPIN Hash:")); //TODO remove debug
       for (int i =0; i < 32; i++) {
         Serial.print(temp[i], HEX);
@@ -1339,12 +1341,12 @@ void SETPDPIN (byte *buffer)
 			sha256_init(&pinhash);
 			sha256_update(&pinhash, temp, strlen(pdpassword.guess)); //Add new PIN to hash
 			Serial.println("Getting NONCE");
-			yubikey_eeget_noncehash (ptr); //Store in eeprom
+			onlykey_eeget_noncehash (ptr, 32); //Store in eeprom
 			
 			sha256_update(&pinhash, temp, 32); //Add nonce to hash
 			sha256_final(&pinhash, temp); //Create hash and store in temp
 			Serial.println("Hashing PDPIN and storing to EEPROM");
-			yubikey_eeset_plausdenyhash (ptr);
+			onlykey_eeset_plausdenyhash (ptr);
 			Serial.print(F("PDPIN Hash:")); //TODO remove debug
       for (int i =0; i < 32; i++) {
         Serial.print(temp[i], HEX);
@@ -1421,51 +1423,51 @@ void GETLABELS (byte *buffer)
 	  uint8_t *ptr;
 	  char labelchar[EElen_label];
 	  ptr=label;
-	  yubikey_eeget_label(ptr, 1);
+	  onlykey_eeget_label(ptr, 1);
 	  ByteToChar(label, labelchar, EElen_label);
 	  hidprint(labelchar);
 	  
-	  yubikey_eeget_label(ptr, 2);
+	  onlykey_eeget_label(ptr, 2);
 	  ByteToChar(label, labelchar, EElen_label);
       hidprint(labelchar);
 	  
-	  yubikey_eeget_label(ptr, 3);
+	  onlykey_eeget_label(ptr, 3);
 	  ByteToChar(label, labelchar, EElen_label);
       hidprint(labelchar);
 	  
-	  yubikey_eeget_label(ptr, 4);
+	  onlykey_eeget_label(ptr, 4);
 	  ByteToChar(label, labelchar, EElen_label);
       hidprint(labelchar);
 	  
-	  yubikey_eeget_label(ptr, 5);
+	  onlykey_eeget_label(ptr, 5);
 	  ByteToChar(label, labelchar, EElen_label);
       hidprint(labelchar);
 	  
-	  yubikey_eeget_label(ptr, 6);
+	  onlykey_eeget_label(ptr, 6);
 	  ByteToChar(label, labelchar, EElen_label);
       hidprint(labelchar);
 	  
-	  yubikey_eeget_label(ptr, 7);
+	  onlykey_eeget_label(ptr, 7);
 	  ByteToChar(label, labelchar, EElen_label);
       hidprint(labelchar);
 	  
-	  yubikey_eeget_label(ptr, 8);
+	  onlykey_eeget_label(ptr, 8);
 	  ByteToChar(label, labelchar, EElen_label);
       hidprint(labelchar);
 	  
-	  yubikey_eeget_label(ptr, 9);
+	  onlykey_eeget_label(ptr, 9);
 	  ByteToChar(label, labelchar, EElen_label);
       hidprint(labelchar);
 	  
-	  yubikey_eeget_label(ptr, 10);
+	  onlykey_eeget_label(ptr, 10);
 	  ByteToChar(label, labelchar, EElen_label);
       hidprint(labelchar);
 	  
-	  yubikey_eeget_label(ptr, 11);
+	  onlykey_eeget_label(ptr, 11);
 	  ByteToChar(label, labelchar, EElen_label);
       hidprint(labelchar);
 	  
-	  yubikey_eeget_label(ptr, 12);
+	  onlykey_eeget_label(ptr, 12);
 	  ByteToChar(label, labelchar, EElen_label);
       hidprint(labelchar);
 	  
@@ -1492,19 +1494,11 @@ void SETSLOT (byte *buffer)
       delay(1000);
 #endif
 	//TODO consider using something other than PINHASH for AES key
-	uint8_t aeskey1[32]; 
+	uint8_t aeskey1[16]; 
       	uint8_t *ptr = aeskey1;
-      	yubikey_eeget_pinhash (ptr);
+      	onlykey_eeget_pinhash (ptr, 16);
       
-#ifdef DEBUG 
-      //Encrypt each block
-      Serial.print("Using AES Key = ");
-      for (int z = 0; z < 16; z++) {
-        Serial.print(aeskey1[z], HEX);
-        }
-     Serial.println(); //newline
-     Serial.print("Encrypting and Setting Value = ");
-#endif
+
      for (int z = 0; buffer[z + 7] + buffer[z + 8] + buffer[z + 9] + buffer[z + 10 ] != 0x00; z++) {
         length = z + 1;
 #ifdef DEBUG
@@ -1515,140 +1509,155 @@ void SETSLOT (byte *buffer)
       Serial.println(); //newline
       Serial.print("Length = ");
       Serial.println(length);
-      Serial.print("Encrypted packet = ");
 #endif
-      ptr=buffer + 7;
-      //yubikey_aes_encrypt (ptr, aeskey1);
-      ptr=buffer + 23;
-      //yubikey_aes_encrypt (ptr, aeskey1);
-#ifdef DEBUG
-      for (int z = 0; z < 32; z++) {
-      Serial.print(buffer[z + 7], HEX);
-        }
       
-#endif      
 	    ptr=buffer + 7;
             switch (value) {
             case 1:
             //Set value in EEPROM
             Serial.println(); //newline
             Serial.print("Writing Label Value to EEPROM...");
-            yubikey_eeset_label(ptr, length, slot);
+            onlykey_eeset_label(ptr, length, slot);
 			hidprint("Successfully set Label");
             return;
             //break;
             case 2:
-            //Set value in EEPROM
+            //Encrypt and Set value in EEPROM
+            Serial.println("Writing Username Value to EEPROM...");
+            #ifdef DEBUG
+            Serial.println("Unencrypted");
+            for (int z = 0; z < 32; z++) {
+      	    Serial.print(buffer[z + 7], HEX);
+            }
+            Serial.println();
+            #endif 
+            //onlykey_aes_encrypt ((buffer + 7), aeskey1);
+      	    //onlykey_aes_encrypt ((buffer + 23), aeskey1); 
+      	    aes_gcm_encrypt((buffer + 7), (uint8_t*)EEpos_username1, aeskey1, length);
+      	    #ifdef DEBUG
+      	    Serial.println("Encrypted");
+            for (int z = 0; z < 32; z++) {
+      	    Serial.print(buffer[z + 7], HEX);
+            }
+            Serial.println();
+            #endif     
             Serial.println(); //newline
-            Serial.print("Writing Username Value to EEPROM...");
-            yubikey_eeset_username(ptr, length, slot);
-			hidprint("Successfully set Username");
+            onlykey_eeset_username(ptr, length, slot);
+	    hidprint("Successfully set Username");
             return;
             //break;
             case 3:
             //Set value in EEPROM
             Serial.println(); //newline
             Serial.print("Writing Additional Character1 to EEPROM...");
-            yubikey_eeset_addchar1(ptr, slot);
-			hidprint("Successfully set Character1");
+            onlykey_eeset_addchar1(ptr, slot);
+	    hidprint("Successfully set Character1");
             return;
             //break;
             case 4:
             //Set value in EEPROM
             Serial.println(); //newline
             Serial.print("Writing Delay1 to EEPROM...");
-            yubikey_eeset_delay1(ptr, slot);
-			hidprint("Successfully set Delay1");
+            onlykey_eeset_delay1(ptr, slot);
+	    hidprint("Successfully set Delay1");
             return;
             //break;
             case 5:
-            //Set value in EEPROM
+            //Encrypt and Set value in EEPROM
+            Serial.println("Writing Password to EEPROM...");
+            #ifdef DEBUG
+            Serial.println("Unencrypted");
+            for (int z = 0; z < 32; z++) {
+      	    Serial.print(buffer[z + 7], HEX);
+            }
+            Serial.println();
+            #endif  
+            aes_gcm_encrypt((buffer + 7), (uint8_t*)EEpos_password1, aeskey1, length);
+      	    #ifdef DEBUG
+      	    Serial.println("Encrypted");
+            for (int z = 0; z < 32; z++) {
+      	    Serial.print(buffer[z + 7], HEX);
+            }
+            Serial.println();
+            #endif 
             Serial.println(); //newline
-            Serial.print("Writing Password to EEPROM...");
-            yubikey_eeset_password(ptr, length, slot);
-			hidprint("Successfully set Password");
+            onlykey_eeset_password(ptr, length, slot);
+	    hidprint("Successfully set Password");
             return;
             //break;
             case 6:
             //Set value in EEPROM
             Serial.println(); //newline
             Serial.print("Writing Additional Character2 to EEPROM...");
-            yubikey_eeset_addchar2(ptr, slot);
-			hidprint("Successfully set Character2");
+            onlykey_eeset_addchar2(ptr, slot);
+	    hidprint("Successfully set Character2");
             return;
             //break;
             case 7:
             //Set value in EEPROM
             Serial.println(); //newline
             Serial.print("Writing Delay2 to EEPROM...");
-            yubikey_eeset_delay2(ptr, slot);
-			hidprint("Successfully set Delay2");
+            onlykey_eeset_delay2(ptr, slot);
+	    hidprint("Successfully set Delay2");
             return;
             //break;
             case 8:
             //Set value in EEPROM
             Serial.println(); //newline
             Serial.print("Writing 2FA Type to EEPROM...");
-            yubikey_eeset_2FAtype(ptr, slot);
-			hidprint("Successfully set 2FA Type");
+            onlykey_eeset_2FAtype(ptr, slot);
+	    hidprint("Successfully set 2FA Type");
             return;
             //break;
             case 9:
-            //Set value in EEPROM
-            Serial.println(); //newline
-            Serial.print("Writing TOTP Key to EEPROM...");
-            yubikey_eeset_totpkey(ptr, length, slot);
-			hidprint("Successfully set TOTP Key");
+            //Encrypt and Set value in EEPROM
+            Serial.println("Writing TOTP Key to EEPROM...");
+            #ifdef DEBUG
+            Serial.println("Unencrypted");
+            for (int z = 0; z < 32; z++) {
+      	    Serial.print(buffer[z + 7], HEX);
+            }
+            Serial.println();
+            #endif 
+            aes_gcm_encrypt((buffer + 7), (uint8_t*)EEpos_totpkey1, aeskey1, length);
+	    #ifdef DEBUG
+	    Serial.println("Encrypted");
+            for (int z = 0; z < 32; z++) {
+      	    Serial.print(buffer[z + 7], HEX);
+            }
+            Serial.println();
+            #endif    
+            onlykey_eeset_totpkey(ptr, length, slot);
+	    hidprint("Successfully set TOTP Key");
             return;
             //break;
             case 10:
-            //Set value in EEPROM
-            Serial.println(); //newline
-            Serial.print("Writing Yubikey AES Key, Priviate ID, and Public ID to EEPROM...");
-            yubikey_eeset_aeskey(ptr, EElen_aeskey);
-            yubikey_eeset_private((ptr + EElen_aeskey));
-            yubikey_eeset_public((ptr + EElen_aeskey + EElen_private), EElen_public);
-			hidprint("Successfully set Yubikey AES Key, Priviate ID, and Public ID");
+            //Encrypt and Set value in EEPROM
+            Serial.println("Writing onlykey AES Key, Priviate ID, and Public ID to EEPROM...");
+            #ifdef DEBUG
+            Serial.println("Unencrypted");
+            for (int z = 0; z < 32; z++) {
+      	    Serial.print(buffer[z + 7], HEX);
+            }
+            Serial.println();
+            #endif 
+            aes_gcm_encrypt((buffer + 7), (uint8_t*)EEpos_aeskey, aeskey1, length);
+      	    #ifdef DEBUG
+      	    Serial.println("Encrypted");
+            for (int z = 0; z < 32; z++) {
+      	    Serial.print(buffer[z + 7], HEX);
+            }
+            Serial.println();
+            #endif 
+            onlykey_eeset_aeskey(ptr, EElen_aeskey);
+            onlykey_eeset_private((ptr + EElen_aeskey));
+            onlykey_eeset_public((ptr + EElen_aeskey + EElen_private), EElen_public);
+	    hidprint("Successfully set onlykey AES Key, Priviate ID, and Public ID");
             return;
             //break;
             default: 
             return;
           }
-
-
-      /*
-#ifdef DEBUG    
-      uint8_t password1[32];
-      uint8_t *ptr;
-      char pass_id1[32+1];
-      
-      //Get value from EEPROM
-      ptr = password1;
-      yubikey_eeget_password1(ptr);
-      yubikey_hex_encode(pass_id1, (char *)password1, EElen_password1);
-      Serial.println(); //newline
-      Serial.print("Read from EEPROM = ");
-      Serial.println(pass_id1);
-
-       //Decrypt each block
-      Serial.print("Using AES Key = ");
-      for (int z = 0; z < 16; z++) {
-        Serial.print(aeskey1[z], HEX);
-        }
-      Serial.println(); //newline
-      Serial.print("Decrypted EEPROM = ");
-      yubikey_aes_decrypt (password1, aeskey1);
-      yubikey_aes_decrypt ((password1 + 16), aeskey1);
-      //Serial.print("Typing it out on the keyboard...");
-      //delay(1000);
-      for (int z = 0; z < 32; z++) {
-      Serial.print((int)password1[z], HEX);
-      //Keyboard.print(password1[z], HEX);
-        }
-      Serial.println(); //newline
-#endif
-      //delay(4000);
-      */
       blink(3);
       return;
 }
@@ -1677,72 +1686,72 @@ void WIPESLOT (byte *buffer)
             //Set value in EEPROM
             Serial.println(); //newline
             Serial.print("Wiping Label Value...");
-            yubikey_eeset_label((buffer + 7), length, slot);
+            onlykey_eeset_label((buffer + 7), length, slot);
             return;
             break;
             case 2:
             //Set value in EEPROM
             Serial.println(); //newline
             Serial.print("Wiping Username Value...");
-            yubikey_eeset_username((buffer + 7), length, slot);
+            onlykey_eeset_username((buffer + 7), length, slot);
             return;
             break;
             case 3:
             //Set value in EEPROM
             Serial.println(); //newline
             Serial.print("Wiping Additional Character1 Value...");
-            yubikey_eeset_addchar1((buffer + 7), slot);
+            onlykey_eeset_addchar1((buffer + 7), slot);
             return;
             break;
             case 4:
             //Set value in EEPROM
             Serial.println(); //newline
             Serial.print("Writing Delay1 to EEPROM...");
-            yubikey_eeset_delay1((buffer + 7), slot);
+            onlykey_eeset_delay1((buffer + 7), slot);
             return;
             break;
             case 5:
             //Set value in EEPROM
             Serial.println(); //newline
             Serial.print("Wiping Password Value...");
-            yubikey_eeset_password((buffer + 7), length, slot);
+            onlykey_eeset_password((buffer + 7), length, slot);
             return;
             break;
             case 6:
             //Set value in EEPROM
             Serial.println(); //newline
             Serial.print("Wiping Additional Character2 Value...");
-            yubikey_eeset_addchar2((buffer + 7), slot);
+            onlykey_eeset_addchar2((buffer + 7), slot);
             return;
             break;
             case 7:
             //Set value in EEPROM
             Serial.println(); //newline
             Serial.print("Wiping Delay2 Value...");
-            yubikey_eeset_delay2((buffer + 7), slot);
+            onlykey_eeset_delay2((buffer + 7), slot);
             return;
             break;
             case 8:
             //Set value in EEPROM
             Serial.println(); //newline
             Serial.print("Wiping 2FA Type Value...");
-            yubikey_eeset_2FAtype((buffer + 7), slot);
+            onlykey_eeset_2FAtype((buffer + 7), slot);
             return;
             break;
             case 9:
             //Set value in EEPROM
             Serial.println(); //newline
             Serial.print("Writing TOTP Key to EEPROM...");
-            yubikey_eeset_totpkey((buffer + 7), length, slot);
+            onlykey_eeset_totpkey((buffer + 7), length, slot);
             return;
             break;
             case 10:
             //Set value in EEPROM
             Serial.println(); //newline
-            Serial.print("Wiping Yubikey AES Key, Priviate ID, and Public ID...");
-            yubikey_eeset_aeskey((buffer + 7), EElen_aeskey);
-            yubikey_eeset_private((buffer + 7 + EElen_aeskey));
-            yubikey_eeset_public((buffer + 7 + EElen_aeskey + EElen_private), EElen_public);
+            Serial.print("Wiping onlykey AES Key, Priviate ID, and Public ID...");
+            onlykey_eeset_aeskey((buffer + 7), EElen_aeskey);
+            onlykey_eeset_private((buffer + 7 + EElen_aeskey));
+            onlykey_eeset_public((buffer + 7 + EElen_aeskey + EElen_private), EElen_public);
             return;
             break;
             default: 
@@ -1762,13 +1771,13 @@ void SETU2FPRIV (byte *buffer)
   Serial.print("Length of U2F private = ");
   Serial.println(length);
  
-  yubikey_eeset_U2Fprivlen(buffer + 5); //length is number of bytes
+  onlykey_eeset_U2Fprivlen(buffer + 5); //length is number of bytes
   uint8_t addr[2];
   uint8_t *ptr;
       addr[0] = (int)((adr >> 8) & 0XFF); //convert long to array
       addr[1] = (int)((adr & 0XFF));
   ptr = addr;
-  yubikey_eeset_U2Fprivpos(ptr); //Set the starting position for U2F Priv
+  onlykey_eeset_U2Fprivpos(ptr); //Set the starting position for U2F Priv
 
   for( int z = 6; z <= length && z <= 58; z=z+4, adr=adr+4){
   unsigned long sector = buffer[z] | (buffer[z+1] << 8L) | (buffer[z+2] << 16L) | (buffer[z+3] << 24L);
@@ -1788,11 +1797,11 @@ void WIPEU2FPRIV (byte *buffer)
       uint8_t addr[2];
       uint8_t *ptr;
       ptr = addr;
-      yubikey_eeget_U2Fprivlen(ptr); //Get the length for U2F private
+      onlykey_eeget_U2Fprivlen(ptr); //Get the length for U2F private
       int length = addr[0] | (addr[1] << 8);
       Serial.println(length);
       
-      yubikey_eeget_U2Fprivpos(ptr); //Get the starting position for U2F private
+      onlykey_eeget_U2Fprivpos(ptr); //Get the starting position for U2F private
       //Set adr to position of U2F private in flash
       unsigned long address = addr[1] | (addr[0] << 8L);
       uintptr_t adr = address;
@@ -1818,7 +1827,7 @@ void SETU2FCERT (byte *buffer)
     if(length <= CERTMAXLENGTH){ 
     Serial.print("Length of certificate = ");
     Serial.println(length);
-    yubikey_eeset_U2Fcertlen((buffer + 5)); //length is number of bytes
+    onlykey_eeset_U2Fcertlen((buffer + 5)); //length is number of bytes
     }
     else {
       return;
@@ -1828,7 +1837,7 @@ void SETU2FCERT (byte *buffer)
       addr[0] = (int)((adr >> 8) & 0XFF); //convert long to array
       addr[1] = (int)((adr & 0XFF));
   ptr = addr;
-  yubikey_eeset_U2Fcertpos(ptr); //Set the starting position for U2F Cert
+  onlykey_eeset_U2Fcertpos(ptr); //Set the starting position for U2F Cert
 
 
   //Write packets to flash up to reaching length of certificate
@@ -1865,11 +1874,11 @@ void WIPEU2FCERT (byte *buffer)
       uint8_t addr[2];
       uint8_t *ptr;
       ptr = addr;
-      yubikey_eeget_U2Fcertlen(ptr); //Get the length for U2F Cert
+      onlykey_eeget_U2Fcertlen(ptr); //Get the length for U2F Cert
       int length = addr[0] | (addr[1] << 8);
       Serial.println(length);
       
-      yubikey_eeget_U2Fcertpos(ptr); //Get the starting position for U2F Cert
+      onlykey_eeget_U2Fcertpos(ptr); //Get the starting position for U2F Cert
       //Set adr to position of U2F Cert in flash
       unsigned long address = addr[1] | (addr[0] << 8L);
       uintptr_t adr = address;
@@ -1979,7 +1988,7 @@ while(*chars) {
 }
 
 void factorydefault() {
-  //To do add function from flashKinetis to wipe secure flash and eeprom values and flashQuickUnlockBits 
+  //Todo add function from flashKinetis to wipe secure flash and eeprom values and flashQuickUnlockBits 
         uint8_t temp [32];
         uint8_t *ptr;
         for (int i = 0; i < 32; i++)
@@ -1987,11 +1996,56 @@ void factorydefault() {
         temp[i] = 0x00;
         }
         ptr=temp;
-        yubikey_eeset_pinhash (ptr);
-        yubikey_eeset_noncehash (ptr);
-        yubikey_eeset_failedlogins (0);
-        flashQuickUnlockBits();
+        onlykey_eeset_pinhash (ptr);
+        onlykey_eeset_noncehash (ptr);
+        onlykey_eeset_failedlogins (0);
+        //flashQuickUnlockBits();
         Serial.println("factory reset has been completed");
 }
 
+
+/* AES-GCM decrypt/encrypt one 16-byte block STATE using the 128-bit KEY,
+   leaving the decrypted/encrypted output in the STATE buffer. */
+void aes_gcm_encrypt (uint8_t * state, uint8_t * iv1, const uint8_t * key, int len) {
+GCM<AES256> gcm; 
+uint8_t iv2[12];
+uint8_t tag[16];
+uint8_t *ptr;
+ptr = iv2;
+onlykey_eeget_noncehash(ptr, 12);
+
+for(int i =0; i<=12; i++) {
+  iv2[i]=iv2[i]^*iv1;
+}
+
+
+gcm.clear ();
+gcm.setKey(key, sizeof(key));
+gcm.setIV(iv2, 12);
+gcm.encrypt(state, state, len);
+
+gcm.computeTag(tag, sizeof(tag)); 
+}
+
+int aes_gcm_decrypt (uint8_t * state, uint8_t * iv1, const uint8_t * key, int len) {
+GCM<AES256> gcm; 
+uint8_t iv2[12];
+uint8_t tag[16];
+uint8_t *ptr;
+ptr = iv2;
+onlykey_eeget_noncehash(ptr, 12);
+
+for(int i =0; i<=12; i++) {
+  iv2[i]=iv2[i]^*iv1;
+}
+
+gcm.clear ();
+gcm.setKey(key, sizeof(key));
+gcm.setIV(iv2, 12);
+gcm.decrypt(state, state, len);
+
+if (!gcm.checkTag(tag, sizeof(tag))) {
+    return 1;
+}
+}
 /*************************************/

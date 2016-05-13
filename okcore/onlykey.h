@@ -61,8 +61,6 @@
 #ifndef ONLYKEY_H
 #define ONLYKEY_H
 
-
-
 #ifdef __cplusplus
 extern "C"
 {
@@ -181,10 +179,10 @@ extern bool unlocked;
 extern bool PDmode;
 extern int PINSET;
 extern int u2f_button;
-
+extern void aes_gcm_encrypt (uint8_t * state, uint8_t * iv1, const uint8_t * key, int len);
+extern int aes_gcm_decrypt (uint8_t * state, uint8_t * iv1, const uint8_t * key, int len);
 
 #ifdef __cplusplus
 }
 #endif
 #endif
-

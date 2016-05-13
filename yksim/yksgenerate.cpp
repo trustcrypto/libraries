@@ -122,18 +122,18 @@ void yubikey_disable_eeprom()
     yubikey_eeset_ctrlen (&length);
     yubikey_eeset_prvlen (&length);
     yubikey_eeset_publen (&length);
-    yubikey_eeset_passwordlen1 (&length);
-    yubikey_eeset_passwordlen2 (&length);
-    yubikey_eeset_passwordlen3 (&length);
-    yubikey_eeset_passwordlen4 (&length);
-    yubikey_eeset_passwordlen5 (&length);
-    yubikey_eeset_passwordlen6 (&length);
-    yubikey_eeset_passwordlen7 (&length);
-    yubikey_eeset_passwordlen8 (&length);
-    yubikey_eeset_passwordlen9 (&length);
-    yubikey_eeset_passwordlen10 (&length);
-    yubikey_eeset_passwordlen11 (&length);
-    yubikey_eeset_passwordlen12 (&length);
+    onlykey_eeset_passwordlen1 (&length);
+    onlykey_eeset_passwordlen2 (&length);
+    onlykey_eeset_passwordlen3 (&length);
+    onlykey_eeset_passwordlen4 (&length);
+    onlykey_eeset_passwordlen5 (&length);
+    onlykey_eeset_passwordlen6 (&length);
+    onlykey_eeset_passwordlen7 (&length);
+    onlykey_eeset_passwordlen8 (&length);
+    onlykey_eeset_passwordlen9 (&length);
+    onlykey_eeset_passwordlen10 (&length);
+    onlykey_eeset_passwordlen11 (&length);
+    onlykey_eeset_passwordlen12 (&length);
 	
 }
 

@@ -1,7 +1,7 @@
 /* YkSim.h --- adaption of libyubikey for Teensy 3.X
 **
 **  msd, 05-feb-2013:	based on code from https://github.com/Yubico/yubico-c
-**  Added support for 6 slots - 12/29/15 - crp.to
+**  
 */
 
 /*
@@ -46,7 +46,7 @@ extern "C"
 #endif
 
 #include "yksgenerate.h"
-#include "ykseeprom.h"
+#include "okeeprom.h"
 #include "ykstouch.h"
 #include "ykstimer.h"
 #include "ykshiddev.h"

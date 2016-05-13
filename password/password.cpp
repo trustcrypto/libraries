@@ -113,7 +113,7 @@ bool Password::hashevaluate(){
 			SHA256_CTX pinhash;
 			sha256_init(&pinhash);
 			sha256_update(&pinhash, temp, strlen(guess)); //Add new PIN to hash
-			yubikey_eeget_noncehash (ptr); //Get nonce from EEPROM
+			onlykey_eeget_noncehash (ptr, 32); //Get nonce from EEPROM
 			
 			Serial.print(F("NONCE HASH:")); //TODO remove debug
       for (int i =0; i < 32; i++) {
@@ -124,7 +124,7 @@ bool Password::hashevaluate(){
 			sha256_update(&pinhash, temp, 32); //Add nonce to hash
 			sha256_final(&pinhash, temp); //Create hash and store in temp
 			ptr = hash;
-			yubikey_eeget_pinhash (ptr); //store valid pinhash in hash
+			onlykey_eeget_pinhash (ptr, 32); //store valid pinhash in hash
 	
 	Serial.print(F("Guessed Hash:")); //TODO remove debug
       for (int i =0; i < 32; i++) {
@@ -163,7 +163,7 @@ bool Password::sdhashevaluate(){
 	Serial.println();
 
 	ptr = hash;
-	yubikey_eeget_selfdestructhash (ptr); //store self destruct PIN hash
+	onlykey_eeget_selfdestructhash (ptr); //store self destruct PIN hash
 	
 	  Serial.print(F("SD PIN Hash:")); //TODO remove debug
       for (int i =0; i < 32; i++) {
@@ -196,7 +196,7 @@ bool Password::pdhashevaluate(){
 	Serial.println();
 
 	ptr = hash;
-	yubikey_eeget_plausdenyhash (ptr); //store plausible deniability PIN hash
+	onlykey_eeget_plausdenyhash (ptr); //store plausible deniability PIN hash
 	
 	  Serial.print(F("PD PIN Hash:")); //TODO remove debug
       for (int i =0; i < 32; i++) {

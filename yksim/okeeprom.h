@@ -1,10 +1,40 @@
-/* ykseeprom.h --- adaption of libyubikey for Teensy 3.X
+/* okseeprom.h --- adaption of libonlykey for Teensy 3.X
 **
 **  msd, 25-sep-2012:	EEPROM functions
+**  ts, 05-MAY-2016:	EEPROM functions added for OnlyKey
 **  
 */
 
 /*
+ * Modifications by Tim Steiner
+ * Copyright (c) 2016 , CryptoTrust LLC.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are
+ * met:
+ *
+ *    * Redistributions of source code must retain the above copyright
+ *      notice, this list of conditions and the following disclaimer.
+ *
+ *    * Redistributions in binary form must reproduce the above
+ *      copyright notice, this list of conditions and the following
+ *      disclaimer in the documentation and/or other materials provided
+ *      with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+ * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * Original - YKSEEPROM.H
  * Written by Michael Doerr.
  * All rights reserved.
  *
@@ -34,8 +64,8 @@
  *
  */
 
-#ifndef YKS_EEPROM_H
-#define YKS_EEPROM_H
+#ifndef OK_EEPROM_H
+#define OK_EEPROM_H
 
 #ifdef __cplusplus
 extern "C"
@@ -51,7 +81,7 @@ extern "C"
 #define EElen_private	6
 #define EElen_counter	2
 #define EElen_label	10
-#define EElen_username	20
+#define EElen_username	32
 #define EElen_addchar	1
 #define EElen_delay	1
 #define EElen_password	32
@@ -248,71 +278,71 @@ extern "C"
 #define EEpos_U2Fcertpos	(EEpos_U2Fprivpos + EElen_U2Fprivpos)
 #define EEpos_failedlogins	(EEpos_U2Fcertpos + EElen_U2Fcertpos)
 
-extern int  yubikey_eeget_failedlogins (uint8_t *ptr);
-extern void yubikey_eeset_failedlogins(uint8_t *ptr);
+extern int  onlykey_eeget_failedlogins (uint8_t *ptr);
+extern void onlykey_eeset_failedlogins(uint8_t *ptr);
 
-extern int  yubikey_eeget_noncehash (uint8_t *ptr);
-extern void yubikey_eeset_noncehash(uint8_t *ptr);
+extern int  onlykey_eeget_noncehash (uint8_t *ptr, int size);
+extern void onlykey_eeset_noncehash(uint8_t *ptr);
 
-extern int  yubikey_eeget_pinhash (uint8_t *ptr);
-extern void yubikey_eeset_pinhash(uint8_t *ptr);
+extern int  onlykey_eeget_pinhash (uint8_t *ptr, int size);
+extern void onlykey_eeset_pinhash(uint8_t *ptr);
 
-extern int  yubikey_eeget_selfdestructhash (uint8_t *ptr);
-extern void yubikey_eeset_selfdestructhash (uint8_t *ptr);
+extern int  onlykey_eeget_selfdestructhash (uint8_t *ptr);
+extern void onlykey_eeset_selfdestructhash (uint8_t *ptr);
 
-extern int  yubikey_eeget_plausdenyhash (uint8_t *ptr);
-extern void yubikey_eeset_plausdenyhash (uint8_t *ptr);
+extern int  onlykey_eeget_plausdenyhash (uint8_t *ptr);
+extern void onlykey_eeset_plausdenyhash (uint8_t *ptr);
 
-extern int  yubikey_eeget_aeskey (uint8_t *ptr);
-extern void yubikey_eeset_aeskey (uint8_t *ptr, int len);
+extern int  onlykey_eeget_aeskey (uint8_t *ptr);
+extern void onlykey_eeset_aeskey (uint8_t *ptr, int len);
 
 extern int  yubikey_eeget_counter (uint8_t *ptr);
 extern void yubikey_eeset_counter (uint8_t *ptr);
 
-extern int  yubikey_eeget_private (uint8_t *ptr);
-extern void yubikey_eeset_private (uint8_t *ptr);
+extern int  onlykey_eeget_private (uint8_t *ptr);
+extern void onlykey_eeset_private (uint8_t *ptr);
 
-extern int  yubikey_eeget_public (uint8_t *ptr);
-extern void yubikey_eeset_public (uint8_t *ptr, int len);
+extern int  onlykey_eeget_public (uint8_t *ptr);
+extern void onlykey_eeset_public (uint8_t *ptr, int len);
 
-extern int  yubikey_eeget_password (uint8_t *ptr, int slot);
-extern void yubikey_eeset_password (uint8_t *ptr, int len, int slot);
+extern int  onlykey_eeget_password (uint8_t *ptr, int slot);
+extern void onlykey_eeset_password (uint8_t *ptr, int len, int slot);
 
-extern int  yubikey_eeget_username (uint8_t *ptr, int slot);
-extern void yubikey_eeset_username (uint8_t *ptr, int len, int slot);
+extern int  onlykey_eeget_username (uint8_t *ptr, int slot);
+extern void onlykey_eeset_username (uint8_t *ptr, int len, int slot);
 
-extern int  yubikey_eeget_totpkey (uint8_t *ptr, int slot);
-extern void yubikey_eeset_totpkey (uint8_t *ptr, int len, int slot);
+extern int  onlykey_eeget_totpkey (uint8_t *ptr, int slot);
+extern void onlykey_eeset_totpkey (uint8_t *ptr, int len, int slot);
 
-extern int  yubikey_eeget_label (uint8_t *ptr, int slot);
-extern void yubikey_eeset_label (uint8_t *ptr, int len, int slot);
+extern int  onlykey_eeget_label (uint8_t *ptr, int slot);
+extern void onlykey_eeset_label (uint8_t *ptr, int len, int slot);
 
-extern int  yubikey_eeget_2FAtype (uint8_t *ptr, int slot);
-extern void yubikey_eeset_2FAtype (uint8_t *ptr, int slot);
+extern int  onlykey_eeget_2FAtype (uint8_t *ptr, int slot);
+extern void onlykey_eeset_2FAtype (uint8_t *ptr, int slot);
 
-extern int  yubikey_eeget_addchar1 (uint8_t *ptr, int slot);
-extern void yubikey_eeset_addchar1 (uint8_t *ptr, int slot);
+extern int  onlykey_eeget_addchar1 (uint8_t *ptr, int slot);
+extern void onlykey_eeset_addchar1 (uint8_t *ptr, int slot);
 
-extern int  yubikey_eeget_addchar2 (uint8_t *ptr, int slot);
-extern void yubikey_eeset_addchar2 (uint8_t *ptr, int slot);
+extern int  onlykey_eeget_addchar2 (uint8_t *ptr, int slot);
+extern void onlykey_eeset_addchar2 (uint8_t *ptr, int slot);
 
-extern int  yubikey_eeget_delay1 (uint8_t *ptr, int slot);
-extern void yubikey_eeset_delay1 (uint8_t *ptr, int slot);
+extern int  onlykey_eeget_delay1 (uint8_t *ptr, int slot);
+extern void onlykey_eeset_delay1 (uint8_t *ptr, int slot);
 
-extern int  yubikey_eeget_delay2 (uint8_t *ptr, int slot);
-extern void yubikey_eeset_delay2 (uint8_t *ptr, int slot);
+extern int  onlykey_eeget_delay2 (uint8_t *ptr, int slot);
+extern void onlykey_eeset_delay2 (uint8_t *ptr, int slot);
 
-extern int  yubikey_eeget_U2Fprivlen (uint8_t *ptr);
-extern void yubikey_eeset_U2Fprivlen (uint8_t *ptr);
+extern int  onlykey_eeget_U2Fprivlen (uint8_t *ptr);
+extern void onlykey_eeset_U2Fprivlen (uint8_t *ptr);
 
-extern int  yubikey_eeget_U2Fcertlen (uint8_t *ptr);
-extern void yubikey_eeset_U2Fcertlen (uint8_t *ptr);
+extern int  onlykey_eeget_U2Fcertlen (uint8_t *ptr);
+extern void onlykey_eeset_U2Fcertlen (uint8_t *ptr);
 
-extern int  yubikey_eeget_U2Fprivpos (uint8_t *ptr);
-extern void yubikey_eeset_U2Fprivpos (uint8_t *ptr);
+extern int  onlykey_eeget_U2Fprivpos (uint8_t *ptr);
+extern void onlykey_eeset_U2Fprivpos (uint8_t *ptr);
 
-extern int  yubikey_eeget_U2Fcertpos (uint8_t *ptr);
-extern void yubikey_eeset_U2Fcertpos (uint8_t *ptr);
+extern int  onlykey_eeget_U2Fcertpos (uint8_t *ptr);
+extern void onlykey_eeset_U2Fcertpos (uint8_t *ptr);
 
 extern int  yubikey_eeget_keylen (uint8_t *ptr);
 extern void yubikey_eeset_keylen (uint8_t *ptr);
@@ -326,117 +356,116 @@ extern void yubikey_eeset_prvlen (uint8_t *ptr);
 extern int  yubikey_eeget_publen (uint8_t *ptr);
 extern void yubikey_eeset_publen (uint8_t *ptr);
 
-extern int  yubikey_eeget_passwordlen1 (uint8_t *ptr);
-extern void yubikey_eeset_passwordlen1 (uint8_t *ptr);
+extern int  onlykey_eeget_passwordlen1 (uint8_t *ptr);
+extern void onlykey_eeset_passwordlen1 (uint8_t *ptr);
 
-extern int  yubikey_eeget_passwordlen2 (uint8_t *ptr);
-extern void yubikey_eeset_passwordlen2 (uint8_t *ptr);
+extern int  onlykey_eeget_passwordlen2 (uint8_t *ptr);
+extern void onlykey_eeset_passwordlen2 (uint8_t *ptr);
 
-extern int  yubikey_eeget_passwordlen3 (uint8_t *ptr);
-extern void yubikey_eeset_passwordlen3 (uint8_t *ptr);
+extern int  onlykey_eeget_passwordlen3 (uint8_t *ptr);
+extern void onlykey_eeset_passwordlen3 (uint8_t *ptr);
 
-extern int  yubikey_eeget_passwordlen4 (uint8_t *ptr);
-extern void yubikey_eeset_passwordlen4 (uint8_t *ptr);
+extern int  onlykey_eeget_passwordlen4 (uint8_t *ptr);
+extern void onlykey_eeset_passwordlen4 (uint8_t *ptr);
 
-extern int  yubikey_eeget_passwordlen5 (uint8_t *ptr);
-extern void yubikey_eeset_passwordlen5 (uint8_t *ptr);
+extern int  onlykey_eeget_passwordlen5 (uint8_t *ptr);
+extern void onlykey_eeset_passwordlen5 (uint8_t *ptr);
 
-extern int  yubikey_eeget_passwordlen6 (uint8_t *ptr);
-extern void yubikey_eeset_passwordlen6 (uint8_t *ptr);
+extern int  onlykey_eeget_passwordlen6 (uint8_t *ptr);
+extern void onlykey_eeset_passwordlen6 (uint8_t *ptr);
 
-extern int  yubikey_eeget_passwordlen7 (uint8_t *ptr);
-extern void yubikey_eeset_passwordlen7 (uint8_t *ptr);
+extern int  onlykey_eeget_passwordlen7 (uint8_t *ptr);
+extern void onlykey_eeset_passwordlen7 (uint8_t *ptr);
 
-extern int  yubikey_eeget_passwordlen8 (uint8_t *ptr);
-extern void yubikey_eeset_passwordlen8 (uint8_t *ptr);
+extern int  onlykey_eeget_passwordlen8 (uint8_t *ptr);
+extern void onlykey_eeset_passwordlen8 (uint8_t *ptr);
 
-extern int  yubikey_eeget_passwordlen9 (uint8_t *ptr);
-extern void yubikey_eeset_passwordlen9 (uint8_t *ptr);
+extern int  onlykey_eeget_passwordlen9 (uint8_t *ptr);
+extern void onlykey_eeset_passwordlen9 (uint8_t *ptr);
 
-extern int  yubikey_eeget_passwordlen10 (uint8_t *ptr);
-extern void yubikey_eeset_passwordlen10 (uint8_t *ptr);
+extern int  onlykey_eeget_passwordlen10 (uint8_t *ptr);
+extern void onlykey_eeset_passwordlen10 (uint8_t *ptr);
 
-extern int  yubikey_eeget_passwordlen11 (uint8_t *ptr);
-extern void yubikey_eeset_passwordlen11 (uint8_t *ptr);
+extern int  onlykey_eeget_passwordlen11 (uint8_t *ptr);
+extern void onlykey_eeset_passwordlen11 (uint8_t *ptr);
 
-extern int  yubikey_eeget_passwordlen12 (uint8_t *ptr);
-extern void yubikey_eeset_passwordlen12 (uint8_t *ptr);
+extern int  onlykey_eeget_passwordlen12 (uint8_t *ptr);
+extern void onlykey_eeset_passwordlen12 (uint8_t *ptr);
 
-extern int  yubikey_eeget_usernamelen1 (uint8_t *ptr);
-extern void yubikey_eeset_usernamelen1 (uint8_t *ptr);
+extern int  onlykey_eeget_usernamelen1 (uint8_t *ptr);
+extern void onlykey_eeset_usernamelen1 (uint8_t *ptr);
 
-extern int  yubikey_eeget_usernamelen2 (uint8_t *ptr);
-extern void yubikey_eeset_usernamelen2 (uint8_t *ptr);
+extern int  onlykey_eeget_usernamelen2 (uint8_t *ptr);
+extern void onlykey_eeset_usernamelen2 (uint8_t *ptr);
 
-extern int  yubikey_eeget_usernamelen3 (uint8_t *ptr);
-extern void yubikey_eeset_usernamelen3 (uint8_t *ptr);
+extern int  onlykey_eeget_usernamelen3 (uint8_t *ptr);
+extern void onlykey_eeset_usernamelen3 (uint8_t *ptr);
 
-extern int  yubikey_eeget_usernamelen4 (uint8_t *ptr);
-extern void yubikey_eeset_usernamelen4 (uint8_t *ptr);
+extern int  onlykey_eeget_usernamelen4 (uint8_t *ptr);
+extern void onlykey_eeset_usernamelen4 (uint8_t *ptr);
 
-extern int  yubikey_eeget_usernamelen5 (uint8_t *ptr);
-extern void yubikey_eeset_usernamelen5 (uint8_t *ptr);
+extern int  onlykey_eeget_usernamelen5 (uint8_t *ptr);
+extern void onlykey_eeset_usernamelen5 (uint8_t *ptr);
 
-extern int  yubikey_eeget_usernamelen6 (uint8_t *ptr);
-extern void yubikey_eeset_usernamelen6 (uint8_t *ptr);
+extern int  onlykey_eeget_usernamelen6 (uint8_t *ptr);
+extern void onlykey_eeset_usernamelen6 (uint8_t *ptr);
 
-extern int  yubikey_eeget_usernamelen7 (uint8_t *ptr);
-extern void yubikey_eeset_usernamelen7 (uint8_t *ptr);
+extern int  onlykey_eeget_usernamelen7 (uint8_t *ptr);
+extern void onlykey_eeset_usernamelen7 (uint8_t *ptr);
 
-extern int  yubikey_eeget_usernamelen8 (uint8_t *ptr);
-extern void yubikey_eeset_usernamelen8 (uint8_t *ptr);
+extern int  onlykey_eeget_usernamelen8 (uint8_t *ptr);
+extern void onlykey_eeset_usernamelen8 (uint8_t *ptr);
 
-extern int  yubikey_eeget_usernamelen9 (uint8_t *ptr);
-extern void yubikey_eeset_usernamelen9 (uint8_t *ptr);
+extern int  onlykey_eeget_usernamelen9 (uint8_t *ptr);
+extern void onlykey_eeset_usernamelen9 (uint8_t *ptr);
 
-extern int  yubikey_eeget_usernamelen10 (uint8_t *ptr);
-extern void yubikey_eeset_usernamelen10 (uint8_t *ptr);
+extern int  onlykey_eeget_usernamelen10 (uint8_t *ptr);
+extern void onlykey_eeset_usernamelen10 (uint8_t *ptr);
 
-extern int  yubikey_eeget_usernamelen11 (uint8_t *ptr);
-extern void yubikey_eeset_usernamelen11 (uint8_t *ptr);
+extern int  onlykey_eeget_usernamelen11 (uint8_t *ptr);
+extern void onlykey_eeset_usernamelen11 (uint8_t *ptr);
 
-extern int  yubikey_eeget_usernamelen12 (uint8_t *ptr);
-extern void yubikey_eeset_usernamelen12 (uint8_t *ptr);
+extern int  onlykey_eeget_usernamelen12 (uint8_t *ptr);
+extern void onlykey_eeset_usernamelen12 (uint8_t *ptr);
 
-extern int  yubikey_eeget_totpkeylen1 (uint8_t *ptr);
-extern void yubikey_eeset_totpkeylen1 (uint8_t *ptr);
+extern int  onlykey_eeget_totpkeylen1 (uint8_t *ptr);
+extern void onlykey_eeset_totpkeylen1 (uint8_t *ptr);
 
-extern int  yubikey_eeget_totpkeylen2 (uint8_t *ptr);
-extern void yubikey_eeset_totpkeylen2 (uint8_t *ptr);
+extern int  onlykey_eeget_totpkeylen2 (uint8_t *ptr);
+extern void onlykey_eeset_totpkeylen2 (uint8_t *ptr);
 
-extern int  yubikey_eeget_totpkeylen3 (uint8_t *ptr);
-extern void yubikey_eeset_totpkeylen3 (uint8_t *ptr);
+extern int  onlykey_eeget_totpkeylen3 (uint8_t *ptr);
+extern void onlykey_eeset_totpkeylen3 (uint8_t *ptr);
 
-extern int  yubikey_eeget_totpkeylen4 (uint8_t *ptr);
-extern void yubikey_eeset_totpkeylen4 (uint8_t *ptr);
+extern int  onlykey_eeget_totpkeylen4 (uint8_t *ptr);
+extern void onlykey_eeset_totpkeylen4 (uint8_t *ptr);
 
-extern int  yubikey_eeget_totpkeylen5 (uint8_t *ptr);
-extern void yubikey_eeset_totpkeylen5 (uint8_t *ptr);
+extern int  onlykey_eeget_totpkeylen5 (uint8_t *ptr);
+extern void onlykey_eeset_totpkeylen5 (uint8_t *ptr);
 
-extern int  yubikey_eeget_totpkeylen6 (uint8_t *ptr);
-extern void yubikey_eeset_totpkeylen6 (uint8_t *ptr);
+extern int  onlykey_eeget_totpkeylen6 (uint8_t *ptr);
+extern void onlykey_eeset_totpkeylen6 (uint8_t *ptr);
 
-extern int  yubikey_eeget_totpkeylen7 (uint8_t *ptr);
-extern void yubikey_eeset_totpkeylen7 (uint8_t *ptr);
+extern int  onlykey_eeget_totpkeylen7 (uint8_t *ptr);
+extern void onlykey_eeset_totpkeylen7 (uint8_t *ptr);
 
-extern int  yubikey_eeget_totpkeylen8 (uint8_t *ptr);
-extern void yubikey_eeset_totpkeylen8 (uint8_t *ptr);
+extern int  onlykey_eeget_totpkeylen8 (uint8_t *ptr);
+extern void onlykey_eeset_totpkeylen8 (uint8_t *ptr);
 
-extern int  yubikey_eeget_totpkeylen9 (uint8_t *ptr);
-extern void yubikey_eeset_totpkeylen9 (uint8_t *ptr);
+extern int  onlykey_eeget_totpkeylen9 (uint8_t *ptr);
+extern void onlykey_eeset_totpkeylen9 (uint8_t *ptr);
 
-extern int  yubikey_eeget_totpkeylen10 (uint8_t *ptr);
-extern void yubikey_eeset_totpkeylen10 (uint8_t *ptr);
+extern int  onlykey_eeget_totpkeylen10 (uint8_t *ptr);
+extern void onlykey_eeset_totpkeylen10 (uint8_t *ptr);
 
-extern int  yubikey_eeget_totpkeylen11 (uint8_t *ptr);
-extern void yubikey_eeset_totpkeylen11 (uint8_t *ptr);
+extern int  onlykey_eeget_totpkeylen11 (uint8_t *ptr);
+extern void onlykey_eeset_totpkeylen11 (uint8_t *ptr);
 
-extern int  yubikey_eeget_totpkeylen12 (uint8_t *ptr);
-extern void yubikey_eeset_totpkeylen12 (uint8_t *ptr);
+extern int  onlykey_eeget_totpkeylen12 (uint8_t *ptr);
+extern void onlykey_eeset_totpkeylen12 (uint8_t *ptr);
 
 
 #ifdef __cplusplus
 }
 #endif
 #endif
-
