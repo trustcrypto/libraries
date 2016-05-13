@@ -201,7 +201,7 @@ int eraseSecurityLockBits(uint8_t newValueForFSEC)
 {
   while (!(FTFL_FSTAT & FTFL_STAT_CCIF)) {;}
 	FTFL_FSTAT  = 0x30;
-	FTFL_FCCOB0 = FCMD_ERASE_FLASH_SECTOR;
+	FTFL_FCCOB0 = FCMD_PROGRAM_LONG_WORD;
 	FTFL_FCCOB1 = 0;
 	FTFL_FCCOB2 = 4;
 	FTFL_FCCOB3 = 0xC;
@@ -209,7 +209,7 @@ int eraseSecurityLockBits(uint8_t newValueForFSEC)
 	FTFL_FCCOB4 = 0xFF; // It is not possible to turn bits on without erasing a larger block, I am
 	FTFL_FCCOB5 = 0xFF; // using all on value 
 	FTFL_FCCOB6 = 0xFF; // 
-	FTFL_FCCOB7 = 0xFF;
+	FTFL_FCCOB7 = newValueForFSEC;
 	__disable_irq();
   flashExec(&FTFL_FSTAT);
 	__enable_irq();
@@ -222,7 +222,7 @@ void flashQuickUnlockBits()
 	FTFL_FSTAT  = 0x30;
 	FTFL_FCCOB0 = FCMD_ERASE_FLASH_SECTOR;
 	FTFL_FCCOB1 = 0;
-	FTFL_FCCOB2 = 0;
+	FTFL_FCCOB2 = 4;
 	FTFL_FCCOB3 = 0;
 
 	__disable_irq();
@@ -237,7 +237,8 @@ void flashQuickUnlockBits()
 	FTFL_FCCOB4 = 0xFF;
 	FTFL_FCCOB5 = 0xFF;
 	FTFL_FCCOB6 = 0xFF;
-	FTFL_FCCOB7 = 0xFE;
+	FTFL_FCCOB7 = 0xDE;
 	FTFL_FSTAT = FTFL_STAT_CCIF;
 	while (!(FTFL_FSTAT & FTFL_STAT_CCIF)) {;}
+	__enable_irq();
 }

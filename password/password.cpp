@@ -37,7 +37,11 @@
 #include "flashkinetis.h"
 #include "onlykey.h"
 
-static uint8_t temp[32];
+uint8_t temp[32];
+uint8_t phash[32];
+uint8_t sdhash[32];
+uint8_t pdhash[32];
+uint8_t nonce[32];
 
 //construct object in memory, set all variables
 Password::Password(char* pass){
@@ -102,7 +106,6 @@ bool Password::evaluate(){
 
 //is the hash of the current guessed password equal to the stored hash?
 bool Password::hashevaluate(){ 
-	uint8_t hash[32];
 	uint8_t *ptr;
 	ptr = temp;
 
@@ -113,18 +116,15 @@ bool Password::hashevaluate(){
 			SHA256_CTX pinhash;
 			sha256_init(&pinhash);
 			sha256_update(&pinhash, temp, strlen(guess)); //Add new PIN to hash
-			onlykey_eeget_noncehash (ptr, 32); //Get nonce from EEPROM
-			
+						
 			Serial.print(F("NONCE HASH:")); //TODO remove debug
       for (int i =0; i < 32; i++) {
-        Serial.print(temp[i], HEX);
+        Serial.print(nonce[i], HEX);
       }
 	  Serial.println();
 	  
-			sha256_update(&pinhash, temp, 32); //Add nonce to hash
+			sha256_update(&pinhash, nonce, 32); //Add nonce to hash
 			sha256_final(&pinhash, temp); //Create hash and store in temp
-			ptr = hash;
-			onlykey_eeget_pinhash (ptr, 32); //store valid pinhash in hash
 	
 	Serial.print(F("Guessed Hash:")); //TODO remove debug
       for (int i =0; i < 32; i++) {
@@ -133,11 +133,11 @@ bool Password::hashevaluate(){
 	  Serial.println();
 	  Serial.print(F("PIN Hash:")); //TODO remove debug
       for (int i =0; i < 32; i++) {
-        Serial.print(hash[i], HEX);
+        Serial.print(phash[i], HEX);
       }
 	  Serial.println();
 	  
-	char pass2 = hash[0];
+	char pass2 = phash[0];
 	char guessed2 = temp[0];
 	for (byte i=1; i<32; i++){
 		
@@ -149,29 +149,22 @@ bool Password::hashevaluate(){
 		}
 		
 		//read next char
-		pass2 = hash[i];
+		pass2 = phash[i];
 		guessed2 = temp[i];
 	}
 	return false; //a 'true' condition has not been met
 }
 
 bool Password::sdhashevaluate(){ 
-	uint8_t hash[32];
-	uint8_t *ptr;
-	ptr = temp;
-
 	Serial.println();
-
-	ptr = hash;
-	onlykey_eeget_selfdestructhash (ptr); //store self destruct PIN hash
 	
 	  Serial.print(F("SD PIN Hash:")); //TODO remove debug
       for (int i =0; i < 32; i++) {
-        Serial.print(hash[i], HEX);
+        Serial.print(sdhash[i], HEX);
       }
 	  Serial.println();
 	  
-	char pass2 = hash[0];
+	char pass2 = sdhash[0];
 	char guessed2 = temp[0];
 	for (byte i=1; i<32; i++){
 		
@@ -183,28 +176,21 @@ bool Password::sdhashevaluate(){
 		}
 		
 		//read next char
-		pass2 = hash[i];
+		pass2 = sdhash[i];
 		guessed2 = temp[i];
 	}
 	return false; //a 'true' condition has not been met
 }
 bool Password::pdhashevaluate(){ 
-	uint8_t hash[32];
-	uint8_t *ptr;
-	ptr = temp;
-
 	Serial.println();
-
-	ptr = hash;
-	onlykey_eeget_plausdenyhash (ptr); //store plausible deniability PIN hash
 	
 	  Serial.print(F("PD PIN Hash:")); //TODO remove debug
       for (int i =0; i < 32; i++) {
-        Serial.print(hash[i], HEX);
+        Serial.print(pdhash[i], HEX);
       }
 	  Serial.println();
 	  
-	char pass2 = hash[0];
+	char pass2 = pdhash[0];
 	char guessed2 = temp[0];
 	for (byte i=1; i<32; i++){
 		
@@ -216,7 +202,7 @@ bool Password::pdhashevaluate(){
 		}
 		
 		//read next char
-		pass2 = hash[i];
+		pass2 = pdhash[i];
 		guessed2 = temp[i];
 	}
 	return false; //a 'true' condition has not been met

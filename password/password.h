@@ -70,6 +70,7 @@ public:
 	char guess[ MAX_PASSWORD_LENGTH ];
 	byte currentIndex;  
 	
+	
 private:
 	char* target;
 	

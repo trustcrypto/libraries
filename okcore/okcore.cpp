@@ -62,10 +62,10 @@
 #include "sha256.h"
 #include "flashkinetis.h"
 #include "uecc.h"
+#include <password.h>
 #include "ykcore.h"
 #include "yksim.h"
 #include "onlykey.h"
-#include <password.h>
 #include <Crypto.h>
 #include <RNG.h>
 #include <transistornoisesource.h>
@@ -74,6 +74,13 @@
 
 uint32_t unixTimeStamp;
 const int ledPin = 13;
+int PINSET = 0;
+bool unlocked = false;
+bool initialized = false;
+bool PDmode = false;
+
+//U2F Assignments
+/*************************************/
 byte expected_next_packet;
 int large_data_len;
 int large_data_offset;
@@ -83,12 +90,18 @@ byte recv_buffer[64];
 byte resp_buffer[64];
 byte handle[64];
 byte sha256_hash[32];
+/*************************************/
+
+//Password.cpp Assignments
+/*************************************/
 Password password = Password( "not used" );
 Password sdpassword = Password( "not used" );
 Password pdpassword = Password( "not used" );
-int PINSET = 0;
-bool unlocked = false;
-bool PDmode = false;
+extern uint8_t phash[32];
+extern uint8_t sdhash[32];
+extern uint8_t pdhash[32];
+extern uint8_t nonce[32];
+/*************************************/
 
 const char attestation_key[] = "\xf3\xfc\xcc\x0d\x00\xd8\x03\x19\x54\xf9"
   "\x08\x64\xd4\x3c\x24\x7f\x4b\xf5\xf0\x66\x5c\x6b\x50\xcc"
@@ -748,184 +761,114 @@ char cmd_or_cont = recv_buffer[4]; //cmd or continuation
       return;
       break;
       case OKGETLABELS:
-	   if(FTFL_FSEC==0xDE) 
-		{
+	   if(initialized==false && unlocked==true) 
+	   {
 		hidprint("No PIN set, You must set a PIN first");
 		return;
-		}
-		//TODO change to 0x64
-		else if (FTFL_FSEC==0x44) 
-		{
-			if (unlocked==true) 
-			{
-			GETLABELS(recv_buffer);
-			}
-			else
-			{
-			hidprint("ERROR DEVICE LOCKED");
-			return;
-			}
-		}
-		else
-		{
-	    hidprint("ERROR FLASH VALUE");
-		factorydefault();
-		}
+	   }else if (initialized==true && unlocked==true) 
+	   {
+		GETLABELS(recv_buffer);
+	   }
+	   else
+	   {
+	   hidprint("ERROR DEVICE LOCKED");
+	   return;
+	   }	
       return;
       break;
       case OKSETSLOT:
-	   if(FTFL_FSEC==0xDE) 
-		{
+	   if(initialized==false && unlocked==true) 
+	   {
 		hidprint("No PIN set, You must set a PIN first");
 		return;
-		}
-		//TODO change to 0x64
-		else if (FTFL_FSEC==0x44) 
-		{
-			if (unlocked==true) 
-			{
-			SETSLOT(recv_buffer);
-			}
-			else
-			{
-			hidprint("ERROR DEVICE LOCKED");
-			return;
-			}	    
-		}
-		else
-		{
-	    hidprint("ERROR FLASH VALUE");
-		factorydefault();
-		}
+	   }else if (initialized==true && unlocked==true) 
+	   {
+		SETSLOT(recv_buffer);
+	   }
+	   else
+	   {
+	   hidprint("ERROR DEVICE LOCKED");
+	   return;
+	   }
       return;
       break;
       case OKWIPESLOT:
-	   if(FTFL_FSEC==0xDE) 
-		{
+	   if(initialized==false && unlocked==true) 
+	   {
 		hidprint("No PIN set, You must set a PIN first");
 		return;
-		}
-		//TODO change to 0x64
-		else if (FTFL_FSEC==0x44) 
-		{
-			if (unlocked==true) 
-			{
-			WIPESLOT(recv_buffer);
-			}
-			else
-			{
-			hidprint("ERROR DEVICE LOCKED");
-			return;
-			}
-		}
-		else
-		{
-	    hidprint("ERROR FLASH VALUE");
-		factorydefault();
-		}
+	   }else if (initialized==true && unlocked==true) 
+	   {
+		WIPESLOT(recv_buffer);
+	   }
+	   else
+	   {
+	   hidprint("ERROR DEVICE LOCKED");
+	   return;
+	   }	
       return;
       break;
       case OKSETU2FPRIV:
-	   if(FTFL_FSEC==0xDE) 
-		{
+	   if(initialized==false && unlocked==true) 
+	   {
 		hidprint("No PIN set, You must set a PIN first");
 		return;
-		}
-		//TODO change to 0x64
-		else if (FTFL_FSEC==0x44) 
-		{
-			if (unlocked==true) 
-			{
-			SETU2FPRIV(recv_buffer);
-			}
-			else
-			{
-			hidprint("ERROR DEVICE LOCKED");
-			return;
-			}
-		}
-		else
-		{
-	    hidprint("ERROR FLASH VALUE");
-		factorydefault();
-		}
+	   }else if (initialized==true && unlocked==true) 
+	   {
+		SETU2FPRIV(recv_buffer);
+	   }
+	   else
+	   {
+	   hidprint("ERROR DEVICE LOCKED");
+	   return;
+	   }	
       return;
       break;
       case OKWIPEU2FPRIV:
-	   if(FTFL_FSEC==0xDE) 
-		{
+	   if(initialized==false && unlocked==true) 
+	   {
 		hidprint("No PIN set, You must set a PIN first");
 		return;
-		}
-		//TODO change to 0x64
-		else if (FTFL_FSEC==0x44) 
-		{
-			if (unlocked==true) 
-			{
-			WIPEU2FPRIV(recv_buffer);
-			}
-			else
-			{
-			hidprint("ERROR DEVICE LOCKED");
-			return;
-			}
-		}
-		else
-		{
-	    hidprint("ERROR FLASH VALUE");
-		factorydefault();
-		}
+	   }else if (initialized==true && unlocked==true) 
+	   {
+		WIPEU2FPRIV(recv_buffer);
+	   }
+	   else
+	   {
+	   hidprint("ERROR DEVICE LOCKED");
+	   return;
+	   }	
       break;
       case OKSETU2FCERT:
-	   if(FTFL_FSEC==0xDE) 
-		{
+	   if(initialized==false && unlocked==true) 
+	   {
 		hidprint("No PIN set, You must set a PIN first");
 		return;
-		}
-		//TODO change to 0x64
-		else if (FTFL_FSEC==0x44) 
-		{
-			if (unlocked==true) 
-			{
-			SETU2FCERT(recv_buffer);
-			}
-			else
-			{
-			hidprint("ERROR DEVICE LOCKED");
-			return;
-			}	    
-		}
-		else
-		{
-	    hidprint("ERROR FLASH VALUE");
-		factorydefault();
-		}
+	   }else if (initialized==true && unlocked==true) 
+	   {
+		SETU2FCERT(recv_buffer);
+	   }
+	   else
+	   {
+	   hidprint("ERROR DEVICE LOCKED");
+	   return;
+	   }	
       return;
       break;
       case OKWIPEU2FCERT:
-	   if(FTFL_FSEC==0xDE) 
-		{
+	   if(initialized==false && unlocked==true) 
+	   {
 		hidprint("No PIN set, You must set a PIN first");
 		return;
-		}
-		//TODO change to 0x64
-		else if (FTFL_FSEC==0x44) 
-		{
-			if (unlocked==true) 
-			{
-			WIPEU2FCERT(recv_buffer);
-			}
-			else
-			{
-			hidprint("ERROR DEVICE LOCKED");
-			return;
-			}	 
-		}
-		else
-		{
-	    hidprint("ERROR FLASH VALUE");
-		factorydefault();
-		}
+	   }else if (initialized==true && unlocked==true) 
+	   {
+		WIPEU2FCERT(recv_buffer);
+	   }
+	   else
+	   {
+	   hidprint("ERROR DEVICE LOCKED");
+	   return;
+	   }	
       return;
       break;
       default: 
@@ -1105,7 +1048,7 @@ void SETPIN (byte *buffer)
 {
       Serial.println("OKSETPIN MESSAGE RECEIVED");
 	  
-	switch (PINSET) {
+switch (PINSET) {
       case 0:
       Serial.println("Enter PIN");
       PINSET = 1;
@@ -1381,17 +1324,16 @@ void SETTIME (byte *buffer)
 {
       Serial.println();
 	  Serial.println("OKSETTIME MESSAGE RECEIVED");        
-		
-	  if(FTFL_FSEC==0xDE) 
-	  {
+	   if(initialized==false && unlocked==true) 
+	   {
 		Serial.print("UNINITIALIZED");
 		hidprint("UNINITIALIZED");
-	  }
-	  //TODO change to 0x64
-      else if (FTFL_FSEC==0x44) 
-      {
-		Serial.print("UNLOCKED       ");
-		hidprint("UNLOCKED       ");
+		return;
+	   }else if (initialized==true && unlocked==true) 
+	   {
+		Serial.print("UNLOCKED");
+		hidprint("UNLOCKED");
+	   
     int i, j;                
     for(i=0, j=3; i<4; i++, j--){
     unixTimeStamp |= ((uint32_t)buffer[j + 5] << (i*8) );
@@ -1491,14 +1433,7 @@ void SETSLOT (byte *buffer)
       Serial.println((int)slot, DEC);
       Serial.print("Value #");
       Serial.println((int)value, DEC);
-      delay(1000);
 #endif
-	//TODO consider using something other than PINHASH for AES key
-	uint8_t aeskey1[16]; 
-      	uint8_t *ptr = aeskey1;
-      	onlykey_eeget_pinhash (ptr, 16);
-      
-
      for (int z = 0; buffer[z + 7] + buffer[z + 8] + buffer[z + 9] + buffer[z + 10 ] != 0x00; z++) {
         length = z + 1;
 #ifdef DEBUG
@@ -1510,14 +1445,12 @@ void SETSLOT (byte *buffer)
       Serial.print("Length = ");
       Serial.println(length);
 #endif
-      
-	    ptr=buffer + 7;
             switch (value) {
             case 1:
             //Set value in EEPROM
             Serial.println(); //newline
             Serial.print("Writing Label Value to EEPROM...");
-            onlykey_eeset_label(ptr, length, slot);
+            onlykey_eeset_label(buffer + 7, length, slot);
 			hidprint("Successfully set Label");
             return;
             //break;
@@ -1531,9 +1464,7 @@ void SETSLOT (byte *buffer)
             }
             Serial.println();
             #endif 
-            //onlykey_aes_encrypt ((buffer + 7), aeskey1);
-      	    //onlykey_aes_encrypt ((buffer + 23), aeskey1); 
-      	    aes_gcm_encrypt((buffer + 7), (uint8_t*)EEpos_username1, aeskey1, length);
+      	    aes_gcm_encrypt((buffer + 7), (uint8_t*)EEpos_username1, phash, length);
       	    #ifdef DEBUG
       	    Serial.println("Encrypted");
             for (int z = 0; z < 32; z++) {
@@ -1542,7 +1473,7 @@ void SETSLOT (byte *buffer)
             Serial.println();
             #endif     
             Serial.println(); //newline
-            onlykey_eeset_username(ptr, length, slot);
+            onlykey_eeset_username(buffer + 7, length, slot);
 	    hidprint("Successfully set Username");
             return;
             //break;
@@ -1550,7 +1481,7 @@ void SETSLOT (byte *buffer)
             //Set value in EEPROM
             Serial.println(); //newline
             Serial.print("Writing Additional Character1 to EEPROM...");
-            onlykey_eeset_addchar1(ptr, slot);
+            onlykey_eeset_addchar1(buffer + 7, slot);
 	    hidprint("Successfully set Character1");
             return;
             //break;
@@ -1558,7 +1489,7 @@ void SETSLOT (byte *buffer)
             //Set value in EEPROM
             Serial.println(); //newline
             Serial.print("Writing Delay1 to EEPROM...");
-            onlykey_eeset_delay1(ptr, slot);
+            onlykey_eeset_delay1(buffer + 7, slot);
 	    hidprint("Successfully set Delay1");
             return;
             //break;
@@ -1572,7 +1503,7 @@ void SETSLOT (byte *buffer)
             }
             Serial.println();
             #endif  
-            aes_gcm_encrypt((buffer + 7), (uint8_t*)EEpos_password1, aeskey1, length);
+            aes_gcm_encrypt((buffer + 7), (uint8_t*)EEpos_password1, phash, length);
       	    #ifdef DEBUG
       	    Serial.println("Encrypted");
             for (int z = 0; z < 32; z++) {
@@ -1581,7 +1512,7 @@ void SETSLOT (byte *buffer)
             Serial.println();
             #endif 
             Serial.println(); //newline
-            onlykey_eeset_password(ptr, length, slot);
+            onlykey_eeset_password(buffer + 7, length, slot);
 	    hidprint("Successfully set Password");
             return;
             //break;
@@ -1589,7 +1520,7 @@ void SETSLOT (byte *buffer)
             //Set value in EEPROM
             Serial.println(); //newline
             Serial.print("Writing Additional Character2 to EEPROM...");
-            onlykey_eeset_addchar2(ptr, slot);
+            onlykey_eeset_addchar2(buffer + 7, slot);
 	    hidprint("Successfully set Character2");
             return;
             //break;
@@ -1597,7 +1528,7 @@ void SETSLOT (byte *buffer)
             //Set value in EEPROM
             Serial.println(); //newline
             Serial.print("Writing Delay2 to EEPROM...");
-            onlykey_eeset_delay2(ptr, slot);
+            onlykey_eeset_delay2(buffer + 7, slot);
 	    hidprint("Successfully set Delay2");
             return;
             //break;
@@ -1605,7 +1536,7 @@ void SETSLOT (byte *buffer)
             //Set value in EEPROM
             Serial.println(); //newline
             Serial.print("Writing 2FA Type to EEPROM...");
-            onlykey_eeset_2FAtype(ptr, slot);
+            onlykey_eeset_2FAtype(buffer + 7, slot);
 	    hidprint("Successfully set 2FA Type");
             return;
             //break;
@@ -1619,7 +1550,7 @@ void SETSLOT (byte *buffer)
             }
             Serial.println();
             #endif 
-            aes_gcm_encrypt((buffer + 7), (uint8_t*)EEpos_totpkey1, aeskey1, length);
+            aes_gcm_encrypt((buffer + 7), (uint8_t*)EEpos_totpkey1, phash, length);
 	    #ifdef DEBUG
 	    Serial.println("Encrypted");
             for (int z = 0; z < 32; z++) {
@@ -1627,7 +1558,7 @@ void SETSLOT (byte *buffer)
             }
             Serial.println();
             #endif    
-            onlykey_eeset_totpkey(ptr, length, slot);
+            onlykey_eeset_totpkey(buffer + 7, length, slot);
 	    hidprint("Successfully set TOTP Key");
             return;
             //break;
@@ -1641,7 +1572,7 @@ void SETSLOT (byte *buffer)
             }
             Serial.println();
             #endif 
-            aes_gcm_encrypt((buffer + 7), (uint8_t*)EEpos_aeskey, aeskey1, length);
+            aes_gcm_encrypt((buffer + 7), (uint8_t*)EEpos_aeskey, phash, length);
       	    #ifdef DEBUG
       	    Serial.println("Encrypted");
             for (int z = 0; z < 32; z++) {
@@ -1649,9 +1580,9 @@ void SETSLOT (byte *buffer)
             }
             Serial.println();
             #endif 
-            onlykey_eeset_aeskey(ptr, EElen_aeskey);
-            onlykey_eeset_private((ptr + EElen_aeskey));
-            onlykey_eeset_public((ptr + EElen_aeskey + EElen_private), EElen_public);
+            onlykey_eeset_aeskey(buffer + 7, EElen_aeskey);
+            onlykey_eeset_private((buffer + 7 + EElen_aeskey));
+            onlykey_eeset_public((buffer + 7 + EElen_aeskey + EElen_private), EElen_public);
 	    hidprint("Successfully set onlykey AES Key, Priviate ID, and Public ID");
             return;
             //break;
@@ -1674,7 +1605,6 @@ void WIPESLOT (byte *buffer)
       Serial.println((int)slot, DEC);
       Serial.print("Value #");
       Serial.println((int)value, DEC);
-      delay(1000);
       for (int z = 7; z < 64; z++) {
         buffer[z] = 0x00;
         Serial.print(buffer[z], HEX);
@@ -1686,14 +1616,14 @@ void WIPESLOT (byte *buffer)
             //Set value in EEPROM
             Serial.println(); //newline
             Serial.print("Wiping Label Value...");
-            onlykey_eeset_label((buffer + 7), length, slot);
+            onlykey_eeset_label((buffer + 7), EElen_label, slot);
             return;
             break;
             case 2:
             //Set value in EEPROM
             Serial.println(); //newline
             Serial.print("Wiping Username Value...");
-            onlykey_eeset_username((buffer + 7), length, slot);
+            onlykey_eeset_username((buffer + 7), EElen_username, slot);
             return;
             break;
             case 3:
@@ -1714,7 +1644,7 @@ void WIPESLOT (byte *buffer)
             //Set value in EEPROM
             Serial.println(); //newline
             Serial.print("Wiping Password Value...");
-            onlykey_eeset_password((buffer + 7), length, slot);
+            onlykey_eeset_password((buffer + 7), EElen_password, slot);
             return;
             break;
             case 6:
@@ -1742,7 +1672,7 @@ void WIPESLOT (byte *buffer)
             //Set value in EEPROM
             Serial.println(); //newline
             Serial.print("Writing TOTP Key to EEPROM...");
-            onlykey_eeset_totpkey((buffer + 7), length, slot);
+            onlykey_eeset_totpkey((buffer + 7), EElen_totpkey, slot);
             return;
             break;
             case 10:
@@ -1985,21 +1915,32 @@ while(*chars) {
 	 i++;
   }
   RawHID.send(resp_buffer, 0);
+  memset(resp_buffer, 0, sizeof(resp_buffer));
 }
 
 void factorydefault() {
   //Todo add function from flashKinetis to wipe secure flash and eeprom values and flashQuickUnlockBits 
-        uint8_t temp [32];
-        uint8_t *ptr;
-        for (int i = 0; i < 32; i++)
-        {
-        temp[i] = 0x00;
+        uint8_t value;
+        Serial.println("Current EEPROM Values"); //TODO remove debug
+        for (int i=0; i<2048; i++) {
+        value=EEPROM.read(i);
+        Serial.print(i);
+  	Serial.print("\t");
+  	Serial.print(value, DEC);
+  	Serial.println();
         }
-        ptr=temp;
-        onlykey_eeset_pinhash (ptr);
-        onlykey_eeset_noncehash (ptr);
-        onlykey_eeset_failedlogins (0);
-        //flashQuickUnlockBits();
+        value=0x00;
+        for (int i=0; i<2048; i++) {
+        EEPROM.write(i, value);
+        }
+        Serial.println("EEPROM set to 0s");//TODO remove debug
+        for (int i=0; i<2048; i++) {
+        value=EEPROM.read(i);
+        Serial.print(i);
+  	Serial.print("\t");
+  	Serial.print(value, DEC);
+  	Serial.println();
+        }
         Serial.println("factory reset has been completed");
 }
 

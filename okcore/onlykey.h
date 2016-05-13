@@ -176,6 +176,7 @@ extern void CharToByte2(char* chars, byte* bytes, unsigned int count, unsigned i
 extern void hidprint(char* chars);
 extern void factorydefault();
 extern bool unlocked;
+extern bool initialized;
 extern bool PDmode;
 extern int PINSET;
 extern int u2f_button;

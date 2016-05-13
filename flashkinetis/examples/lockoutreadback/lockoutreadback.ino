@@ -1,40 +1,38 @@
 /* lockoutReadBack.ino; a simplistic example of using methods to lock and
 unlock the security bits in Teensy 3.1 @ FTFL_FSEC's source copy.
-
 Suggested implementation: In setup() add;
-
-	if(FTFL_FSEC!=0x64) flashSecurityLockBits();
-	
+  if(FTFL_FSEC!=0x64) flashSecurityLockBits();
+  
 Somewhere else in the sketch/program include a method obscure enough to
 protect your work from prying eyes to unlock it using similar;
-
-	if(the_signal_i_chose==occurred) flashQuickUnlockBits();
-	
+  if(the_signal_i_chose==occurred) flashQuickUnlockBits();
+  
 This way you can lock your Teensy to the point that;
-
 (1) The code cannot be read back by less than unlikely & extraordinary means
 (2) Nothing short of a proper catastrophe will stop Teensy executing the
-	code you last intended.
-	
-
+  code you last intended.
+  
 WARNING!! DANGER!!!
 Setting certain values in FTFL_FSEC and then pressing the 'program' button
 WILL brick your Teensy 3.1 in ways that are not recoverable, the value
 0x64 is as aggressively locked as the device can be made by this register
 alone and is the only value the Author tested at any great length, in terms
 of being able to use the unlocking method reliably repeatedly.
-
 */
 
 
 #include <Wire.h>
 #include <SPI.h>
 #include <SD.h>
-#include <flashKinetis.h>
+#include <flashkinetis.h>
 
+uintptr_t adr = 0x40c;
+unsigned long data =  0xFFFFF9DE;
 
 void setup() {
+  // put your setup code here, to run once:
   Serial.begin(Serial.baud());
+  
 }
 
 elapsedMillis heartBeat;
@@ -56,12 +54,14 @@ void loop() {
       Serial.println("\nHit the program button to very basically reset Teensy now.");
     break;
     case 'c':
-      Serial.println("By the time you read this it should be safe");
-      Serial.println("to hit the program button to upload a new (or");
-      Serial.println("the previous) sketch. Teensy will not be");
-      Serial.println("responsive again until you do.");
+      Serial.printf("Erase Sector 0x%X ",adr);
+      if (flashEraseSector((unsigned long*)adr)) Serial.printf("NOT ");
+      Serial.printf("successful\r\n");
+      Serial.printf("Program 0x%X, value 0x%X ", adr, data);
+      if ( flashProgramWord((unsigned long*)adr, &data) ) Serial.printf("NOT ");
+      Serial.printf("successful. Read Value:0x%X\r\n", *((unsigned int*)adr));
+
       
-      flashQuickUnlockBits();
     }
   }
   
