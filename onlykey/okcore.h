@@ -1,4 +1,4 @@
-/* onlykey.h
+/* okcore.h
 */
 
 /*
@@ -58,8 +58,9 @@
  */
  
 
-#ifndef ONLYKEY_H
-#define ONLYKEY_H
+#ifndef OKCORE_H
+#define OKCORE_H
+
 
 #ifdef __cplusplus
 extern "C"
