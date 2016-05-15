@@ -66,6 +66,7 @@
 #include "ykcore.h"
 #include "yksim.h"
 #include "onlykey.h"
+#include "T3MacLib.h"
 #include <Crypto.h>
 #include <RNG.h>
 #include <transistornoisesource.h>
@@ -95,8 +96,6 @@ byte sha256_hash[32];
 //Password.cpp Assignments
 /*************************************/
 Password password = Password( "not used" );
-Password sdpassword = Password( "not used" );
-Password pdpassword = Password( "not used" );
 extern uint8_t phash[32];
 extern uint8_t sdhash[32];
 extern uint8_t pdhash[32];
@@ -1153,22 +1152,22 @@ void SETSDPIN (byte *buffer)
       return;
       case 4:
 	  PINSET = 5;
-      if(strlen(sdpassword.guess) >= 7 && strlen(sdpassword.guess) < 11)
+      if(strlen(password.guess) >= 7 && strlen(password.guess) < 11)
       {
         Serial.println("Storing PIN");
 		static char passguess[10];
-      for (int i =0; i <= strlen(sdpassword.guess); i++) {
-		passguess[i] = sdpassword.guess[i];
+      for (int i =0; i <= strlen(password.guess); i++) {
+		passguess[i] = password.guess[i];
       }
-		sdpassword.set(passguess);
-        sdpassword.reset();
+		password.set(passguess);
+        password.reset();
       }
       else
       {
         
 		Serial.println("Error PIN is not between 7 - 10 characters");
 		hidprint("Error PIN is not between 7 - 10 characters");
-        sdpassword.reset();
+        password.reset();
 		PINSET = 0;
       }
       
@@ -1179,21 +1178,21 @@ void SETSDPIN (byte *buffer)
       return;
       case 6:
 	  PINSET = 0;
-       if(strlen(sdpassword.guess) >= 7 && strlen(sdpassword.guess) < 11)
+       if(strlen(password.guess) >= 7 && strlen(password.guess) < 11)
       {
 	  
-          if (sdpassword.evaluate() == true) {
+          if (password.evaluate() == true) {
             Serial.println("Both PINs Match");
 			uint8_t temp[32];
 			uint8_t *ptr;
 			ptr = temp;
 			//Copy characters to byte array
-			for (int i =0; i <= strlen(sdpassword.guess); i++) {
-			temp[i] = (byte)sdpassword.guess[i];
+			for (int i =0; i <= strlen(password.guess); i++) {
+			temp[i] = (byte)password.guess[i];
 			}
 			SHA256_CTX pinhash;
 			sha256_init(&pinhash);
-			sha256_update(&pinhash, temp, strlen(sdpassword.guess)); //Add new PIN to hash
+			sha256_update(&pinhash, temp, strlen(password.guess)); //Add new PIN to hash
 			Serial.println("Getting NONCE");
 			onlykey_eeget_noncehash (ptr, 32); //Store in eeprom
 			
@@ -1207,12 +1206,12 @@ void SETSDPIN (byte *buffer)
       }
 	  
 			hidprint("Successfully set PIN, you must remove OnlyKey and reinsert to configure");
-            sdpassword.reset();
+            password.reset();
           }
           else {
             Serial.println("Error PINs Don't Match");
 			hidprint("Error PINs Don't Match");
-            sdpassword.reset();
+            password.reset();
 			PINSET = 0;
           }
       }
@@ -1220,7 +1219,7 @@ void SETSDPIN (byte *buffer)
       {
         Serial.println("Error PIN is not between 7 - 10 characters");
 		hidprint("Error PIN is not between 7 - 10 characters");
-        sdpassword.reset();
+        password.reset();
 		PINSET = 0;
       }
       
@@ -1242,22 +1241,22 @@ void SETPDPIN (byte *buffer)
       return;
       case 7:
 	  PINSET = 8;
-      if(strlen(pdpassword.guess) >= 7 && strlen(pdpassword.guess) < 11)
+      if(strlen(password.guess) >= 7 && strlen(password.guess) < 11)
       {
         Serial.println("Storing PIN");
 		static char passguess[10];
-      for (int i =0; i <= strlen(pdpassword.guess); i++) {
-		passguess[i] = pdpassword.guess[i];
+      for (int i =0; i <= strlen(password.guess); i++) {
+		passguess[i] = password.guess[i];
       }
-		pdpassword.set(passguess);
-        pdpassword.reset();
+		password.set(passguess);
+        password.reset();
       }
       else
       {
         
 		Serial.println("Error PIN is not between 7 - 10 characters");
 		hidprint("Error PIN is not between 7 - 10 characters");
-        pdpassword.reset();
+        password.reset();
 		PINSET = 0;
       }
       
@@ -1268,21 +1267,21 @@ void SETPDPIN (byte *buffer)
       return;
       case 9:
 	  PINSET = 0;
-       if(strlen(pdpassword.guess) >= 7 && strlen(pdpassword.guess) < 11)
+       if(strlen(password.guess) >= 7 && strlen(password.guess) < 11)
       {
 	  
-          if (pdpassword.evaluate() == true) {
+          if (password.evaluate() == true) {
             Serial.println("Both PINs Match");
 			uint8_t temp[32];
 			uint8_t *ptr;
 			ptr = temp;
 			//Copy characters to byte array
-			for (int i =0; i <= strlen(pdpassword.guess); i++) {
-			temp[i] = (byte)pdpassword.guess[i];
+			for (int i =0; i <= strlen(password.guess); i++) {
+			temp[i] = (byte)password.guess[i];
 			}
 			SHA256_CTX pinhash;
 			sha256_init(&pinhash);
-			sha256_update(&pinhash, temp, strlen(pdpassword.guess)); //Add new PIN to hash
+			sha256_update(&pinhash, temp, strlen(password.guess)); //Add new PIN to hash
 			Serial.println("Getting NONCE");
 			onlykey_eeget_noncehash (ptr, 32); //Store in eeprom
 			
@@ -1296,12 +1295,12 @@ void SETPDPIN (byte *buffer)
       }
 	  
 			hidprint("Successfully set PDPIN, you must remove OnlyKey and reinsert to configure");
-            pdpassword.reset();
+            password.reset();
           }
           else {
             Serial.println("Error PINs Don't Match");
 			hidprint("Error PINs Don't Match");
-            pdpassword.reset();
+            password.reset();
 			PINSET = 0;
           }
       }
@@ -1309,7 +1308,7 @@ void SETPDPIN (byte *buffer)
       {
         Serial.println("Error PIN is not between 7 - 10 characters");
 		hidprint("Error PIN is not between 7 - 10 characters");
-        pdpassword.reset();
+        password.reset();
 		PINSET = 0;
       }
       
@@ -1464,7 +1463,7 @@ void SETSLOT (byte *buffer)
             }
             Serial.println();
             #endif 
-      	    aes_gcm_encrypt((buffer + 7), (uint8_t*)EEpos_username1, phash, length);
+      	    aes_gcm_encrypt((buffer + 7), (uint8_t*)('u'+ID[34]+slot), phash, length);
       	    #ifdef DEBUG
       	    Serial.println("Encrypted");
             for (int z = 0; z < 32; z++) {
@@ -1503,7 +1502,7 @@ void SETSLOT (byte *buffer)
             }
             Serial.println();
             #endif  
-            aes_gcm_encrypt((buffer + 7), (uint8_t*)EEpos_password1, phash, length);
+            aes_gcm_encrypt((buffer + 7), (uint8_t*)('p'+ID[34]+slot), phash, length);
       	    #ifdef DEBUG
       	    Serial.println("Encrypted");
             for (int z = 0; z < 32; z++) {
@@ -1550,7 +1549,7 @@ void SETSLOT (byte *buffer)
             }
             Serial.println();
             #endif 
-            aes_gcm_encrypt((buffer + 7), (uint8_t*)EEpos_totpkey1, phash, length);
+            aes_gcm_encrypt((buffer + 7), (uint8_t*)('t'+ID[34]+slot), phash, length);
 	    #ifdef DEBUG
 	    Serial.println("Encrypted");
             for (int z = 0; z < 32; z++) {
@@ -1572,7 +1571,7 @@ void SETSLOT (byte *buffer)
             }
             Serial.println();
             #endif 
-            aes_gcm_encrypt((buffer + 7), (uint8_t*)EEpos_aeskey, phash, length);
+            aes_gcm_encrypt((buffer + 7), (uint8_t*)('y'+ID[34]), phash, length);
       	    #ifdef DEBUG
       	    Serial.println("Encrypted");
             for (int z = 0; z < 32; z++) {
