@@ -1083,7 +1083,7 @@ switch (PINSET) {
        if(strlen(password.guess) >= 7 && strlen(password.guess) < 11)
       {
 	  
-          if (password.evaluate() == true) {
+          if (password.evaluate()) {
             Serial.println("Both PINs Match");
 			uint8_t temp[32];
 			uint8_t *ptr;
@@ -1108,13 +1108,6 @@ switch (PINSET) {
         Serial.print(temp[i], HEX);
       }
 	  Serial.println();
-			//Now that a pin is set lock the flash		
-			int nn;
-			//TODO change to 0x64
-			nn=flashSecurityLockBits();
-			Serial.print("Flash security bits ");
-			if(nn) Serial.print("not ");
-			Serial.println("written successfully");
 			Serial.println("Successfully set PIN, you must remove OnlyKey and reinsert to configure");
 			hidprint("Successfully set PIN, you must remove OnlyKey and reinsert to configure");
             password.reset();
@@ -1364,78 +1357,91 @@ void GETLABELS (byte *buffer)
 	  uint8_t *ptr;
 	  char labelchar[EElen_label+2];
 	  ptr=label+2;
+	  delay(20);
 	  
 	  onlykey_eeget_label(ptr, 1);
 	  ByteToChar(label, labelchar, EElen_label);
 	  label[0] = (byte)0x01;
 	  label[1] = (byte)0x7C;
 	  hidprint(labelchar);
+	  delay(20);
 	  
 	  onlykey_eeget_label(ptr, 2);
 	  ByteToChar(label, labelchar, EElen_label);
 	  label[0] = (byte)0x02;
 	  label[1] = (byte)0x7C;
       	  hidprint(labelchar);
+      	  delay(20);
 	  
 	  onlykey_eeget_label(ptr, 3);
 	  ByteToChar(label, labelchar, EElen_label);
 	  label[0] = (byte)0x03;
 	  label[1] = (byte)0x7C;
           hidprint(labelchar);
+          delay(20);
 	  
 	  onlykey_eeget_label(ptr, 4);
 	  ByteToChar(label, labelchar, EElen_label);
 	  label[0] = (byte)0x04;
 	  label[1] = (byte)0x7C;
           hidprint(labelchar);
+          delay(20);
 	  
 	  onlykey_eeget_label(ptr, 5);
 	  ByteToChar(label, labelchar, EElen_label);
 	  label[0] = (byte)0x05;
 	  label[1] = (byte)0x7C;
           hidprint(labelchar);
+          delay(20);
 	  
 	  onlykey_eeget_label(ptr, 6);
 	  ByteToChar(label, labelchar, EElen_label);
 	  label[0] = (byte)0x06;
 	  label[1] = (byte)0x7C;
           hidprint(labelchar);
+          delay(20);
 	  
 	  onlykey_eeget_label(ptr, 7);
 	  ByteToChar(label, labelchar, EElen_label);
 	  label[0] = (byte)0x07;
 	  label[1] = (byte)0x7C;
           hidprint(labelchar);
+          delay(20);
 	  
 	  onlykey_eeget_label(ptr, 8);
 	  ByteToChar(label, labelchar, EElen_label);
 	  label[0] = (byte)0x08;
 	  label[1] = (byte)0x7C;
           hidprint(labelchar);
+          delay(20);
 	  
 	  onlykey_eeget_label(ptr, 9);
 	  ByteToChar(label, labelchar, EElen_label);
 	  label[0] = (byte)0x09;
 	  label[1] = (byte)0x7C;
           hidprint(labelchar);
+          delay(20);
 	  
 	  onlykey_eeget_label(ptr, 10);
 	  ByteToChar(label, labelchar, EElen_label);
 	  label[0] = (byte)0x10;
 	  label[1] = (byte)0x7C;
           hidprint(labelchar);
+          delay(20);
 	  
 	  onlykey_eeget_label(ptr, 11);
 	  ByteToChar(label, labelchar, EElen_label);
 	  label[0] = (byte)0x11;
 	  label[1] = (byte)0x7C;
           hidprint(labelchar);
+          delay(20);
 	  
 	  onlykey_eeget_label(ptr, 12);
 	  ByteToChar(label, labelchar, EElen_label);
 	  label[0] = (byte)0x12;
 	  label[1] = (byte)0x7C;
           hidprint(labelchar);
+          delay(20);
 	  
       blink(3);
       return;
