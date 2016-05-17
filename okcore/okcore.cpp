@@ -1107,7 +1107,8 @@ switch (PINSET) {
       for (int i =0; i < 32; i++) {
         Serial.print(temp[i], HEX);
       }
-	  Serial.println();
+	  		initialized = true;
+	  		Serial.println();
 			Serial.println("Successfully set PIN, you must remove OnlyKey and reinsert to configure");
 			hidprint("Successfully set PIN, you must remove OnlyKey and reinsert to configure");
             password.reset();
@@ -1511,7 +1512,6 @@ void SETSLOT (byte *buffer)
             //Set value in EEPROM
             Serial.println(); //newline
             Serial.print("Writing Additional Character1 to EEPROM...");
-            buffer[7] = (buffer[7] -'0');
             onlykey_eeset_addchar1(buffer + 7, slot);
 	    hidprint("Successfully set Character1");
             return;
@@ -1552,7 +1552,6 @@ void SETSLOT (byte *buffer)
             //Set value in EEPROM
             Serial.println(); //newline
             Serial.print("Writing Additional Character2 to EEPROM...");
-            buffer[7] = (buffer[7] -'0');
             onlykey_eeset_addchar2(buffer + 7, slot);
 	    hidprint("Successfully set Character2");
             return;
@@ -1570,7 +1569,6 @@ void SETSLOT (byte *buffer)
             //Set value in EEPROM
             Serial.println(); //newline
             Serial.print("Writing 2FA Type to EEPROM...");
-            buffer[7] = (buffer[7] -'0');
             onlykey_eeset_2FAtype(buffer + 7, slot);
 	    hidprint("Successfully set 2FA Type");
             return;
@@ -1987,13 +1985,12 @@ void factorydefault() {
   	Serial.println();
         }
         initialized = false;
-        unlocked = false;
+        unlocked = true;
         Serial.println("factory reset has been completed");
 }
 
 
-/* AES-GCM decrypt/encrypt one 16-byte block STATE using the 128-bit KEY,
-   leaving the decrypted/encrypted output in the STATE buffer. */
+
 void aes_gcm_encrypt (uint8_t * state, uint8_t * iv1, const uint8_t * key, int len) {
 GCM<AES256> gcm; 
 uint8_t iv2[12];

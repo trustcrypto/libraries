@@ -284,7 +284,7 @@ extern void onlykey_eeset_failedlogins(uint8_t *ptr);
 extern int  onlykey_eeget_noncehash (uint8_t *ptr, int size);
 extern void onlykey_eeset_noncehash(uint8_t *ptr);
 
-extern int  onlykey_eeget_pinhash (uint8_t *ptr, int size);
+extern int onlykey_eeget_pinhash (uint8_t *ptr, int size);
 extern void onlykey_eeset_pinhash(uint8_t *ptr);
 
 extern int  onlykey_eeget_selfdestructhash (uint8_t *ptr);

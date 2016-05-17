@@ -62,10 +62,10 @@ int onlykey_eeget_pinhash (uint8_t *ptr, int size) {
     onlykey_eeget_common(ptr, EEpos_pinhash, size);
     int value = 0;
     int i;
-    for (i=0; i<=size; i++) {
+    for (i=0; i<size; i++) {
     value = value+(ptr+i);
     }
-    return value;
+    if (value > 0) return value;
 }
 void onlykey_eeset_pinhash (uint8_t *ptr) {
     onlykey_eeset_common(ptr, EEpos_pinhash, EElen_pinhash);
