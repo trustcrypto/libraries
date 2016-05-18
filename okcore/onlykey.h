@@ -182,6 +182,24 @@ extern int PINSET;
 extern int u2f_button;
 extern void aes_gcm_encrypt (uint8_t * state, uint8_t * iv1, const uint8_t * key, int len);
 extern int aes_gcm_decrypt (uint8_t * state, uint8_t * iv1, const uint8_t * key, int len);
+extern int onlykey_eeget_noncehash (uint8_t *ptr, int size);
+extern void onlykey_eeset_noncehash (uint8_t *ptr);
+extern int onlykey_eeget_pinhash (uint8_t *ptr, int size);
+extern void onlykey_eeset_pinhash (uint8_t *ptr); 
+extern int onlykey_eeget_selfdestructhash (uint8_t *ptr);
+extern void onlykey_eeset_selfdestructhash (uint8_t *ptr);
+extern int onlykey_eeget_plausdenyhash (uint8_t *ptr);
+extern void onlykey_eeset_plausdenyhash (uint8_t *ptr);
+extern void onlykey_flashset_plausdenyhash (uint8_t *ptr);
+extern int onlykey_flashget_plausdenyhash (uint8_t *ptr);
+extern void onlykey_flashset_selfdestructhash (uint8_t *ptr);
+extern int onlykey_flashget_selfdestructhash (uint8_t *ptr);
+extern void onlykey_flashset_pinhash (uint8_t *ptr);
+extern int onlykey_flashget_pinhash (uint8_t *ptr, int size);
+extern void onlykey_flashset_noncehash (uint8_t *ptr);
+extern int onlykey_flashget_noncehash (uint8_t *ptr, int size);
+extern void onlykey_flashset_common (uint8_t *ptr, uintptr_t adr, int len);
+extern void onlykey_flashget_common (uint8_t *ptr, uintptr_t adr, int len);
 
 #ifdef __cplusplus
 }

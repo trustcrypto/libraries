@@ -9,6 +9,7 @@
 #include <avr/eeprom.h>
 #include "okeeprom.h"
 
+
 /*********************************/
 
 void onlykey_eeget_common(
@@ -44,56 +45,6 @@ void onlykey_eeset_failedlogins (uint8_t *ptr) {
 
 /*********************************/
 
-/*********************************/
-
-int onlykey_eeget_noncehash (uint8_t *ptr, int size) {
-    onlykey_eeget_common(ptr, EEpos_noncehash , size);
-    return EElen_noncehash;
-}
-void onlykey_eeset_noncehash (uint8_t *ptr) {
-    onlykey_eeset_common(ptr, EEpos_noncehash, EElen_noncehash);
-}
-
-/*********************************/
-
-/*********************************/
-
-int onlykey_eeget_pinhash (uint8_t *ptr, int size) {
-    onlykey_eeget_common(ptr, EEpos_pinhash, size);
-    int value = 0;
-    int i;
-    for (i=0; i<size; i++) {
-    value = value+(ptr+i);
-    }
-    if (value > 0) return value;
-}
-void onlykey_eeset_pinhash (uint8_t *ptr) {
-    onlykey_eeset_common(ptr, EEpos_pinhash, EElen_pinhash);
-}
-
-/*********************************/
-/*********************************/
-
-int onlykey_eeget_selfdestructhash (uint8_t *ptr) {
-    onlykey_eeget_common(ptr, EEpos_selfdestructhash, EElen_selfdestructhash);
-    return EElen_selfdestructhash;
-}
-void onlykey_eeset_selfdestructhash (uint8_t *ptr) {
-    onlykey_eeset_common(ptr, EEpos_selfdestructhash, EElen_selfdestructhash);
-}
-
-/*********************************/
-/*********************************/
-
-int onlykey_eeget_plausdenyhash (uint8_t *ptr) {
-    onlykey_eeget_common(ptr, EEpos_plausdenyhash, EElen_plausdenyhash);
-    return EElen_plausdenyhash;
-}
-void onlykey_eeset_plausdenyhash (uint8_t *ptr) {
-    onlykey_eeset_common(ptr, EEpos_plausdenyhash, EElen_plausdenyhash);
-}
-
-/*********************************/
 
 
 /*********************************/
@@ -139,6 +90,17 @@ int onlykey_eeget_U2Fcertpos (uint8_t *ptr) {
 }
 void onlykey_eeset_U2Fcertpos (uint8_t *ptr) {
     onlykey_eeset_common(ptr, EEpos_U2Fcertpos, EElen_U2Fcertpos);
+}
+
+/*********************************/
+/*********************************/
+
+int onlykey_eeget_hashpos (uint8_t *ptr) {
+    onlykey_eeget_common(ptr, EEpos_hashpos, EElen_hashpos);
+    return EElen_hashpos;
+}
+void onlykey_eeset_hashpos (uint8_t *ptr) {
+    onlykey_eeset_common(ptr, EEpos_hashpos, EElen_hashpos);
 }
 
 /*********************************/
