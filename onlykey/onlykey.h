@@ -1,4 +1,4 @@
-/* okcore.h
+/* onlykey.h
 */
 
 /*
@@ -32,10 +32,10 @@
  *
 */
  
-#ifndef ONLYKEYCORE_H
-#define ONLYKEYCORE_H
+#ifndef ONLYKEY_H
+#define ONLYKEY_H
 
-#include "onlykey.h">
+#include "okcore.h"
 
 #ifdef __cplusplus
 extern "C"
