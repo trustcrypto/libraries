@@ -2048,7 +2048,7 @@ if (!gcm.checkTag(tag, sizeof(tag))) {
     return 1;
 }
 }
-<<<<<<< HEAD:okcore/okcore.cpp
+
 /*************************************/
 void onlykey_flashget_common (uint8_t *ptr, unsigned long *adr, int len) {
     for( int z = 0; z <= len-4; z=z+4){
@@ -2219,6 +2219,3 @@ void onlykey_flashset_plausdenyhash (uint8_t *ptr) {
 /*********************************/
 
 
-=======
-/*************************************/
->>>>>>> 33de7800f40be7a3dda223cd641c2aa5529a4fd9:onlykey/okcore.cpp
