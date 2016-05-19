@@ -1662,84 +1662,63 @@ void WIPESLOT (byte *buffer)
         Serial.print(buffer[z], HEX);
         }
      Serial.print("Overwriting slot with 0s");
+   	if (PDmode) slot = slot+12;
    
-            switch (value) {
-            case 1:
             //Set value in EEPROM
             Serial.println(); //newline
             Serial.print("Wiping Label Value...");
             onlykey_eeset_label((buffer + 7), EElen_label, slot);
             hidprint("Successfully wiped Label");
-            return;
-            break;
-            case 2:
+
             //Set value in EEPROM
             Serial.println(); //newline
             Serial.print("Wiping Username Value...");
             onlykey_eeset_username((buffer + 7), EElen_username, slot);
             hidprint("Successfully wiped Username");
-            return;
-            break;
-            case 3:
+
             //Set value in EEPROM
             Serial.println(); //newline
             Serial.print("Wiping Additional Character1 Value...");
             onlykey_eeset_addchar1((buffer + 7), slot);
             hidprint("Successfully wiped Additional Character 1");
-            return;
-            break;
-            case 4:
+
             //Set value in EEPROM
             Serial.println(); //newline
             Serial.print("Writing Delay1 to EEPROM...");
             onlykey_eeset_delay1((buffer + 7), slot);
             hidprint("Successfully wiped Delay 1");
-            return;
-            break;
-            case 5:
+
             //Set value in EEPROM
             Serial.println(); //newline
             Serial.print("Wiping Password Value...");
             onlykey_eeset_password((buffer + 7), EElen_password, slot);
             hidprint("Successfully wiped Password");
-            return;
-            break;
-            case 6:
+
             //Set value in EEPROM
             Serial.println(); //newline
             Serial.print("Wiping Additional Character2 Value...");
             onlykey_eeset_addchar2((buffer + 7), slot);
             hidprint("Successfully wiped Additional Character 2");
-            return;
-            break;
-            case 7:
+            
+	    if (PDmode) return;
             //Set value in EEPROM
             Serial.println(); //newline
             Serial.print("Wiping Delay2 Value...");
             onlykey_eeset_delay2((buffer + 7), slot);
             hidprint("Successfully wiped Delay 2");
-            return;
-            break;
-            case 8:
-            if (PDmode) return;
+	    
             //Set value in EEPROM
             Serial.println(); //newline
             Serial.print("Wiping 2FA Type Value...");
             onlykey_eeset_2FAtype((buffer + 7), slot);
             hidprint("Successfully wiped 2FA Type");
-            return;
-            break;
-            case 9:
-            if (PDmode) return;
+
             //Set value in EEPROM
             Serial.println(); //newline
             Serial.print("Writing TOTP Key to EEPROM...");
             onlykey_eeset_totpkey((buffer + 7), EElen_totpkey, slot);
             hidprint("Successfully wiped TOTP Key");
-            return;
-            break;
-            case 10:
-            if (PDmode) return;
+
             //Set value in EEPROM
             Serial.println(); //newline
             Serial.print("Wiping onlykey AES Key, Priviate ID, and Public ID...");
@@ -1747,11 +1726,7 @@ void WIPESLOT (byte *buffer)
             onlykey_eeset_private((buffer + 7 + EElen_aeskey));
             onlykey_eeset_public((buffer + 7 + EElen_aeskey + EElen_private), EElen_public);
             hidprint("Successfully wiped AES Key, Priviate ID, and Public ID");
-            return;
-            break;
-            default: 
-            break;
-          }
+
       blink(3);
       return;
 }
