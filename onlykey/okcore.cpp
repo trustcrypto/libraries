@@ -1356,89 +1356,89 @@ void GETLABELS (byte *buffer)
 	  uint8_t label[EElen_label+2];
 	  uint8_t *ptr;
 	  char labelchar[EElen_label+2];
-	  int oflashset = 0;
+	  int offset  = 0;
 	  ptr=label+2;
 	  delay(20);
-	  if (PDmode) oflashset = 12;
+	  if (PDmode) offset = 12;
 	  
-	  onlykey_eeget_label(ptr, (oflashset + 1));
+	  onlykey_eeget_label(ptr, (offset + 1));
 	  ByteToChar(label, labelchar, EElen_label);
 	  label[0] = (byte)0x01;
 	  label[1] = (byte)0x7C;
 	  hidprint(labelchar);
 	  delay(20);
 	  
-	  onlykey_eeget_label(ptr, (oflashset + 2));
+	  onlykey_eeget_label(ptr, (offset   + 2));
 	  ByteToChar(label, labelchar, EElen_label);
 	  label[0] = (byte)0x02;
 	  label[1] = (byte)0x7C;
       	  hidprint(labelchar);
       	  delay(20);
 	  
-	  onlykey_eeget_label(ptr, (oflashset + 3));
+	  onlykey_eeget_label(ptr, (offset  + 3));
 	  ByteToChar(label, labelchar, EElen_label);
 	  label[0] = (byte)0x03;
 	  label[1] = (byte)0x7C;
           hidprint(labelchar);
           delay(20);
 	  
-	  onlykey_eeget_label(ptr, (oflashset + 4));
+	  onlykey_eeget_label(ptr, (offset  + 4));
 	  ByteToChar(label, labelchar, EElen_label);
 	  label[0] = (byte)0x04;
 	  label[1] = (byte)0x7C;
           hidprint(labelchar);
           delay(20);
 	  
-	  onlykey_eeget_label(ptr, (oflashset + 5));
+	  onlykey_eeget_label(ptr, (offset  + 5));
 	  ByteToChar(label, labelchar, EElen_label);
 	  label[0] = (byte)0x05;
 	  label[1] = (byte)0x7C;
           hidprint(labelchar);
           delay(20);
 	  
-	  onlykey_eeget_label(ptr, (oflashset + 6));
+	  onlykey_eeget_label(ptr, (offset  + 6));
 	  ByteToChar(label, labelchar, EElen_label);
 	  label[0] = (byte)0x06;
 	  label[1] = (byte)0x7C;
           hidprint(labelchar);
           delay(20);
 	  
-	  onlykey_eeget_label(ptr, (oflashset + 7));
+	  onlykey_eeget_label(ptr, (offset  + 7));
 	  ByteToChar(label, labelchar, EElen_label);
 	  label[0] = (byte)0x07;
 	  label[1] = (byte)0x7C;
           hidprint(labelchar);
           delay(20);
 	  
-	  onlykey_eeget_label(ptr, (oflashset + 8));
+	  onlykey_eeget_label(ptr, (offset  + 8));
 	  ByteToChar(label, labelchar, EElen_label);
 	  label[0] = (byte)0x08;
 	  label[1] = (byte)0x7C;
           hidprint(labelchar);
           delay(20);
 	  
-	  onlykey_eeget_label(ptr, (oflashset + 9));
+	  onlykey_eeget_label(ptr, (offset  + 9));
 	  ByteToChar(label, labelchar, EElen_label);
 	  label[0] = (byte)0x09;
 	  label[1] = (byte)0x7C;
           hidprint(labelchar);
           delay(20);
 	  
-	  onlykey_eeget_label(ptr, (oflashset + 10));
+	  onlykey_eeget_label(ptr, (offset  + 10));
 	  ByteToChar(label, labelchar, EElen_label);
 	  label[0] = (byte)0x10;
 	  label[1] = (byte)0x7C;
           hidprint(labelchar);
           delay(20);
 	  
-	  onlykey_eeget_label(ptr, (oflashset + 11));
+	  onlykey_eeget_label(ptr, (offset  + 11));
 	  ByteToChar(label, labelchar, EElen_label);
 	  label[0] = (byte)0x11;
 	  label[1] = (byte)0x7C;
           hidprint(labelchar);
           delay(20);
 	  
-	  onlykey_eeget_label(ptr, (oflashset + 12));
+	  onlykey_eeget_label(ptr, (offset  + 12));
 	  ByteToChar(label, labelchar, EElen_label);
 	  label[0] = (byte)0x12;
 	  label[1] = (byte)0x7C;
