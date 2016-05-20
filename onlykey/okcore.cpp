@@ -1609,7 +1609,7 @@ void SETSLOT (byte *buffer)
             }
             Serial.println();
             #endif    
-            onlykey_eeset_totpkey(buffer + 7, length, slot);
+            onlykey_flashset_totpkey(buffer + 7, length, slot);
 	    hidprint("Successfully set TOTP Key");
             return;
             //break;
@@ -1636,6 +1636,13 @@ void SETSLOT (byte *buffer)
             onlykey_eeset_private((buffer + 7 + EElen_aeskey));
             onlykey_eeset_public((buffer + 7 + EElen_aeskey + EElen_private), EElen_public);
 	    hidprint("Successfully set onlykey AES Key, Priviate ID, and Public ID");
+            return;
+            case 11:
+            //Set value in EEPROM
+            Serial.println(); //newline
+            Serial.println("Writing idle timeout to EEPROM...");
+            onlykey_eeset_timeout(buffer + 7);
+	    hidprint("Successfully set idle timeout");
             return;
             //break;
             default: 
@@ -1716,7 +1723,7 @@ void WIPESLOT (byte *buffer)
             //Set value in EEPROM
             Serial.println(); //newline
             Serial.print("Writing TOTP Key to EEPROM...");
-            onlykey_eeset_totpkey((buffer + 7), EElen_totpkey, slot);
+            onlykey_flashset_totpkey((buffer + 7), EElen_totpkey, slot);
             hidprint("Successfully wiped TOTP Key");
 
             //Set value in EEPROM
@@ -2053,7 +2060,6 @@ void onlykey_flashget_common (uint8_t *ptr, unsigned long *adr, int len) {
  	Serial.printf(" 0x%X", *ptr);
  	ptr++;
 	}
-	Serial.printf(" 0x%X", *adr);
 	return;
 }
 
@@ -2079,7 +2085,7 @@ int onlykey_flashget_noncehash (uint8_t *ptr, int size) {
     	return 0;
     }
     else {
-    unsigned long address = (0x01 << 16L) | (addr[0] << 8L) | addr[1];
+    unsigned long address = (0x02 << 16L) | (addr[0] << 8L) | addr[1];
     
     onlykey_flashget_common(ptr, (unsigned long*)address, size);
     return 1;
@@ -2090,7 +2096,7 @@ void onlykey_flashset_noncehash (uint8_t *ptr) {
     uintptr_t adr;
     onlykey_eeget_hashpos(addr);
     if (addr[0]+addr[1] == 0) { //First time setting pinhash
-    	adr = flashFirstEmptySector();
+    	adr = 0x20004;
     	Serial.printf("First empty Sector is 0x%X\r\n", flashFirstEmptySector());
     	addr[0] = (uint8_t)((adr >> 8) & 0XFF); //convert long to array
     	Serial.print("addr 1 = "); //TODO debug remove
@@ -2105,12 +2111,11 @@ void onlykey_flashset_noncehash (uint8_t *ptr) {
     onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_noncehash);
     }
     else {
-      uintptr_t adr = (0x01 << 16L) | (addr[0] << 8L) | addr[1];
+      uintptr_t adr = (0x02 << 16L) | (addr[0] << 8L) | addr[1];
       onlykey_flashset_common(ptr, (unsigned long*)adr, EElen_noncehash);
       Serial.print("Nonce hash address =");
     Serial.println(adr, HEX);
     Serial.print("Nonce hash value =");
-    Serial.printf(" 0x%X", (unsigned long*)adr);
       onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_noncehash);
       }    
     
@@ -2128,7 +2133,7 @@ int onlykey_flashget_pinhash (uint8_t *ptr, int size) {
     	return 0;
     }
     else {
-      uintptr_t adr =  (0x01 << 16L) | (addr[0] << 8L) | addr[1];
+      uintptr_t adr =  (0x02 << 16L) | (addr[0] << 8L) | addr[1];
       onlykey_flashget_common(ptr, (unsigned long*)(adr+100), EElen_pinhash);
       }
     return 1;
@@ -2140,12 +2145,11 @@ void onlykey_flashset_pinhash (uint8_t *ptr) {
     	return;
     }
     else {
-    uintptr_t adr = (0x01 << 16L) | (addr[0] << 8L) | addr[1];
+    uintptr_t adr = (0x02 << 16L) | (addr[0] << 8L) | addr[1];
     onlykey_flashset_common(ptr, (unsigned long*)(adr+100), EElen_pinhash);
     Serial.print("PIN hash address =");
-    Serial.println(adr+EElen_pinhash, HEX);
+    Serial.println(adr+100, HEX);
     Serial.print("PIN hash value =");
-    Serial.printf(" 0x%X", (unsigned long*)(adr+EElen_pinhash));
     onlykey_flashget_common(ptr, (unsigned long*)(adr+100), EElen_pinhash);
     }
 }
@@ -2160,7 +2164,7 @@ int onlykey_flashget_selfdestructhash (uint8_t *ptr) {
     	return 0;
     }
     else {
-    uintptr_t adr =  (0x01 << 16L) | (addr[0] << 8L) | addr[1];
+    uintptr_t adr =  (0x02 << 16L) | (addr[0] << 8L) | addr[1];
     onlykey_flashget_common(ptr, (unsigned long*)(adr+200), EElen_selfdestructhash);
     }
 }
@@ -2171,7 +2175,7 @@ void onlykey_flashset_selfdestructhash (uint8_t *ptr) {
     	return;
     }
     else {
-    uintptr_t adr =  (0x01 << 16L) | (addr[0] << 8L) | addr[1];
+    uintptr_t adr =  (0x02 << 16L) | (addr[0] << 8L) | addr[1];
     onlykey_flashset_common(ptr, (unsigned long*)(adr+200), EElen_selfdestructhash);
     }
 }
@@ -2186,7 +2190,7 @@ int onlykey_flashget_plausdenyhash (uint8_t *ptr) {
     	return 0;
     }
     else {
-    uintptr_t adr =  (0x01 << 16L) | (addr[0] << 8L) | addr[1];
+    uintptr_t adr =  (0x02 << 16L) | (addr[0] << 8L) | addr[1];
     onlykey_flashget_common(ptr, (unsigned long*)(adr+300), EElen_plausdenyhash);
     }
 }
@@ -2197,11 +2201,215 @@ void onlykey_flashset_plausdenyhash (uint8_t *ptr) {
     	return;
     }
     else {
-    uintptr_t adr =  (0x01 << 16L) | (addr[0] << 8L) | addr[1];
+    uintptr_t adr =  (0x02 << 16L) | (addr[0] << 8L) | addr[1];
     onlykey_flashset_common(ptr, (unsigned long*)(adr+300), EElen_plausdenyhash);
     }
 }
 
 /*********************************/
+
+
+int onlykey_flashget_totpkey (uint8_t *ptr, int slot) {
+    uint8_t addr[2];
+    onlykey_eeget_hashpos(addr);
+    if (addr[0]+addr[1] == 0) { //pinhash not set
+    	return 0;
+    }
+    else {
+    uintptr_t adr =  (0x02 << 16L) | (addr[0] << 8L) | addr[1];
+    
+	switch (slot) {
+		uint8_t length;
+		int size;
+        	case 1:
+			onlykey_eeget_totpkeylen1(&length);
+			size = (int) length;
+			if (size > EElen_totpkey) size = EElen_totpkey;
+			onlykey_flashget_common(ptr, (unsigned long*)(adr+400), EElen_totpkey);
+			return size;
+            break;
+		case 2:
+			onlykey_eeget_totpkeylen2(&length);
+			size = (int) length;
+			if (size > EElen_totpkey) size = EElen_totpkey;
+			onlykey_flashget_common(ptr, (unsigned long*)(adr+500), EElen_totpkey);
+			return size;
+            break;
+		case 3:
+			onlykey_eeget_totpkeylen3(&length);
+			size = (int) length;
+			if (size > EElen_totpkey) size = EElen_totpkey;
+			onlykey_flashget_common(ptr, (unsigned long*)(adr+600), EElen_totpkey);
+			return size;
+            break;
+		case 4:
+			onlykey_eeget_totpkeylen4(&length);
+			size = (int) length;
+			if (size > EElen_totpkey) size = EElen_totpkey;
+			onlykey_flashget_common(ptr, (unsigned long*)(adr+700), EElen_totpkey);
+			return size;
+            break;
+		case 5:
+			onlykey_eeget_totpkeylen5(&length);
+			size = (int) length;
+			if (size > EElen_totpkey) size = EElen_totpkey;
+			onlykey_flashget_common(ptr, (unsigned long*)(adr+800), EElen_totpkey);
+			return size;
+            break;
+		case 6:
+			onlykey_eeget_totpkeylen6(&length);
+			size = (int) length;
+			if (size > EElen_totpkey) size = EElen_totpkey;
+			onlykey_flashget_common(ptr, (unsigned long*)(adr+900), EElen_totpkey);
+			return size;
+            break;
+		case 7:
+			onlykey_eeget_totpkeylen7(&length);
+			size = (int) length;
+			if (size > EElen_totpkey) size = EElen_totpkey;
+			onlykey_flashget_common(ptr, (unsigned long*)(adr+1000), EElen_totpkey);
+			return size;
+            break;
+		case 8:
+			onlykey_eeget_totpkeylen8(&length);
+			size = (int) length;
+			if (size > EElen_totpkey) size = EElen_totpkey;
+			onlykey_flashget_common(ptr, (unsigned long*)(adr+1100), EElen_totpkey);
+			return size;
+            break;
+		case 9:
+			onlykey_eeget_totpkeylen9(&length);
+			size = (int) length;
+			if (size > EElen_totpkey) size = EElen_totpkey;
+			onlykey_flashget_common(ptr, (unsigned long*)(adr+1200), EElen_totpkey);
+			return size;
+            break;
+		case 10:
+			onlykey_eeget_totpkeylen10(&length);
+			size = (int) length;
+			if (size > EElen_totpkey) size = EElen_totpkey;
+			onlykey_flashget_common(ptr, (unsigned long*)(adr+1300), EElen_totpkey);
+			return size;
+            break;
+		case 11:
+			onlykey_eeget_totpkeylen11(&length);
+			size = (int) length;
+			if (size > EElen_totpkey) size = EElen_totpkey;
+			onlykey_flashget_common(ptr, (unsigned long*)(adr+1400), EElen_totpkey);
+			return size;
+            break;
+		case 12:
+			onlykey_eeget_totpkeylen12(&length);
+			size = (int) length;
+			if (size > EElen_totpkey) size = EElen_totpkey;
+			onlykey_flashget_common(ptr, (unsigned long*)(adr+1500), EElen_totpkey);
+			return size;
+            break;
+			
+	}
+    }
+
+}
+
+void onlykey_flashset_totpkey (uint8_t *ptr, int size, int slot) {
+    uint8_t addr[2];
+    onlykey_eeget_hashpos(addr);
+    if (addr[0]+addr[1] == 0) { //pinhash not set
+    	return;
+    }
+    else {
+    uintptr_t adr =  (0x02 << 16L) | (addr[0] << 8L) | addr[1];
+		switch (slot) {
+			uint8_t length;
+        case 1:
+		if (size > EElen_totpkey) size = EElen_totpkey;
+			if (size > EElen_totpkey) size = EElen_totpkey;
+			onlykey_flashset_common(ptr, (unsigned long*)(adr+400), EElen_totpkey);
+			length = (uint8_t) size;
+			onlykey_eeset_totpkeylen1(&length);
+            break;
+		case 2:
+		if (size > EElen_totpkey) size = EElen_totpkey;
+			if (size > EElen_totpkey) size = EElen_totpkey;
+			onlykey_flashset_common(ptr, (unsigned long*)(adr+500), EElen_totpkey);
+			length = (uint8_t) size;
+			onlykey_eeset_totpkeylen2(&length);
+            break;
+		case 3:
+		if (size > EElen_totpkey) size = EElen_totpkey;
+			if (size > EElen_totpkey) size = EElen_totpkey;
+			onlykey_flashset_common(ptr, (unsigned long*)(adr+600), EElen_totpkey);
+			length = (uint8_t) size;
+			onlykey_eeset_totpkeylen3(&length);
+            break;
+		case 4:
+		if (size > EElen_totpkey) size = EElen_totpkey;
+			if (size > EElen_totpkey) size = EElen_totpkey;
+			onlykey_flashset_common(ptr, (unsigned long*)(adr+700), EElen_totpkey);
+			length = (uint8_t) size;
+			onlykey_eeset_totpkeylen4(&length);
+            break;
+		case 5:
+		if (size > EElen_totpkey) size = EElen_totpkey;
+			if (size > EElen_totpkey) size = EElen_totpkey;
+			onlykey_flashset_common(ptr, (unsigned long*)(adr+800), EElen_totpkey);
+			length = (uint8_t) size;
+			onlykey_eeset_totpkeylen5(&length);
+            break;
+		case 6:
+		if (size > EElen_totpkey) size = EElen_totpkey;
+			if (size > EElen_totpkey) size = EElen_totpkey;
+			onlykey_flashset_common(ptr, (unsigned long*)(adr+900), EElen_totpkey);
+			length = (uint8_t) size;
+			onlykey_eeset_totpkeylen6(&length);
+            break;
+		case 7:
+		if (size > EElen_totpkey) size = EElen_totpkey;
+			if (size > EElen_totpkey) size = EElen_totpkey;
+			onlykey_flashset_common(ptr, (unsigned long*)(adr+1000), EElen_totpkey);
+			length = (uint8_t) size;
+			onlykey_eeset_totpkeylen7(&length);
+            break;
+		case 8:
+		if (size > EElen_totpkey) size = EElen_totpkey;
+			if (size > EElen_totpkey) size = EElen_totpkey;
+			onlykey_flashset_common(ptr, (unsigned long*)(adr+1100), EElen_totpkey);
+			length = (uint8_t) size;
+			onlykey_eeset_totpkeylen8(&length);
+            break;
+		case 9:
+		if (size > EElen_totpkey) size = EElen_totpkey;
+			if (size > EElen_totpkey) size = EElen_totpkey;
+			onlykey_flashset_common(ptr, (unsigned long*)(adr+1200), EElen_totpkey);
+			length = (uint8_t) size;
+			onlykey_eeset_totpkeylen9(&length);
+            break;
+		case 10:
+		if (size > EElen_totpkey) size = EElen_totpkey;
+			if (size > EElen_totpkey) size = EElen_totpkey;
+			onlykey_flashset_common(ptr, (unsigned long*)(adr+1300), EElen_totpkey);
+			length = (uint8_t) size;
+			onlykey_eeset_totpkeylen10(&length);
+            break;
+		case 11:
+		if (size > EElen_totpkey) size = EElen_totpkey;
+			if (size > EElen_totpkey) size = EElen_totpkey;
+			onlykey_flashset_common(ptr, (unsigned long*)(adr+1400), EElen_totpkey);
+			length = (uint8_t) size;
+			onlykey_eeset_totpkeylen11(&length);
+            break;
+		case 12:
+		if (size > EElen_totpkey) size = EElen_totpkey;
+			if (size > EElen_totpkey) size = EElen_totpkey;
+			onlykey_flashset_common(ptr, (unsigned long*)(adr+1500), EElen_totpkey);
+			length = (uint8_t) size;
+			onlykey_eeset_totpkeylen11(&length);
+            break;
+	}
+    }
+}
+
+/*********************************/
+
 
 

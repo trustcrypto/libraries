@@ -102,13 +102,10 @@ extern "C"
 #define EElen_hashpos		2
 #define EElen_failedlogins	1
 #define EElen_U2Fcounter	2
+#define EElen_timeout	1
 
 #define EEpos_U2Fcounter	0
-#define EEpos_noncehash	(EEpos_U2Fcounter + EElen_U2Fcounter)
-#define EEpos_pinhash	(EEpos_noncehash + EElen_noncehash)
-#define EEpos_selfdestructhash	(EEpos_pinhash + EElen_pinhash)
-#define EEpos_plausdenyhash	(EEpos_selfdestructhash + EElen_selfdestructhash)
-#define EEpos_aeskey	(EEpos_plausdenyhash + EElen_plausdenyhash)
+#define EEpos_aeskey	(EEpos_U2Fcounter + EElen_U2Fcounter)
 #define EEpos_public	(EEpos_aeskey + EElen_aeskey)
 #define EEpos_private	(EEpos_public + EElen_public)
 #define EEpos_counter	(EEpos_private + EElen_private)
@@ -125,8 +122,20 @@ extern "C"
 #define EEpos_label10	(EEpos_label9 + EElen_label)
 #define EEpos_label11	(EEpos_label10 + EElen_label)
 #define EEpos_label12	(EEpos_label11 + EElen_label)
+#define EEpos_label13	(EEpos_label12 + EElen_label)
+#define EEpos_label14	(EEpos_label13 + EElen_label)
+#define EEpos_label15	(EEpos_label14 + EElen_label)
+#define EEpos_label16	(EEpos_label15 + EElen_label)
+#define EEpos_label17	(EEpos_label16 + EElen_label)
+#define EEpos_label18	(EEpos_label17 + EElen_label)
+#define EEpos_label19	(EEpos_label18 + EElen_label)
+#define EEpos_label20	(EEpos_label19 + EElen_label)
+#define EEpos_label21	(EEpos_label20 + EElen_label)
+#define EEpos_label22	(EEpos_label21 + EElen_label)
+#define EEpos_label23	(EEpos_label22 + EElen_label)
+#define EEpos_label24	(EEpos_label23 + EElen_label)
 
-#define EEpos_username1	(EEpos_label12 + EElen_label)
+#define EEpos_username1	(EEpos_label24 + EElen_label)
 #define EEpos_username2	(EEpos_username1 + EElen_username)
 #define EEpos_username3	(EEpos_username2 + EElen_username)
 #define EEpos_username4	(EEpos_username3 + EElen_username)
@@ -138,8 +147,20 @@ extern "C"
 #define EEpos_username10	(EEpos_username9 + EElen_username)
 #define EEpos_username11	(EEpos_username10 + EElen_username)
 #define EEpos_username12	(EEpos_username11 + EElen_username)
+#define EEpos_username13	(EEpos_username12 + EElen_username)
+#define EEpos_username14	(EEpos_username13 + EElen_username)
+#define EEpos_username15	(EEpos_username14 + EElen_username)
+#define EEpos_username16	(EEpos_username15 + EElen_username)
+#define EEpos_username17	(EEpos_username16 + EElen_username)
+#define EEpos_username18	(EEpos_username17 + EElen_username)
+#define EEpos_username19	(EEpos_username18 + EElen_username)
+#define EEpos_username20	(EEpos_username19 + EElen_username)
+#define EEpos_username21	(EEpos_username20 + EElen_username)
+#define EEpos_username22	(EEpos_username21 + EElen_username)
+#define EEpos_username23	(EEpos_username22 + EElen_username)
+#define EEpos_username24	(EEpos_username23 + EElen_username)
 
-#define EEpos_username1len	(EEpos_username12 + EElen_username)
+#define EEpos_username1len	(EEpos_username24 + EElen_username)
 #define EEpos_username2len	(EEpos_username1len + EElen_usernamelen)
 #define EEpos_username3len	(EEpos_username2len + EElen_usernamelen)
 #define EEpos_username4len	(EEpos_username3len + EElen_usernamelen)
@@ -151,8 +172,20 @@ extern "C"
 #define EEpos_username10len	(EEpos_username9len + EElen_usernamelen)
 #define EEpos_username11len	(EEpos_username10len + EElen_usernamelen)
 #define EEpos_username12len	(EEpos_username11len + EElen_usernamelen)
+#define EEpos_username13len	(EEpos_username12len + EElen_usernamelen)
+#define EEpos_username14len	(EEpos_username13len + EElen_usernamelen)
+#define EEpos_username15len	(EEpos_username14len + EElen_usernamelen)
+#define EEpos_username16len	(EEpos_username15len + EElen_usernamelen)
+#define EEpos_username17len	(EEpos_username16len + EElen_usernamelen)
+#define EEpos_username18len	(EEpos_username17len + EElen_usernamelen)
+#define EEpos_username19len	(EEpos_username18len + EElen_usernamelen)
+#define EEpos_username20len	(EEpos_username19len + EElen_usernamelen)
+#define EEpos_username21len	(EEpos_username20len + EElen_usernamelen)
+#define EEpos_username22len	(EEpos_username21len + EElen_usernamelen)
+#define EEpos_username23len	(EEpos_username22len + EElen_usernamelen)
+#define EEpos_username24len	(EEpos_username23len + EElen_usernamelen)
 
-#define EEpos_addchar1_1	(EEpos_username12len + EElen_usernamelen)
+#define EEpos_addchar1_1	(EEpos_username24len + EElen_usernamelen)
 #define EEpos_addchar1_2	(EEpos_addchar1_1 + EElen_addchar)
 #define EEpos_addchar1_3	(EEpos_addchar1_2 + EElen_addchar)
 #define EEpos_addchar1_4	(EEpos_addchar1_3 + EElen_addchar)
@@ -164,8 +197,20 @@ extern "C"
 #define EEpos_addchar1_10	(EEpos_addchar1_9 + EElen_addchar)
 #define EEpos_addchar1_11	(EEpos_addchar1_10 + EElen_addchar)
 #define EEpos_addchar1_12	(EEpos_addchar1_11 + EElen_addchar)
+#define EEpos_addchar1_13	(EEpos_addchar1_12 + EElen_addchar)
+#define EEpos_addchar1_14	(EEpos_addchar1_13 + EElen_addchar)
+#define EEpos_addchar1_15	(EEpos_addchar1_14 + EElen_addchar)
+#define EEpos_addchar1_16	(EEpos_addchar1_15 + EElen_addchar)
+#define EEpos_addchar1_17	(EEpos_addchar1_16 + EElen_addchar)
+#define EEpos_addchar1_18	(EEpos_addchar1_17 + EElen_addchar)
+#define EEpos_addchar1_19	(EEpos_addchar1_18 + EElen_addchar)
+#define EEpos_addchar1_20	(EEpos_addchar1_19 + EElen_addchar)
+#define EEpos_addchar1_21	(EEpos_addchar1_20 + EElen_addchar)
+#define EEpos_addchar1_22	(EEpos_addchar1_21 + EElen_addchar)
+#define EEpos_addchar1_23	(EEpos_addchar1_22 + EElen_addchar)
+#define EEpos_addchar1_24	(EEpos_addchar1_23 + EElen_addchar)
 
-#define EEpos_delay1_1	(EEpos_addchar1_12 + EElen_addchar)
+#define EEpos_delay1_1	(EEpos_addchar1_24 + EElen_addchar)
 #define EEpos_delay1_2	(EEpos_delay1_1 + EElen_delay)
 #define EEpos_delay1_3	(EEpos_delay1_2 + EElen_delay)
 #define EEpos_delay1_4	(EEpos_delay1_3 + EElen_delay)
@@ -177,8 +222,20 @@ extern "C"
 #define EEpos_delay1_10	(EEpos_delay1_9 + EElen_delay)
 #define EEpos_delay1_11	(EEpos_delay1_10 + EElen_delay)
 #define EEpos_delay1_12	(EEpos_delay1_11 + EElen_delay)
+#define EEpos_delay1_13	(EEpos_delay1_12 + EElen_delay)
+#define EEpos_delay1_14	(EEpos_delay1_13 + EElen_delay)
+#define EEpos_delay1_15	(EEpos_delay1_14 + EElen_delay)
+#define EEpos_delay1_16	(EEpos_delay1_15 + EElen_delay)
+#define EEpos_delay1_17	(EEpos_delay1_16 + EElen_delay)
+#define EEpos_delay1_18	(EEpos_delay1_17 + EElen_delay)
+#define EEpos_delay1_19	(EEpos_delay1_18 + EElen_delay)
+#define EEpos_delay1_20	(EEpos_delay1_19 + EElen_delay)
+#define EEpos_delay1_21	(EEpos_delay1_20 + EElen_delay)
+#define EEpos_delay1_22	(EEpos_delay1_21 + EElen_delay)
+#define EEpos_delay1_23	(EEpos_delay1_22 + EElen_delay)
+#define EEpos_delay1_24	(EEpos_delay1_23 + EElen_delay)
 
-#define EEpos_password1	(EEpos_delay1_12 + EElen_delay)
+#define EEpos_password1	(EEpos_delay1_24 + EElen_delay)
 #define EEpos_password2	(EEpos_password1 + EElen_password)
 #define EEpos_password3	(EEpos_password2 + EElen_password)
 #define EEpos_password4	(EEpos_password3 + EElen_password)
@@ -190,8 +247,20 @@ extern "C"
 #define EEpos_password10	(EEpos_password9 + EElen_password)
 #define EEpos_password11	(EEpos_password10 + EElen_password)
 #define EEpos_password12	(EEpos_password11 + EElen_password)
+#define EEpos_password13	(EEpos_password12 + EElen_password)
+#define EEpos_password14	(EEpos_password13 + EElen_password)
+#define EEpos_password15	(EEpos_password14 + EElen_password)
+#define EEpos_password16	(EEpos_password15 + EElen_password)
+#define EEpos_password17	(EEpos_password16 + EElen_password)
+#define EEpos_password18	(EEpos_password17 + EElen_password)
+#define EEpos_password19	(EEpos_password18 + EElen_password)
+#define EEpos_password20	(EEpos_password19 + EElen_password)
+#define EEpos_password21	(EEpos_password20 + EElen_password)
+#define EEpos_password22	(EEpos_password21 + EElen_password)
+#define EEpos_password23	(EEpos_password22 + EElen_password)
+#define EEpos_password24	(EEpos_password23 + EElen_password)
 
-#define EEpos_password1len	(EEpos_password12 + EElen_password)
+#define EEpos_password1len	(EEpos_password24 + EElen_password)
 #define EEpos_password2len	(EEpos_password1len + EElen_passwordlen)
 #define EEpos_password3len	(EEpos_password2len + EElen_passwordlen)
 #define EEpos_password4len	(EEpos_password3len + EElen_passwordlen)
@@ -203,8 +272,20 @@ extern "C"
 #define EEpos_password10len	(EEpos_password9len + EElen_passwordlen)
 #define EEpos_password11len	(EEpos_password10len + EElen_passwordlen)
 #define EEpos_password12len	(EEpos_password11len + EElen_passwordlen)
+#define EEpos_password13len	(EEpos_password12len + EElen_passwordlen)
+#define EEpos_password14len	(EEpos_password13len + EElen_passwordlen)
+#define EEpos_password15len	(EEpos_password14len + EElen_passwordlen)
+#define EEpos_password16len	(EEpos_password15len + EElen_passwordlen)
+#define EEpos_password17len	(EEpos_password16len + EElen_passwordlen)
+#define EEpos_password18len	(EEpos_password17len + EElen_passwordlen)
+#define EEpos_password19len	(EEpos_password18len + EElen_passwordlen)
+#define EEpos_password20len	(EEpos_password19len + EElen_passwordlen)
+#define EEpos_password21len	(EEpos_password20len + EElen_passwordlen)
+#define EEpos_password22len	(EEpos_password21len + EElen_passwordlen)
+#define EEpos_password23len	(EEpos_password22len + EElen_passwordlen)
+#define EEpos_password24len	(EEpos_password23len + EElen_passwordlen)
 
-#define EEpos_addchar2_1	(EEpos_password12len + EElen_passwordlen)
+#define EEpos_addchar2_1	(EEpos_password24len + EElen_passwordlen)
 #define EEpos_addchar2_2	(EEpos_addchar2_1 + EElen_addchar)
 #define EEpos_addchar2_3	(EEpos_addchar2_2 + EElen_addchar)
 #define EEpos_addchar2_4	(EEpos_addchar2_3 + EElen_addchar)
@@ -216,8 +297,20 @@ extern "C"
 #define EEpos_addchar2_10	(EEpos_addchar2_9 + EElen_addchar)
 #define EEpos_addchar2_11	(EEpos_addchar2_10 + EElen_addchar)
 #define EEpos_addchar2_12	(EEpos_addchar2_11 + EElen_addchar)
+#define EEpos_addchar2_13	(EEpos_addchar2_12 + EElen_addchar)
+#define EEpos_addchar2_14	(EEpos_addchar2_13 + EElen_addchar)
+#define EEpos_addchar2_15	(EEpos_addchar2_14 + EElen_addchar)
+#define EEpos_addchar2_16	(EEpos_addchar2_15 + EElen_addchar)
+#define EEpos_addchar2_17	(EEpos_addchar2_16 + EElen_addchar)
+#define EEpos_addchar2_18	(EEpos_addchar2_17 + EElen_addchar)
+#define EEpos_addchar2_19	(EEpos_addchar2_18 + EElen_addchar)
+#define EEpos_addchar2_20	(EEpos_addchar2_19 + EElen_addchar)
+#define EEpos_addchar2_21	(EEpos_addchar2_20 + EElen_addchar)
+#define EEpos_addchar2_22	(EEpos_addchar2_21 + EElen_addchar)
+#define EEpos_addchar2_23	(EEpos_addchar2_22 + EElen_addchar)
+#define EEpos_addchar2_24	(EEpos_addchar2_23 + EElen_addchar)
 
-#define EEpos_delay2_1	(EEpos_addchar2_12 + EElen_addchar)
+#define EEpos_delay2_1	(EEpos_addchar2_24 + EElen_addchar)
 #define EEpos_delay2_2	(EEpos_delay2_1 + EElen_delay)
 #define EEpos_delay2_3	(EEpos_delay2_2 + EElen_delay)
 #define EEpos_delay2_4	(EEpos_delay2_3 + EElen_delay)
@@ -243,20 +336,7 @@ extern "C"
 #define EEpos_2FAtype11	(EEpos_2FAtype10 + EElen_2FAtype)
 #define EEpos_2FAtype12	(EEpos_2FAtype11 + EElen_2FAtype)
 
-#define EEpos_totpkey1	(EEpos_2FAtype12 + EElen_2FAtype)
-#define EEpos_totpkey2	(EEpos_totpkey1 + EElen_totpkey)
-#define EEpos_totpkey3	(EEpos_totpkey2 + EElen_totpkey)
-#define EEpos_totpkey4	(EEpos_totpkey3 + EElen_totpkey)
-#define EEpos_totpkey5	(EEpos_totpkey4 + EElen_totpkey)
-#define EEpos_totpkey6	(EEpos_totpkey5 + EElen_totpkey)
-#define EEpos_totpkey7	(EEpos_totpkey6 + EElen_totpkey)
-#define EEpos_totpkey8	(EEpos_totpkey7 + EElen_totpkey)
-#define EEpos_totpkey9	(EEpos_totpkey8 + EElen_totpkey)
-#define EEpos_totpkey10	(EEpos_totpkey9 + EElen_totpkey)
-#define EEpos_totpkey11	(EEpos_totpkey10 + EElen_totpkey)
-#define EEpos_totpkey12	(EEpos_totpkey11 + EElen_totpkey)
-
-#define EEpos_totpkey1len	(EEpos_totpkey12 + EElen_totpkey)
+#define EEpos_totpkey1len	(EEpos_2FAtype12 + EElen_2FAtype)
 #define EEpos_totpkey2len	(EEpos_totpkey1len + EElen_totpkeylen)
 #define EEpos_totpkey3len	(EEpos_totpkey2len + EElen_totpkeylen)
 #define EEpos_totpkey4len	(EEpos_totpkey3len + EElen_totpkeylen)
@@ -278,22 +358,14 @@ extern "C"
 #define EEpos_U2Fprivpos	(EEpos_U2Fcertlen + EElen_U2Fcertlen)
 #define EEpos_U2Fcertpos	(EEpos_U2Fprivpos + EElen_U2Fprivpos)
 #define EEpos_hashpos	(EEpos_U2Fcertpos + EElen_U2Fcertpos)
+#define EEpos_timeout	(EEpos_hashpos + EElen_hashpos)
 #define EEpos_failedlogins	(EEpos_hashpos + EElen_hashpos)
+
+extern int  onlykey_eeget_timeout (uint8_t *ptr);
+extern void onlykey_eeset_timeout(uint8_t *ptr);
 
 extern int  onlykey_eeget_failedlogins (uint8_t *ptr);
 extern void onlykey_eeset_failedlogins(uint8_t *ptr);
-
-extern int  onlykey_eeget_noncehash (uint8_t *ptr, int size);
-extern void onlykey_eeset_noncehash(uint8_t *ptr);
-
-extern int onlykey_eeget_pinhash (uint8_t *ptr, int size);
-extern void onlykey_eeset_pinhash(uint8_t *ptr);
-
-extern int  onlykey_eeget_selfdestructhash (uint8_t *ptr);
-extern void onlykey_eeset_selfdestructhash (uint8_t *ptr);
-
-extern int  onlykey_eeget_plausdenyhash (uint8_t *ptr);
-extern void onlykey_eeset_plausdenyhash (uint8_t *ptr);
 
 extern int  onlykey_eeget_aeskey (uint8_t *ptr);
 extern void onlykey_eeset_aeskey (uint8_t *ptr, int len);
@@ -312,9 +384,6 @@ extern void onlykey_eeset_password (uint8_t *ptr, int len, int slot);
 
 extern int  onlykey_eeget_username (uint8_t *ptr, int slot);
 extern void onlykey_eeset_username (uint8_t *ptr, int len, int slot);
-
-extern int  onlykey_eeget_totpkey (uint8_t *ptr, int slot);
-extern void onlykey_eeset_totpkey (uint8_t *ptr, int len, int slot);
 
 extern int  onlykey_eeget_label (uint8_t *ptr, int slot);
 extern void onlykey_eeset_label (uint8_t *ptr, int len, int slot);
@@ -397,6 +466,42 @@ extern void onlykey_eeset_passwordlen11 (uint8_t *ptr);
 extern int  onlykey_eeget_passwordlen12 (uint8_t *ptr);
 extern void onlykey_eeset_passwordlen12 (uint8_t *ptr);
 
+extern int  onlykey_eeget_passwordlen13 (uint8_t *ptr);
+extern void onlykey_eeset_passwordlen13 (uint8_t *ptr);
+
+extern int  onlykey_eeget_passwordlen14 (uint8_t *ptr);
+extern void onlykey_eeset_passwordlen14 (uint8_t *ptr);
+
+extern int  onlykey_eeget_passwordlen15 (uint8_t *ptr);
+extern void onlykey_eeset_passwordlen15 (uint8_t *ptr);
+
+extern int  onlykey_eeget_passwordlen16 (uint8_t *ptr);
+extern void onlykey_eeset_passwordlen16 (uint8_t *ptr);
+
+extern int  onlykey_eeget_passwordlen17 (uint8_t *ptr);
+extern void onlykey_eeset_passwordlen17 (uint8_t *ptr);
+
+extern int  onlykey_eeget_passwordlen18 (uint8_t *ptr);
+extern void onlykey_eeset_passwordlen18 (uint8_t *ptr);
+
+extern int  onlykey_eeget_passwordlen19 (uint8_t *ptr);
+extern void onlykey_eeset_passwordlen19 (uint8_t *ptr);
+
+extern int  onlykey_eeget_passwordlen20 (uint8_t *ptr);
+extern void onlykey_eeset_passwordlen20 (uint8_t *ptr);
+
+extern int  onlykey_eeget_passwordlen21 (uint8_t *ptr);
+extern void onlykey_eeset_passwordlen21 (uint8_t *ptr);
+
+extern int  onlykey_eeget_passwordlen22 (uint8_t *ptr);
+extern void onlykey_eeset_passwordlen22 (uint8_t *ptr);
+
+extern int  onlykey_eeget_passwordlen23 (uint8_t *ptr);
+extern void onlykey_eeset_passwordlen23 (uint8_t *ptr);
+
+extern int  onlykey_eeget_passwordlen24 (uint8_t *ptr);
+extern void onlykey_eeset_passwordlen24 (uint8_t *ptr);
+
 extern int  onlykey_eeget_usernamelen1 (uint8_t *ptr);
 extern void onlykey_eeset_usernamelen1 (uint8_t *ptr);
 
@@ -432,6 +537,42 @@ extern void onlykey_eeset_usernamelen11 (uint8_t *ptr);
 
 extern int  onlykey_eeget_usernamelen12 (uint8_t *ptr);
 extern void onlykey_eeset_usernamelen12 (uint8_t *ptr);
+
+extern int  onlykey_eeget_usernamelen13 (uint8_t *ptr);
+extern void onlykey_eeset_usernamelen13 (uint8_t *ptr);
+
+extern int  onlykey_eeget_usernamelen14 (uint8_t *ptr);
+extern void onlykey_eeset_usernamelen14 (uint8_t *ptr);
+
+extern int  onlykey_eeget_usernamelen15 (uint8_t *ptr);
+extern void onlykey_eeset_usernamelen15 (uint8_t *ptr);
+
+extern int  onlykey_eeget_usernamelen16 (uint8_t *ptr);
+extern void onlykey_eeset_usernamelen16 (uint8_t *ptr);
+
+extern int  onlykey_eeget_usernamelen17 (uint8_t *ptr);
+extern void onlykey_eeset_usernamelen17 (uint8_t *ptr);
+
+extern int  onlykey_eeget_usernamelen18 (uint8_t *ptr);
+extern void onlykey_eeset_usernamelen18 (uint8_t *ptr);
+
+extern int  onlykey_eeget_usernamelen19 (uint8_t *ptr);
+extern void onlykey_eeset_usernamelen19 (uint8_t *ptr);
+
+extern int  onlykey_eeget_usernamelen20 (uint8_t *ptr);
+extern void onlykey_eeset_usernamelen20 (uint8_t *ptr);
+
+extern int  onlykey_eeget_usernamelen21 (uint8_t *ptr);
+extern void onlykey_eeset_usernamelen21 (uint8_t *ptr);
+
+extern int  onlykey_eeget_usernamelen22 (uint8_t *ptr);
+extern void onlykey_eeset_usernamelen22 (uint8_t *ptr);
+
+extern int  onlykey_eeget_usernamelen23 (uint8_t *ptr);
+extern void onlykey_eeset_usernamelen23 (uint8_t *ptr);
+
+extern int  onlykey_eeget_usernamelen24 (uint8_t *ptr);
+extern void onlykey_eeset_usernamelen24 (uint8_t *ptr);
 
 extern int  onlykey_eeget_totpkeylen1 (uint8_t *ptr);
 extern void onlykey_eeset_totpkeylen1 (uint8_t *ptr);
