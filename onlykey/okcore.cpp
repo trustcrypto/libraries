@@ -1050,7 +1050,9 @@ void SETPIN (byte *buffer)
 	  
 switch (PINSET) {
       case 0:
+      password.reset();
       Serial.println("Enter PIN");
+      hidprint("Enter PIN");
       PINSET = 1;
       return;
       case 1:
@@ -1058,6 +1060,7 @@ switch (PINSET) {
       if(strlen(password.guess) > 6 && strlen(password.guess) < 11)
       {
         Serial.println("Storing PIN");
+        hidprint("Storing PIN");
 		static char passguess[10];
       for (int i =0; i <= strlen(password.guess); i++) {
 		passguess[i] = password.guess[i];
@@ -1077,6 +1080,7 @@ switch (PINSET) {
       return;
       case 2:
       Serial.println("Confirm PIN");
+      hidprint("Confirm PIN");
       PINSET = 3;
       return;
       case 3:
@@ -1086,6 +1090,7 @@ switch (PINSET) {
 	  
           if (password.evaluate()) {
             Serial.println("Both PINs Match");
+            hidprint("Both PINs Match");
 			uint8_t temp[32];
 			uint8_t *ptr;
 			ptr = temp;
@@ -1109,12 +1114,10 @@ switch (PINSET) {
 	  		Serial.println();
 			Serial.println("Successfully set PIN, you must remove OnlyKey and reinsert to configure");
 			hidprint("Successfully set PIN, you must remove OnlyKey and reinsert to configure");
-            password.reset();
           }
           else {
             Serial.println("Error PINs Don't Match");
 			hidprint("Error PINs Don't Match");
-            password.reset();
 			PINSET = 0;
           }
       }
@@ -1122,12 +1125,9 @@ switch (PINSET) {
       {
         Serial.println("Error PIN is not between 7 - 10 characters");
 		hidprint("Error PIN is not between 7 - 10 characters");
-        password.reset();
 		PINSET = 0;
       }
-      
-      return;
-      
+      password.reset(); 
       blink(3);
       return;
 }
@@ -1137,9 +1137,11 @@ void SETSDPIN (byte *buffer)
 {
       Serial.println("OKSETSDPIN MESSAGE RECEIVED");
 	  
-	switch (PINSET) {
+      switch (PINSET) {
       case 0:
+      password.reset();
       Serial.println("Enter PIN");
+      hidprint("Enter PIN");
       PINSET = 4;
       return;
       case 4:
@@ -1147,6 +1149,7 @@ void SETSDPIN (byte *buffer)
       if(strlen(password.guess) >= 7 && strlen(password.guess) < 11)
       {
         Serial.println("Storing PIN");
+        hidprint("Storing PIN");
 		static char passguess[10];
       for (int i =0; i <= strlen(password.guess); i++) {
 		passguess[i] = password.guess[i];
@@ -1166,6 +1169,7 @@ void SETSDPIN (byte *buffer)
       return;
       case 5:
       Serial.println("Confirm PIN");
+      hidprint("Confirm PIN");
       PINSET = 6;
       return;
       case 6:
@@ -1175,6 +1179,7 @@ void SETSDPIN (byte *buffer)
 	  
           if (password.evaluate() == true) {
             Serial.println("Both PINs Match");
+            hidprint("Both PINs Match");
 			uint8_t temp[32];
 			uint8_t *ptr;
 			ptr = temp;
@@ -1198,25 +1203,20 @@ void SETSDPIN (byte *buffer)
       }
 	  
 			hidprint("Successfully set PIN, you must remove OnlyKey and reinsert to configure");
-            password.reset();
           }
           else {
             Serial.println("Error PINs Don't Match");
-			hidprint("Error PINs Don't Match");
-            password.reset();
-			PINSET = 0;
+			hidprint("Error PINs Don't Match");		
           }
       }
       else
       {
         Serial.println("Error PIN is not between 7 - 10 characters");
 		hidprint("Error PIN is not between 7 - 10 characters");
-        password.reset();
-		PINSET = 0;
+        
+	
       }
-      
-      return;
-      
+      password.reset();
       blink(3);
       return;
 }
@@ -1229,7 +1229,9 @@ if (PDmode) return;
 	  
 	switch (PINSET) {
       case 0:
+      password.reset();
       Serial.println("Enter PIN");
+      hidprint("Enter PIN");
       PINSET = 7;
       return;
       case 7:
@@ -1237,11 +1239,12 @@ if (PDmode) return;
       if(strlen(password.guess) >= 7 && strlen(password.guess) < 11)
       {
         Serial.println("Storing PIN");
+        hidprint("Storing PIN");
 		static char passguess[10];
       for (int i =0; i <= strlen(password.guess); i++) {
 		passguess[i] = password.guess[i];
       }
-		password.set(passguess);
+	password.set(passguess);
         password.reset();
       }
       else
@@ -1256,6 +1259,7 @@ if (PDmode) return;
       return;
       case 8:
       Serial.println("Confirm PIN");
+      hidprint("Confirm PIN");
       PINSET = 9;
       return;
       case 9:
@@ -1265,6 +1269,7 @@ if (PDmode) return;
 	  
           if (password.evaluate() == true) {
             Serial.println("Both PINs Match");
+            hidprint("Both PINs Match");
 			uint8_t temp[32];
 			uint8_t *ptr;
 			ptr = temp;
@@ -1288,12 +1293,10 @@ if (PDmode) return;
       }
 	  
 			hidprint("Successfully set PDPIN, you must remove OnlyKey and reinsert to configure");
-            password.reset();
           }
           else {
             Serial.println("Error PINs Don't Match");
 			hidprint("Error PINs Don't Match");
-            password.reset();
 			PINSET = 0;
           }
       }
@@ -1301,12 +1304,9 @@ if (PDmode) return;
       {
         Serial.println("Error PIN is not between 7 - 10 characters");
 		hidprint("Error PIN is not between 7 - 10 characters");
-        password.reset();
 		PINSET = 0;
       }
-      
-      return;
-      
+      password.reset();
       blink(3);
       return;
 }
