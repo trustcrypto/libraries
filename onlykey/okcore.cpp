@@ -1180,41 +1180,34 @@ void SETSDPIN (byte *buffer)
           if (password.evaluate() == true) {
             Serial.println("Both PINs Match");
             hidprint("Both PINs Match");
-			uint8_t temp[32];
-			uint8_t *ptr;
-			ptr = temp;
-			//Copy characters to byte array
-			for (int i =0; i <= strlen(password.guess); i++) {
-			temp[i] = (byte)password.guess[i];
-			}
-			SHA256_CTX pinhash;
-			sha256_init(&pinhash);
-			sha256_update(&pinhash, temp, strlen(password.guess)); //Add new PIN to hash
-			Serial.println("Getting NONCE");
-			onlykey_flashget_noncehash (ptr, 32); //Store in eeprom
-			
-			sha256_update(&pinhash, temp, 32); //Add nonce to hash
-			sha256_final(&pinhash, temp); //Create hash and store in temp
-			Serial.println("Hashing SDPIN and storing to EEPROM");
-			onlykey_flashset_selfdestructhash (ptr);
-			Serial.print(F("SDPIN Hash:")); //TODO remove debug
-      for (int i =0; i < 32; i++) {
-        Serial.print(temp[i], HEX);
-      }
-	  
-			hidprint("Successfully set PIN, you must remove OnlyKey and reinsert to configure");
+		uint8_t temp[32];
+		uint8_t *ptr;
+		ptr = temp;
+		//Copy characters to byte array
+		for (int i =0; i <= strlen(password.guess); i++) {
+		temp[i] = (byte)password.guess[i];
+		}
+		SHA256_CTX pinhash;
+		sha256_init(&pinhash);
+		sha256_update(&pinhash, temp, strlen(password.guess)); //Add new PIN to hash
+		Serial.println("Getting NONCE");
+		onlykey_flashget_noncehash (ptr, 32); //Store in eeprom
+	
+		sha256_update(&pinhash, temp, 32); //Add nonce to hash
+		sha256_final(&pinhash, temp); //Create hash and store in temp
+		Serial.println("Hashing SDPIN and storing to EEPROM");
+		onlykey_flashset_selfdestructhash (ptr);
+		hidprint("Successfully set PIN, you must remove OnlyKey and reinsert to configure");
           }
           else {
             Serial.println("Error PINs Don't Match");
-			hidprint("Error PINs Don't Match");		
+	    hidprint("Error PINs Don't Match");		
           }
       }
       else
       {
         Serial.println("Error PIN is not between 7 - 10 characters");
-		hidprint("Error PIN is not between 7 - 10 characters");
-        
-	
+	hidprint("Error PIN is not between 7 - 10 characters");
       }
       password.reset();
       blink(3);
@@ -1235,7 +1228,7 @@ if (PDmode) return;
       PINSET = 7;
       return;
       case 7:
-	  PINSET = 8;
+      PINSET = 8;
       if(strlen(password.guess) >= 7 && strlen(password.guess) < 11)
       {
         Serial.println("Storing PIN");
@@ -1249,13 +1242,11 @@ if (PDmode) return;
       }
       else
       {
-        
-		Serial.println("Error PIN is not between 7 - 10 characters");
-		hidprint("Error PIN is not between 7 - 10 characters");
+	Serial.println("Error PIN is not between 7 - 10 characters");
+	hidprint("Error PIN is not between 7 - 10 characters");
         password.reset();
-		PINSET = 0;
+	PINSET = 0;
       }
-      
       return;
       case 8:
       Serial.println("Confirm PIN");
@@ -1263,48 +1254,43 @@ if (PDmode) return;
       PINSET = 9;
       return;
       case 9:
-	  PINSET = 0;
+      PINSET = 0;
        if(strlen(password.guess) >= 7 && strlen(password.guess) < 11)
       {
 	  
           if (password.evaluate() == true) {
             Serial.println("Both PINs Match");
             hidprint("Both PINs Match");
-			uint8_t temp[32];
-			uint8_t *ptr;
-			ptr = temp;
-			//Copy characters to byte array
-			for (int i =0; i <= strlen(password.guess); i++) {
-			temp[i] = (byte)password.guess[i];
-			}
-			SHA256_CTX pinhash;
-			sha256_init(&pinhash);
-			sha256_update(&pinhash, temp, strlen(password.guess)); //Add new PIN to hash
-			Serial.println("Getting NONCE");
-			onlykey_flashget_noncehash (ptr, 32); //Store in eeprom
-			
-			sha256_update(&pinhash, temp, 32); //Add nonce to hash
-			sha256_final(&pinhash, temp); //Create hash and store in temp
-			Serial.println("Hashing PDPIN and storing to EEPROM");
-			onlykey_flashset_plausdenyhash (ptr);
-			Serial.print(F("PDPIN Hash:")); //TODO remove debug
-      for (int i =0; i < 32; i++) {
-        Serial.print(temp[i], HEX);
-      }
-	  
-			hidprint("Successfully set PDPIN, you must remove OnlyKey and reinsert to configure");
+		uint8_t temp[32];
+		uint8_t *ptr;
+		ptr = temp;
+		//Copy characters to byte array
+		for (int i =0; i <= strlen(password.guess); i++) {
+		temp[i] = (byte)password.guess[i];
+		}
+		SHA256_CTX pinhash;
+		sha256_init(&pinhash);
+		sha256_update(&pinhash, temp, strlen(password.guess)); //Add new PIN to hash
+		Serial.println("Getting NONCE");
+		onlykey_flashget_noncehash (ptr, 32); //Store in eeprom
+	
+		sha256_update(&pinhash, temp, 32); //Add nonce to hash
+		sha256_final(&pinhash, temp); //Create hash and store in temp
+		Serial.println("Hashing PDPIN and storing to EEPROM");
+		onlykey_flashset_plausdenyhash (ptr);
+		hidprint("Successfully set PDPIN, you must remove OnlyKey and reinsert to configure");
           }
           else {
             Serial.println("Error PINs Don't Match");
-			hidprint("Error PINs Don't Match");
-			PINSET = 0;
+	    hidprint("Error PINs Don't Match");
+	    PINSET = 0;
           }
       }
       else
       {
         Serial.println("Error PIN is not between 7 - 10 characters");
-		hidprint("Error PIN is not between 7 - 10 characters");
-		PINSET = 0;
+	hidprint("Error PIN is not between 7 - 10 characters");
+	PINSET = 0;
       }
       password.reset();
       blink(3);
@@ -1676,13 +1662,13 @@ void WIPESLOT (byte *buffer)
             //Set value in EEPROM
             Serial.println(); //newline
             Serial.print("Wiping Label Value...");
-            onlykey_eeset_label((buffer + 7), EElen_label, slot);
+            onlykey_eeset_label((buffer + 7), 0, slot);
             hidprint("Successfully wiped Label");
 
             //Set value in EEPROM
             Serial.println(); //newline
             Serial.print("Wiping Username Value...");
-            onlykey_eeset_username((buffer + 7), EElen_username, slot);
+            onlykey_eeset_username((buffer + 7), 0, slot);
             hidprint("Successfully wiped Username");
 
             //Set value in EEPROM
@@ -1700,7 +1686,7 @@ void WIPESLOT (byte *buffer)
             //Set value in EEPROM
             Serial.println(); //newline
             Serial.print("Wiping Password Value...");
-            onlykey_eeset_password((buffer + 7), EElen_password, slot);
+            onlykey_eeset_password((buffer + 7), 0, slot);
             hidprint("Successfully wiped Password");
 
             //Set value in EEPROM
@@ -1725,15 +1711,15 @@ void WIPESLOT (byte *buffer)
             //Set value in EEPROM
             Serial.println(); //newline
             Serial.print("Writing TOTP Key to EEPROM...");
-            onlykey_flashset_totpkey((buffer + 7), EElen_totpkey, slot);
+            onlykey_flashset_totpkey((buffer + 7), 0, slot);
             hidprint("Successfully wiped TOTP Key");
 
             //Set value in EEPROM
             Serial.println(); //newline
             Serial.print("Wiping onlykey AES Key, Priviate ID, and Public ID...");
-            onlykey_eeset_aeskey((buffer + 7), EElen_aeskey);
+            onlykey_eeset_aeskey((buffer + 7), 0);
             onlykey_eeset_private((buffer + 7 + EElen_aeskey));
-            onlykey_eeset_public((buffer + 7 + EElen_aeskey + EElen_private), EElen_public);
+            onlykey_eeset_public((buffer + 7 + EElen_aeskey + EElen_private), 0);
             hidprint("Successfully wiped AES Key, Priviate ID, and Public ID");
 
       blink(3);
@@ -1972,7 +1958,15 @@ while(*chars) {
 }
 
 void factorydefault() {
-  //Todo add function from flashKinetis to wipe secure flash and eeprom values and flashQuickUnlockBits 
+	wipeflash();
+        wipeEEPROM();
+        initialized = false;
+        unlocked = true;
+        Serial.println("factory reset has been completed");
+}
+
+void wipeEEPROM() {
+        //Erase all EEPROM values
         uint8_t value;
         Serial.println("Current EEPROM Values"); //TODO remove debug
         for (int i=0; i<2048; i++) {
@@ -1994,11 +1988,23 @@ void factorydefault() {
   	Serial.print(value, DEC);
   	Serial.println();
         }
-        initialized = false;
-        unlocked = true;
-        Serial.println("factory reset has been completed");
+	Serial.println("EEPROM erased");//TODO remove debug
 }
 
+void wipeflash() {
+	uint8_t addr[2];
+        onlykey_eeget_hashpos(addr);
+    	uintptr_t adr = (0x02 << 16L) | (addr[0] << 8L) | addr[1];
+        //Erase flash sectors used
+        Serial.printf("Erase Sector 0x%X ",adr);
+        if (flashEraseSector((unsigned long*)adr)) Serial.printf("NOT ");
+        Serial.printf("successful\r\n");
+        adr=adr+2048; //Next Sector
+    	Serial.printf("Erase Sector 0x%X ",adr);
+        if (flashEraseSector((unsigned long*)adr)) Serial.printf("NOT ");
+        Serial.printf("successful\r\n");
+	Serial.println("Flash Sectors erased");//TODO remove debug
+}
 
 
 void aes_gcm_encrypt (uint8_t * state, uint8_t * iv1, const uint8_t * key, int len) {
@@ -2048,7 +2054,6 @@ if (!gcm.checkTag(tag, sizeof(tag))) {
 void onlykey_flashget_common (uint8_t *ptr, unsigned long *adr, int len) {
     for( int z = 0; z <= len-4; z=z+4){
         Serial.printf(" 0x%X", (adr));
-        Serial.println();
         *ptr = (uint8_t)((*(adr) >> 24) & 0xFF);
         Serial.printf(" 0x%X", *ptr);
         ptr++;
@@ -2060,6 +2065,7 @@ void onlykey_flashget_common (uint8_t *ptr, unsigned long *adr, int len) {
  	ptr++;
  	*ptr = (uint8_t)((*(adr) & 0xFF));
  	Serial.printf(" 0x%X", *ptr);
+ 	Serial.println();
  	ptr++;
  	adr++;
 	}
@@ -2069,9 +2075,6 @@ void onlykey_flashget_common (uint8_t *ptr, unsigned long *adr, int len) {
 void onlykey_flashset_common (uint8_t *ptr, unsigned long *adr, int len) {
         for( int z = 0; z <= len-4; z=z+4){
         unsigned long data = (uint8_t)*(ptr+z+3) | ((uint8_t)*(ptr+z+2) << 8) | ((uint8_t)*(ptr+z+1) << 16) | ((uint8_t)*(ptr+z) << 24);
-        Serial.print("Data to write = ");
-        Serial.println(data, HEX);
-
         //Write long to sector 
         Serial.println();
         Serial.printf("Writing to Sector 0x%X, value 0x%X ", adr, data);
@@ -2090,7 +2093,6 @@ int onlykey_flashget_noncehash (uint8_t *ptr, int size) {
     }
     else {
     unsigned long address = (0x02 << 16L) | (addr[0] << 8L) | addr[1];
-    
     onlykey_flashget_common(ptr, (unsigned long*)address, size);
     return 1;
     }
@@ -2125,7 +2127,7 @@ void onlykey_flashset_noncehash (uint8_t *ptr) {
 		for( int z = 0; z <= 31; z++){
 		temp[z] = ((uint8_t)*(ptr+z));
 		}
-			//Erase flash sector
+      //Erase flash sector
       Serial.printf("Erase Sector 0x%X ",adr);
       if (flashEraseSector((unsigned long*)adr)) Serial.printf("NOT ");
       Serial.printf("successful\r\n");
@@ -2136,7 +2138,6 @@ void onlykey_flashset_noncehash (uint8_t *ptr) {
       Serial.print("Nonce hash value =");
       onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_noncehash);
       }    
-    
 }
 
 
@@ -2212,29 +2213,27 @@ void onlykey_flashset_selfdestructhash (uint8_t *ptr) {
     }
     else {
      uintptr_t adr = (0x02 << 16L) | (addr[0] << 8L) | addr[1];
-
-	  uint8_t temp[255];
-	  uint8_t *tptr;
-	  tptr=temp;
-	  //Get current flash contents
-      onlykey_flashget_common(tptr, (unsigned long*)adr, 254);
-	  //Add new flash contents
-		for( int z = 0; z <= 31; z++){
-		temp[z+64] = ((uint8_t)*(ptr+z));
-		}
-			//Erase flash sector
-      Serial.printf("Erase Sector 0x%X ",adr);
-      if (flashEraseSector((unsigned long*)adr)) Serial.printf("NOT ");
-      Serial.printf("successful\r\n");
-      //Write buffer to flash
-      onlykey_flashset_common(tptr, (unsigned long*)adr, 254);
-      Serial.print("SD hash address =");
-      adr=adr+64;
-      Serial.println(adr, HEX);
-      Serial.print("SD hash value =");
-      onlykey_flashget_common(ptr, (unsigned long*)(adr+80), EElen_selfdestructhash);
-      }  
-    
+     uint8_t temp[255];
+     uint8_t *tptr;
+     tptr=temp;
+     //Get current flash contents
+     onlykey_flashget_common(tptr, (unsigned long*)adr, 254);
+     //Add new flash contents
+     for( int z = 0; z < EElen_selfdestructhash; z++){
+     temp[z+64] = ((uint8_t)*(ptr+z));
+     }
+     //Erase flash sector
+     Serial.printf("Erase Sector 0x%X ",adr);
+     if (flashEraseSector((unsigned long*)adr)) Serial.printf("NOT ");
+     Serial.printf("successful\r\n");
+     //Write buffer to flash
+     onlykey_flashset_common(tptr, (unsigned long*)adr, 254);
+     Serial.println("SD hash address =");
+     adr=adr+64;
+     Serial.print(adr, HEX);
+     Serial.print("SD hash value =");
+     onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_selfdestructhash);
+     }  
 }
 
 /*********************************/
@@ -2259,30 +2258,29 @@ void onlykey_flashset_plausdenyhash (uint8_t *ptr) {
     	return;
     }
     else {
-     uintptr_t adr = (0x02 << 16L) | (addr[0] << 8L) | addr[1];
-	  uint8_t temp[255];
-	  uint8_t *tptr;
-	  tptr=temp;
-	  //Get current flash contents
-      onlykey_flashget_common(tptr, (unsigned long*)adr, 254);
-	  //Add new flash contents
-		for( int z = 0; z <= 31; z++){
-		temp[z+120] = ((uint8_t)*(ptr+z));
-		Serial.println(*(tptr+z), HEX);
-		}
-			//Erase flash sector
-      Serial.printf("Erase Sector 0x%X ",adr);
-      if (flashEraseSector((unsigned long*)adr)) Serial.printf("NOT ");
-      Serial.printf("successful\r\n");
-      //Write buffer to flash
-      onlykey_flashset_common(tptr, (unsigned long*)adr, 254);
-      Serial.print("PD hash address =");
-      adr=adr+96;
-      Serial.println(adr, HEX);
-      Serial.print("PD hash value =");
-      onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_plausdenyhash);
-      }  
-    
+    uintptr_t adr = (0x02 << 16L) | (addr[0] << 8L) | addr[1];
+    uint8_t temp[255];
+    uint8_t *tptr;
+    tptr=temp;
+    //Get current flash contents
+    onlykey_flashget_common(tptr, (unsigned long*)adr, 254);
+    //Add new flash contents
+    for( int z = 0; z < EElen_plausdenyhash; z++){
+    temp[z+96] = ((uint8_t)*(ptr+z));
+    Serial.println(*(tptr+z), HEX);
+    }
+    //Erase flash sector
+    Serial.printf("Erase Sector 0x%X ",adr);
+    if (flashEraseSector((unsigned long*)adr)) Serial.printf("NOT ");
+    Serial.printf("successful\r\n");
+    //Write buffer to flash
+    onlykey_flashset_common(tptr, (unsigned long*)adr, 254);
+    Serial.println("PD hash address =");
+    adr=adr+96;
+    Serial.print(adr, HEX);
+    Serial.print("PD hash value =");
+    onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_plausdenyhash);
+    }     
 }
 
 /*********************************/

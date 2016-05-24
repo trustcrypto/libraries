@@ -847,7 +847,7 @@ int onlykey_eeget_public (uint8_t *ptr) {
     yubikey_eeget_publen(&length);
     int size = (int) length;
     if (size > EElen_public) size = EElen_public;
-    onlykey_eeget_common(ptr, EEpos_public, size);
+    onlykey_eeget_common(ptr, EEpos_public, EElen_public);
     return size;
 }
 void onlykey_eeset_public (uint8_t *ptr, int size) {
@@ -2175,7 +2175,7 @@ void onlykey_eeset_2FAtype (uint8_t *ptr, int slot) {
     
 		switch (slot) {
 
-        case 1:
+        	case 1:
 		onlykey_eeset_common(ptr, EEpos_2FAtype1, EElen_2FAtype);
             break;
 		case 2:
