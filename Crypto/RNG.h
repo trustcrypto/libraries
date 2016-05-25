@@ -34,7 +34,7 @@ public:
     RNGClass();
     ~RNGClass();
 
-    void begin(const char *tag, int eepromAddress);
+    void begin(const char *tag);
     void addNoiseSource(NoiseSource &source);
 
     void setAutoSaveTime(uint16_t minutes);
