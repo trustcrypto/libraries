@@ -132,9 +132,8 @@ const char attestation_der[] = "\x30\x82\x01\x3c\x30\x81\xe4\xa0\x03\x02"
   "\x88\x3b\x90\x89\xb8\x8d\x60\xd1\xd9\x79\x59\x02\xb3\x04"
   "\x10\xdf";
 
-//key handle: (private key + app parameter) ^ this array
-//TODO generate this from root key
-const char handlekey[] = "-YOHANES-NUGROHO-YOHANES-NUGROHO-";
+char handlekey[32];
+bool U2Finitialized = false;
 
 const struct uECC_Curve_t * curve = uECC_secp256r1(); //P-256
 uint8_t private_k[36]; //32
@@ -148,7 +147,17 @@ struct ch_state {
 
 ch_state channel_states[MAX_CHANNEL];
 
-
+void U2Finit()
+{
+  SHA256_CTX hkey;
+  sha256_init(&hkey);
+  sha256_update(&hkey, nonce, 32); //Add nonce to hkey 
+  sha256_update(&hkey, (byte*)ID, 36); //Add ID to hkey 
+  sha256_final(&hkey, (byte*)handlekey); //Create hash and store in handlekey
+  Serial.println("HANDLE KEY ="); //TODO remove debug
+  Serial.println(handlekey); //TODO remove debug
+  U2Finitialized = true;
+}
 
 void cleanup_timeout()
 {
@@ -358,6 +367,7 @@ int u2f_button = 0;
 void processMessage(byte *buffer)
 {
   int len = buffer[5] << 8 | buffer[6];
+  
 #ifdef DEBUG  
   Serial.println(F("Got message"));
   Serial.println(len);
@@ -397,7 +407,6 @@ void processMessage(byte *buffer)
         }
       else if (u2f_button==1) {
           Serial.println("U2F button pressed for register");
-        return;
       }
     
 
@@ -548,7 +557,6 @@ void processMessage(byte *buffer)
         }
       else if (u2f_button==1) { 
                     Serial.println("U2F button pressed for authenticate");
-        return;
       }
 
       memcpy(handle, client_handle, 64);
@@ -719,6 +727,7 @@ void setOtherTimeout()
 int cont_start = 0;
 
 void recvmsg() {
+  if (!U2Finitialized) U2Finit();
   int n;
   int c;
   int z;
@@ -1101,13 +1110,19 @@ switch (PINSET) {
 			SHA256_CTX pinhash;
 			sha256_init(&pinhash);
 			sha256_update(&pinhash, temp, strlen(password.guess)); //Add new PIN to hash
+			if (!initialized) {
 			getrng(ptr, 32); //Fill temp with random data
 			Serial.println("Generating NONCE");
-			onlykey_flashset_noncehash (ptr); //Store in eeprom
+			onlykey_flashset_noncehash (ptr); //Store in flash
+			}
+			else {
+			Serial.println("Getting NONCE");
+			onlykey_flashget_noncehash (ptr, 32); 
+			}
 			
 			sha256_update(&pinhash, temp, 32); //Add nonce to hash
 			sha256_final(&pinhash, temp); //Create hash and store in temp
-			Serial.println("Hashing PIN and storing to EEPROM");
+			Serial.println("Hashing PIN and storing to Flash");
 			onlykey_flashset_pinhash (ptr);
 
 	  		initialized = true;
@@ -1191,11 +1206,11 @@ void SETSDPIN (byte *buffer)
 		sha256_init(&pinhash);
 		sha256_update(&pinhash, temp, strlen(password.guess)); //Add new PIN to hash
 		Serial.println("Getting NONCE");
-		onlykey_flashget_noncehash (ptr, 32); //Store in eeprom
+		onlykey_flashget_noncehash (ptr, 32); 
 	
 		sha256_update(&pinhash, temp, 32); //Add nonce to hash
 		sha256_final(&pinhash, temp); //Create hash and store in temp
-		Serial.println("Hashing SDPIN and storing to EEPROM");
+		Serial.println("Hashing SDPIN and storing to Flash");
 		onlykey_flashset_selfdestructhash (ptr);
 		hidprint("Successfully set PIN, you must remove OnlyKey and reinsert to configure");
           }
@@ -1272,11 +1287,11 @@ if (PDmode) return;
 		sha256_init(&pinhash);
 		sha256_update(&pinhash, temp, strlen(password.guess)); //Add new PIN to hash
 		Serial.println("Getting NONCE");
-		onlykey_flashget_noncehash (ptr, 32); //Store in eeprom
+		onlykey_flashget_noncehash (ptr, 32); 
 	
 		sha256_update(&pinhash, temp, 32); //Add nonce to hash
 		sha256_final(&pinhash, temp); //Create hash and store in temp
-		Serial.println("Hashing PDPIN and storing to EEPROM");
+		Serial.println("Hashing PDPIN and storing to Flash");
 		onlykey_flashset_plausdenyhash (ptr);
 		hidprint("Successfully set PDPIN, you must remove OnlyKey and reinsert to configure");
           }
@@ -1895,6 +1910,24 @@ void blink(int times){
     digitalWrite(ledPin, LOW);
     delay(100);
   }
+}
+
+void fadein(){
+          // fade in from min to max in increments of 5 points:
+          for (int fadeValue = 0 ; fadeValue <= 255; fadeValue += 5) {
+          // sets the value (range from 0 to 255):
+          analogWrite(BLINKPIN, fadeValue);
+          delay(15);
+          }
+}
+
+void fadeout(){
+          // fade out from max to min in increments of 5 points:
+          for (int fadeValue = 255 ; fadeValue >= 0; fadeValue -= 5) {
+          // sets the value (range from 0 to 255):
+          analogWrite(BLINKPIN, fadeValue);
+          delay(15);
+          }
 }
 
 int RNG2(uint8_t *dest, unsigned size) {

@@ -139,9 +139,16 @@ extern "C"
 #define APPEND_SW_NO_ERROR(x) do { (*x++)=0x90; (*x++)=0x00;} while (0)
 	
 #define TIMEOUT_VALUE 1000
+#define BLINKPIN   6
 
+extern void ByteToChar(byte* bytes, char* chars, unsigned int count);
+extern void CharToByte(char* chars, byte* bytes, unsigned int count);
+extern void ByteToChar2(byte* bytes, char* chars, unsigned int count, unsigned int index);
+extern void CharToByte2(char* chars, byte* bytes, unsigned int count, unsigned int index);
 extern void recvmsg();
 extern void blink(int times);
+extern void fadein();
+extern void fadeout();
 extern int RNG2(uint8_t *dest, unsigned size);
 extern void printDigits(int digits);
 extern void digitalClockDisplay();
@@ -170,10 +177,6 @@ extern int allocate_new_channel();
 extern void cleanup_timeout();
 extern void getrng(uint8_t *ptr, unsigned size);
 extern void printHex(const byte *data, unsigned len);
-extern void ByteToChar(byte* bytes, char* chars, unsigned int count);
-extern void CharToByte(char* chars, byte* bytes, unsigned int count);
-extern void ByteToChar2(byte* bytes, char* chars, unsigned int count, unsigned int index);
-extern void CharToByte2(char* chars, byte* bytes, unsigned int count, unsigned int index);
 extern void hidprint(char* chars);
 extern void factorydefault();
 extern void wipeEEPROM();
@@ -205,7 +208,7 @@ extern void onlykey_flashset_common (uint8_t *ptr, uintptr_t adr, int len);
 extern void onlykey_flashget_common (uint8_t *ptr, uintptr_t adr, int len);
 extern int onlykey_flashget_totpkey (uint8_t *ptr, int slot);
 extern void onlykey_flashset_totpkey (uint8_t *ptr, int size, int slot);
-
+extern void U2Finit();
 
 #ifdef __cplusplus
 }
