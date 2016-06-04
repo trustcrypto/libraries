@@ -1595,7 +1595,7 @@ void SETSLOT (byte *buffer)
             //break;
             case 9:
             //Encrypt and Set value in EEPROM
-            Serial.println("Writing TOTP Key to EEPROM...");
+            Serial.println("Writing TOTP Key to Flash...");
             if (PDmode) return;
             #ifdef DEBUG
             Serial.println("Unencrypted");
@@ -1725,7 +1725,7 @@ void WIPESLOT (byte *buffer)
 
             //Set value in EEPROM
             Serial.println(); //newline
-            Serial.print("Writing TOTP Key to EEPROM...");
+            Serial.print("Wiping TOTP Key from Flash...");
             onlykey_flashset_totpkey((buffer + 7), 0, slot);
             hidprint("Successfully wiped TOTP Key");
 
@@ -2343,7 +2343,7 @@ int onlykey_flashget_totpkey (uint8_t *ptr, int slot) {
 			onlykey_eeget_totpkeylen2(&length);
 			size = (int) length;
 			if (size > EElen_totpkey) size = EElen_totpkey;
-			adr=adr+(EElen_totpkey*slot);
+			adr=adr+((EElen_totpkey*slot)-EElen_totpkey);
 			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_totpkey);
 			return size;
             break;
@@ -2351,7 +2351,7 @@ int onlykey_flashget_totpkey (uint8_t *ptr, int slot) {
 			onlykey_eeget_totpkeylen3(&length);
 			size = (int) length;
 			if (size > EElen_totpkey) size = EElen_totpkey;
-			adr=adr+(EElen_totpkey*slot);
+			adr=adr+((EElen_totpkey*slot)-EElen_totpkey);
 			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_totpkey);
 			return size;
             break;
@@ -2359,7 +2359,7 @@ int onlykey_flashget_totpkey (uint8_t *ptr, int slot) {
 			onlykey_eeget_totpkeylen4(&length);
 			size = (int) length;
 			if (size > EElen_totpkey) size = EElen_totpkey;
-			adr=adr+(EElen_totpkey*slot);
+			adr=adr+((EElen_totpkey*slot)-EElen_totpkey);
 			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_totpkey);
 			return size;
             break;
@@ -2367,7 +2367,7 @@ int onlykey_flashget_totpkey (uint8_t *ptr, int slot) {
 			onlykey_eeget_totpkeylen5(&length);
 			size = (int) length;
 			if (size > EElen_totpkey) size = EElen_totpkey;
-			adr=adr+(EElen_totpkey*slot);
+			adr=adr+((EElen_totpkey*slot)-EElen_totpkey);
 			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_totpkey);
 			return size;
             break;
@@ -2375,7 +2375,7 @@ int onlykey_flashget_totpkey (uint8_t *ptr, int slot) {
 			onlykey_eeget_totpkeylen6(&length);
 			size = (int) length;
 			if (size > EElen_totpkey) size = EElen_totpkey;
-			adr=adr+(EElen_totpkey*slot);
+			adr=adr+((EElen_totpkey*slot)-EElen_totpkey);
 			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_totpkey);
 			return size;
             break;
@@ -2383,7 +2383,7 @@ int onlykey_flashget_totpkey (uint8_t *ptr, int slot) {
 			onlykey_eeget_totpkeylen7(&length);
 			size = (int) length;
 			if (size > EElen_totpkey) size = EElen_totpkey;
-			adr=adr+(EElen_totpkey*slot);
+			adr=adr+((EElen_totpkey*slot)-EElen_totpkey);
 			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_totpkey);
 			return size;
             break;
@@ -2391,7 +2391,7 @@ int onlykey_flashget_totpkey (uint8_t *ptr, int slot) {
 			onlykey_eeget_totpkeylen8(&length);
 			size = (int) length;
 			if (size > EElen_totpkey) size = EElen_totpkey;
-			adr=adr+(EElen_totpkey*slot);
+			adr=adr+((EElen_totpkey*slot)-EElen_totpkey);
 			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_totpkey);
 			return size;
             break;
@@ -2399,7 +2399,7 @@ int onlykey_flashget_totpkey (uint8_t *ptr, int slot) {
 			onlykey_eeget_totpkeylen9(&length);
 			size = (int) length;
 			if (size > EElen_totpkey) size = EElen_totpkey;
-			adr=adr+(EElen_totpkey*slot);
+			adr=adr+((EElen_totpkey*slot)-EElen_totpkey);
 			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_totpkey);
 			return size;
             break;
@@ -2407,7 +2407,7 @@ int onlykey_flashget_totpkey (uint8_t *ptr, int slot) {
 			onlykey_eeget_totpkeylen10(&length);
 			size = (int) length;
 			if (size > EElen_totpkey) size = EElen_totpkey;
-			adr=adr+(EElen_totpkey*slot);
+			adr=adr+((EElen_totpkey*slot)-EElen_totpkey);
 			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_totpkey);
 			return size;
             break;
@@ -2415,7 +2415,7 @@ int onlykey_flashget_totpkey (uint8_t *ptr, int slot) {
 			onlykey_eeget_totpkeylen11(&length);
 			size = (int) length;
 			if (size > EElen_totpkey) size = EElen_totpkey;
-			adr=adr+(EElen_totpkey*slot);
+			adr=adr+((EElen_totpkey*slot)-EElen_totpkey);
 			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_totpkey);
 			return size;
             break;
@@ -2423,7 +2423,7 @@ int onlykey_flashget_totpkey (uint8_t *ptr, int slot) {
 			onlykey_eeget_totpkeylen12(&length);
 			size = (int) length;
 			if (size > EElen_totpkey) size = EElen_totpkey;
-			adr=adr+(EElen_totpkey*slot);
+			adr=adr+((EElen_totpkey*slot)-EElen_totpkey);
 			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_totpkey);
 			return size;
             break;
