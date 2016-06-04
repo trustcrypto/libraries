@@ -31,7 +31,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  *
- *Original 
+ *Original U2F
  *Copyright (c) 2015, Yohanes Nugroho
  *All rights reserved.
  *
