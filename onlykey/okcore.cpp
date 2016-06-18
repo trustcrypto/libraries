@@ -1905,9 +1905,9 @@ void blink(int times){
   
   int i;
   for(i = 0; i < times; i++){
-    digitalWrite(ledPin, HIGH);
+    digitalWrite(BLINKPIN, HIGH);
     delay(100);
-    digitalWrite(ledPin, LOW);
+    digitalWrite(BLINKPIN, LOW);
     delay(100);
   }
 }
