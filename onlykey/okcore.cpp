@@ -85,7 +85,7 @@ bool PDmode = false;
 /*************************************/
 byte expected_next_packet;
 int large_data_len;
-int large_data_oflashset;
+int large_data_offset;
 byte large_buffer[1024];
 byte large_resp_buffer[1024];
 byte recv_buffer[64];
@@ -103,7 +103,9 @@ extern uint8_t pdhash[32];
 extern uint8_t nonce[32];
 /*************************************/
 
-const char attestation_key[] = "\xf3\xfc\xcc\x0d\x00\xd8\x03\x19\x54\xf9"
+const char attestation_pub[] = "\x04\xC3\xC9\x1F\x25\x2E\x20\x10\x7B\x5E\x8D\xEA\xB1\x90\x20\x98\xF7\x28\x70\x71\xE4\x54\x18\xB8\x98\xCE\x5F\xF1\x7C\xA7\x25\xAE\x78\xC3\x3C\xC7\x01\xC0\x74\x60\x11\xCB\xBB\xB5\x8B\x08\xB6\x1D\x20\xC0\x5E\x75\xD5\x01\xA3\xF8\xF7\xA1\x67\x3F\xBE\x32\x63\xAE\xBE";
+
+const char attestation_priv[] = "\xf3\xfc\xcc\x0d\x00\xd8\x03\x19\x54\xf9"
   "\x08\x64\xd4\x3c\x24\x7f\x4b\xf5\xf0\x66\x5c\x6b\x50\xcc"
   "\x17\x74\x9a\x27\xd1\xcf\x76\x64";
 
@@ -131,13 +133,14 @@ const char attestation_der[] = "\x30\x82\x01\x3c\x30\x81\xe4\xa0\x03\x02"
   "\x14\x59\xf0\x9e\x63\x30\x05\x57\x22\xc8\xd8\x9b\x7f\x48"
   "\x88\x3b\x90\x89\xb8\x8d\x60\xd1\xd9\x79\x59\x02\xb3\x04"
   "\x10\xdf";
-
-char handlekey[32];
+  
+char handlekey[34] = {NULL};
 bool U2Finitialized = false;
 
 const struct uECC_Curve_t * curve = uECC_secp256r1(); //P-256
 uint8_t private_k[36]; //32
 uint8_t public_k[68]; //64
+uint8_t public_temp[64]; //64
 
 struct ch_state {
   int cid;
@@ -333,14 +336,14 @@ void sendLargeResponse(byte *request, int len)
   RawHID.send(resp_buffer, 100);
   len -= r;
   byte p = 0;
-  int oflashset = MAX_INITIAL_PACKET;
+  int offset = MAX_INITIAL_PACKET;
   while (len > 0) {
     //memcpy(resp_buffer, request, 4); //copy cid, doesn't need to recopy
     resp_buffer[4] = p++;
-    memcpy(resp_buffer + 5, large_resp_buffer + oflashset, MAX_CONTINUATION_PACKET);
+    memcpy(resp_buffer + 5, large_resp_buffer + offset, MAX_CONTINUATION_PACKET);
     RawHID.send(resp_buffer, 100);
     len-= MAX_CONTINUATION_PACKET;
-    oflashset += MAX_CONTINUATION_PACKET;
+    offset += MAX_CONTINUATION_PACKET;
     delayMicroseconds(2500);
   }
 }
@@ -384,6 +387,9 @@ void processMessage(byte *buffer)
   byte CLA = message[0];
 
   if (CLA!=0) {
+	#ifdef DEBUG 
+    Serial.println("U2F Error SW_CLA_NOT_SUPPORTED 366");
+    #endif 
     respondErrorPDU(buffer, SW_CLA_NOT_SUPPORTED);
     return;
   }
@@ -397,15 +403,22 @@ void processMessage(byte *buffer)
   case U2F_INS_REGISTER:
     {
       if (reqlength!=64) {
+		#ifdef DEBUG 
+		Serial.println("U2F Error SW_WRONG_LENGTH 382");
+		#endif 
         respondErrorPDU(buffer, SW_WRONG_LENGTH);
         return;
       }
 
    
-      if (u2f_button==0) {
+      if (!u2f_button) {
+		#ifdef DEBUG 
+		Serial.println("U2F Error SW_CONDITIONS_NOT_SATISFIED 391");
+		#endif 
         respondErrorPDU(buffer, SW_CONDITIONS_NOT_SATISFIED);
+		return;
         }
-      else if (u2f_button==1) {
+      else {
           Serial.println("U2F button pressed for register");
       }
     
@@ -418,6 +431,11 @@ void processMessage(byte *buffer)
       memset(private_k, 0, sizeof(private_k));
       uECC_make_key(public_k + 1, private_k, curve); //so we ca insert 0x04
       public_k[0] = 0x04;
+	  if (private_k[0]==0x00) {
+		Serial.println("U2F Error Private K = 0");
+		respondErrorPDU(buffer, SW_CONDITIONS_NOT_SATISFIED);
+	  return;
+	  }
 #ifdef DEBUG
       Serial.println(F("Public K"));
       for (int i =0; i < sizeof(public_k); i++) {
@@ -437,7 +455,7 @@ void processMessage(byte *buffer)
       memcpy(handle, application_parameter, 32);
       memcpy(handle+32, private_k, 32);
       for (int i =0; i < 64; i++) {
-        handle[i] ^= handlekey[i%(sizeof(handlekey)-1)];
+        handle[i] ^= handlekey[i%(sizeof(handlekey)-1)]; //TODO use HMAC
       }
 
       SHA256_CTX ctx;
@@ -493,11 +511,17 @@ void processMessage(byte *buffer)
       uint8_t *signature = resp_buffer; //temporary
       
       //TODO add uECC_sign_deterministic need to create *hash_context
-      uECC_sign((uint8_t *)attestation_key,
-          sha256_hash,
-          32,
-          signature,
-          curve);
+      if (!uECC_sign((uint8_t *)attestation_priv, sha256_hash, 32, signature, curve)) {
+      Serial.println("ECC Signature Failed Register");
+	  //respondErrorPDU(buffer, SW_CONDITIONS_NOT_SATISFIED);
+      //return;
+      }
+      //if (!uECC_verify((uint8_t *)attestation_pub+1, sha256_hash, 32, signature, curve)) {
+      //Serial.println("ECC Verify Signature Failed Register");
+      //respondErrorPDU(buffer, SW_CONDITIONS_NOT_SATISFIED);
+      //return;
+      //}
+      
 
       int len = 0;
       large_resp_buffer[len++] = 0x05;
@@ -524,9 +548,8 @@ void processMessage(byte *buffer)
       byte *last = large_resp_buffer+len;
       APPEND_SW_NO_ERROR(last);
       len += 2;
-    
-      u2f_button = 0;
      
+      u2f_button = 0;
       sendLargeResponse(buffer, len);
     }
 
@@ -536,6 +559,7 @@ void processMessage(byte *buffer)
 
       //minimum is 64 + 1 + 64
       if (reqlength!=(64+1+64)) {
+		Serial.print("Error SW wrong length");
         respondErrorPDU(buffer, SW_WRONG_LENGTH);
         return;
       }
@@ -548,15 +572,18 @@ void processMessage(byte *buffer)
 
       if (handle_len!=64) {
         //not from this device
+		Serial.print("Error not from this device");
         respondErrorPDU(buffer, SW_WRONG_DATA);
         return;
       }
      
-      if (u2f_button==0) {
+      if (!u2f_button) {
+		Serial.print("Error U2F Button Not Pressed");
         respondErrorPDU(buffer, SW_CONDITIONS_NOT_SATISFIED);
+		return;
         }
-      else if (u2f_button==1) { 
-                    Serial.println("U2F button pressed for authenticate");
+      else { 
+        Serial.println("U2F button pressed for authenticate");
       }
 
       memcpy(handle, client_handle, 64);
@@ -567,11 +594,13 @@ void processMessage(byte *buffer)
 
       if (memcmp(handle, application_parameter, 32)!=0) {
         //this handle is not from us
+		Serial.println("U2F Error SW_WRONG_DATA");
         respondErrorPDU(buffer, SW_WRONG_DATA);
         return;
       }
 
       if (P1==0x07) { //check-only
+		Serial.println("U2F Error SW_CONDITIONS_NOT_SATISFIED");
         respondErrorPDU(buffer, SW_CONDITIONS_NOT_SATISFIED);
       } else if (P1==0x03) { //enforce-user-presence-and-sign
         int counter = getCounter();
@@ -595,11 +624,18 @@ void processMessage(byte *buffer)
         uint8_t *signature = resp_buffer; //temporary
 
         //TODO add uECC_sign_deterministic need to create *hash_context
-        uECC_sign((uint8_t *)key,
-            sha256_hash,
-            32,
-            signature,
-            curve);
+        if (!uECC_sign((uint8_t *)key, sha256_hash, 32, signature, curve)) {
+      	Serial.println("ECC Signature Failed Authenticate");
+		//respondErrorPDU(buffer, SW_CONDITIONS_NOT_SATISFIED);
+      	//return;
+      	}
+		
+      	if (!uECC_verify((uint8_t *)attestation_pub+1, sha256_hash, 32, signature, curve)) {
+      	Serial.println("ECC Verify Signature Failed Authenticate");
+      	//respondErrorPDU(buffer, SW_CONDITIONS_NOT_SATISFIED);
+      	//return;
+      	}
+		
 
         int len = 5;
 
@@ -622,20 +658,18 @@ void processMessage(byte *buffer)
         Serial.print("Len to send ");
         Serial.println(len);
 #endif
-           
         u2f_button = 0;
-      
         sendLargeResponse(buffer, len);
-
         setCounter(counter+1);
       } else {
-        //return error
+        Serial.println("return error");
       }
     }
     break;
   case U2F_INS_VERSION:
     {
       if (reqlength!=0) {
+		Serial.println("U2F Error SW_WRONG_LENGTH 636");
         respondErrorPDU(buffer, SW_WRONG_LENGTH);
         return;
       }
@@ -650,6 +684,7 @@ void processMessage(byte *buffer)
     break;
   default:
     {
+	  Serial.println("U2F Error SW_INS_NOT_SUPPORTED 651");
       respondErrorPDU(buffer, SW_INS_NOT_SUPPORTED);
     }
     ;
@@ -668,8 +703,8 @@ void processPacket(byte *buffer)
 #endif
 
   int len = buffer[5] << 8 | buffer[6];
-
   if (cmd > U2FHID_INIT || cmd==U2FHID_LOCK) {
+	Serial.println("U2F Error ERR_INVALID_CMD 671");
     errorResponse(recv_buffer, ERR_INVALID_CMD);
     return;
   }
@@ -688,14 +723,14 @@ void processPacket(byte *buffer)
       RawHID.send(buffer, 100);
       len -= MAX_INITIAL_PACKET;
       byte p = 0;
-      int oflashset = 7 + MAX_INITIAL_PACKET;
+      int offset = 7 + MAX_INITIAL_PACKET;
       while (len > 0) {
         memcpy(resp_buffer, buffer, 4); //copy cid
         resp_buffer[4] = p++;
-        memcpy(resp_buffer + 5, buffer + oflashset, MAX_CONTINUATION_PACKET);
+        memcpy(resp_buffer + 5, buffer + offset, MAX_CONTINUATION_PACKET);
         RawHID.send(resp_buffer, 100);
         len-= MAX_CONTINUATION_PACKET;
-        oflashset += MAX_CONTINUATION_PACKET;
+        offset += MAX_CONTINUATION_PACKET;
         delayMicroseconds(2500);
       }
 #ifdef DEBUG      
@@ -734,14 +769,7 @@ void recvmsg() {
   
   //Serial.print("");
   n = RawHID.recv(recv_buffer, 0); // 0 timeout = do not wait
-#ifdef DEBUG   
-/*
-    Serial.print(F("U2F Counter = "));
-    EEPROM.get(0, c );
-     delay(100);
-    Serial.println(c);
-    */
-#endif 
+ 
   if (n > 0) {
 #ifdef DEBUG    
     Serial.print(F("\n\nReceived packet"));
@@ -749,10 +777,21 @@ void recvmsg() {
         Serial.print(recv_buffer[z], HEX);
     }
 	
+#endif    
+    int cid = *(int*)recv_buffer;
+#ifdef DEBUG    
+    Serial.println(cid, HEX);
+#endif    
+    if (cid==0) { 
+	  Serial.println("U2F Error ERR_INVALID_CID 753");
+      errorResponse(recv_buffer, ERR_INVALID_CID);
+      return;
+    }
 	   //Support for additional vendor defined commands
-char cmd_or_cont = recv_buffer[4]; //cmd or continuation
-
-  switch (cmd_or_cont) {
+	char cmd_or_cont = recv_buffer[4]; //cmd or continuation
+    int len = (recv_buffer[5]) << 8 | recv_buffer[6];
+	
+	  switch (cmd_or_cont) {
       case OKSETPIN:
       SETPIN(recv_buffer);
       return;
@@ -884,22 +923,6 @@ char cmd_or_cont = recv_buffer[4]; //cmd or continuation
       break;
     }
 
-	
-#endif    
-    int cid = *(int*)recv_buffer;
-#ifdef DEBUG    
-    Serial.println(cid, HEX);
-#endif    
-    if (cid==0) {
-     #ifdef DEBUG 
-     Serial.println("Invalid CID 0");
-     #endif 
-      errorResponse(recv_buffer, ERR_INVALID_CID);
-      return;
-    }
-
-    int len = (recv_buffer[5]) << 8 | recv_buffer[6];
-
 #ifdef DEBUG
     if (IS_NOT_CONTINUATION_PACKET(cmd_or_cont)) {
       Serial.print(F("LEN "));
@@ -917,9 +940,7 @@ char cmd_or_cont = recv_buffer[4]; //cmd or continuation
     }
 
     if (cid==-1) {
-      #ifdef DEBUG 
-      Serial.println("Invalid CID -1");
-      #endif 
+	  Serial.println("U2F Error ERR_INVALID_CID 907");
       errorResponse(recv_buffer, ERR_INVALID_CID);
       return;
     }
@@ -933,6 +954,7 @@ char cmd_or_cont = recv_buffer[4]; //cmd or continuation
       allocate_channel(cid);
       cidx = find_channel_index(cid);
       if (cidx==-1) {
+		Serial.println("U2F Error ERR_INVALID_CID 921");
         errorResponse(recv_buffer, ERR_INVALID_CID);
         return;
       }
@@ -942,9 +964,7 @@ char cmd_or_cont = recv_buffer[4]; //cmd or continuation
     if (IS_NOT_CONTINUATION_PACKET(cmd_or_cont)) {
 
       if (len > MAX_TOTAL_PACKET) {
-        #ifdef DEBUG 
-        Serial.println("Invalid Length");
-        #endif 
+	    Serial.println("U2F Error ERR_INVALID_LEN 931");
         errorResponse(recv_buffer, ERR_INVALID_LEN); //invalid length
         return;
       }
@@ -955,13 +975,13 @@ char cmd_or_cont = recv_buffer[4]; //cmd or continuation
           if (channel_states[i].state==STATE_CHANNEL_WAIT_CONT) {
             if (i==cidx) {
               #ifdef DEBUG 
-              Serial.println("Invalid Sequence");
+              Serial.println("U2F Error ERR_INVALID_SEQ 942");
               #endif 
               errorResponse(recv_buffer, ERR_INVALID_SEQ); //invalid sequence
               channel_states[i].state= STATE_CHANNEL_WAIT_PACKET;
             } else {
               #ifdef DEBUG 
-              Serial.println("Channel Busy");
+              Serial.println("U2F Error ERR_CHANNEL_BUSY 948");
               #endif 
               errorResponse(recv_buffer, ERR_CHANNEL_BUSY);
               return;
@@ -975,7 +995,7 @@ char cmd_or_cont = recv_buffer[4]; //cmd or continuation
         cont_start = millis();
         memcpy(large_buffer, recv_buffer, 64);
         large_data_len = len;
-        large_data_oflashset = MAX_INITIAL_PACKET;
+        large_data_offset = MAX_INITIAL_PACKET;
         expected_next_packet = 0;
         return;
       }
@@ -995,18 +1015,18 @@ char cmd_or_cont = recv_buffer[4]; //cmd or continuation
 
       //this is a continuation
       if (cmd_or_cont != expected_next_packet) {
-        errorResponse(recv_buffer, ERR_INVALID_SEQ); //invalid sequence
-        #ifdef DEBUG 
-        Serial.println("Invalid Sequence");
+		#ifdef DEBUG 
+        Serial.println("U2F Error ERR_INVALID_SEQ 984");
         #endif 
+        errorResponse(recv_buffer, ERR_INVALID_SEQ); //invalid sequence
         channel_states[cidx].state= STATE_CHANNEL_WAIT_PACKET;
         return;
       } else {
 
-        memcpy(large_buffer + large_data_oflashset + 7, recv_buffer + 5, MAX_CONTINUATION_PACKET);
-        large_data_oflashset += MAX_CONTINUATION_PACKET;
+        memcpy(large_buffer + large_data_offset + 7, recv_buffer + 5, MAX_CONTINUATION_PACKET);
+        large_data_offset += MAX_CONTINUATION_PACKET;
 
-        if (large_data_oflashset < large_data_len) {
+        if (large_data_offset < large_data_len) {
           expected_next_packet++;
 #ifdef DEBUG          
           Serial.println("Expecting next cont");
@@ -1030,10 +1050,8 @@ char cmd_or_cont = recv_buffer[4]; //cmd or continuation
         Serial.println(channel_states[i].cid, HEX);
 #endif        
         memcpy(recv_buffer, &channel_states[i].cid, 4);
+		Serial.println("U2F Error ERR_MSG_TIMEOUT 1017");
         errorResponse(recv_buffer, ERR_MSG_TIMEOUT);
-        #ifdef DEBUG 
-        Serial.println("Message Timeout");
-        #endif 
         channel_states[i].state= STATE_CHANNEL_WAIT_PACKET;
 
       }
@@ -1930,12 +1948,6 @@ void fadeout(){
           }
 }
 
-int RNG2(uint8_t *dest, unsigned size) {
-    getrng(dest, size);
-    
-    return 1;
-  }
-
 void getrng(uint8_t *ptr, unsigned size) {
     // Generate output whenever 32 bytes of entropy have been accumulated.
     // The first time through, we wait for 48 bytes for a full entropy pool.
@@ -2559,7 +2571,3 @@ void onlykey_flashset_totpkey (uint8_t *ptr, int size, int slot) {
 }
 
 /*********************************/
-
-
-
-

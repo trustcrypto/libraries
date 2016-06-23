@@ -149,7 +149,6 @@ extern void recvmsg();
 extern void blink(int times);
 extern void fadein();
 extern void fadeout();
-extern int RNG2(uint8_t *dest, unsigned size);
 extern void printDigits(int digits);
 extern void digitalClockDisplay();
 extern void GETLABELS (byte *buffer);
