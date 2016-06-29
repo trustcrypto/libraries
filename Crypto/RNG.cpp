@@ -29,11 +29,11 @@
 #if defined (__arm__) && defined (__SAM3X8E__)
 // The Arduino Due does not have any EEPROM natively on the main chip.
 // However, it does have a TRNG and flash memory.
-#define RNG_DUE_TRNG 0
+#define RNG_DUE_TRNG 1
 #elif defined(__AVR__)
-//#define RNG_EEPROM 1        // Use EEPROM to save the seed.
+#define RNG_EEPROM 0        // Use EEPROM to save the seed.
 #define RNG_WATCHDOG 1      // Harvest entropy from watchdog jitter.
-//#include <avr/eeprom.h>
+#include <avr/eeprom.h>
 #include <avr/wdt.h>
 #endif
 #include <string.h>
@@ -356,10 +356,10 @@ static void eraseAndWriteSeed()
  *
  * \sa addNoiseSource(), stir(), save()
  */
-void RNGClass::begin(const char *tag)
+void RNGClass::begin(const char *tag, int eepromAddress)
 {
     // Save the EEPROM address for use by save().
-    //address = eepromAddress;
+    address = eepromAddress;
 
     // Initialize the ChaCha20 input block from the saved seed.
     memcpy_P(block, tagRNG, sizeof(tagRNG));
@@ -441,7 +441,7 @@ void RNGClass::begin(const char *tag)
     // Re-save the seed to obliterate the previous value and to ensure
     // that if the system is reset without a call to save() that we won't
     // accidentally generate the same sequence of random data again.
-    //save();
+    save();
 }
 
 /**
@@ -654,7 +654,7 @@ void RNGClass::stir(const uint8_t *data, size_t len, unsigned int credit)
     // the first auto-save timeout occurs.
     if (firstSave && credits >= RNG_MAX_CREDITS) {
         firstSave = 0;
-        //save();
+        save();
     }
 }
 
@@ -780,8 +780,8 @@ void RNGClass::loop()
 #endif
 
     // Save the seed if the auto-save timer has expired.
-    //if ((millis() - timer) >= timeout)
-        //save(); 
+    if ((millis() - timer) >= timeout)
+        save();
 }
 
 /**

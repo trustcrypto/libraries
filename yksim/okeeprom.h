@@ -97,12 +97,11 @@ extern "C"
 #define EElen_totpkeylen	1
 #define EElen_U2Fprivlen	1
 #define EElen_U2Fcertlen	2
-#define EElen_U2Fprivpos	2
-#define EElen_U2Fcertpos	2
 #define EElen_hashpos		2
 #define EElen_failedlogins	1
 #define EElen_U2Fcounter	2
 #define EElen_timeout	1
+#define EElen_wipemode	1
 
 #define EEpos_U2Fcounter	0
 #define EEpos_aeskey	(EEpos_U2Fcounter + EElen_U2Fcounter)
@@ -355,14 +354,16 @@ extern "C"
 #define EEpos_publen	(EEpos_prvlen + EElen_prvlen)
 #define EEpos_U2Fprivlen	(EEpos_publen + EElen_publen)
 #define EEpos_U2Fcertlen	(EEpos_U2Fprivlen + EElen_U2Fprivlen)
-#define EEpos_U2Fprivpos	(EEpos_U2Fcertlen + EElen_U2Fcertlen)
-#define EEpos_U2Fcertpos	(EEpos_U2Fprivpos + EElen_U2Fprivpos)
-#define EEpos_hashpos	(EEpos_U2Fcertpos + EElen_U2Fcertpos)
+#define EEpos_hashpos	(EEpos_U2Fcertlen + EElen_U2Fcertlen)
 #define EEpos_timeout	(EEpos_hashpos + EElen_hashpos)
-#define EEpos_failedlogins	(EEpos_hashpos + EElen_hashpos)
+#define EEpos_wipemode	(EEpos_timeout + EElen_timeout)
+#define EEpos_failedlogins	(EEpos_wipemode + EElen_wipemode)
 
 extern int  onlykey_eeget_timeout (uint8_t *ptr);
 extern void onlykey_eeset_timeout(uint8_t *ptr);
+
+extern int  onlykey_eeget_wipemode (uint8_t *ptr);
+extern void onlykey_eeset_wipemode(uint8_t *ptr);
 
 extern int  onlykey_eeget_failedlogins (uint8_t *ptr);
 extern void onlykey_eeset_failedlogins(uint8_t *ptr);
@@ -408,12 +409,6 @@ extern void onlykey_eeset_U2Fprivlen (uint8_t *ptr);
 
 extern int  onlykey_eeget_U2Fcertlen (uint8_t *ptr);
 extern void onlykey_eeset_U2Fcertlen (uint8_t *ptr);
-
-extern int  onlykey_eeget_U2Fprivpos (uint8_t *ptr);
-extern void onlykey_eeset_U2Fprivpos (uint8_t *ptr);
-
-extern int  onlykey_eeget_U2Fcertpos (uint8_t *ptr);
-extern void onlykey_eeset_U2Fcertpos (uint8_t *ptr);
 
 extern int  onlykey_eeget_hashpos (uint8_t *ptr);
 extern void onlykey_eeset_hashpos (uint8_t *ptr);
