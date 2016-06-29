@@ -1377,7 +1377,7 @@ void GETLABELS (byte *buffer)
 	  onlykey_eeget_label(ptr, (offset + 1));
 	  label[0] = (byte)0x01;
 	  label[1] = (byte)0x7C;
-	  ByteToChar(label, labelchar, EElen_label);
+	  ByteToChar(label, labelchar, EElen_label+2);
 	  Serial.println(labelchar);
 	  hidprint(labelchar);
 	  delay(20);
@@ -1385,7 +1385,7 @@ void GETLABELS (byte *buffer)
 	  onlykey_eeget_label(ptr, (offset   + 2));
 	  label[0] = (byte)0x02;
 	  label[1] = (byte)0x7C;
-	  ByteToChar(label, labelchar, EElen_label);
+	  ByteToChar(label, labelchar, EElen_label+2);
 	  Serial.println(labelchar);
       	  hidprint(labelchar);
       	  delay(20);
@@ -1393,7 +1393,7 @@ void GETLABELS (byte *buffer)
 	  onlykey_eeget_label(ptr, (offset  + 3));
 	  label[0] = (byte)0x03;
 	  label[1] = (byte)0x7C;
-	  ByteToChar(label, labelchar, EElen_label);
+	  ByteToChar(label, labelchar, EElen_label+2);
 	  Serial.println(labelchar);
           hidprint(labelchar);
           delay(20);
@@ -1401,7 +1401,7 @@ void GETLABELS (byte *buffer)
 	  onlykey_eeget_label(ptr, (offset  + 4));
 	  label[0] = (byte)0x04;
 	  label[1] = (byte)0x7C;
-	  ByteToChar(label, labelchar, EElen_label);
+	  ByteToChar(label, labelchar, EElen_label+2);
 	  Serial.println(labelchar);
           hidprint(labelchar);
           delay(20);
@@ -1409,7 +1409,7 @@ void GETLABELS (byte *buffer)
 	  onlykey_eeget_label(ptr, (offset  + 5));
 	  label[0] = (byte)0x05;
 	  label[1] = (byte)0x7C;
-	  ByteToChar(label, labelchar, EElen_label);
+	  ByteToChar(label, labelchar, EElen_label+2);
 	  Serial.println(labelchar);
           hidprint(labelchar);
           delay(20);
@@ -1417,7 +1417,7 @@ void GETLABELS (byte *buffer)
 	  onlykey_eeget_label(ptr, (offset  + 6));
 	  label[0] = (byte)0x06;
 	  label[1] = (byte)0x7C;
-	  ByteToChar(label, labelchar, EElen_label);
+	  ByteToChar(label, labelchar, EElen_label+2);
 	  Serial.println(labelchar);
           hidprint(labelchar);
           delay(20);
@@ -1425,7 +1425,7 @@ void GETLABELS (byte *buffer)
 	  onlykey_eeget_label(ptr, (offset  + 7));
 	  label[0] = (byte)0x07;
 	  label[1] = (byte)0x7C;
-	  ByteToChar(label, labelchar, EElen_label);
+	  ByteToChar(label, labelchar, EElen_label+2);
 	  Serial.println(labelchar);
           hidprint(labelchar);
           delay(20);
@@ -1433,7 +1433,7 @@ void GETLABELS (byte *buffer)
 	  onlykey_eeget_label(ptr, (offset  + 8));
 	  label[0] = (byte)0x08;
 	  label[1] = (byte)0x7C;
-	  ByteToChar(label, labelchar, EElen_label);
+	  ByteToChar(label, labelchar, EElen_label+2);
 	  Serial.println(labelchar);
           hidprint(labelchar);
           delay(20);
@@ -1441,7 +1441,7 @@ void GETLABELS (byte *buffer)
 	  onlykey_eeget_label(ptr, (offset  + 9));
 	  label[0] = (byte)0x09;
 	  label[1] = (byte)0x7C;
-	  ByteToChar(label, labelchar, EElen_label);
+	  ByteToChar(label, labelchar, EElen_label+2);
 	  Serial.println(labelchar);
           hidprint(labelchar);
           delay(20);
@@ -1449,7 +1449,7 @@ void GETLABELS (byte *buffer)
 	  onlykey_eeget_label(ptr, (offset  + 10));
 	  label[0] = (byte)0x10;
 	  label[1] = (byte)0x7C;
-	  ByteToChar(label, labelchar, EElen_label);
+	  ByteToChar(label, labelchar, EElen_label+2);
 	  Serial.println(labelchar);
           hidprint(labelchar);
           delay(20);
@@ -1457,7 +1457,7 @@ void GETLABELS (byte *buffer)
 	  onlykey_eeget_label(ptr, (offset  + 11));
 	  label[0] = (byte)0x11;
 	  label[1] = (byte)0x7C;
-	  ByteToChar(label, labelchar, EElen_label);
+	  ByteToChar(label, labelchar, EElen_label+2);
 	  Serial.println(labelchar);
           hidprint(labelchar);
           delay(20);
@@ -1465,7 +1465,7 @@ void GETLABELS (byte *buffer)
 	  onlykey_eeget_label(ptr, (offset  + 12));
 	  label[0] = (byte)0x12;
 	  label[1] = (byte)0x7C;
-	  ByteToChar(label, labelchar, EElen_label);
+	  ByteToChar(label, labelchar, EElen_label+2);
 	  Serial.println(labelchar);
           hidprint(labelchar);
           delay(20);
