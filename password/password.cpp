@@ -41,6 +41,7 @@ uint8_t phash[32];
 uint8_t sdhash[32];
 uint8_t pdhash[32];
 uint8_t nonce[32];
+extern bool PDmode;
 
 //construct object in memory, set all variables
 Password::Password(char* pass){
@@ -195,7 +196,6 @@ bool Password::pdhashevaluate(){
 		
 		//check if guessed char is equal to the password char
 		if (i == 31 && pass2==guessed2){
-			extern bool PDmode;
 			PDmode=true;
 			return true; //both strings ended and all previous characters are equal 
 		}else if (pass2!=guessed2){

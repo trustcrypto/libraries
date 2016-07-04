@@ -1324,7 +1324,7 @@ void SETPDPIN (byte *buffer)
 			sha256_update(&pinhash, temp, 32); //Add nonce to hash
 			sha256_final(&pinhash, temp); //Create hash and store in temp
 			Serial.println("Hashing PIN and storing to Flash");
-			onlykey_flashset_pinhash (ptr);
+			onlykey_flashset_plausdenyhash (ptr);
 
 	  		initialized = true;
 	  		Serial.println();
