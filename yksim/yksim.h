@@ -46,7 +46,7 @@ extern "C"
 #endif
 
 #include "yksgenerate.h"
-#include "okeeprom.h"
+#include "onlykey.h"
 #include "ykstouch.h"
 #include "ykstimer.h"
 #include "ykshiddev.h"

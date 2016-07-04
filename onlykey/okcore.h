@@ -67,7 +67,6 @@ extern "C"
 {
 #endif
 
-#define DEBUG
 
 /*************************************/
 //U2F assignments

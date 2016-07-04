@@ -42,6 +42,7 @@ extern "C"
 {
 #endif
 
+#include "okeeprom.h"
 
 #ifdef __cplusplus
 }

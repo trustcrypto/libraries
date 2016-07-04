@@ -57,28 +57,33 @@
  *OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-
-#include <EEPROM.h>
-#include <Time.h>
 #include "sha256.h"
-#include "flashkinetis.h"
-#include "uecc.h"
+#include <EEPROM.h>
 #include <password.h>
-#include "ykcore.h"
-#include "yksim.h"
+#include "Time.h"
 #include "onlykey.h"
-#include "T3MacLib.h"
-#include <Crypto.h>
+#include "flashkinetis.h"
 #include <RNG.h>
 #include <transistornoisesource.h>
+#include "T3MacLib.h"
+/*************************************/
+//Firmware Version Selection
+/*************************************/
+bool PDmode;
+#ifdef US_VERSION
+#include "yksim.h"
+#include "uecc.h"
+#include "ykcore.h"
+#include <Crypto.h>
 #include <AES.h>
 #include <GCM.h>
-
+#endif
+#define DEBUG
+/*************************************/
 uint32_t unixTimeStamp;
 int PINSET = 0;
 bool unlocked = false;
 bool initialized = false;
-bool PDmode = false;
 /*************************************/
 //U2F Assignments
 /*************************************/
@@ -131,8 +136,9 @@ const char attestation_der[] = "\x30\x82\x01\xB4\x30\x82\x01\x58\xA0\x03\x02\x01
   
 char handlekey[34] = {NULL};
 bool U2Finitialized = false;
-
+#ifdef US_VERSION
 const struct uECC_Curve_t * curve = uECC_secp256r1(); //P-256
+#endif
 uint8_t private_k[36]; //32
 uint8_t public_k[68]; //64
 uint8_t public_temp[64]; //64
@@ -424,7 +430,9 @@ void processMessage(byte *buffer)
 
       memset(public_k, 0, sizeof(public_k));
       memset(private_k, 0, sizeof(private_k));
+      #ifdef US_VERSION
       uECC_make_key(public_k + 1, private_k, curve); //so we ca insert 0x04
+      #endif
       public_k[0] = 0x04;
 	  if (private_k[0]==0x00) {
 		Serial.println("U2F Error Private K = 0");
@@ -504,7 +512,7 @@ void processMessage(byte *buffer)
 #endif
 
       uint8_t *signature = resp_buffer; //temporary
-      
+      #ifdef US_VERSION
       //TODO add uECC_sign_deterministic need to create hash_context, possibly create new SHA2 Library
       if (!uECC_sign((uint8_t *)attestation_priv, sha256_hash, 32, signature, curve)) {
       Serial.println("ECC Signature Failed Register");
@@ -516,7 +524,7 @@ void processMessage(byte *buffer)
       //respondErrorPDU(buffer, SW_CONDITIONS_NOT_SATISFIED);
       //return;
       }
-      
+      #endif
 
       int len = 0;
       large_resp_buffer[len++] = 0x05;
@@ -617,7 +625,8 @@ void processMessage(byte *buffer)
         sha256_final(&ctx, sha256_hash);
 
         uint8_t *signature = resp_buffer; //temporary
-
+        
+        #ifdef US_VERSION
         //TODO add uECC_sign_deterministic need to create hash_context, possibly create new SHA2 Library
         if (!uECC_sign((uint8_t *)key, sha256_hash, 32, signature, curve)) {
       	Serial.println("ECC Signature Failed Authenticate");
@@ -630,7 +639,7 @@ void processMessage(byte *buffer)
       	//respondErrorPDU(buffer, SW_CONDITIONS_NOT_SATISFIED);
       	//return;
       	}
-		
+	#endif	
 
         int len = 5;
 
@@ -788,7 +797,11 @@ void recvmsg() {
 	
 	  switch (cmd_or_cont) {
       case OKSETPIN:
+      if(!PDmode) {
       SETPIN(recv_buffer);
+      } else {
+      SETPDPIN(recv_buffer);
+      }
       return;
       break;
       case OKSETSDPIN:
@@ -1245,7 +1258,6 @@ void SETSDPIN (byte *buffer)
 
 void SETPDPIN (byte *buffer)
 {
-if (PDmode) return;
       Serial.println("OKSETPDPIN MESSAGE RECEIVED");
 	  
 	switch (PINSET) {
@@ -1286,27 +1298,38 @@ if (PDmode) return;
        if(strlen(password.guess) >= 7 && strlen(password.guess) < 11)
       {
 	  
-          if (password.evaluate() == true) {
+          if (password.evaluate()) {
             Serial.println("Both PINs Match");
             hidprint("Both PINs Match");
-		uint8_t temp[32];
-		uint8_t *ptr;
-		ptr = temp;
-		//Copy characters to byte array
-		for (int i =0; i <= strlen(password.guess); i++) {
-		temp[i] = (byte)password.guess[i];
-		}
-		SHA256_CTX pinhash;
-		sha256_init(&pinhash);
-		sha256_update(&pinhash, temp, strlen(password.guess)); //Add new PIN to hash
-		Serial.println("Getting NONCE");
-		onlykey_flashget_noncehash (ptr, 32); 
-	
-		sha256_update(&pinhash, temp, 32); //Add nonce to hash
-		sha256_final(&pinhash, temp); //Create hash and store in temp
-		Serial.println("Hashing PDPIN and storing to Flash");
-		onlykey_flashset_plausdenyhash (ptr);
-		hidprint("Successfully set PDPIN, you must remove OnlyKey and reinsert to configure");
+			uint8_t temp[32];
+			uint8_t *ptr;
+			ptr = temp;
+			//Copy characters to byte array
+			for (int i =0; i <= strlen(password.guess); i++) {
+			temp[i] = (byte)password.guess[i];
+			}
+			SHA256_CTX pinhash;
+			sha256_init(&pinhash);
+			sha256_update(&pinhash, temp, strlen(password.guess)); //Add new PIN to hash
+			if (!initialized) {
+			RNG2(ptr, 32); //Fill temp with random data
+			Serial.println("Generating NONCE");
+			onlykey_flashset_noncehash (ptr); //Store in flash
+			}
+			else {
+			Serial.println("Getting NONCE");
+			onlykey_flashget_noncehash (ptr, 32); 
+			}
+			
+			sha256_update(&pinhash, temp, 32); //Add nonce to hash
+			sha256_final(&pinhash, temp); //Create hash and store in temp
+			Serial.println("Hashing PIN and storing to Flash");
+			onlykey_flashset_pinhash (ptr);
+
+	  		initialized = true;
+	  		Serial.println();
+			Serial.println("Successfully set PIN, you must remove OnlyKey and reinsert to configure");
+			hidprint("Successfully set PIN, you must remove OnlyKey and reinsert to configure");
           }
           else {
             Serial.println("Error PINs Don't Match");
@@ -1523,7 +1546,9 @@ void SETSLOT (byte *buffer)
             }
             Serial.println();
             #endif 
+            #ifdef US_VERSION
       	    aes_gcm_encrypt((buffer + 7), (uint8_t*)('u'+ID[34]+slot), phash, length);
+      	    #endif 
       	    #ifdef DEBUG
       	    Serial.println("Encrypted");
             for (int z = 0; z < 32; z++) {
@@ -1566,7 +1591,9 @@ void SETSLOT (byte *buffer)
             }
             Serial.println();
             #endif  
+            #ifdef US_VERSION
             aes_gcm_encrypt((buffer + 7), (uint8_t*)('p'+ID[34]+slot), phash, length);
+            #endif 
       	    #ifdef DEBUG
       	    Serial.println("Encrypted");
             for (int z = 0; z < 32; z++) {
@@ -1599,17 +1626,19 @@ void SETSLOT (byte *buffer)
             return;
             //break;
             case 8:
+            if (!PDmode) {
             //Set value in EEPROM
             Serial.println(); //newline
             Serial.print("Writing 2FA Type to EEPROM...");
             onlykey_eeset_2FAtype(buffer + 7, slot);
 	    hidprint("Successfully set 2FA Type");
+	    }
             return;
             //break;
             case 9:
+            if (!PDmode) {
             //Encrypt and Set value in EEPROM
             Serial.println("Writing TOTP Key to Flash...");
-            if (PDmode) return;
             #ifdef DEBUG
             Serial.println("Unencrypted");
             for (int z = 0; z < 32; z++) {
@@ -1617,7 +1646,9 @@ void SETSLOT (byte *buffer)
             }
             Serial.println();
             #endif 
+            #ifdef US_VERSION
             aes_gcm_encrypt((buffer + 7), (uint8_t*)('t'+ID[34]+slot), phash, length);
+            #endif
 	    #ifdef DEBUG
 	    Serial.println("Encrypted");
             for (int z = 0; z < 32; z++) {
@@ -1627,10 +1658,11 @@ void SETSLOT (byte *buffer)
             #endif    
             onlykey_flashset_totpkey(buffer + 7, length, slot);
 	    hidprint("Successfully set TOTP Key");
+	    }
             return;
             //break;
             case 10:
-            if (PDmode) return;
+            if (!PDmode) {
             //Encrypt and Set value in EEPROM
             Serial.println("Writing AES Key, Private ID, and Public ID to EEPROM...");
             #ifdef DEBUG
@@ -1640,7 +1672,9 @@ void SETSLOT (byte *buffer)
             }
             Serial.println();
             #endif 
+            #ifdef US_VERSION
             aes_gcm_encrypt((buffer + 7), (uint8_t*)('y'+ID[34]), phash, length);
+            #endif 
       	    #ifdef DEBUG
       	    Serial.println("Encrypted");
             for (int z = 0; z < 32; z++) {
@@ -1652,6 +1686,7 @@ void SETSLOT (byte *buffer)
             onlykey_eeset_private((buffer + 7 + EElen_aeskey));
             onlykey_eeset_public((buffer + 7 + EElen_aeskey + EElen_private), EElen_public);
 	    hidprint("Successfully set AES Key, Private ID, and Public ID");
+	    }
             return;
             case 11:
             //Set value in EEPROM
@@ -1801,15 +1836,15 @@ int RNG2(uint8_t *dest, unsigned size) {
 	// Generate output whenever 32 bytes of entropy have been accumulated.
     // The first time through, we wait for 48 bytes for a full entropy pool.
     while (!RNG.available(length)) {
-      Serial.println("waiting for random number");
+      //Serial.println("waiting for random number");
 	  rngloop(); //Gather entropy
     }
 	RNG.rand(dest, size);
     length = 32;
-    Serial.println("Random number =");
-    printHex(dest, size);
-    Serial.println("Size =");
-    Serial.println(size);
+    //Serial.println("Random number =");
+    //printHex(dest, size);
+    //Serial.println("Size =");
+    //Serial.println(size);
     return 1;
 }
 
@@ -1941,6 +1976,7 @@ void wipeflash() {
 
 
 void aes_gcm_encrypt (uint8_t * state, uint8_t * iv1, const uint8_t * key, int len) {
+	#ifdef US_VERSION
 	GCM<AES256> gcm; 
 	uint8_t iv2[12];
 	uint8_t tag[16];
@@ -1955,9 +1991,11 @@ void aes_gcm_encrypt (uint8_t * state, uint8_t * iv1, const uint8_t * key, int l
 	gcm.setIV(iv2, 12);
 	gcm.encrypt(state, state, len);
 	gcm.computeTag(tag, sizeof(tag)); 
+	#endif
 }
 
 int aes_gcm_decrypt (uint8_t * state, uint8_t * iv1, const uint8_t * key, int len) {
+        #ifdef US_VERSION
 	GCM<AES256> gcm; 
 	uint8_t iv2[12];
 	uint8_t tag[16];
@@ -1974,6 +2012,7 @@ int aes_gcm_decrypt (uint8_t * state, uint8_t * iv1, const uint8_t * key, int le
 	if (!gcm.checkTag(tag, sizeof(tag))) {
 		return 1;
 	}
+	#endif
 }
 
 /*************************************/
