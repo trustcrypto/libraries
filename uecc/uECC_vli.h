@@ -3,7 +3,7 @@
 #ifndef _UECC_VLI_H_
 #define _UECC_VLI_H_
 
-#include "uecc.h"
+#include "uECC.h"
 #include "types.h"
 
 /* Functions for raw large-integer manipulation. These are only available

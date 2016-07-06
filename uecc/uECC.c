@@ -1,7 +1,7 @@
 /* Copyright 2014, Kenneth MacKay. Licensed under the BSD 2-clause license. */
 
-#include "uecc.h"
-#include "uecc_vli.h"
+#include "uECC.h"
+#include "uECC_vli.h"
 
 #ifndef uECC_RNG_MAX_TRIES
     #define uECC_RNG_MAX_TRIES 64

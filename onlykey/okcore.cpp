@@ -57,6 +57,7 @@
  *OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#define DEBUG //Enable Serial Monitor 
 #include "sha256.h"
 #include <EEPROM.h>
 #include <password.h>
@@ -69,10 +70,11 @@
 /*************************************/
 //Firmware Version Selection
 /*************************************/
+#define US_VERSION //Define for US Version Firmare
 bool PDmode;
 #ifdef US_VERSION
 #include "yksim.h"
-#include "uecc.h"
+#include "uECC.h"
 #include "ykcore.h"
 #include <Crypto.h>
 #include <AES.h>
@@ -457,9 +459,12 @@ void processMessage(byte *buffer)
 
       memcpy(handle, application_parameter, 32);
       memcpy(handle+32, private_k, 32);
-      for (int i =0; i < 64; i++) {
-        handle[i] ^= handlekey[i%(sizeof(handlekey)-1)]; //TODO use HMAC
-      }
+      //for (int i =0; i < 64; i++) {
+      //  handle[i] ^= handlekey[i%(sizeof(handlekey)-1)]; //TODO use HMAC or AES
+      //}
+      #ifdef US_VERSION
+      aes_gcm_encrypt2(handle, (uint8_t*)application_parameter, (uint8_t*)handlekey, 64);
+      #endif 
 
       SHA256_CTX ctx;
       sha256_init(&ctx);
@@ -590,9 +595,13 @@ void processMessage(byte *buffer)
       }
 
       memcpy(handle, client_handle, 64);
-      for (int i =0; i < 64; i++) {
-        handle[i] ^= handlekey[i%(sizeof(handlekey)-1)];
-      }
+      //for (int i =0; i < 64; i++) {
+      //  handle[i] ^= handlekey[i%(sizeof(handlekey)-1)];
+      //}
+      #ifdef US_VERSION
+      aes_gcm_decrypt2(handle, (uint8_t*)application_parameter, (uint8_t*)handlekey, 64);
+      #endif 
+      
       uint8_t *key = handle + 32;
 
       if (memcmp(handle, application_parameter, 32)!=0) {
@@ -1844,7 +1853,7 @@ int RNG2(uint8_t *dest, unsigned size) {
       //Serial.println("waiting for random number");
 	  rngloop(); //Gather entropy
     }
-	RNG.rand(dest, size);
+    RNG.rand(dest, size);
     length = 32;
     //Serial.println("Random number =");
     //printHex(dest, size);
@@ -2021,6 +2030,32 @@ int aes_gcm_decrypt (uint8_t * state, uint8_t * iv1, const uint8_t * key, int le
 	gcm.clear ();
 	gcm.setKey(key, sizeof(key));
 	gcm.setIV(iv2, 12);
+	gcm.decrypt(state, state, len);
+	if (!gcm.checkTag(tag, sizeof(tag))) {
+		return 1;
+	}
+	#endif
+}
+
+void aes_gcm_encrypt2 (uint8_t * state, uint8_t * iv1, const uint8_t * key, int len) {
+	#ifdef US_VERSION
+	GCM<AES256> gcm; 
+	uint8_t tag[16];
+	gcm.clear ();
+	gcm.setKey(key, sizeof(key));
+	gcm.setIV(iv1, 12);
+	gcm.encrypt(state, state, len);
+	gcm.computeTag(tag, sizeof(tag)); 
+	#endif
+}
+
+int aes_gcm_decrypt2 (uint8_t * state, uint8_t * iv1, const uint8_t * key, int len) {
+        #ifdef US_VERSION
+	GCM<AES256> gcm; 
+	uint8_t tag[16];
+	gcm.clear ();
+	gcm.setKey(key, sizeof(key));
+	gcm.setIV(iv1, 12);
 	gcm.decrypt(state, state, len);
 	if (!gcm.checkTag(tag, sizeof(tag))) {
 		return 1;

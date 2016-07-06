@@ -193,6 +193,8 @@ extern int PINSET;
 extern int u2f_button;
 extern void aes_gcm_encrypt (uint8_t * state, uint8_t * iv1, const uint8_t * key, int len);
 extern int aes_gcm_decrypt (uint8_t * state, uint8_t * iv1, const uint8_t * key, int len);
+extern void aes_gcm_encrypt2 (uint8_t * state, uint8_t * iv1, const uint8_t * key, int len);
+extern int aes_gcm_decrypt2 (uint8_t * state, uint8_t * iv1, const uint8_t * key, int len);
 extern int onlykey_eeget_noncehash (uint8_t *ptr, int size);
 extern void onlykey_eeset_noncehash (uint8_t *ptr);
 extern int onlykey_eeget_pinhash (uint8_t *ptr, int size);
