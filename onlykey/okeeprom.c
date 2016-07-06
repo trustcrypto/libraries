@@ -671,6 +671,114 @@ void onlykey_eeset_totpkeylen12 (uint8_t *ptr) {
 }
 /*********************************/
 /*********************************/
+int onlykey_eeget_totpkeylen13 (uint8_t *ptr) {
+    onlykey_eeget_common(ptr, EEpos_totpkey13len, EElen_totpkeylen);
+    return EElen_totpkeylen;
+}
+void onlykey_eeset_totpkeylen13 (uint8_t *ptr) {
+    onlykey_eeset_common(ptr, EEpos_totpkey13len, EElen_totpkeylen);
+}
+/*********************************/
+/*********************************/
+int onlykey_eeget_totpkeylen14 (uint8_t *ptr) {
+    onlykey_eeget_common(ptr, EEpos_totpkey14len, EElen_totpkeylen);
+    return EElen_totpkeylen;
+}
+void onlykey_eeset_totpkeylen14 (uint8_t *ptr) {
+    onlykey_eeset_common(ptr, EEpos_totpkey14len, EElen_totpkeylen);
+}
+/*********************************/
+/*********************************/
+int onlykey_eeget_totpkeylen15 (uint8_t *ptr) {
+    onlykey_eeget_common(ptr, EEpos_totpkey15len, EElen_totpkeylen);
+    return EElen_totpkeylen;
+}
+void onlykey_eeset_totpkeylen15 (uint8_t *ptr) {
+    onlykey_eeset_common(ptr, EEpos_totpkey15len, EElen_totpkeylen);
+}
+/*********************************/
+/*********************************/
+int onlykey_eeget_totpkeylen16 (uint8_t *ptr) {
+    onlykey_eeget_common(ptr, EEpos_totpkey16len, EElen_totpkeylen);
+    return EElen_totpkeylen;
+}
+void onlykey_eeset_totpkeylen16 (uint8_t *ptr) {
+    onlykey_eeset_common(ptr, EEpos_totpkey16len, EElen_totpkeylen);
+}
+/*********************************/
+/*********************************/
+int onlykey_eeget_totpkeylen17 (uint8_t *ptr) {
+    onlykey_eeget_common(ptr, EEpos_totpkey17len, EElen_totpkeylen);
+    return EElen_totpkeylen;
+}
+void onlykey_eeset_totpkeylen17 (uint8_t *ptr) {
+    onlykey_eeset_common(ptr, EEpos_totpkey17len, EElen_totpkeylen);
+}
+/*********************************/
+/*********************************/
+int onlykey_eeget_totpkeylen18 (uint8_t *ptr) {
+    onlykey_eeget_common(ptr, EEpos_totpkey18len, EElen_totpkeylen);
+    return EElen_totpkeylen;
+}
+void onlykey_eeset_totpkeylen18 (uint8_t *ptr) {
+    onlykey_eeset_common(ptr, EEpos_totpkey18len, EElen_totpkeylen);
+}
+/*********************************/
+/*********************************/
+int onlykey_eeget_totpkeylen19 (uint8_t *ptr) {
+    onlykey_eeget_common(ptr, EEpos_totpkey19len, EElen_totpkeylen);
+    return EElen_totpkeylen;
+}
+void onlykey_eeset_totpkeylen19 (uint8_t *ptr) {
+    onlykey_eeset_common(ptr, EEpos_totpkey19len, EElen_totpkeylen);
+}
+/*********************************/
+/*********************************/
+int onlykey_eeget_totpkeylen20 (uint8_t *ptr) {
+    onlykey_eeget_common(ptr, EEpos_totpkey20len, EElen_totpkeylen);
+    return EElen_totpkeylen;
+}
+void onlykey_eeset_totpkeylen20 (uint8_t *ptr) {
+    onlykey_eeset_common(ptr, EEpos_totpkey20len, EElen_totpkeylen);
+}
+/*********************************/
+/*********************************/
+int onlykey_eeget_totpkeylen21 (uint8_t *ptr) {
+    onlykey_eeget_common(ptr, EEpos_totpkey21len, EElen_totpkeylen);
+    return EElen_totpkeylen;
+}
+void onlykey_eeset_totpkeylen21 (uint8_t *ptr) {
+    onlykey_eeset_common(ptr, EEpos_totpkey21len, EElen_totpkeylen);
+}
+/*********************************/
+/*********************************/
+int onlykey_eeget_totpkeylen22 (uint8_t *ptr) {
+    onlykey_eeget_common(ptr, EEpos_totpkey22len, EElen_totpkeylen);
+    return EElen_totpkeylen;
+}
+void onlykey_eeset_totpkeylen22 (uint8_t *ptr) {
+    onlykey_eeset_common(ptr, EEpos_totpkey22len, EElen_totpkeylen);
+}
+/*********************************/
+/*********************************/
+int onlykey_eeget_totpkeylen23 (uint8_t *ptr) {
+    onlykey_eeget_common(ptr, EEpos_totpkey23len, EElen_totpkeylen);
+    return EElen_totpkeylen;
+}
+void onlykey_eeset_totpkeylen23 (uint8_t *ptr) {
+    onlykey_eeset_common(ptr, EEpos_totpkey23len, EElen_totpkeylen);
+}
+/*********************************/
+/*********************************/
+int onlykey_eeget_totpkeylen24 (uint8_t *ptr) {
+    onlykey_eeget_common(ptr, EEpos_totpkey24len, EElen_totpkeylen);
+    return EElen_totpkeylen;
+}
+void onlykey_eeset_totpkeylen24 (uint8_t *ptr) {
+    onlykey_eeset_common(ptr, EEpos_totpkey24len, EElen_totpkeylen);
+}
+/*********************************/
+/*********************************/
 int onlykey_eeget_aeskey (uint8_t *ptr) {
     uint8_t length;
     yubikey_eeget_keylen(&length);
@@ -1980,7 +2088,7 @@ void onlykey_eeset_delay2 (uint8_t *ptr, int slot) {
 int onlykey_eeget_2FAtype (uint8_t *ptr, int slot) {
     
 	switch (slot) {
-        case 1:
+        	case 1:
 			onlykey_eeget_common(ptr, EEpos_2FAtype1, EElen_2FAtype);
 			return EElen_2FAtype;
             break;
@@ -2028,6 +2136,54 @@ int onlykey_eeget_2FAtype (uint8_t *ptr, int slot) {
 			onlykey_eeget_common(ptr, EEpos_2FAtype12, EElen_2FAtype);
 			return EElen_2FAtype;
             break;
+            	case 13:
+			onlykey_eeget_common(ptr, EEpos_2FAtype13, EElen_2FAtype);
+			return EElen_2FAtype;
+            break;
+		case 14:
+			onlykey_eeget_common(ptr, EEpos_2FAtype14, EElen_2FAtype);
+			return EElen_2FAtype;
+            break;
+		case 15:
+			onlykey_eeget_common(ptr, EEpos_2FAtype15, EElen_2FAtype);
+			return EElen_2FAtype;
+            break;
+		case 16:
+			onlykey_eeget_common(ptr, EEpos_2FAtype16, EElen_2FAtype);
+			return EElen_2FAtype;
+            break;
+		case 17:
+			onlykey_eeget_common(ptr, EEpos_2FAtype17, EElen_2FAtype);
+			return EElen_2FAtype;
+            break;
+		case 18:
+			onlykey_eeget_common(ptr, EEpos_2FAtype18, EElen_2FAtype);
+			return EElen_2FAtype;
+            break;
+		case 19:
+			onlykey_eeget_common(ptr, EEpos_2FAtype19, EElen_2FAtype);
+			return EElen_2FAtype;
+            break;
+		case 20:
+			onlykey_eeget_common(ptr, EEpos_2FAtype20, EElen_2FAtype);
+			return EElen_2FAtype;
+            break;
+		case 21:
+			onlykey_eeget_common(ptr, EEpos_2FAtype21, EElen_2FAtype);
+			return EElen_2FAtype;
+            break;
+		case 22:
+			onlykey_eeget_common(ptr, EEpos_2FAtype22, EElen_2FAtype);
+			return EElen_2FAtype;
+            break;
+		case 23:
+			onlykey_eeget_common(ptr, EEpos_2FAtype23, EElen_2FAtype);
+			return EElen_2FAtype;
+            break;
+		case 24:
+			onlykey_eeget_common(ptr, EEpos_2FAtype24, EElen_2FAtype);
+			return EElen_2FAtype;
+            break;
 			
 	}
 
@@ -2073,6 +2229,42 @@ void onlykey_eeset_2FAtype (uint8_t *ptr, int slot) {
             break;
 		case 12:
 		onlykey_eeset_common(ptr, EEpos_2FAtype12, EElen_2FAtype);
+            break;
+            	case 13:
+		onlykey_eeset_common(ptr, EEpos_2FAtype13, EElen_2FAtype);
+            break;
+		case 14:
+		onlykey_eeset_common(ptr, EEpos_2FAtype14, EElen_2FAtype);
+            break;
+		case 15:
+		onlykey_eeset_common(ptr, EEpos_2FAtype15, EElen_2FAtype);
+            break;
+		case 16:
+		onlykey_eeset_common(ptr, EEpos_2FAtype16, EElen_2FAtype);
+            break;
+		case 17:
+		onlykey_eeset_common(ptr, EEpos_2FAtype17, EElen_2FAtype);
+            break;
+		case 18:
+		onlykey_eeset_common(ptr, EEpos_2FAtype18, EElen_2FAtype);
+            break;
+		case 19:
+		onlykey_eeset_common(ptr, EEpos_2FAtype19, EElen_2FAtype);
+            break;
+		case 20:
+		onlykey_eeset_common(ptr, EEpos_2FAtype20, EElen_2FAtype);
+            break;
+		case 21:
+		onlykey_eeset_common(ptr, EEpos_2FAtype21, EElen_2FAtype);
+            break;
+		case 22:
+		onlykey_eeset_common(ptr, EEpos_2FAtype22, EElen_2FAtype);
+            break;
+		case 23:
+		onlykey_eeset_common(ptr, EEpos_2FAtype23, EElen_2FAtype);
+            break;
+		case 24:
+		onlykey_eeset_common(ptr, EEpos_2FAtype24, EElen_2FAtype);
             break;
 	}
 

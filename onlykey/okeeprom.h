@@ -86,7 +86,7 @@ extern "C"
 #define EElen_delay	1
 #define EElen_password	32
 #define EElen_2FAtype	1
-#define EElen_totpkey	20
+#define EElen_totpkey	64
 #define EElen_keylen	1
 #define EElen_ctrlen	1
 #define EElen_prvlen	1
@@ -334,8 +334,20 @@ extern "C"
 #define EEpos_2FAtype10	(EEpos_2FAtype9 + EElen_2FAtype)
 #define EEpos_2FAtype11	(EEpos_2FAtype10 + EElen_2FAtype)
 #define EEpos_2FAtype12	(EEpos_2FAtype11 + EElen_2FAtype)
+#define EEpos_2FAtype13	(EEpos_2FAtype12 + EElen_2FAtype)
+#define EEpos_2FAtype14	(EEpos_2FAtype13 + EElen_2FAtype)
+#define EEpos_2FAtype15	(EEpos_2FAtype14 + EElen_2FAtype)
+#define EEpos_2FAtype16	(EEpos_2FAtype15 + EElen_2FAtype)
+#define EEpos_2FAtype17	(EEpos_2FAtype16 + EElen_2FAtype)
+#define EEpos_2FAtype18	(EEpos_2FAtype17 + EElen_2FAtype)
+#define EEpos_2FAtype19	(EEpos_2FAtype18 + EElen_2FAtype)
+#define EEpos_2FAtype20	(EEpos_2FAtype19 + EElen_2FAtype)
+#define EEpos_2FAtype21	(EEpos_2FAtype20 + EElen_2FAtype)
+#define EEpos_2FAtype22	(EEpos_2FAtype21 + EElen_2FAtype)
+#define EEpos_2FAtype23	(EEpos_2FAtype22 + EElen_2FAtype)
+#define EEpos_2FAtype24	(EEpos_2FAtype23 + EElen_2FAtype)
 
-#define EEpos_totpkey1len	(EEpos_2FAtype12 + EElen_2FAtype)
+#define EEpos_totpkey1len	(EEpos_2FAtype24 + EElen_2FAtype)
 #define EEpos_totpkey2len	(EEpos_totpkey1len + EElen_totpkeylen)
 #define EEpos_totpkey3len	(EEpos_totpkey2len + EElen_totpkeylen)
 #define EEpos_totpkey4len	(EEpos_totpkey3len + EElen_totpkeylen)
@@ -347,8 +359,20 @@ extern "C"
 #define EEpos_totpkey10len	(EEpos_totpkey9len + EElen_totpkeylen)
 #define EEpos_totpkey11len	(EEpos_totpkey10len + EElen_totpkeylen)
 #define EEpos_totpkey12len	(EEpos_totpkey11len + EElen_totpkeylen)
+#define EEpos_totpkey13len	(EEpos_totpkey12len + EElen_totpkeylen)
+#define EEpos_totpkey14len	(EEpos_totpkey13len + EElen_totpkeylen)
+#define EEpos_totpkey15len	(EEpos_totpkey14len + EElen_totpkeylen)
+#define EEpos_totpkey16len	(EEpos_totpkey15len + EElen_totpkeylen)
+#define EEpos_totpkey17len	(EEpos_totpkey16len + EElen_totpkeylen)
+#define EEpos_totpkey18len	(EEpos_totpkey17len + EElen_totpkeylen)
+#define EEpos_totpkey19len	(EEpos_totpkey18len + EElen_totpkeylen)
+#define EEpos_totpkey20len	(EEpos_totpkey19len + EElen_totpkeylen)
+#define EEpos_totpkey21len	(EEpos_totpkey20len + EElen_totpkeylen)
+#define EEpos_totpkey22len	(EEpos_totpkey21len + EElen_totpkeylen)
+#define EEpos_totpkey23len	(EEpos_totpkey22len + EElen_totpkeylen)
+#define EEpos_totpkey24len	(EEpos_totpkey23len + EElen_totpkeylen)
 
-#define EEpos_keylen	(EEpos_totpkey12len + EElen_totpkeylen)
+#define EEpos_keylen	(EEpos_totpkey24len + EElen_totpkeylen)
 #define EEpos_ctrlen	(EEpos_keylen + EElen_keylen)
 #define EEpos_prvlen	(EEpos_ctrlen + EElen_ctrlen)
 #define EEpos_publen	(EEpos_prvlen + EElen_prvlen)
@@ -604,6 +628,42 @@ extern void onlykey_eeset_totpkeylen11 (uint8_t *ptr);
 
 extern int  onlykey_eeget_totpkeylen12 (uint8_t *ptr);
 extern void onlykey_eeset_totpkeylen12 (uint8_t *ptr);
+
+extern int  onlykey_eeget_totpkeylen13 (uint8_t *ptr);
+extern void onlykey_eeset_totpkeylen13 (uint8_t *ptr);
+
+extern int  onlykey_eeget_totpkeylen14 (uint8_t *ptr);
+extern void onlykey_eeset_totpkeylen14 (uint8_t *ptr);
+
+extern int  onlykey_eeget_totpkeylen15 (uint8_t *ptr);
+extern void onlykey_eeset_totpkeylen15 (uint8_t *ptr);
+
+extern int  onlykey_eeget_totpkeylen16 (uint8_t *ptr);
+extern void onlykey_eeset_totpkeylen16 (uint8_t *ptr);
+
+extern int  onlykey_eeget_totpkeylen17 (uint8_t *ptr);
+extern void onlykey_eeset_totpkeylen17 (uint8_t *ptr);
+
+extern int  onlykey_eeget_totpkeylen18 (uint8_t *ptr);
+extern void onlykey_eeset_totpkeylen18 (uint8_t *ptr);
+
+extern int  onlykey_eeget_totpkeylen19 (uint8_t *ptr);
+extern void onlykey_eeset_totpkeylen19 (uint8_t *ptr);
+
+extern int  onlykey_eeget_totpkeylen20 (uint8_t *ptr);
+extern void onlykey_eeset_totpkeylen20 (uint8_t *ptr);
+
+extern int  onlykey_eeget_totpkeylen21 (uint8_t *ptr);
+extern void onlykey_eeset_totpkeylen21 (uint8_t *ptr);
+
+extern int  onlykey_eeget_totpkeylen22 (uint8_t *ptr);
+extern void onlykey_eeset_totpkeylen22 (uint8_t *ptr);
+
+extern int  onlykey_eeget_totpkeylen23 (uint8_t *ptr);
+extern void onlykey_eeset_totpkeylen23 (uint8_t *ptr);
+
+extern int  onlykey_eeget_totpkeylen24 (uint8_t *ptr);
+extern void onlykey_eeset_totpkeylen24 (uint8_t *ptr);
 
 
 #ifdef __cplusplus
