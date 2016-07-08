@@ -215,7 +215,9 @@ extern void onlykey_flashset_common (uint8_t *ptr, uintptr_t adr, int len);
 extern void onlykey_flashget_common (uint8_t *ptr, uintptr_t adr, int len);
 extern int onlykey_flashget_totpkey (uint8_t *ptr, int slot);
 extern void onlykey_flashset_totpkey (uint8_t *ptr, int size, int slot);
+extern void onlykey_flashget_U2F (uint8_t *privptr, uint8_t *certptr);
 extern void U2Finit();
+extern void yubikeyinit();
 
 #ifdef __cplusplus
 }
