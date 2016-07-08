@@ -65,12 +65,11 @@
 #include "onlykey.h"
 #include "flashkinetis.h"
 #include <RNG.h>
-#include <transistornoisesource.h>
 #include "T3MacLib.h"
 /*************************************/
 //Firmware Version Selection
 /*************************************/
-#define US_VERSION //Define for US Version Firmare
+//#define US_VERSION //Define for US Version Firmare
 bool PDmode;
 #ifdef US_VERSION
 #include "yksim.h"
@@ -1717,9 +1716,9 @@ void SETSLOT (byte *buffer)
             uint8_t *ptr;
   	    ptr = (uint8_t *) &counter;
   	    yubikey_eeset_counter(ptr); 
-            onlykey_eeset_aeskey(buffer + 7, EElen_aeskey);
-            onlykey_eeset_private((buffer + 7 + EElen_aeskey));
-            onlykey_eeset_public((buffer + 7 + EElen_aeskey + EElen_private), EElen_public);
+            onlykey_eeset_public((buffer + 7), EElen_public);
+            onlykey_eeset_private((buffer + 7 + EElen_public));
+            onlykey_eeset_aeskey((buffer + 7 + EElen_public + EElen_private), EElen_aeskey);
             yubikeyinit();
             #endif
 	    hidprint("Successfully set AES Key, Private ID, and Public ID");
@@ -1805,7 +1804,7 @@ void WIPESLOT (byte *buffer)
             onlykey_eeset_addchar2((buffer + 7), slot);
             hidprint("Successfully wiped Additional Character 2");
             
-	    if (PDmode) return;
+	    
             Serial.println(); //newline
             Serial.print("Wiping Delay2 Value...");
             onlykey_eeset_delay2((buffer + 7), slot);
@@ -1917,10 +1916,10 @@ void rngloop() {
     RNG.stir((uint8_t *)touchread6, sizeof(touchread6), sizeof(touchread6));
     unsigned int analog1 = analogRead(ANALOGPIN1);
     //Serial.println(analog1);
-    RNG.stir((uint8_t *)analog1, sizeof(analog1), sizeof(analog1 * 4));
+    RNG.stir((uint8_t *)analog1, sizeof(analog1), sizeof(analog1)*4);
     unsigned int analog2 = analogRead(ANALOGPIN2);
     //Serial.println(analog2);
-    RNG.stir((uint8_t *)analog2, sizeof(analog2), sizeof(analog2 * 4));
+    RNG.stir((uint8_t *)analog2, sizeof(analog2), sizeof(analog2)*4);
     // Perform regular housekeeping on the random number generator.
     RNG.loop();
 }
@@ -2934,24 +2933,30 @@ void yubikeyinit() {
   memset(temp, 0, 32); //Clear temp buffer
   
   ptr = temp;
+  onlykey_eeget_public(ptr);
+  
+  ptr = (temp+EElen_public);
+  onlykey_eeget_private(ptr);
+  
+  ptr = (temp+EElen_public+EElen_private);
   onlykey_eeget_aeskey(ptr);
   
-  ptr = (temp+EElen_aeskey);
-  onlykey_eeget_private(ptr);
-
-  ptr = (temp+EElen_aeskey+EElen_private);
-  onlykey_eeget_public(ptr);
-
   aes_gcm_decrypt(temp, (uint8_t*)('y'+ID[34]), phash, (EElen_aeskey+EElen_private+EElen_aeskey));
 
-  for (int i = 0; i <= EElen_public; i++) {
+  Serial.println("public_id");
+  for (int i = 0; i < EElen_public; i++) {
     pubID[i] = temp[i];
+    Serial.print(pubID[i],HEX);
   }
-  for (int i = 0; i <= EElen_private; i++) {
+  Serial.println("private_id");
+  for (int i = 0; i < EElen_private; i++) {
     privID[i] = temp[i+EElen_public];
+    Serial.print(privID[i],HEX);
   }
-    for (int i = 0; i <= EElen_aeskey; i++) {
+  Serial.println("aes key");
+    for (int i = 0; i < EElen_aeskey; i++) {
     aeskey[i] = temp[i+EElen_public+EElen_private];
+    Serial.print(aeskey[i],HEX);
   }
   
   memset(temp, 0, 32); //Clear temp buffer
@@ -2960,7 +2965,7 @@ void yubikeyinit() {
   yubikey_eeget_counter(ptr);
 
   yubikey_hex_encode(private_id, (char *)privID, 6);
-  yubikey_modhex_encode(public_id, (char *)pubID, 6);
+  yubikey_hex_encode(public_id, (char *)pubID, 6);
 
     Serial.println("public_id");
   Serial.println(public_id);
@@ -2969,7 +2974,7 @@ void yubikeyinit() {
     Serial.println("counter");
   Serial.println(counter);
 
-  uint32_t time = 0x010203; //TODO why is time set to this?
+  uint32_t time = 0x010203; 
   
   yubikey_init1(&ctx, aeskey, public_id, private_id, counter, time, seed);
  
@@ -2979,3 +2984,21 @@ void yubikeyinit() {
   yubikey_eeset_counter(ptr);
 #endif
 }
+/*************************************/
+//Generate Yubico OTP
+/*************************************/
+void yubikeysim(char *ptr) {
+	#ifdef US_VERSION
+	yubikey_simulate1(ptr, &ctx);
+        yubikey_incr_usage(&ctx);
+        #endif
+}
+/*************************************/
+//Increment Yubico timestamp
+/*************************************/
+void yubikey_incr_time() {
+	#ifdef US_VERSION
+	yubikey_incr_timestamp(&ctx);
+	#endif
+}
+

@@ -218,6 +218,8 @@ extern void onlykey_flashset_totpkey (uint8_t *ptr, int size, int slot);
 extern void onlykey_flashget_U2F (uint8_t *privptr, uint8_t *certptr);
 extern void U2Finit();
 extern void yubikeyinit();
+extern void yubikeysim(char *ptr);
+extern void yubikey_incr_time();
 
 #ifdef __cplusplus
 }

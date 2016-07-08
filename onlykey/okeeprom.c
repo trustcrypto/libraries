@@ -1942,7 +1942,7 @@ void onlykey_eeset_delay1 (uint8_t *ptr, int slot) {
 		case 12:
 		onlykey_eeset_common(ptr, EEpos_delay1_12, EElen_delay);
             break;
-        case 13:
+                case 13:
 		onlykey_eeset_common(ptr, EEpos_delay1_13, EElen_delay);
             break;
 		case 14:
@@ -2034,6 +2034,54 @@ int onlykey_eeget_delay2 (uint8_t *ptr, int slot) {
 			onlykey_eeget_common(ptr, EEpos_delay2_12, EElen_delay);
 			return EElen_delay;
             break;
+                case 13:
+			onlykey_eeget_common(ptr, EEpos_delay2_13, EElen_delay);
+			return EElen_delay;
+            break;
+		case 14:
+			onlykey_eeget_common(ptr, EEpos_delay2_14, EElen_delay);
+			return EElen_delay;
+            break;
+		case 15:
+			onlykey_eeget_common(ptr, EEpos_delay2_15, EElen_delay);
+			return EElen_delay;
+            break;
+		case 16:
+			onlykey_eeget_common(ptr, EEpos_delay2_16, EElen_delay);
+			return EElen_delay;
+            break;
+		case 17:
+			onlykey_eeget_common(ptr, EEpos_delay2_17, EElen_delay);
+			return EElen_delay;
+            break;
+		case 18:
+			onlykey_eeget_common(ptr, EEpos_delay2_18, EElen_delay);
+			return EElen_delay;
+            break;
+		case 19:
+			onlykey_eeget_common(ptr, EEpos_delay2_19, EElen_delay);
+			return EElen_delay;
+            break;
+		case 20:
+			onlykey_eeget_common(ptr, EEpos_delay2_20, EElen_delay);
+			return EElen_delay;
+            break;
+		case 21:
+			onlykey_eeget_common(ptr, EEpos_delay2_21, EElen_delay);
+			return EElen_delay;
+            break;
+		case 22:
+			onlykey_eeget_common(ptr, EEpos_delay2_22, EElen_delay);
+			return EElen_delay;
+            break;
+		case 23:
+			onlykey_eeget_common(ptr, EEpos_delay2_23, EElen_delay);
+			return EElen_delay;
+            break;
+		case 24:
+			onlykey_eeget_common(ptr, EEpos_delay2_24, EElen_delay);
+			return EElen_delay;
+            break;
 			
 	}
 
@@ -2080,6 +2128,43 @@ void onlykey_eeset_delay2 (uint8_t *ptr, int slot) {
 		case 12:
 		onlykey_eeset_common(ptr, EEpos_delay2_12, EElen_delay);
             break;
+                case 13:
+		onlykey_eeset_common(ptr, EEpos_delay2_13, EElen_delay);
+            break;
+		case 14:
+		onlykey_eeset_common(ptr, EEpos_delay2_14, EElen_delay);
+            break;
+		case 15:
+		onlykey_eeset_common(ptr, EEpos_delay2_15, EElen_delay);
+            break;
+		case 16:
+		onlykey_eeset_common(ptr, EEpos_delay2_16, EElen_delay);
+            break;
+		case 17:
+		onlykey_eeset_common(ptr, EEpos_delay2_17, EElen_delay);
+            break;
+		case 18:
+		onlykey_eeset_common(ptr, EEpos_delay2_18, EElen_delay);
+            break;
+		case 19:
+		onlykey_eeset_common(ptr, EEpos_delay2_19, EElen_delay);
+            break;
+		case 20:
+		onlykey_eeset_common(ptr, EEpos_delay2_20, EElen_delay);
+            break;
+		case 21:
+		onlykey_eeset_common(ptr, EEpos_delay2_21, EElen_delay);
+            break;
+		case 22:
+		onlykey_eeset_common(ptr, EEpos_delay2_22, EElen_delay);
+            break;
+		case 23:
+		onlykey_eeset_common(ptr, EEpos_delay2_23, EElen_delay);
+            break;
+		case 24:
+		onlykey_eeset_common(ptr, EEpos_delay2_24, EElen_delay);
+            break;
+	
 	}
 
 }
