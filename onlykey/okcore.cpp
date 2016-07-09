@@ -69,7 +69,7 @@
 /*************************************/
 //Firmware Version Selection
 /*************************************/
-//#define US_VERSION //Define for US Version Firmare
+#define US_VERSION //Define for US Version Firmare
 bool PDmode;
 #ifdef US_VERSION
 #include "yksim.h"
@@ -143,10 +143,9 @@ const char stored_der[] = "\x30\x82\x01\xB4\x30\x82\x01\x58\xA0\x03\x02\x01\x02\
 
 char attestation_pub[66];
 char attestation_priv[33];
-char attestation_der[1024];
+char attestation_der[768];
   
 char handlekey[34] = {NULL};
-bool U2Finitialized = false;
 #ifdef US_VERSION
 const struct uECC_Curve_t * curve = uECC_secp256r1(); //P-256
 #endif
@@ -171,14 +170,22 @@ void U2Finit()
   sha256_final(&hkey, (byte*)handlekey); //Create hash and store in handlekey
   Serial.println("HANDLE KEY ="); //TODO remove debug
   Serial.println(handlekey); //TODO remove debug
-  if (onlykey_eeget_U2Fcertlen) {
-  onlykey_flashget_U2F;
+  uint8_t length[2];
+  onlykey_eeget_U2Fcertlen(length);
+  int length2 = length[0] << 8 | length[1];
+  if (length2 != 0) {
+  onlykey_flashget_U2F();
   } else {
   memcpy(attestation_pub, stored_pub, 66);
   memcpy(attestation_priv, stored_priv, 33);
+  for (int i = 0; i< sizeof(stored_priv); i++) {
+    Serial.print(attestation_priv[i],HEX);
+    }
   memcpy(attestation_der, stored_der, sizeof(stored_der));
+  for (int i = 0; i< sizeof(stored_der); i++) {
+    Serial.print(attestation_der[i],HEX);
+    }
   }
-  U2Finitialized = true;
 }
 
 void cleanup_timeout()
@@ -478,10 +485,22 @@ void processMessage(byte *buffer)
       //for (int i =0; i < 64; i++) {
       //  handle[i] ^= handlekey[i%(sizeof(handlekey)-1)]; //TODO use HMAC or AES
       //}
+      Serial.println("Unencrypted handle");
+      for (int i =0; i<sizeof(handle); i++) {
+      Serial.print(handle[i],HEX);
+      }
+      SHA256_CTX IV;
+      sha256_init(&IV);
+      sha256_update(&IV, application_parameter, 32);
+      sha256_final(&IV, sha256_hash);
       #ifdef US_VERSION
-      aes_gcm_encrypt2(handle, (uint8_t*)application_parameter, (uint8_t*)handlekey, 64);
+      aes_gcm_encrypt2(handle, (uint8_t*)sha256_hash, (uint8_t*)handlekey, 64);
       #endif 
-
+      Serial.println();
+      Serial.println("Encrypted handle");
+      for (int i =0; i<sizeof(handle); i++) {
+      Serial.print(handle[i],HEX);
+      }
       SHA256_CTX ctx;
       sha256_init(&ctx);
       large_resp_buffer[0] = 0x00;
@@ -504,24 +523,8 @@ void processMessage(byte *buffer)
       Serial.println("");
 #endif
       sha256_update(&ctx, challenge_parameter, 32);
-#ifdef DEBUG
-      Serial.println(F("Handle Parameter:"));
-      for (int i =0; i < 64; i++) {
-        Serial.print(handle[i], HEX);
-        Serial.print(" ");
-      }
-      Serial.println("");
-#endif
       sha256_update(&ctx, handle, 64);
       sha256_update(&ctx, public_k, 65);
-#ifdef DEBUG      
-      Serial.println(F("Public key:"));
-      for (int i =0; i < 65; i++) {
-        Serial.print(public_k[i], HEX);
-        Serial.print(" ");
-      }
-      Serial.println("");
-#endif
       sha256_final(&ctx, sha256_hash);
 #ifdef DEBUG
       Serial.println(F("Hash:"));
@@ -554,8 +557,16 @@ void processMessage(byte *buffer)
       large_resp_buffer[len++] = 64; //length of handle
       memcpy(large_resp_buffer+len, handle, 64);
       len += 64;
-      memcpy(large_resp_buffer+len, attestation_der, sizeof(attestation_der));
-      len += sizeof(attestation_der)-1;
+      Serial.println("len = ");
+      Serial.println(len);
+      uint8_t length[2];
+      onlykey_eeget_U2Fcertlen(length);
+      int length2 = length[0] << 8 | length[1];
+      if (length2 == 0) length2 = sizeof(stored_der) - 1;
+      Serial.println("copy attestation_der to buffer, length = ");
+      Serial.println(length2);
+      memcpy(large_resp_buffer+len, attestation_der, length2);
+      len += length2;
       //convert signature format
       //http://bitcoin.stackexchange.com/questions/12554/why-the-signature-is-always-65-13232-bytes-long
       large_resp_buffer[len++] = 0x30; //header: compound structure
@@ -575,6 +586,7 @@ void processMessage(byte *buffer)
      
       u2f_button = 0;
       sendLargeResponse(buffer, len);
+      large_data_offset = 0;
     }
 
     break;
@@ -614,10 +626,22 @@ void processMessage(byte *buffer)
       //for (int i =0; i < 64; i++) {
       //  handle[i] ^= handlekey[i%(sizeof(handlekey)-1)];
       //}
+      SHA256_CTX IV2;
+      sha256_init(&IV2);
+      sha256_update(&IV2, application_parameter, 32);
+      sha256_final(&IV2, sha256_hash);
+      Serial.println("Encrypted handle");
+      for (int i =0; i<sizeof(handle); i++) {
+      Serial.print(handle[i]);
+      }
       #ifdef US_VERSION
-      aes_gcm_decrypt2(handle, (uint8_t*)application_parameter, (uint8_t*)handlekey, 64);
+      aes_gcm_decrypt2(handle, (uint8_t*)sha256_hash, (uint8_t*)handlekey, 64);
       #endif 
-      
+      Serial.println();
+      Serial.println("Unencrypted handle");
+      for (int i =0; i<sizeof(handle); i++) {
+      Serial.print(handle[i]);
+      }
       uint8_t *key = handle + 32;
 
       if (memcmp(handle, application_parameter, 32)!=0) {
@@ -791,7 +815,6 @@ void setOtherTimeout()
 int cont_start = 0;
 
 void recvmsg() {
-  if (!U2Finitialized) U2Finit();
   int n;
   int c;
   int z;
@@ -2750,7 +2773,7 @@ void onlykey_flashset_totpkey (uint8_t *ptr, int size, int slot) {
 }
 
 /*********************************/
-void onlykey_flashget_U2F (uint8_t *privptr, uint8_t *certptr)
+void onlykey_flashget_U2F ()
 {
 if (PDmode) return;
     Serial.println("Flashget U2F");
@@ -2764,10 +2787,20 @@ if (PDmode) return;
     uintptr_t adr = (0x02 << 16L) | (addr[0] << 8L) | addr[1];
     adr=adr+4096; //3rd flash sector
     onlykey_flashget_common((uint8_t*)attestation_priv, (unsigned long*)adr, 32); 
+    Serial.print("attestation priv =");
+    for (int i = 0; i< sizeof(attestation_priv); i++) {
+    Serial.println(attestation_priv[i],HEX);
+    }
     adr=adr+2048; //4th flash sector
     onlykey_eeget_U2Fcertlen(length);
     int length2 = length[0] << 8 | length[1];
+    Serial.print("attestation der length=");
+    Serial.println(length2);
     onlykey_flashget_common((uint8_t*)attestation_der, (unsigned long*)adr, length2); 
+    Serial.print("attestation der =");
+    for (int i = 0; i< sizeof(attestation_der); i++) {
+    Serial.print(attestation_der[i],HEX);
+    }
     return;
     }
 }
@@ -2796,12 +2829,11 @@ if (PDmode) return;
     Serial.print("U2F Private address =");
     Serial.println(adr, HEX);
     onlykey_flashget_common(ptr, (unsigned long*)adr, 32); //Todo remove debug
-    for (int i=0; i<32; i++) {
-    attestation_priv[i] = *(buffer + 6 + i);
-    Serial.println(attestation_priv[i]);
-    }
     Serial.print("U2F Private value =");
-    Serial.print(attestation_priv);
+    for (int i=0; i<32; i++) {
+    attestation_priv[i] = *(buffer + 5 + i);
+    Serial.print(attestation_priv[i],HEX);
+    }
     hidprint("Successfully set U2F Private");
 	}
   blink(3);
@@ -2847,19 +2879,19 @@ if (PDmode) return;
 	uint8_t *ptr;
 	if (buffer[5]==0xFF) //Not last packet
 	{
-		if (large_data_offset < 966) {
-			memcpy(large_buffer+large_data_offset, buffer+6, 59);
-			large_data_offset = large_data_offset + 59;
+		if (large_data_offset <= 710) {
+			memcpy(large_buffer+large_data_offset, buffer+6, 58);
+			large_data_offset = large_data_offset + 58;
 		} else {
-			hidprint("Error U2F Cert larger than 1024 bytes");
+			hidprint("Error U2F Cert larger than 768 bytes");
 		}
 		return;
 	} else { //Last packet
-		if (large_data_offset < 966 && buffer[5] < 59) {
+		if (large_data_offset <= 710 && buffer[5] <= 58) {
 			memcpy(large_buffer+large_data_offset, buffer+6, buffer[5]);
 			large_data_offset = large_data_offset + buffer[5];
 		} else {
-			hidprint("Error U2F Cert larger than 1024 bytes");
+			hidprint("Error U2F Cert larger than 768 bytes");
 		}
 		length[0] = large_data_offset >> 8  & 0xFF;
 		length[1] = large_data_offset       & 0xFF;
@@ -2874,11 +2906,12 @@ if (PDmode) return;
 		//Write buffer to flash
 		ptr=large_buffer;
     	onlykey_flashset_common(ptr, (unsigned long*)adr, large_data_offset);
+    	       large_data_offset = 0;
 
 	}
-    memcpy(attestation_der, large_buffer, 1024);
+    memcpy(attestation_der, large_buffer, 768);
     Serial.print("U2F Cert value =");
-    for (int i = 0; i<1024; i++) {
+    for (int i = 0; i<768; i++) {
     Serial.print(attestation_der[i],HEX);
     }
 	hidprint("Successfully set U2F Certificate");
