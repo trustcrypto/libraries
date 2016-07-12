@@ -242,3 +242,41 @@ void flashQuickUnlockBits()
 	while (!(FTFL_FSTAT & FTFL_STAT_CCIF)) {;}
 	__enable_irq();
 }
+
+void flashEraseAll()					// Erase All Blocks
+{
+	
+			flashInitCommand(FCMD_ERASE_ALL_BLOCKS, 0x00);
+			__disable_irq();
+			flashExec(&FTFL_FSTAT);
+			__enable_irq();
+			return;
+}
+/*
+void flashQuickUnlockBits()
+{
+  while (!(FTFL_FSTAT & FTFL_STAT_CCIF)) {;}
+	FTFL_FSTAT  = 0x30;
+	FTFL_FCCOB0 = FCMD_ERASE_FLASH_SECTOR;
+	FTFL_FCCOB1 = 0;
+	FTFL_FCCOB2 = 4;
+	FTFL_FCCOB3 = 0;
+
+	__disable_irq();
+	FTFL_FSTAT = FTFL_STAT_CCIF;
+	while (!(FTFL_FSTAT & FTFL_STAT_CCIF)) {;}
+	FTFL_FSTAT  = 0x30;
+	FTFL_FCCOB0 = FCMD_PROGRAM_LONG_WORD;
+	FTFL_FCCOB1 = 0;
+	FTFL_FCCOB2 = 4;
+	FTFL_FCCOB3 = 0xC;
+  
+	FTFL_FCCOB4 = 0xFF;
+	FTFL_FCCOB5 = 0xFF;
+	FTFL_FCCOB6 = 0xFF;
+	FTFL_FCCOB7 = 0xDE;
+	FTFL_FSTAT = FTFL_STAT_CCIF;
+	while (!(FTFL_FSTAT & FTFL_STAT_CCIF)) {;}
+	__enable_irq();
+}
+*/

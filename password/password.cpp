@@ -36,6 +36,8 @@
 #include "flashkinetis.h"
 #include "onlykey.h"
 
+#define DEBUG
+
 uint8_t temp[32];
 uint8_t phash[32];
 uint8_t sdhash[32];
@@ -116,16 +118,17 @@ bool Password::hashevaluate(){
 			SHA256_CTX pinhash;
 			sha256_init(&pinhash);
 			sha256_update(&pinhash, temp, strlen(guess)); //Add new PIN to hash
-						
+#ifdef DEBUG
 			Serial.print(F("NONCE HASH:")); //TODO remove debug
       for (int i =0; i < 32; i++) {
         Serial.print(nonce[i], HEX);
       }
 	  Serial.println();
+#endif
 	  
 			sha256_update(&pinhash, nonce, 32); //Add nonce to hash
 			sha256_final(&pinhash, temp); //Create hash and store in temp
-	
+#ifdef DEBUG
 	Serial.print(F("Guessed Hash:")); //TODO remove debug
       for (int i =0; i < 32; i++) {
         Serial.print(temp[i], HEX);
@@ -136,7 +139,7 @@ bool Password::hashevaluate(){
         Serial.print(phash[i], HEX);
       }
 	  Serial.println();
-	  
+#endif
 	char pass2 = phash[0];
 	char guessed2 = temp[0];
 	for (byte i=1; i<32; i++){
@@ -156,6 +159,7 @@ bool Password::hashevaluate(){
 }
 
 bool Password::sdhashevaluate(){ 
+#ifdef DEBUG
 	Serial.println();
 	
 	  Serial.print(F("SD PIN Hash:")); //TODO remove debug
@@ -163,7 +167,7 @@ bool Password::sdhashevaluate(){
         Serial.print(sdhash[i], HEX);
       }
 	  Serial.println();
-	  
+#endif
 	char pass2 = sdhash[0];
 	char guessed2 = temp[0];
 	for (byte i=1; i<32; i++){
@@ -182,6 +186,7 @@ bool Password::sdhashevaluate(){
 	return false; //a 'true' condition has not been met
 }
 bool Password::pdhashevaluate(){ 
+#ifdef DEBUG
 	Serial.println();
 	
 	  Serial.print(F("PD PIN Hash:")); //TODO remove debug
@@ -189,7 +194,7 @@ bool Password::pdhashevaluate(){
         Serial.print(pdhash[i], HEX);
       }
 	  Serial.println();
-	  
+#endif
 	char pass2 = pdhash[0];
 	char guessed2 = temp[0];
 	for (byte i=1; i<32; i++){

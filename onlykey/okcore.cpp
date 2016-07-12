@@ -57,7 +57,7 @@
  *OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#define DEBUG //Enable Serial Monitor 
+//#define DEBUG //Enable Serial Monitor 
 #include "sha256.h"
 #include <EEPROM.h>
 #include <password.h>
@@ -168,8 +168,10 @@ void U2Finit()
   sha256_update(&hkey, nonce, 32); //Add nonce to hkey 
   sha256_update(&hkey, (byte*)ID, 36); //Add ID to hkey 
   sha256_final(&hkey, (byte*)handlekey); //Create hash and store in handlekey
-  Serial.println("HANDLE KEY ="); //TODO remove debug
-  Serial.println(handlekey); //TODO remove debug
+#ifdef DEBUG
+  Serial.println("HANDLE KEY =");
+  Serial.println(handlekey); 
+#endif
   uint8_t length[2];
   onlykey_eeget_U2Fcertlen(length);
   int length2 = length[0] << 8 | length[1];
@@ -178,13 +180,17 @@ void U2Finit()
   } else {
   memcpy(attestation_pub, stored_pub, 66);
   memcpy(attestation_priv, stored_priv, 33);
+#ifdef DEBUG
   for (int i = 0; i< sizeof(stored_priv); i++) {
     Serial.print(attestation_priv[i],HEX);
     }
+#endif
   memcpy(attestation_der, stored_der, sizeof(stored_der));
+#ifdef DEBUG
   for (int i = 0; i< sizeof(stored_der); i++) {
     Serial.print(attestation_der[i],HEX);
     }
+#endif
   }
 }
 
@@ -413,9 +419,9 @@ void processMessage(byte *buffer)
   byte CLA = message[0];
 
   if (CLA!=0) {
-	#ifdef DEBUG 
+#ifdef DEBUG 
     Serial.println("U2F Error SW_CLA_NOT_SUPPORTED 366");
-    #endif 
+#endif 
     respondErrorPDU(buffer, SW_CLA_NOT_SUPPORTED);
     return;
   }
@@ -429,23 +435,25 @@ void processMessage(byte *buffer)
   case U2F_INS_REGISTER:
     {
       if (reqlength!=64) {
-		#ifdef DEBUG 
+#ifdef DEBUG 
 		Serial.println("U2F Error SW_WRONG_LENGTH 382");
-		#endif 
+#endif 
         respondErrorPDU(buffer, SW_WRONG_LENGTH);
         return;
       }
 
    
       if (!u2f_button) {
-		#ifdef DEBUG 
+#ifdef DEBUG 
 		Serial.println("U2F Error SW_CONDITIONS_NOT_SATISFIED 391");
-		#endif 
+#endif 
         respondErrorPDU(buffer, SW_CONDITIONS_NOT_SATISFIED);
 		return;
         }
       else {
+#ifdef DEBUG
           Serial.println("U2F button pressed for register");
+#endif
       }
     
 
@@ -460,7 +468,9 @@ void processMessage(byte *buffer)
       #endif
       public_k[0] = 0x04;
 	  if (private_k[0]==0x00) {
+#ifdef DEBUG
 		Serial.println("U2F Error Private K = 0");
+#endif
 		respondErrorPDU(buffer, SW_CONDITIONS_NOT_SATISFIED);
 	  return;
 	  }
@@ -485,10 +495,12 @@ void processMessage(byte *buffer)
       //for (int i =0; i < 64; i++) {
       //  handle[i] ^= handlekey[i%(sizeof(handlekey)-1)]; //TODO use HMAC or AES
       //}
+#ifdef DEBUG
       Serial.println("Unencrypted handle");
       for (int i =0; i<sizeof(handle); i++) {
       Serial.print(handle[i],HEX);
       }
+#endif
       SHA256_CTX IV;
       sha256_init(&IV);
       sha256_update(&IV, application_parameter, 32);
@@ -496,11 +508,13 @@ void processMessage(byte *buffer)
       #ifdef US_VERSION
       aes_gcm_encrypt2(handle, (uint8_t*)sha256_hash, (uint8_t*)handlekey, 64);
       #endif 
+#ifdef DEBUG
       Serial.println();
       Serial.println("Encrypted handle");
       for (int i =0; i<sizeof(handle); i++) {
       Serial.print(handle[i],HEX);
       }
+#endif
       SHA256_CTX ctx;
       sha256_init(&ctx);
       large_resp_buffer[0] = 0x00;
@@ -539,15 +553,20 @@ void processMessage(byte *buffer)
       #ifdef US_VERSION
       //TODO add uECC_sign_deterministic need to create hash_context, possibly create new SHA2 Library
       if (!uECC_sign((uint8_t *)attestation_priv, sha256_hash, 32, signature, curve)) {
+#ifdef DEBUG
       Serial.println("ECC Signature Failed Register");
 	  //respondErrorPDU(buffer, SW_CONDITIONS_NOT_SATISFIED);
       //return;
+#endif
       }
-      if (!uECC_verify((uint8_t *)attestation_pub+1, sha256_hash, 32, signature, curve)) {
-      Serial.println("ECC Verify Signature Failed Register");
+      //if (!uECC_verify((uint8_t *)attestation_pub+1, sha256_hash, 32, signature, curve)) {
+#ifdef DEBUG
+      //Serial.println("ECC Verify Signature Failed Register");
       //respondErrorPDU(buffer, SW_CONDITIONS_NOT_SATISFIED);
       //return;
-      }
+
+#endif
+      //}
       #endif
 
       int len = 0;
@@ -557,14 +576,18 @@ void processMessage(byte *buffer)
       large_resp_buffer[len++] = 64; //length of handle
       memcpy(large_resp_buffer+len, handle, 64);
       len += 64;
+#ifdef DEBUG
       Serial.println("len = ");
       Serial.println(len);
+#endif
       uint8_t length[2];
       onlykey_eeget_U2Fcertlen(length);
       int length2 = length[0] << 8 | length[1];
       if (length2 == 0) length2 = sizeof(stored_der) - 1;
+#ifdef DEBUG
       Serial.println("copy attestation_der to buffer, length = ");
       Serial.println(length2);
+#endif
       memcpy(large_resp_buffer+len, attestation_der, length2);
       len += length2;
       //convert signature format
@@ -595,7 +618,9 @@ void processMessage(byte *buffer)
 
       //minimum is 64 + 1 + 64
       if (reqlength!=(64+1+64)) {
+#ifdef DEBUG
 		Serial.print("Error SW wrong length");
+#endif
         respondErrorPDU(buffer, SW_WRONG_LENGTH);
         return;
       }
@@ -608,18 +633,24 @@ void processMessage(byte *buffer)
 
       if (handle_len!=64) {
         //not from this device
+#ifdef DEBUG
 		Serial.print("Error not from this device");
+#endif
         respondErrorPDU(buffer, SW_WRONG_DATA);
         return;
       }
      
       if (!u2f_button) {
+#ifdef DEBUG
 		Serial.print("Error U2F Button Not Pressed");
+#endif
         respondErrorPDU(buffer, SW_CONDITIONS_NOT_SATISFIED);
 		return;
         }
       else { 
+#ifdef DEBUG
         Serial.println("U2F button pressed for authenticate");
+#endif
       }
 
       memcpy(handle, client_handle, 64);
@@ -630,29 +661,37 @@ void processMessage(byte *buffer)
       sha256_init(&IV2);
       sha256_update(&IV2, application_parameter, 32);
       sha256_final(&IV2, sha256_hash);
+#ifdef DEBUG
       Serial.println("Encrypted handle");
       for (int i =0; i<sizeof(handle); i++) {
       Serial.print(handle[i]);
       }
+#endif
       #ifdef US_VERSION
       aes_gcm_decrypt2(handle, (uint8_t*)sha256_hash, (uint8_t*)handlekey, 64);
       #endif 
+#ifdef DEBUG
       Serial.println();
       Serial.println("Unencrypted handle");
       for (int i =0; i<sizeof(handle); i++) {
       Serial.print(handle[i]);
       }
+#endif
       uint8_t *key = handle + 32;
 
       if (memcmp(handle, application_parameter, 32)!=0) {
         //this handle is not from us
+#ifdef DEBUG
 		Serial.println("U2F Error SW_WRONG_DATA");
+#endif
         respondErrorPDU(buffer, SW_WRONG_DATA);
         return;
       }
 
       if (P1==0x07) { //check-only
+#ifdef DEBUG
 		Serial.println("U2F Error SW_CONDITIONS_NOT_SATISFIED");
+#endif
         respondErrorPDU(buffer, SW_CONDITIONS_NOT_SATISFIED);
       } else if (P1==0x03) { //enforce-user-presence-and-sign
         int counter = getCounter();
@@ -678,16 +717,20 @@ void processMessage(byte *buffer)
         #ifdef US_VERSION
         //TODO add uECC_sign_deterministic need to create hash_context, possibly create new SHA2 Library
         if (!uECC_sign((uint8_t *)key, sha256_hash, 32, signature, curve)) {
+#ifdef DEBUG
       	Serial.println("ECC Signature Failed Authenticate");
 		//respondErrorPDU(buffer, SW_CONDITIONS_NOT_SATISFIED);
       	//return;
+#endif
       	}
 		
-      	if (!uECC_verify((uint8_t *)attestation_pub+1, sha256_hash, 32, signature, curve)) {
-      	Serial.println("ECC Verify Signature Failed Authenticate");
+      	//if (!uECC_verify((uint8_t *)attestation_pub+1, sha256_hash, 32, signature, curve)) {
+#ifdef DEBUG
+      	//Serial.println("ECC Verify Signature Failed Authenticate");
+#endif
       	//respondErrorPDU(buffer, SW_CONDITIONS_NOT_SATISFIED);
       	//return;
-      	}
+      	//}
 	#endif	
 
         int len = 5;
@@ -715,14 +758,18 @@ void processMessage(byte *buffer)
         sendLargeResponse(buffer, len);
         setCounter(counter+1);
       } else {
+#ifdef DEBUG
         Serial.println("return error");
+#endif
       }
     }
     break;
   case U2F_INS_VERSION:
     {
       if (reqlength!=0) {
+#ifdef DEBUG
 		Serial.println("U2F Error SW_WRONG_LENGTH 636");
+#endif
         respondErrorPDU(buffer, SW_WRONG_LENGTH);
         return;
       }
@@ -737,7 +784,9 @@ void processMessage(byte *buffer)
     break;
   default:
     {
+#ifdef DEBUG
 	  Serial.println("U2F Error SW_INS_NOT_SUPPORTED 651");
+#endif
       respondErrorPDU(buffer, SW_INS_NOT_SUPPORTED);
     }
     ;
@@ -757,7 +806,9 @@ void processPacket(byte *buffer)
 
   int len = buffer[5] << 8 | buffer[6];
   if (cmd > U2FHID_INIT || cmd==U2FHID_LOCK) {
+#ifdef DEBUG
 	Serial.println("U2F Error ERR_INVALID_CMD 671");
+#endif
     errorResponse(recv_buffer, ERR_INVALID_CMD);
     return;
   }
@@ -819,7 +870,6 @@ void recvmsg() {
   int c;
   int z;
   
-  //Serial.print("");
   n = RawHID.recv(recv_buffer, 0); // 0 timeout = do not wait
  
   if (n > 0) {
@@ -835,7 +885,9 @@ void recvmsg() {
     Serial.println(cid, HEX);
 #endif    
     if (cid==0) { 
+#ifdef DEBUG
 	  Serial.println("U2F Error ERR_INVALID_CID 753");
+#endif
       errorResponse(recv_buffer, ERR_INVALID_CID);
       return;
     }
@@ -883,7 +935,11 @@ void recvmsg() {
       case OKSETSLOT:
 	   if(initialized==false && unlocked==true) 
 	   {
+		if (recv_buffer[6] == 12) {
+		SETSLOT(recv_buffer);
+		} else {
 		hidprint("No PIN set, You must set a PIN first");
+		}
 		return;
 	   }else if (initialized==true && unlocked==true) 
 	   {
@@ -996,7 +1052,9 @@ void recvmsg() {
     }
 
     if (cid==-1) {
+#ifdef DEBUG
 	  Serial.println("U2F Error ERR_INVALID_CID 907");
+#endif
       errorResponse(recv_buffer, ERR_INVALID_CID);
       return;
     }
@@ -1010,7 +1068,9 @@ void recvmsg() {
       allocate_channel(cid);
       cidx = find_channel_index(cid);
       if (cidx==-1) {
+#ifdef DEBUG
 		Serial.println("U2F Error ERR_INVALID_CID 921");
+#endif
         errorResponse(recv_buffer, ERR_INVALID_CID);
         return;
       }
@@ -1020,7 +1080,9 @@ void recvmsg() {
     if (IS_NOT_CONTINUATION_PACKET(cmd_or_cont)) {
 
       if (len > MAX_TOTAL_PACKET) {
+#ifdef DEBUG
 	    Serial.println("U2F Error ERR_INVALID_LEN 931");
+#endif
         errorResponse(recv_buffer, ERR_INVALID_LEN); //invalid length
         return;
       }
@@ -1071,9 +1133,9 @@ void recvmsg() {
 
       //this is a continuation
       if (cmd_or_cont != expected_next_packet) {
-		#ifdef DEBUG 
+#ifdef DEBUG 
         Serial.println("U2F Error ERR_INVALID_SEQ 984");
-        #endif 
+#endif 
         errorResponse(recv_buffer, ERR_INVALID_SEQ); //invalid sequence
         channel_states[cidx].state= STATE_CHANNEL_WAIT_PACKET;
         return;
@@ -1106,7 +1168,9 @@ void recvmsg() {
         Serial.println(channel_states[i].cid, HEX);
 #endif        
         memcpy(recv_buffer, &channel_states[i].cid, 4);
+#ifdef DEBUG
 		Serial.println("U2F Error ERR_MSG_TIMEOUT 1017");
+#endif
         errorResponse(recv_buffer, ERR_MSG_TIMEOUT);
         channel_states[i].state= STATE_CHANNEL_WAIT_PACKET;
 
@@ -1129,12 +1193,16 @@ void recvmsg() {
 
 void SETPIN (byte *buffer)
 {
+#ifdef DEBUG
       Serial.println("OKSETPIN MESSAGE RECEIVED");
+#endif
 	  
 switch (PINSET) {
       case 0:
       password.reset();
+#ifdef DEBUG
       Serial.println("Enter PIN");
+#endif
       hidprint("Enter PIN");
       PINSET = 1;
       return;
@@ -1142,7 +1210,9 @@ switch (PINSET) {
       PINSET = 2;
       if(strlen(password.guess) > 6 && strlen(password.guess) < 11)
       {
+#ifdef DEBUG
         Serial.println("Storing PIN");
+#endif
         hidprint("Storing PIN");
 		static char passguess[10];
       for (int i =0; i <= strlen(password.guess); i++) {
@@ -1153,8 +1223,9 @@ switch (PINSET) {
       }
       else
       {
-        
+#ifdef DEBUG
 		Serial.println("Error PIN is not between 7 - 10 characters");
+#endif
 		hidprint("Error PIN is not between 7 - 10 characters");
         password.reset();
 		PINSET = 0;
@@ -1162,7 +1233,9 @@ switch (PINSET) {
       
       return;
       case 2:
+#ifdef DEBUG
       Serial.println("Confirm PIN");
+#endif
       hidprint("Confirm PIN");
       PINSET = 3;
       return;
@@ -1172,7 +1245,9 @@ switch (PINSET) {
       {
 	  
           if (password.evaluate()) {
+#ifdef DEBUG
             Serial.println("Both PINs Match");
+#endif
             hidprint("Both PINs Match");
 			uint8_t temp[32];
 			uint8_t *ptr;
@@ -1186,33 +1261,45 @@ switch (PINSET) {
 			sha256_update(&pinhash, temp, strlen(password.guess)); //Add new PIN to hash
 			if (!initialized) {
 			RNG2(ptr, 32); //Fill temp with random data
+#ifdef DEBUG
 			Serial.println("Generating NONCE");
+#endif
 			onlykey_flashset_noncehash (ptr); //Store in flash
 			}
 			else {
+#ifdef DEBUG
 			Serial.println("Getting NONCE");
+#endif
 			onlykey_flashget_noncehash (ptr, 32); 
 			}
 			
 			sha256_update(&pinhash, temp, 32); //Add nonce to hash
 			sha256_final(&pinhash, temp); //Create hash and store in temp
+#ifdef DEBUG
 			Serial.println("Hashing PIN and storing to Flash");
+#endif
 			onlykey_flashset_pinhash (ptr);
 
 	  		initialized = true;
+#ifdef DEBUG
 	  		Serial.println();
-			Serial.println("Successfully set PIN, you must remove OnlyKey and reinsert to configure");
-			hidprint("Successfully set PIN, you must remove OnlyKey and reinsert to configure");
+			Serial.println("Successfully set PIN, remove and reinsert OnlyKey");
+#endif
+			hidprint("Successfully set PIN");
           }
           else {
+#ifdef DEBUG
             Serial.println("Error PINs Don't Match");
+#endif
 			hidprint("Error PINs Don't Match");
 			PINSET = 0;
           }
       }
       else
       {
+#ifdef DEBUG
         Serial.println("Error PIN is not between 7 - 10 characters");
+#endif
 		hidprint("Error PIN is not between 7 - 10 characters");
 		PINSET = 0;
       }
@@ -1224,12 +1311,16 @@ switch (PINSET) {
 
 void SETSDPIN (byte *buffer)
 {
+#ifdef DEBUG
       Serial.println("OKSETSDPIN MESSAGE RECEIVED");
+#endif
 	  
       switch (PINSET) {
       case 0:
       password.reset();
+#ifdef DEBUG
       Serial.println("Enter PIN");
+#endif
       hidprint("Enter PIN");
       PINSET = 4;
       return;
@@ -1237,7 +1328,9 @@ void SETSDPIN (byte *buffer)
 	  PINSET = 5;
       if(strlen(password.guess) >= 7 && strlen(password.guess) < 11)
       {
+#ifdef DEBUG
         Serial.println("Storing PIN");
+#endif
         hidprint("Storing PIN");
 		static char passguess[10];
       for (int i =0; i <= strlen(password.guess); i++) {
@@ -1248,8 +1341,9 @@ void SETSDPIN (byte *buffer)
       }
       else
       {
-        
+#ifdef DEBUG
 		Serial.println("Error PIN is not between 7 - 10 characters");
+#endif
 		hidprint("Error PIN is not between 7 - 10 characters");
         password.reset();
 		PINSET = 0;
@@ -1257,7 +1351,9 @@ void SETSDPIN (byte *buffer)
       
       return;
       case 5:
+#ifdef DEBUG
       Serial.println("Confirm PIN");
+#endif
       hidprint("Confirm PIN");
       PINSET = 6;
       return;
@@ -1267,7 +1363,9 @@ void SETSDPIN (byte *buffer)
       {
 	  
           if (password.evaluate() == true) {
+#ifdef DEBUG
             Serial.println("Both PINs Match");
+#endif
             hidprint("Both PINs Match");
 		uint8_t temp[32];
 		uint8_t *ptr;
@@ -1279,23 +1377,31 @@ void SETSDPIN (byte *buffer)
 		SHA256_CTX pinhash;
 		sha256_init(&pinhash);
 		sha256_update(&pinhash, temp, strlen(password.guess)); //Add new PIN to hash
+#ifdef DEBUG
 		Serial.println("Getting NONCE");
+#endif
 		onlykey_flashget_noncehash (ptr, 32); 
 	
 		sha256_update(&pinhash, temp, 32); //Add nonce to hash
 		sha256_final(&pinhash, temp); //Create hash and store in temp
+#ifdef DEBUG
 		Serial.println("Hashing SDPIN and storing to Flash");
+#endif
 		onlykey_flashset_selfdestructhash (ptr);
-		hidprint("Successfully set PIN, you must remove OnlyKey and reinsert to configure");
+		hidprint("Successfully set Self Destruct PIN");
           }
           else {
+#ifdef DEBUG
             Serial.println("Error PINs Don't Match");
+#endif
 	    hidprint("Error PINs Don't Match");		
           }
       }
       else
       {
+#ifdef DEBUG
         Serial.println("Error PIN is not between 7 - 10 characters");
+#endif
 	hidprint("Error PIN is not between 7 - 10 characters");
       }
       password.reset();
@@ -1306,12 +1412,16 @@ void SETSDPIN (byte *buffer)
 
 void SETPDPIN (byte *buffer)
 {
+#ifdef DEBUG
       Serial.println("OKSETPDPIN MESSAGE RECEIVED");
+#endif
 	  
 	switch (PINSET) {
       case 0:
       password.reset();
+#ifdef DEBUG
       Serial.println("Enter PIN");
+#endif
       hidprint("Enter PIN");
       PINSET = 7;
       return;
@@ -1319,7 +1429,9 @@ void SETPDPIN (byte *buffer)
       PINSET = 8;
       if(strlen(password.guess) >= 7 && strlen(password.guess) < 11)
       {
+#ifdef DEBUG
         Serial.println("Storing PIN");
+#endif
         hidprint("Storing PIN");
 		static char passguess[10];
       for (int i =0; i <= strlen(password.guess); i++) {
@@ -1330,14 +1442,18 @@ void SETPDPIN (byte *buffer)
       }
       else
       {
+#ifdef DEBUG
 	Serial.println("Error PIN is not between 7 - 10 characters");
+#endif
 	hidprint("Error PIN is not between 7 - 10 characters");
         password.reset();
 	PINSET = 0;
       }
       return;
       case 8:
+#ifdef DEBUG
       Serial.println("Confirm PIN");
+#endif
       hidprint("Confirm PIN");
       PINSET = 9;
       return;
@@ -1347,7 +1463,9 @@ void SETPDPIN (byte *buffer)
       {
 	  
           if (password.evaluate()) {
-            Serial.println("Both PINs Match");
+#ifdef DEBUG
+	    Serial.println("Both PINs Match");
+#endif
             hidprint("Both PINs Match");
 			uint8_t temp[32];
 			uint8_t *ptr;
@@ -1361,33 +1479,45 @@ void SETPDPIN (byte *buffer)
 			sha256_update(&pinhash, temp, strlen(password.guess)); //Add new PIN to hash
 			if (!initialized) {
 			RNG2(ptr, 32); //Fill temp with random data
+#ifdef DEBUG
 			Serial.println("Generating NONCE");
+#endif
 			onlykey_flashset_noncehash (ptr); //Store in flash
 			}
 			else {
+#ifdef DEBUG
 			Serial.println("Getting NONCE");
+#endif
 			onlykey_flashget_noncehash (ptr, 32); 
 			}
 			
 			sha256_update(&pinhash, temp, 32); //Add nonce to hash
 			sha256_final(&pinhash, temp); //Create hash and store in temp
+#ifdef DEBUG
 			Serial.println("Hashing PIN and storing to Flash");
+#endif
 			onlykey_flashset_plausdenyhash (ptr);
 
 	  		initialized = true;
+#ifdef DEBUG
 	  		Serial.println();
-			Serial.println("Successfully set PIN, you must remove OnlyKey and reinsert to configure");
-			hidprint("Successfully set PIN, you must remove OnlyKey and reinsert to configure");
+			Serial.println("Successfully set PIN, remove and reinsert OnlyKey");
+#endif
+			hidprint("Successfully set PIN");
           }
           else {
+#ifdef DEBUG
             Serial.println("Error PINs Don't Match");
+#endif
 	    hidprint("Error PINs Don't Match");
 	    PINSET = 0;
           }
       }
       else
       {
+#ifdef DEBUG
         Serial.println("Error PIN is not between 7 - 10 characters");
+#endif
 	hidprint("Error PIN is not between 7 - 10 characters");
 	PINSET = 0;
       }
@@ -1399,34 +1529,48 @@ void SETPDPIN (byte *buffer)
 
 void SETTIME (byte *buffer)
 {
-      Serial.println();
-	  Serial.println("OKSETTIME MESSAGE RECEIVED");        
+#ifdef DEBUG
+      	  Serial.println();
+	  Serial.println("OKSETTIME MESSAGE RECEIVED"); 
+#endif       
 	   if(initialized==false && unlocked==true) 
 	   {
+#ifdef DEBUG
 		Serial.print("UNINITIALIZED");
+#endif
 		hidprint("UNINITIALIZED");
 		return;
 	   }else if (initialized==true && unlocked==true) 
 	   {
+#ifdef DEBUG
 		Serial.print("UNLOCKED");
+#endif
 		hidprint("UNLOCKED");
 	   
     int i, j;                
     for(i=0, j=3; i<4; i++, j--){
     unixTimeStamp |= ((uint32_t)buffer[j + 5] << (i*8) );
+#ifdef DEBUG
     Serial.println(buffer[j+5], HEX);
+#endif
     }
                       
       time_t t2 = unixTimeStamp;
+#ifdef DEBUG
       Serial.print(F("Received Unix Epoch Time: "));
       Serial.println(unixTimeStamp, HEX); 
+#endif
       setTime(t2); 
+#ifdef DEBUG
       Serial.print(F("Current Time Set to: "));
+#endif
       digitalClockDisplay();  
 	  }
 	  else
 	  {
+#ifdef DEBUG
 	    Serial.print("FLASH ERROR");
+#endif
 		factorydefault();
 	  }
       RawHID.send(resp_buffer, 0);
@@ -1436,8 +1580,10 @@ void SETTIME (byte *buffer)
 
 void GETLABELS (byte *buffer)
 {
-      Serial.println();
+#ifdef DEBUG
+      	  Serial.println();
 	  Serial.println("OKGETLABELS MESSAGE RECEIVED");
+#endif
 	  uint8_t label[EElen_label+2];
 	  uint8_t *ptr;
 	  char labelchar[EElen_label+2];
@@ -1449,7 +1595,9 @@ void GETLABELS (byte *buffer)
 	  label[0] = (byte)0x01;
 	  label[1] = (byte)0x7C;
 	  ByteToChar(label, labelchar, EElen_label+2);
+#ifdef DEBUG
 	  Serial.println(labelchar);
+#endif
 	  hidprint(labelchar);
 	  delay(20);
 	  
@@ -1457,7 +1605,9 @@ void GETLABELS (byte *buffer)
 	  label[0] = (byte)0x02;
 	  label[1] = (byte)0x7C;
 	  ByteToChar(label, labelchar, EElen_label+2);
+#ifdef DEBUG
 	  Serial.println(labelchar);
+#endif
       	  hidprint(labelchar);
       	  delay(20);
 	  
@@ -1465,7 +1615,9 @@ void GETLABELS (byte *buffer)
 	  label[0] = (byte)0x03;
 	  label[1] = (byte)0x7C;
 	  ByteToChar(label, labelchar, EElen_label+2);
+#ifdef DEBUG
 	  Serial.println(labelchar);
+#endif
           hidprint(labelchar);
           delay(20);
 	  
@@ -1473,7 +1625,9 @@ void GETLABELS (byte *buffer)
 	  label[0] = (byte)0x04;
 	  label[1] = (byte)0x7C;
 	  ByteToChar(label, labelchar, EElen_label+2);
+#ifdef DEBUG
 	  Serial.println(labelchar);
+#endif
           hidprint(labelchar);
           delay(20);
 	  
@@ -1481,7 +1635,9 @@ void GETLABELS (byte *buffer)
 	  label[0] = (byte)0x05;
 	  label[1] = (byte)0x7C;
 	  ByteToChar(label, labelchar, EElen_label+2);
+#ifdef DEBUG
 	  Serial.println(labelchar);
+#endif
           hidprint(labelchar);
           delay(20);
 	  
@@ -1489,7 +1645,9 @@ void GETLABELS (byte *buffer)
 	  label[0] = (byte)0x06;
 	  label[1] = (byte)0x7C;
 	  ByteToChar(label, labelchar, EElen_label+2);
+#ifdef DEBUG
 	  Serial.println(labelchar);
+#endif
           hidprint(labelchar);
           delay(20);
 	  
@@ -1497,7 +1655,9 @@ void GETLABELS (byte *buffer)
 	  label[0] = (byte)0x07;
 	  label[1] = (byte)0x7C;
 	  ByteToChar(label, labelchar, EElen_label+2);
+#ifdef DEBUG
 	  Serial.println(labelchar);
+#endif
           hidprint(labelchar);
           delay(20);
 	  
@@ -1505,7 +1665,9 @@ void GETLABELS (byte *buffer)
 	  label[0] = (byte)0x08;
 	  label[1] = (byte)0x7C;
 	  ByteToChar(label, labelchar, EElen_label+2);
+#ifdef DEBUG
 	  Serial.println(labelchar);
+#endif
           hidprint(labelchar);
           delay(20);
 	  
@@ -1513,7 +1675,9 @@ void GETLABELS (byte *buffer)
 	  label[0] = (byte)0x09;
 	  label[1] = (byte)0x7C;
 	  ByteToChar(label, labelchar, EElen_label+2);
+#ifdef DEBUG
 	  Serial.println(labelchar);
+#endif
           hidprint(labelchar);
           delay(20);
 	  
@@ -1521,7 +1685,9 @@ void GETLABELS (byte *buffer)
 	  label[0] = (byte)0x10;
 	  label[1] = (byte)0x7C;
 	  ByteToChar(label, labelchar, EElen_label+2);
+#ifdef DEBUG
 	  Serial.println(labelchar);
+#endif
           hidprint(labelchar);
           delay(20);
 	  
@@ -1529,7 +1695,9 @@ void GETLABELS (byte *buffer)
 	  label[0] = (byte)0x11;
 	  label[1] = (byte)0x7C;
 	  ByteToChar(label, labelchar, EElen_label+2);
+#ifdef DEBUG
 	  Serial.println(labelchar);
+#endif
           hidprint(labelchar);
           delay(20);
 	  
@@ -1537,7 +1705,9 @@ void GETLABELS (byte *buffer)
 	  label[0] = (byte)0x12;
 	  label[1] = (byte)0x7C;
 	  ByteToChar(label, labelchar, EElen_label+2);
+#ifdef DEBUG
 	  Serial.println(labelchar);
+#endif
           hidprint(labelchar);
           delay(20);
 	  
@@ -1577,34 +1747,37 @@ void SETSLOT (byte *buffer)
             switch (value) {
             case 1:
             //Set value in EEPROM
+#ifdef DEBUG
             Serial.println(); //newline
             Serial.print("Writing Label Value to EEPROM...");
+#endif
             onlykey_eeset_label(buffer + 7, length, slot);
 			hidprint("Successfully set Label");
             return;
             //break;
             case 2:
             //Encrypt and Set value in EEPROM
+#ifdef DEBUG
             Serial.println("Writing Username Value to EEPROM...");
+#endif
             if (!PDmode) {
-            #ifdef DEBUG
+#ifdef DEBUG
             Serial.println("Unencrypted");
             for (int z = 0; z < 32; z++) {
       	    Serial.print(buffer[z + 7], HEX);
             }
             Serial.println();
-            #endif 
-            #ifdef US_VERSION
+#endif 
+#ifdef US_VERSION
       	    aes_gcm_encrypt((buffer + 7), (uint8_t*)('u'+ID[34]+slot), phash, length);
-      	    #endif 
-      	    #ifdef DEBUG
+#endif 
+#ifdef DEBUG
       	    Serial.println("Encrypted");
             for (int z = 0; z < 32; z++) {
       	    Serial.print(buffer[z + 7], HEX);
             }
             Serial.println();
-            #endif     
-            Serial.println(); //newline
+#endif     
             }
             onlykey_eeset_username(buffer + 7, length, slot);
 	    hidprint("Successfully set Username");
@@ -1612,17 +1785,23 @@ void SETSLOT (byte *buffer)
             //break;
             case 3:
             //Set value in EEPROM
+#ifdef DEBUG
             Serial.println(); //newline
             Serial.print("Writing Additional Character1 to EEPROM...");
+#endif
             onlykey_eeset_addchar1(buffer + 7, slot);
+#ifdef DEBUG
 			Serial.print(buffer[7]);
+#endif
 	    hidprint("Successfully set Character1");
             return;
             //break;
             case 4:
             //Set value in EEPROM
+#ifdef DEBUG
             Serial.println(); //newline
             Serial.print("Writing Delay1 to EEPROM...");
+#endif
             buffer[7] = (buffer[7] -'0');
             onlykey_eeset_delay1(buffer + 7, slot);
 	    hidprint("Successfully set Delay1");
@@ -1630,26 +1809,27 @@ void SETSLOT (byte *buffer)
             //break;
             case 5:
             //Encrypt and Set value in EEPROM
+#ifdef DEBUG
             Serial.println("Writing Password to EEPROM...");
+#endif
             if (!PDmode) {
-            #ifdef DEBUG
+#ifdef DEBUG
             Serial.println("Unencrypted");
             for (int z = 0; z < 32; z++) {
       	    Serial.print(buffer[z + 7], HEX);
             }
             Serial.println();
-            #endif  
-            #ifdef US_VERSION
+#endif  
+#ifdef US_VERSION
             aes_gcm_encrypt((buffer + 7), (uint8_t*)('p'+ID[34]+slot), phash, length);
-            #endif 
-      	    #ifdef DEBUG
+#endif 
+#ifdef DEBUG
       	    Serial.println("Encrypted");
             for (int z = 0; z < 32; z++) {
       	    Serial.print(buffer[z + 7], HEX);
             }
             Serial.println();
-            #endif 
-            Serial.println(); //newline
+#endif 
             }
             onlykey_eeset_password(buffer + 7, length, slot);
 	    hidprint("Successfully set Password");
@@ -1657,17 +1837,23 @@ void SETSLOT (byte *buffer)
             //break;
             case 6:
             //Set value in EEPROM
+#ifdef DEBUG
             Serial.println(); //newline
             Serial.print("Writing Additional Character2 to EEPROM...");
+#endif
             onlykey_eeset_addchar2(buffer + 7, slot);
+#ifdef DEBUG
 			Serial.print(buffer[7]);
+#endif
 	    hidprint("Successfully set Character2");
             return;
             //break;
             case 7:
             //Set value in EEPROM
+#ifdef DEBUG
             Serial.println(); //newline
             Serial.print("Writing Delay2 to EEPROM...");
+#endif
             buffer[7] = (buffer[7] -'0');
             onlykey_eeset_delay2(buffer + 7, slot);
 	    hidprint("Successfully set Delay2");
@@ -1675,34 +1861,36 @@ void SETSLOT (byte *buffer)
             //break;
             case 8:
             //Set value in EEPROM
+#ifdef DEBUG
             Serial.println(); //newline
             Serial.print("Writing 2FA Type to EEPROM...");
+#endif
             onlykey_eeset_2FAtype(buffer + 7, slot);
 	    hidprint("Successfully set 2FA Type");
             return;
             //break;
             case 9:
             //Encrypt and Set value in EEPROM
+#ifdef DEBUG
             Serial.println("Writing TOTP Key to Flash...");
-            #ifdef DEBUG
             Serial.println("Unencrypted");
             for (int z = 0; z < 64; z++) {
       	    Serial.print(buffer[z + 7], HEX);
             }
             Serial.println();
-            #endif 
-            #ifdef US_VERSION
+#endif 
+#ifdef US_VERSION
             if (!PDmode) {
             aes_gcm_encrypt((buffer + 7), (uint8_t*)('t'+ID[34]+slot), phash, length);
             }
-            #endif
-	    #ifdef DEBUG
+#endif
+#ifdef DEBUG
 	    Serial.println("Encrypted");
             for (int z = 0; z < 64; z++) {
       	    Serial.print(buffer[z + 7], HEX);
             }
             Serial.println();
-            #endif    
+#endif    
             onlykey_flashset_totpkey(buffer + 7, length, slot);
 	    hidprint("Successfully set TOTP Key");
             return;
@@ -1710,8 +1898,8 @@ void SETSLOT (byte *buffer)
             case 10:
             if (!PDmode) {
             //Encrypt and Set value in EEPROM
+#ifdef DEBUG
             Serial.println("Writing AES Key, Private ID, and Public ID to EEPROM...");
-            #ifdef DEBUG
             Serial.println("Unencrypted Public ID");
             for (int z = 0; z < 6; z++) {
       	    Serial.print(buffer[z + 7], HEX);
@@ -1725,16 +1913,17 @@ void SETSLOT (byte *buffer)
       	    Serial.print(buffer[z + 7 + 12], HEX);
             }
             Serial.println();
-            #endif 
-            #ifdef US_VERSION
+#endif 
+#ifdef US_VERSION
             aes_gcm_encrypt((buffer + 7), (uint8_t*)('y'+ID[34]), phash, length);
-            #endif 
-      	    #ifdef DEBUG
+#endif 
+#ifdef DEBUG
       	    Serial.println("Encrypted");
             for (int z = 0; z < 32; z++) {
       	    Serial.print(buffer[z + 7], HEX);
             }
             Serial.println();
+#endif
             uint16_t counter  = 0x0000;
             uint8_t *ptr;
   	    ptr = (uint8_t *) &counter;
@@ -1743,21 +1932,26 @@ void SETSLOT (byte *buffer)
             onlykey_eeset_private((buffer + 7 + EElen_public));
             onlykey_eeset_aeskey((buffer + 7 + EElen_public + EElen_private), EElen_aeskey);
             yubikeyinit();
-            #endif
 	    hidprint("Successfully set AES Key, Private ID, and Public ID");
 	    }
             return;
             case 11:
-            //Set value in EEPROM
+            //Set value in EEPROM 
+#ifdef DEBUG
             Serial.println(); //newline
             Serial.println("Writing idle timeout to EEPROM...");
+#endif 
+            buffer[7] = (buffer[7] -'0');
             onlykey_eeset_timeout(buffer + 7);
 	    hidprint("Successfully set idle timeout");
             return;
             case 12:
             //Set value in EEPROM
+#ifdef DEBUG
             Serial.println(); //newline
             Serial.println("Writing wipemode to EEPROM...");
+#endif 
+            buffer[7] = (buffer[7] -'0');
             onlykey_eeset_wipemode(buffer + 7);
 	    hidprint("Successfully set wipe mode");
             return;
@@ -1775,20 +1969,29 @@ void WIPESLOT (byte *buffer)
       int slot = buffer[5];
       int value = buffer[6];
       int length;
+#ifdef DEBUG
       Serial.print("OKWIPESLOT MESSAGE RECEIVED:");
       Serial.println((int)cmd - 0x80, HEX);
       Serial.print("Wiping Slot #");
       Serial.println((int)slot, DEC);
       Serial.print("Value #");
       Serial.println((int)value, DEC);
+#endif 
+
       for (int z = 7; z < 64; z++) {
         buffer[z] = 0x00;
+#ifdef DEBUG
         Serial.print(buffer[z], HEX);
+#endif 
         }
+#ifdef DEBUG
      Serial.print("Overwriting slot with 0s");
+#endif 
 	 if (value==0x0A) {
+#ifdef DEBUG
             Serial.println(); //newline
             Serial.print("Wiping OnlyKey AES Key, Private ID, and Public ID...");
+#endif 
             onlykey_eeset_aeskey((buffer + 7), 0);
             onlykey_eeset_private((buffer + 7 + EElen_aeskey));
             onlykey_eeset_public((buffer + 7 + EElen_aeskey + EElen_private), 0);
@@ -1796,50 +1999,58 @@ void WIPESLOT (byte *buffer)
 			return;
 	 }
    	if (PDmode) slot = slot+12;
-   
+#ifdef DEBUG
             Serial.println(); //newline
             Serial.print("Wiping Label Value...");
+#endif 
             onlykey_eeset_label((buffer + 7), 0, slot);
             hidprint("Successfully wiped Label");
-
+#ifdef DEBUG
             Serial.println(); //newline
             Serial.print("Wiping Username Value...");
+#endif 
             onlykey_eeset_username((buffer + 7), 0, slot);
             hidprint("Successfully wiped Username");
-
+#ifdef DEBUG
             Serial.println(); //newline
             Serial.print("Wiping Additional Character1 Value...");
+#endif 
             onlykey_eeset_addchar1((buffer + 7), slot);
             hidprint("Successfully wiped Additional Character 1");
-
+#ifdef DEBUG
             Serial.println(); //newline
             Serial.print("Writing Delay1 to EEPROM...");
+#endif 
             onlykey_eeset_delay1((buffer + 7), slot);
             hidprint("Successfully wiped Delay 1");
-
+#ifdef DEBUG
             Serial.println(); //newline
             Serial.print("Wiping Password Value...");
+#endif 
             onlykey_eeset_password((buffer + 7), 0, slot);
             hidprint("Successfully wiped Password");
-
+#ifdef DEBUG
             Serial.println(); //newline
             Serial.print("Wiping Additional Character2 Value...");
+#endif 
             onlykey_eeset_addchar2((buffer + 7), slot);
             hidprint("Successfully wiped Additional Character 2");
-            
-	    
-            Serial.println(); //newline
+#ifdef DEBUG
+	    Serial.println(); //newline
             Serial.print("Wiping Delay2 Value...");
+#endif 
             onlykey_eeset_delay2((buffer + 7), slot);
             hidprint("Successfully wiped Delay 2");
-	    
+#ifdef DEBUG
             Serial.println(); //newline
             Serial.print("Wiping 2FA Type Value...");
+#endif 
             onlykey_eeset_2FAtype((buffer + 7), slot);
             hidprint("Successfully wiped 2FA Type");
-
+#ifdef DEBUG
             Serial.println(); //newline
             Serial.print("Wiping TOTP Key from Flash...");
+#endif 
             onlykey_flashset_totpkey((buffer + 7), 0, slot);
             hidprint("Successfully wiped TOTP Key");
 
@@ -1848,7 +2059,8 @@ void WIPESLOT (byte *buffer)
 }
 
 void digitalClockDisplay(){
-  // digital clock display of the time
+  // digital clock display of the time 
+#ifdef DEBUG
   Serial.print(hour());
   printDigits(minute());
   printDigits(second());
@@ -1859,14 +2071,18 @@ void digitalClockDisplay(){
   Serial.print(" ");
   Serial.print(year()); 
   Serial.println(); 
+#endif 
+
 }
 
 void printDigits(int digits){
   // utility function for digital clock display: prints preceding colon and leading 0
+#ifdef DEBUG
   Serial.print(":");
   if(digits < 10)
     Serial.print('0');
   Serial.print(digits);
+#endif 
 }
 
 void blink(int times){
@@ -1952,11 +2168,16 @@ void printHex(const byte *data, unsigned len)
     static char const hexchars[] = "0123456789ABCDEF";
     while (len > 0) {
         int b = *data++;
+#ifdef DEBUG
         Serial.print(hexchars[(b >> 4) & 0x0F]);
         Serial.print(hexchars[b & 0x0F]);
+#endif 
+
         --len;
-    }
+    } 
+#ifdef DEBUG
     Serial.println();
+#endif 
 }
 
 void ByteToChar(byte* bytes, char* chars, unsigned int count){
@@ -1992,37 +2213,67 @@ while(*chars) {
 }
 
 void factorydefault() {
+	uint8_t mode;
+	uintptr_t adr = 0x0;
+	onlykey_eeget_wipemode(&mode);
+	if (mode == 0x00) {
 	wipeflash(); //Wipe flash first need eeprom address for flash to wipe
 	wipeEEPROM();
+	} else {
+	//FULLWIPE Mode
+	flashEraseAll();
+#ifdef DEBUG
+        for (int i = 0; i < 7000; i++)
+        {
+        Serial.printf("0x%X", adr);
+        Serial.printf(" 0x%X", *((unsigned int*)adr));
+        Serial.println();
+        adr=adr+4;
+        }
+#endif 
+}
 	initialized = false;
 	unlocked = true;
+#ifdef DEBUG
 	Serial.println("factory reset has been completed");
+#endif 
 }
 
 void wipeEEPROM() {
 	//Erase all EEPROM values
 	uint8_t value;
+#ifdef DEBUG
 	Serial.println("Current EEPROM Values"); //TODO remove debug
+#endif 
 	for (int i=0; i<2048; i++) {
 	value=EEPROM.read(i);
+#ifdef DEBUG
 	Serial.print(i);
   	Serial.print("\t");
   	Serial.print(value, DEC);
   	Serial.println();
+#endif 
 	}
 	value=0x00;
 	for (int i=0; i<2048; i++) {
 	EEPROM.write(i, value);
 	}
+#ifdef DEBUG
 	Serial.println("EEPROM set to 0s");//TODO remove debug
+#endif 
 	for (int i=0; i<2048; i++) {
 	value=EEPROM.read(i);
+#ifdef DEBUG
 	Serial.print(i);
   	Serial.print("\t");
   	Serial.print(value, DEC);
   	Serial.println();
+#endif 
 	}
+#ifdef DEBUG
 	Serial.println("EEPROM erased");//TODO remove debug
+#endif 
+
 }
 
 void wipeflash() {
@@ -2030,22 +2281,54 @@ void wipeflash() {
 	onlykey_eeget_hashpos(addr);
 	uintptr_t adr = (0x02 << 16L) | (addr[0] << 8L) | addr[1];
 	//Erase flash sectors used
+#ifdef DEBUG
 	Serial.printf("Erase Sector 0x%X ",adr);
-	if (flashEraseSector((unsigned long*)adr)) Serial.printf("NOT ");
+#endif 
+	if (flashEraseSector((unsigned long*)adr)) {
+#ifdef DEBUG 
+	Serial.printf("NOT ");
+#endif 
+	}
+#ifdef DEBUG 
 	Serial.printf("successful\r\n");
+#endif 
 	adr=adr+2048; //Next Sector
+#ifdef DEBUG 
 	Serial.printf("Erase Sector 0x%X ",adr);
-	if (flashEraseSector((unsigned long*)adr)) Serial.printf("NOT ");
+#endif 
+	if (flashEraseSector((unsigned long*)adr)) {
+#ifdef DEBUG 
+	Serial.printf("NOT ");
+#endif 
+	}
+#ifdef DEBUG 
 	Serial.printf("successful\r\n");
+#endif 
 	adr=adr+4096; //Next Sector
+#ifdef DEBUG 
 	Serial.printf("Erase Sector 0x%X ",adr);
-	if (flashEraseSector((unsigned long*)adr)) Serial.printf("NOT ");
+#endif 
+	if (flashEraseSector((unsigned long*)adr)) {
+#ifdef DEBUG 
+	Serial.printf("NOT ");
+#endif 
+	}
+#ifdef DEBUG 
 	Serial.printf("successful\r\n");
+#endif 
 	adr=adr+6144; //Next Sector
+#ifdef DEBUG 
 	Serial.printf("Erase Sector 0x%X ",adr);
-	if (flashEraseSector((unsigned long*)adr)) Serial.printf("NOT ");
+#endif 
+	if (flashEraseSector((unsigned long*)adr)) {
+#ifdef DEBUG 
+	Serial.printf("NOT ");
+#endif 
+	}
+#ifdef DEBUG 
 	Serial.printf("successful\r\n");
 	Serial.println("Flash Sectors erased");//TODO remove debug
+#endif 
 }
 
 
@@ -2143,7 +2426,11 @@ void onlykey_flashset_common (uint8_t *ptr, unsigned long *adr, int len) {
 	//Write long to sector 
 	//Serial.println();
 	//Serial.printf("Writing to Sector 0x%X, value 0x%X ", adr, data);
-	if ( flashProgramWord((unsigned long*)adr, &data) ) Serial.printf("NOT ");
+	if ( flashProgramWord((unsigned long*)adr, &data) ) {
+#ifdef DEBUG 
+	Serial.printf("NOT ");
+#endif 
+	}
 	adr++;
 	}
 	return;
@@ -2168,17 +2455,25 @@ void onlykey_flashset_noncehash (uint8_t *ptr) {
     onlykey_eeget_hashpos(addr);
     if (addr[0]+addr[1] == 0) { //First time setting pinhash
 	adr = 0x20004;
+#ifdef DEBUG 
 	Serial.printf("First empty Sector is 0x%X\r\n", flashFirstEmptySector());
+#endif 
 	addr[0] = (uint8_t)((adr >> 8) & 0XFF); //convert long to array
+#ifdef DEBUG 
 	Serial.print("addr 1 = "); //TODO debug remove
 	Serial.println(addr[0]); //TODO debug remove
+#endif 
 	addr[1] = (uint8_t)((adr & 0XFF));
+#ifdef DEBUG 
 	Serial.print("addr 2 = "); //TODO debug remove
 	Serial.println(addr[1]); //TODO debug remove
+#endif 
 	onlykey_eeset_hashpos(addr); //Set the starting position for hash
 	onlykey_flashset_common(ptr, (unsigned long*)adr, EElen_noncehash);
+#ifdef DEBUG 
 	Serial.print("Nonce hash address =");
-    Serial.println(adr, HEX);
+    	Serial.println(adr, HEX);
+#endif 
     onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_noncehash);
     }
     else {
@@ -2193,14 +2488,24 @@ void onlykey_flashset_noncehash (uint8_t *ptr) {
 		temp[z] = ((uint8_t)*(ptr+z));
 		}
 	  //Erase flash sector
+#ifdef DEBUG 
 	  Serial.printf("Erase Sector 0x%X ",adr);
-	  if (flashEraseSector((unsigned long*)adr)) Serial.printf("NOT ");
+#endif 
+	  if (flashEraseSector((unsigned long*)adr)) {
+#ifdef DEBUG 
+	Serial.printf("NOT ");
+#endif 
+	}
+#ifdef DEBUG 
 	  Serial.printf("successful\r\n");
+#endif 
 	  //Write buffer to flash
 	  onlykey_flashset_common(tptr, (unsigned long*)adr, 254);
+#ifdef DEBUG 
 	  Serial.print("Nonce hash address =");
 	  Serial.println(adr, HEX);
 	  Serial.print("Nonce hash value =");
+#endif 
 	  onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_noncehash);
   }    
 }
@@ -2237,15 +2542,27 @@ void onlykey_flashset_pinhash (uint8_t *ptr) {
 		temp[z+32] = ((uint8_t)*(ptr+z));
 		}
 	//Erase flash sector
+#ifdef DEBUG 
       Serial.printf("Erase Sector 0x%X ",adr);
-      if (flashEraseSector((unsigned long*)adr)) Serial.printf("NOT ");
+#endif 
+      if (flashEraseSector((unsigned long*)adr)) {
+#ifdef DEBUG 
+	Serial.printf("NOT ");
+#endif 
+	}
+#ifdef DEBUG 
       Serial.printf("successful\r\n");
+#endif 
       //Write buffer to flash
       onlykey_flashset_common(tptr, (unsigned long*)adr, 254);
+#ifdef DEBUG 
       Serial.print("Pin hash address =");
+#endif 
       adr=adr+32;
+#ifdef DEBUG 
       Serial.println(adr, HEX);
       Serial.print("Pin hash value =");
+#endif 
       onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_pinhash);
       }  
 }
@@ -2282,15 +2599,27 @@ void onlykey_flashset_selfdestructhash (uint8_t *ptr) {
      temp[z+64] = ((uint8_t)*(ptr+z));
      }
      //Erase flash sector
+#ifdef DEBUG 
      Serial.printf("Erase Sector 0x%X ",adr);
-     if (flashEraseSector((unsigned long*)adr)) Serial.printf("NOT ");
+#endif 
+     if (flashEraseSector((unsigned long*)adr)) {
+#ifdef DEBUG 
+	Serial.printf("NOT ");
+#endif 
+	}
+#ifdef DEBUG 
      Serial.printf("successful\r\n");
+#endif 
      //Write buffer to flash
      onlykey_flashset_common(tptr, (unsigned long*)adr, 254);
+#ifdef DEBUG 
      Serial.println("SD hash address =");
+#endif 
      adr=adr+64;
+#ifdef DEBUG 
      Serial.print(adr, HEX);
      Serial.print("SD hash value =");
+#endif 
      onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_selfdestructhash);
      }  
 }
@@ -2326,18 +2655,32 @@ void onlykey_flashset_plausdenyhash (uint8_t *ptr) {
     //Add new flash contents
     for( int z = 0; z < EElen_plausdenyhash; z++){
     temp[z+96] = ((uint8_t)*(ptr+z));
+#ifdef DEBUG 
     Serial.println(*(tptr+z), HEX);
+#endif 
     }
     //Erase flash sector
+#ifdef DEBUG 
     Serial.printf("Erase Sector 0x%X ",adr);
-    if (flashEraseSector((unsigned long*)adr)) Serial.printf("NOT ");
+#endif 
+    if (flashEraseSector((unsigned long*)adr)) {
+#ifdef DEBUG 
+	Serial.printf("NOT ");
+#endif 
+	}
+#ifdef DEBUG 
     Serial.printf("successful\r\n");
+#endif 
     //Write buffer to flash
     onlykey_flashset_common(tptr, (unsigned long*)adr, 254);
+#ifdef DEBUG 
     Serial.println("PD hash address =");
+#endif 
     adr=adr+96;
+#ifdef DEBUG 
     Serial.print(adr, HEX);
     Serial.print("PD hash value =");
+#endif 
     onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_plausdenyhash);
     }     
 }
@@ -2571,11 +2914,17 @@ void onlykey_flashset_totpkey (uint8_t *ptr, int size, int slot) {
     temp[z+((EElen_totpkey*slot)-EElen_totpkey)] = ((uint8_t)*(ptr+z));
     }
     //Erase flash sector
+#ifdef DEBUG 
     Serial.printf("Erase Sector 0x%X ",adr);
-    if (flashEraseSector((unsigned long*)adr)) Serial.printf("NOT ");
+#endif 
+    if (flashEraseSector((unsigned long*)adr)) {
+#ifdef DEBUG 
+	Serial.printf("NOT ");
+#endif 
+	}
+#ifdef DEBUG 
     Serial.printf("successful\r\n");
-    
-   
+#endif 
 		switch (slot) {
 			uint8_t length;
         	case 1:
@@ -2776,7 +3125,9 @@ void onlykey_flashset_totpkey (uint8_t *ptr, int size, int slot) {
 void onlykey_flashget_U2F ()
 {
 if (PDmode) return;
+#ifdef DEBUG 
     Serial.println("Flashget U2F");
+#endif 
     uint8_t addr[2];
     uint8_t length[2];
     onlykey_eeget_hashpos(addr);
@@ -2787,20 +3138,26 @@ if (PDmode) return;
     uintptr_t adr = (0x02 << 16L) | (addr[0] << 8L) | addr[1];
     adr=adr+4096; //3rd flash sector
     onlykey_flashget_common((uint8_t*)attestation_priv, (unsigned long*)adr, 32); 
+#ifdef DEBUG 
     Serial.print("attestation priv =");
+#endif 
     for (int i = 0; i< sizeof(attestation_priv); i++) {
     Serial.println(attestation_priv[i],HEX);
     }
     adr=adr+2048; //4th flash sector
     onlykey_eeget_U2Fcertlen(length);
     int length2 = length[0] << 8 | length[1];
+#ifdef DEBUG 
     Serial.print("attestation der length=");
     Serial.println(length2);
+#endif 
     onlykey_flashget_common((uint8_t*)attestation_der, (unsigned long*)adr, length2); 
+#ifdef DEBUG 
     Serial.print("attestation der =");
     for (int i = 0; i< sizeof(attestation_der); i++) {
     Serial.print(attestation_der[i],HEX);
     }
+#endif 
     return;
     }
 }
@@ -2809,7 +3166,9 @@ if (PDmode) return;
 void SETU2FPRIV (byte *buffer)
 {
 if (PDmode) return;
+#ifdef DEBUG 
     Serial.println("OKSETU2FPRIV MESSAGE RECEIVED");
+#endif 
     uint8_t addr[2];
     onlykey_eeget_hashpos(addr);
     if (addr[0]+addr[1] == 0) { //pinhash not set
@@ -2820,7 +3179,9 @@ if (PDmode) return;
 	adr=adr+4096; //3rd flash sector
 	uint8_t *ptr;
 	//Erase flash sector
+#ifdef DEBUG 
     Serial.printf("Erase Sector 0x%X ",adr);
+#endif 
     if (flashEraseSector((unsigned long*)adr)) Serial.printf("NOT ");
     Serial.printf("successful\r\n");  
 	//Write buffer to flash
@@ -2855,8 +3216,14 @@ if (PDmode) return;
 	adr=adr+4096;
 	//Erase flash sector
 		Serial.printf("Erase Sector 0x%X ",adr);
-		if (flashEraseSector((unsigned long*)adr)) Serial.printf("NOT ");
+		if (flashEraseSector((unsigned long*)adr)) {
+#ifdef DEBUG 
+	Serial.printf("NOT ");
+#endif 
+	}
+#ifdef DEBUG 
 		Serial.printf("successful\r\n");
+#endif 
 		hidprint("Successfully wiped U2F Private");
     blink(3);
     return;
@@ -2866,7 +3233,9 @@ if (PDmode) return;
 void SETU2FCERT (byte *buffer)
 {
 if (PDmode) return;
+#ifdef DEBUG 
     Serial.println("OKSETU2FCERT MESSAGE RECEIVED");
+#endif 
     uint8_t addr[2];
     uint8_t length[2];
     onlykey_eeget_hashpos(addr);
@@ -2897,23 +3266,35 @@ if (PDmode) return;
 		length[1] = large_data_offset       & 0xFF;
 		//Set U2F Certificate size
 		onlykey_eeset_U2Fcertlen(length); 
+#ifdef DEBUG 
+
 		Serial.print("Length of U2F certificate = ");
         Serial.println(large_data_offset);
 		//Erase flash sector
 		Serial.printf("Erase Sector 0x%X ",adr);
-		if (flashEraseSector((unsigned long*)adr)) Serial.printf("NOT ");
+#endif 
+		if (flashEraseSector((unsigned long*)adr)) {
+#ifdef DEBUG 
+	Serial.printf("NOT ");
+#endif 
+	}
+#ifdef DEBUG 
 		Serial.printf("successful\r\n");
+#endif
 		//Write buffer to flash
 		ptr=large_buffer;
     	onlykey_flashset_common(ptr, (unsigned long*)adr, large_data_offset);
-    	       large_data_offset = 0;
+    	       
 
 	}
     memcpy(attestation_der, large_buffer, 768);
+#ifdef DEBUG 
     Serial.print("U2F Cert value =");
-    for (int i = 0; i<768; i++) {
+    for (int i = 0; i<large_data_offset; i++) {
     Serial.print(attestation_der[i],HEX);
     }
+#endif
+	large_data_offset = 0;
 	hidprint("Successfully set U2F Certificate");
       blink(3);
       return;
@@ -2923,7 +3304,9 @@ if (PDmode) return;
 void WIPEU2FCERT (byte *buffer)
 {
 if (PDmode) return;
+#ifdef DEBUG 
     Serial.println("OKWIPEU2FCERT MESSAGE RECEIVED");
+#endif
 	uint8_t addr[2];
 	uint8_t length[2] = {0x00,0x00};
     onlykey_eeget_hashpos(addr);
@@ -2934,9 +3317,18 @@ if (PDmode) return;
     uintptr_t adr = (0x02 << 16L) | (addr[0] << 8L) | addr[1];
 	adr=adr+6144; //4th flash sector
 	//Erase flash sector
+#ifdef DEBUG 
 		Serial.printf("Erase Sector 0x%X ",adr);
-		if (flashEraseSector((unsigned long*)adr)) Serial.printf("NOT ");
+#endif
+		if (flashEraseSector((unsigned long*)adr)) {
+#ifdef DEBUG 
+	Serial.printf("NOT ");
+#endif 
+	}
+#ifdef DEBUG 
 		Serial.printf("successful\r\n");
+		
+#endif
 	onlykey_eeset_U2Fcertlen(length); 
 	hidprint("Successfully wiped U2F Certificate");
     blink(3);
@@ -2961,8 +3353,9 @@ void yubikeyinit() {
   char public_id[32+1];
   char private_id[12+1];
 
-  
+#ifdef DEBUG 
   Serial.println("Initializing onlyKey ...");
+#endif
   memset(temp, 0, 32); //Clear temp buffer
   
   ptr = temp;
@@ -2975,21 +3368,32 @@ void yubikeyinit() {
   onlykey_eeget_aeskey(ptr);
   
   aes_gcm_decrypt(temp, (uint8_t*)('y'+ID[34]), phash, (EElen_aeskey+EElen_private+EElen_aeskey));
-
+#ifdef DEBUG 
   Serial.println("public_id");
+#endif
   for (int i = 0; i < EElen_public; i++) {
     pubID[i] = temp[i];
+#ifdef DEBUG 
     Serial.print(pubID[i],HEX);
+#endif
   }
+#ifdef DEBUG 
   Serial.println("private_id");
+#endif
   for (int i = 0; i < EElen_private; i++) {
     privID[i] = temp[i+EElen_public];
+#ifdef DEBUG 
     Serial.print(privID[i],HEX);
+#endif
   }
+#ifdef DEBUG 
   Serial.println("aes key");
+#endif
     for (int i = 0; i < EElen_aeskey; i++) {
     aeskey[i] = temp[i+EElen_public+EElen_private];
+#ifdef DEBUG 
     Serial.print(aeskey[i],HEX);
+#endif
   }
   
   memset(temp, 0, 32); //Clear temp buffer
@@ -2999,14 +3403,14 @@ void yubikeyinit() {
 
   yubikey_hex_encode(private_id, (char *)privID, 6);
   yubikey_hex_encode(public_id, (char *)pubID, 6);
-
+#ifdef DEBUG 
     Serial.println("public_id");
   Serial.println(public_id);
     Serial.println("private_id");
   Serial.println(private_id);
     Serial.println("counter");
   Serial.println(counter);
-
+#endif
   uint32_t time = 0x010203; 
   
   yubikey_init1(&ctx, aeskey, public_id, private_id, counter, time, seed);
