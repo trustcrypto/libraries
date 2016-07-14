@@ -1,5 +1,7 @@
 #include "T3MacLib.h"
 
+//#define DEBUG
+
 uint8_t mac[6];
 unsigned long serialNum;
 char ID[36];
@@ -38,18 +40,25 @@ void read_mac() {
 
 void print_mac()  {
 	for(uint8_t ii = 0; ii < 6; ++ii) {
+#ifdef DEBUG
 		if (ii) Serial.print(": ");
+
 		Serial.print((*(mac+ii) & 0xF0) >> 4, 16);
 		Serial.print(*(mac+ii) & 0x0F, 16);
+#endif
 	}
 }
 
 void print_Serial()  {
+#ifdef DEBUG
 	Serial.printf("%lu0\n", serialNum);// PJRC standard adjustment for MAC OS
+#endif
 }
 
 void print_ID()  {
+#ifdef DEBUG
 	Serial.println(ID);
+#endif
 }
 
 void CHIP_ID() {

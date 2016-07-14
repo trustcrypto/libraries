@@ -79,7 +79,6 @@ bool PDmode;
 #include <AES.h>
 #include <GCM.h>
 #endif
-#define DEBUG
 /*************************************/
 uint32_t unixTimeStamp;
 int PINSET = 0;
@@ -1584,9 +1583,9 @@ void GETLABELS (byte *buffer)
       	  Serial.println();
 	  Serial.println("OKGETLABELS MESSAGE RECEIVED");
 #endif
-	  uint8_t label[EElen_label+2];
+	  uint8_t label[EElen_label+3];
 	  uint8_t *ptr;
-	  char labelchar[EElen_label+2];
+	  char labelchar[EElen_label+3];
 	  int offset  = 0;
 	  ptr=label+2;
 	  if (PDmode) offset = 12;
@@ -3142,7 +3141,9 @@ if (PDmode) return;
     Serial.print("attestation priv =");
 #endif 
     for (int i = 0; i< sizeof(attestation_priv); i++) {
+#ifdef DEBUG 
     Serial.println(attestation_priv[i],HEX);
+#endif 
     }
     adr=adr+2048; //4th flash sector
     onlykey_eeget_U2Fcertlen(length);
@@ -3182,18 +3183,29 @@ if (PDmode) return;
 #ifdef DEBUG 
     Serial.printf("Erase Sector 0x%X ",adr);
 #endif 
-    if (flashEraseSector((unsigned long*)adr)) Serial.printf("NOT ");
-    Serial.printf("successful\r\n");  
+    if (flashEraseSector((unsigned long*)adr)) 
+#ifdef DEBUG     
+    {
+	Serial.printf("NOT ");
+    }
+    Serial.printf("successful\r\n"); 
+#endif 
 	//Write buffer to flash
 	ptr=buffer+6;
     onlykey_flashset_common(ptr, (unsigned long*)adr, 32);
+#ifdef DEBUG
     Serial.print("U2F Private address =");
     Serial.println(adr, HEX);
-    onlykey_flashget_common(ptr, (unsigned long*)adr, 32); //Todo remove debug
+#endif
+    onlykey_flashget_common(ptr, (unsigned long*)adr, 32); 
+#ifdef DEBUG
     Serial.print("U2F Private value =");
+#endif
     for (int i=0; i<32; i++) {
     attestation_priv[i] = *(buffer + 5 + i);
+#ifdef DEBUG
     Serial.print(attestation_priv[i],HEX);
+#endif
     }
     hidprint("Successfully set U2F Private");
 	}
@@ -3205,7 +3217,9 @@ if (PDmode) return;
 void WIPEU2FPRIV (byte *buffer)
 {
 if (PDmode) return;
+#ifdef DEBUG
     Serial.println("OKWIPEU2FPRIV MESSAGE RECEIVED");
+#endif
 	uint8_t addr[2];
     onlykey_eeget_hashpos(addr);
     if (addr[0]+addr[1] == 0) { //pinhash not set
@@ -3215,7 +3229,9 @@ if (PDmode) return;
     uintptr_t adr = (0x02 << 16L) | (addr[0] << 8L) | addr[1];
 	adr=adr+4096;
 	//Erase flash sector
+#ifdef DEBUG
 		Serial.printf("Erase Sector 0x%X ",adr);
+#endif
 		if (flashEraseSector((unsigned long*)adr)) {
 #ifdef DEBUG 
 	Serial.printf("NOT ");
