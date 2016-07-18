@@ -666,9 +666,9 @@ void processMessage(byte *buffer)
       Serial.print(handle[i]);
       }
 #endif
-      #ifdef US_VERSION
+#ifdef US_VERSION
       aes_gcm_decrypt2(handle, (uint8_t*)sha256_hash, (uint8_t*)handlekey, 64);
-      #endif 
+#endif 
 #ifdef DEBUG
       Serial.println();
       Serial.println("Unencrypted handle");
@@ -918,7 +918,7 @@ void recvmsg() {
       case OKGETLABELS:
 	   if(initialized==false && unlocked==true) 
 	   {
-		hidprint("No PIN set, You must set a PIN first");
+		hidprint("Error No PIN set, You must set a PIN first");
 		return;
 	   }else if (initialized==true && unlocked==true) 
 	   {
@@ -937,7 +937,7 @@ void recvmsg() {
 		if (recv_buffer[6] == 12) {
 		SETSLOT(recv_buffer);
 		} else {
-		hidprint("No PIN set, You must set a PIN first");
+		hidprint("Error No PIN set, You must set a PIN first");
 		}
 		return;
 	   }else if (initialized==true && unlocked==true) 
@@ -954,7 +954,7 @@ void recvmsg() {
       case OKWIPESLOT:
 	   if(initialized==false && unlocked==true) 
 	   {
-		hidprint("No PIN set, You must set a PIN first");
+		hidprint("Error No PIN set, You must set a PIN first");
 		return;
 	   }else if (initialized==true && unlocked==true) 
 	   {
@@ -986,7 +986,7 @@ void recvmsg() {
       case OKWIPEU2FPRIV:
 	   if(initialized==false && unlocked==true) 
 	   {
-		hidprint("No PIN set, You must set a PIN first");
+		hidprint("Error No PIN set, You must set a PIN first");
 		return;
 	   }else if (initialized==true && unlocked==true) 
 	   {
@@ -1001,7 +1001,7 @@ void recvmsg() {
       case OKSETU2FCERT:
 	   if(initialized==false && unlocked==true) 
 	   {
-		hidprint("No PIN set, You must set a PIN first");
+		hidprint("Error No PIN set, You must set a PIN first");
 		return;
 	   }else if (initialized==true && unlocked==true) 
 	   {
@@ -1017,7 +1017,7 @@ void recvmsg() {
       case OKWIPEU2FCERT:
 	   if(initialized==false && unlocked==true) 
 	   {
-		hidprint("No PIN set, You must set a PIN first");
+		hidprint("Error No PIN set, You must set a PIN first");
 		return;
 	   }else if (initialized==true && unlocked==true) 
 	   {
@@ -1202,7 +1202,7 @@ switch (PINSET) {
 #ifdef DEBUG
       Serial.println("Enter PIN");
 #endif
-      hidprint("Enter PIN");
+      hidprint("OnlyKey is ready, enter your PIN");
       PINSET = 1;
       return;
       case 1:
@@ -1212,7 +1212,7 @@ switch (PINSET) {
 #ifdef DEBUG
         Serial.println("Storing PIN");
 #endif
-        hidprint("Storing PIN");
+        hidprint("Successful PIN entry, re-enter your PIN to confirm");
 		static char passguess[10];
       for (int i =0; i <= strlen(password.guess); i++) {
 		passguess[i] = password.guess[i];
@@ -1235,7 +1235,7 @@ switch (PINSET) {
 #ifdef DEBUG
       Serial.println("Confirm PIN");
 #endif
-      hidprint("Confirm PIN");
+      //hidprint("Successfully Confirm PIN");
       PINSET = 3;
       return;
       case 3:
@@ -1247,7 +1247,7 @@ switch (PINSET) {
 #ifdef DEBUG
             Serial.println("Both PINs Match");
 #endif
-            hidprint("Both PINs Match");
+            //hidprint("Both PINs Match");
 			uint8_t temp[32];
 			uint8_t *ptr;
 			ptr = temp;
@@ -1284,7 +1284,7 @@ switch (PINSET) {
 	  		Serial.println();
 			Serial.println("Successfully set PIN, remove and reinsert OnlyKey");
 #endif
-			hidprint("Successfully set PIN");
+			hidprint("Successfully set PIN, enter your self-destruct PIN");
           }
           else {
 #ifdef DEBUG
@@ -1320,7 +1320,7 @@ void SETSDPIN (byte *buffer)
 #ifdef DEBUG
       Serial.println("Enter PIN");
 #endif
-      hidprint("Enter PIN");
+      //hidprint("Successfully set PIN, enter your self-destruct PIN");
       PINSET = 4;
       return;
       case 4:
@@ -1330,7 +1330,7 @@ void SETSDPIN (byte *buffer)
 #ifdef DEBUG
         Serial.println("Storing PIN");
 #endif
-        hidprint("Storing PIN");
+        hidprint("Successful PIN entry, re-enter your PIN to confirm");
 		static char passguess[10];
       for (int i =0; i <= strlen(password.guess); i++) {
 		passguess[i] = password.guess[i];
@@ -1353,7 +1353,7 @@ void SETSDPIN (byte *buffer)
 #ifdef DEBUG
       Serial.println("Confirm PIN");
 #endif
-      hidprint("Confirm PIN");
+      //hidprint("Confirm PIN");
       PINSET = 6;
       return;
       case 6:
@@ -1365,7 +1365,7 @@ void SETSDPIN (byte *buffer)
 #ifdef DEBUG
             Serial.println("Both PINs Match");
 #endif
-            hidprint("Both PINs Match");
+            //hidprint("Both PINs Match");
 		uint8_t temp[32];
 		uint8_t *ptr;
 		ptr = temp;
@@ -1387,7 +1387,7 @@ void SETSDPIN (byte *buffer)
 		Serial.println("Hashing SDPIN and storing to Flash");
 #endif
 		onlykey_flashset_selfdestructhash (ptr);
-		hidprint("Successfully set Self Destruct PIN");
+		hidprint("Successfully set PIN, enter your plausible deniability PIN");
           }
           else {
 #ifdef DEBUG
@@ -1421,7 +1421,7 @@ void SETPDPIN (byte *buffer)
 #ifdef DEBUG
       Serial.println("Enter PIN");
 #endif
-      hidprint("Enter PIN");
+      //hidprint("Successfully set PIN, enter your plausible deniability PIN");
       PINSET = 7;
       return;
       case 7:
@@ -1431,7 +1431,7 @@ void SETPDPIN (byte *buffer)
 #ifdef DEBUG
         Serial.println("Storing PIN");
 #endif
-        hidprint("Storing PIN");
+        hidprint("Successful PIN entry, re-enter your PIN to confirm");
 		static char passguess[10];
       for (int i =0; i <= strlen(password.guess); i++) {
 		passguess[i] = password.guess[i];
@@ -1453,7 +1453,7 @@ void SETPDPIN (byte *buffer)
 #ifdef DEBUG
       Serial.println("Confirm PIN");
 #endif
-      hidprint("Confirm PIN");
+      //hidprint("Confirm PIN");
       PINSET = 9;
       return;
       case 9:
@@ -1465,7 +1465,7 @@ void SETPDPIN (byte *buffer)
 #ifdef DEBUG
 	    Serial.println("Both PINs Match");
 #endif
-            hidprint("Both PINs Match");
+            //hidprint("Both PINs Match");
 			uint8_t temp[32];
 			uint8_t *ptr;
 			ptr = temp;
