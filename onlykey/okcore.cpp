@@ -57,7 +57,7 @@
  *OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#define DEBUG //Enable Serial Monitor 
+//#define DEBUG //Enable Serial Monitor 
 #include "sha256.h"
 #include <EEPROM.h>
 #include <password.h>
