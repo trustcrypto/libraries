@@ -1212,7 +1212,7 @@ switch (PINSET) {
 #ifdef DEBUG
         Serial.println("Storing PIN");
 #endif
-        hidprint("Successful PIN entry, re-enter your PIN to confirm");
+        hidprint("Successful PIN entry");
 		static char passguess[10];
       for (int i =0; i <= strlen(password.guess); i++) {
 		passguess[i] = password.guess[i];
@@ -1235,7 +1235,7 @@ switch (PINSET) {
 #ifdef DEBUG
       Serial.println("Confirm PIN");
 #endif
-      //hidprint("Successfully Confirm PIN");
+      hidprint("OnlyKey is ready, re-enter your PIN to confirm");
       PINSET = 3;
       return;
       case 3:
@@ -1284,7 +1284,7 @@ switch (PINSET) {
 	  		Serial.println();
 			Serial.println("Successfully set PIN, remove and reinsert OnlyKey");
 #endif
-			hidprint("Successfully set PIN, enter your self-destruct PIN");
+			hidprint("Successfully set PIN");
           }
           else {
 #ifdef DEBUG
@@ -1320,7 +1320,7 @@ void SETSDPIN (byte *buffer)
 #ifdef DEBUG
       Serial.println("Enter PIN");
 #endif
-      //hidprint("Successfully set PIN, enter your self-destruct PIN");
+      hidprint("OnlyKey is ready, enter your self-destruct PIN");
       PINSET = 4;
       return;
       case 4:
@@ -1330,7 +1330,7 @@ void SETSDPIN (byte *buffer)
 #ifdef DEBUG
         Serial.println("Storing PIN");
 #endif
-        hidprint("Successful PIN entry, re-enter your PIN to confirm");
+        hidprint("Successful PIN entry");
 		static char passguess[10];
       for (int i =0; i <= strlen(password.guess); i++) {
 		passguess[i] = password.guess[i];
@@ -1353,7 +1353,7 @@ void SETSDPIN (byte *buffer)
 #ifdef DEBUG
       Serial.println("Confirm PIN");
 #endif
-      //hidprint("Confirm PIN");
+      hidprint("OnlyKey is ready, re-enter your PIN to confirm");
       PINSET = 6;
       return;
       case 6:
@@ -1387,7 +1387,7 @@ void SETSDPIN (byte *buffer)
 		Serial.println("Hashing SDPIN and storing to Flash");
 #endif
 		onlykey_flashset_selfdestructhash (ptr);
-		hidprint("Successfully set PIN, enter your plausible deniability PIN");
+		hidprint("Successfully set PIN");
           }
           else {
 #ifdef DEBUG
@@ -1421,7 +1421,7 @@ void SETPDPIN (byte *buffer)
 #ifdef DEBUG
       Serial.println("Enter PIN");
 #endif
-      //hidprint("Successfully set PIN, enter your plausible deniability PIN");
+      hidprint("OnlyKey is ready, enter your PIN");
       PINSET = 7;
       return;
       case 7:
@@ -1431,7 +1431,7 @@ void SETPDPIN (byte *buffer)
 #ifdef DEBUG
         Serial.println("Storing PIN");
 #endif
-        hidprint("Successful PIN entry, re-enter your PIN to confirm");
+        hidprint("Successful PIN entry");
 		static char passguess[10];
       for (int i =0; i <= strlen(password.guess); i++) {
 		passguess[i] = password.guess[i];
@@ -1453,7 +1453,7 @@ void SETPDPIN (byte *buffer)
 #ifdef DEBUG
       Serial.println("Confirm PIN");
 #endif
-      //hidprint("Confirm PIN");
+      hidprint("OnlyKey is ready, re-enter your PIN to confirm");
       PINSET = 9;
       return;
       case 9:
