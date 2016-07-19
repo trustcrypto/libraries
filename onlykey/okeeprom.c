@@ -2621,7 +2621,7 @@ void onlykey_eeset_username (uint8_t *ptr, int size, int slot) {
 			if (size > EElen_username) size = EElen_username;
 			onlykey_eeset_common(ptr, EEpos_username12, EElen_username);
 			length = (uint8_t) size;
-			onlykey_eeset_usernamelen11(&length);
+			onlykey_eeset_usernamelen12(&length);
             break;
         case 13:
 			
