@@ -1103,7 +1103,7 @@ void onlykey_eeset_password (uint8_t *ptr, int size, int slot) {
 			if (size > EElen_password) size = EElen_password;
 			onlykey_eeset_common(ptr, EEpos_password12, EElen_password);
 			length = (uint8_t) size;
-			onlykey_eeset_passwordlen11(&length);
+			onlykey_eeset_passwordlen12(&length);
             break;
             case 13:
 		
