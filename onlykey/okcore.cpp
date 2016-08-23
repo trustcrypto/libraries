@@ -1590,15 +1590,17 @@ void SETTIME (byte *buffer)
 		Serial.print("UNLOCKED");
 #endif
 		hidprint("UNLOCKED");
-	   
+	if (timeStatus() == timeNotSet) {  
     int i, j;                
     for(i=0, j=3; i<4; i++, j--){
     unixTimeStamp |= ((uint32_t)buffer[j + 5] << (i*8) );
+
+	
 #ifdef DEBUG
     Serial.println(buffer[j+5], HEX);
 #endif
     }
-                      
+	unixTimeStamp = unixTimeStamp + ((millis())/1000);                
       time_t t2 = unixTimeStamp;
 #ifdef DEBUG
       Serial.print(F("Received Unix Epoch Time: "));
@@ -1609,6 +1611,11 @@ void SETTIME (byte *buffer)
       Serial.print(F("Current Time Set to: "));
 #endif
       digitalClockDisplay();  
+	  } else {
+	  #ifdef DEBUG
+      Serial.print(F("Time Already Set"));
+	  #endif  
+	  }
 	  }
 	  else
 	  {
