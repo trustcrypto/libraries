@@ -75,9 +75,14 @@
  *OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-
 #include "uECC.h"
 #include "sha256.h"
+#include "T3MacLib.h"
+#include "onlykey.h"
+
+ 
+#ifndef OKU2F_H
+#define OKU2F_H
 
 typedef struct SHA256_HashContext{
     uECC_HashContext uECC;
@@ -153,7 +158,8 @@ extern "C"
 	
 #define TIMEOUT_VALUE 1000
 /*************************************/
-
+extern void u2fmsgtimeout(uint8_t *buffer);
+extern void recvu2fmsg(uint8_t *buffer);
 extern void init_SHA256(uECC_HashContext *base);
 extern void update_SHA256(uECC_HashContext *base,
                    const uint8_t *message,
@@ -162,4 +168,5 @@ extern void finish_SHA256(uECC_HashContext *base, uint8_t *hash_result);
 
 #ifdef __cplusplus
 }
+#endif
 #endif

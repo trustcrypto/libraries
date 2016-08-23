@@ -37,7 +37,7 @@
 #ifndef YUBIKEYCORE_H
 #define YUBIKEYCORE_H
 
-#include "yubikey.h">
+#include "yubikey.h"
 
 #ifdef __cplusplus
 extern "C"
