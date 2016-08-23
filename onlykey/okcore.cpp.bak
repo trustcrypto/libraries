@@ -1,7 +1,8 @@
 /* okcore.cpp
 */
 
-/* Modifications by Tim Steiner
+/*
+ * Modifications by Tim Steiner
  * Copyright (c) 2016 , CryptoTrust LLC.
  * All rights reserved.
  *
@@ -75,6 +76,7 @@
  *OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+//#define DEBUG //Enable Serial Monitor 
 #include "sha256.h"
 #include <string.h>
 #include <EEPROM.h>
@@ -87,6 +89,7 @@
 /*************************************/
 //Firmware Version Selection
 /*************************************/
+#define US_VERSION //Define for US Version Firmare
 bool PDmode;
 #ifdef US_VERSION
 #include "yksim.h"
@@ -176,6 +179,21 @@ struct ch_state {
 };
 
 ch_state channel_states[MAX_CHANNEL];
+
+void init_SHA256(uECC_HashContext *base) {
+    SHA256_HashContext *context = (SHA256_HashContext *)base;
+    sha256_init(&context->ctx);
+}
+void update_SHA256(uECC_HashContext *base,
+                   const uint8_t *message,
+                   unsigned message_size) {
+    SHA256_HashContext *context = (SHA256_HashContext *)base;
+    sha256_update(&context->ctx, message, message_size);
+}
+void finish_SHA256(uECC_HashContext *base, uint8_t *hash_result) {
+    SHA256_HashContext *context = (SHA256_HashContext *)base;
+    sha256_final(&context->ctx, hash_result);
+}
 
 void U2Finit()
 {
@@ -555,9 +573,9 @@ void processMessage(byte *buffer)
 #endif
 
       uint8_t *signature = resp_buffer; //temporary
-#ifdef US_VERSION
 	  uint8_t tmp[32 + 32 + 64];
-	  SHA256_HashContext ectx = {{&init_SHA256, &update_SHA256, &finish_SHA256, 64, 32, tmp}};
+			SHA256_HashContext ectx = {{&init_SHA256, &update_SHA256, &finish_SHA256, 64, 32, tmp}};
+#ifdef US_VERSION
 	  if (!uECC_sign_deterministic((uint8_t *)attestation_priv,
 						sha256_hash,
 						32,
@@ -579,6 +597,7 @@ void processMessage(byte *buffer)
 
 #endif
       //}
+      #endif
 
       int len = 0;
       large_resp_buffer[len++] = 0x05;
@@ -738,8 +757,7 @@ void processMessage(byte *buffer)
         uint8_t *signature = resp_buffer; //temporary
         
         #ifdef US_VERSION
-        uint8_t tmp[32 + 32 + 64];
-		SHA256_HashContext ectx = {{&init_SHA256, &update_SHA256, &finish_SHA256, 64, 32, tmp}};
+        //TODO add uECC_sign_deterministic need to create hash_context, possibly create new SHA2 Library
         if (!uECC_sign_deterministic((uint8_t *)key,
 							sha256_hash,
 							32,
@@ -781,14 +799,7 @@ void processMessage(byte *buffer)
         memcpy(large_resp_buffer+len, signature, 32); //R value
         len +=32;
         large_resp_buffer[len++] = 0x02;  //header: integer
-
-				if (signature[32]>0x7f) {
-				    large_resp_buffer[len++] = 33;  //32 byte
-				    large_resp_buffer[len++] = 0;
-				    (*total_len)++;	//update total length
-				} else {
-				    large_resp_buffer[len++] = 32;  //32 byte
-				}
+        large_resp_buffer[len++] = 32;  //32 byte
         memcpy(large_resp_buffer+len, signature+32, 32); //R value
         len +=32;
         byte *last = large_resp_buffer+len;
@@ -2244,7 +2255,7 @@ void CharToByte2(char* chars, byte* bytes, unsigned int count, unsigned int inde
     	bytes[i+index] = (byte)chars[i];
 }
 
-void hidprint(char const * chars) 
+void hidprint(char* chars) 
 { 
 int i=0;
 while(*chars) {

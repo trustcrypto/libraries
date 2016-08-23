@@ -14,6 +14,7 @@
 
 /*************************** HEADER FILES ***************************/
 #include <stdlib.h>
+#include <string.h>
 //#include <memory.h>
 #include "sha256.h"
 
@@ -47,7 +48,7 @@ static const WORD k[64] = {
 };
 
 /*********************** FUNCTION DEFINITIONS ***********************/
-void sha256_transform(SHA256_CTX *ctx, const BYTE data[])
+void sha256_transform(SHA256_CTX *ctx, const unsigned char data[])
 {
 	WORD a, b, c, d, e, f, g, h, i, j, t1, t2, m[64];
 
@@ -102,7 +103,7 @@ void sha256_init(SHA256_CTX *ctx)
 	ctx->state[7] = 0x5be0cd19;
 }
 
-void sha256_update(SHA256_CTX *ctx, const BYTE data[], size_t len)
+void sha256_update(SHA256_CTX *ctx, const unsigned char data[], size_t len)
 {
 	WORD i;
 
@@ -117,7 +118,7 @@ void sha256_update(SHA256_CTX *ctx, const BYTE data[], size_t len)
 	}
 }
 
-void sha256_final(SHA256_CTX *ctx, BYTE hash[])
+void sha256_final(SHA256_CTX *ctx, unsigned char hash[])
 {
 	WORD i;
 
