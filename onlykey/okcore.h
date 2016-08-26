@@ -84,6 +84,9 @@ extern "C"
 {
 #endif
 
+#include <SoftTimer.h>
+
+
 /*************************************/
 //Vendor Defined OnlyKey MSG Type assignments
 /*************************************/
@@ -175,6 +178,10 @@ extern void U2Finit();
 extern void yubikeyinit();
 extern void yubikeysim(char *ptr);
 extern void yubikey_incr_time();
+extern void increment(Task* me);
+extern void decrement(Task* me);
+extern void fadeoff();
+
 
 #ifdef __cplusplus
 }

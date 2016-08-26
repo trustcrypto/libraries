@@ -1,5 +1,5 @@
 /**
- * File: SoftTimer.h
+ * File: SoftPwmTask.h
  * Description:
  * SoftTimer library is a lightweight but effective event based timeshare solution for Arduino.
  *
@@ -24,34 +24,44 @@
 
 */
 
-#ifndef SOFTTIMER_H
-#define SOFTTIMER_H
+#ifndef SOFTPWMTASK_H
+#define SOFTPWMTASK_H
 
 #include "Task.h"
+#include "Arduino.h"
 
-class SoftTimerClass
+class SoftPwmTask : public Task
 {
   public:
-  
     /**
-     * Register a task in the timer manager.
+     * We would like to do pwn on the given pin.
      */
-    void add(Task* task);
+    SoftPwmTask(int pin);
     
     /**
-    * Remove registration of a task in the timer manager.
-    */
-    void remove(Task* task);
+     * Just like in the Arduino implementation this method will set the duty level of the pin.
+     *  value - The duty cycle: between 0 (always off (LOW)) and upperLimit (always on (HIGH)).
+     */
+    void analogWrite(byte value);
     
     /**
-     * For internal use only. You do not need to call this function.
+     * Turns the output to low.
      */
-    void run();
+    void off();
+    
+    /**
+     * The "always on" level of the PWM. The default is 255.
+     */
+    byte upperLimit;
+	  
   private:
-    void testAndCall(Task* task);
-    Task* _tasks;
+    int _outPin;
+    byte _value;
+    byte _counter;
+    static void step(Task* me);
+    
+    uint8_t _bitMask;
+    volatile uint8_t *_portRegister;
 };
-
-extern SoftTimerClass SoftTimer;
 
 #endif

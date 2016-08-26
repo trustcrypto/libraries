@@ -78,6 +78,7 @@
 #include "sha256.h"
 #include <string.h>
 #include <EEPROM.h>
+#include <SoftTimer.h>
 #include <password.h>
 #include "Time.h"
 #include "onlykey.h"
@@ -87,7 +88,6 @@
 /*************************************/
 //Firmware Version Selection
 /*************************************/
-bool PDmode;
 #ifdef US_VERSION
 #include "yksim.h"
 #include "uECC.h"
@@ -96,11 +96,19 @@ bool PDmode;
 #include <AES.h>
 #include <GCM.h>
 #endif
+
 /*************************************/
 uint32_t unixTimeStamp;
 int PINSET = 0;
+bool PDmode;
 bool unlocked = false;
 bool initialized = false;
+/*************************************/
+//softtimer
+/*************************************/
+Task FadeinTask(25, increment);
+Task FadeoutTask(20, decrement);
+uint8_t fade = 0;
 /*************************************/
 //yubikey
 /*************************************/
@@ -167,7 +175,7 @@ void recvmsg() {
 	
 #endif    
 	
-	  switch (recv_buffer[5]) {
+	  switch (recv_buffer[4]) {
       case OKSETPIN:
       if(!PDmode) {
       SETPIN(recv_buffer);
@@ -304,6 +312,7 @@ void recvmsg() {
       return;
       break;
       default: 
+		SoftTimer.add(&FadeinTask);
 	    recvu2fmsg(recv_buffer);
       break;
     }
@@ -2598,3 +2607,29 @@ void yubikey_incr_time() {
 	#endif
 }
 
+void increment(Task* me) {
+  analogWrite(BLINKPIN, fade);
+  fade += 16;
+  if(fade == 0) {
+    // -- Byte value overflows: 240 + 16 = 0
+    SoftTimer.remove(&FadeinTask);
+    SoftTimer.add(&FadeoutTask);
+  }
+}
+
+void decrement(Task* me) {
+  fade -= 16;
+  analogWrite(BLINKPIN, fade);
+  if(fade == 0) {
+    // -- Floor reached.
+    SoftTimer.remove(&FadeoutTask);
+    SoftTimer.add(&FadeinTask);
+  }
+}
+
+void fadeoff() {
+  SoftTimer.remove(&FadeinTask);
+  SoftTimer.remove(&FadeoutTask);
+  fade=0;
+}
+		  

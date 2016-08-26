@@ -76,6 +76,10 @@
  */
 
 #include "oku2f.h"
+#include <SoftTimer.h>
+#include <okcore.h>
+
+
 
 struct ch_state {
   int cid;
@@ -394,6 +398,7 @@ void processMessage(uint8_t *buffer)
       else {
 #ifdef DEBUG
           Serial.println("U2F button pressed for register");
+
 #endif
       }
     
@@ -836,7 +841,6 @@ void setOtherTimeout()
 int cont_start = 0;
 
 void recvu2fmsg(uint8_t *buffer) {
-
     //int cid = *(int*)recv_buffer;
 	int cid; //handle strict-aliasing warning
 	memcpy(&cid, buffer, sizeof(cid));	
