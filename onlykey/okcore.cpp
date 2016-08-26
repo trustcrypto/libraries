@@ -106,8 +106,8 @@ bool initialized = false;
 /*************************************/
 //softtimer
 /*************************************/
-Task FadeinTask(25, increment);
-Task FadeoutTask(20, decrement);
+Task FadeinTask(15, increment);
+Task FadeoutTask(10, decrement);
 uint8_t fade = 0;
 /*************************************/
 //yubikey
@@ -2609,7 +2609,7 @@ void yubikey_incr_time() {
 
 void increment(Task* me) {
   analogWrite(BLINKPIN, fade);
-  fade += 16;
+  fade += 8;
   if(fade == 0) {
     // -- Byte value overflows: 240 + 16 = 0
     SoftTimer.remove(&FadeinTask);
@@ -2618,7 +2618,7 @@ void increment(Task* me) {
 }
 
 void decrement(Task* me) {
-  fade -= 16;
+  fade -= 8;
   analogWrite(BLINKPIN, fade);
   if(fade == 0) {
     // -- Floor reached.
