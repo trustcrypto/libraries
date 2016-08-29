@@ -103,6 +103,7 @@ int PINSET = 0;
 bool PDmode;
 bool unlocked = false;
 bool initialized = false;
+uint8_t TIMEOUT[1] = {0x30}; //Default 30 Min
 /*************************************/
 //softtimer
 /*************************************/
@@ -1092,8 +1093,8 @@ void SETSLOT (uint8_t *buffer)
             Serial.println(); //newline
             Serial.println("Writing idle timeout to EEPROM...");
 #endif 
-            buffer[7] = (buffer[7] -'0');
             onlykey_eeset_timeout(buffer + 7);
+            TIMEOUT[0] = buffer[7];
 	    hidprint("Successfully set idle timeout");
             return;
             case 12:
