@@ -102,6 +102,8 @@ extern "C"
 #define EElen_U2Fcounter	2
 #define EElen_timeout	1
 #define EElen_wipemode	1
+#define EElen_typespeed	1
+#define EElen_keyboardlayout	1
 
 #define EEpos_U2Fcounter	0
 #define EEpos_aeskey	(EEpos_U2Fcounter + EElen_U2Fcounter)
@@ -393,13 +395,21 @@ extern "C"
 #define EEpos_hashpos	(EEpos_U2Fcertlen + EElen_U2Fcertlen)
 #define EEpos_timeout	(EEpos_hashpos + EElen_hashpos)
 #define EEpos_wipemode	(EEpos_timeout + EElen_timeout)
-#define EEpos_failedlogins	(EEpos_wipemode + EElen_wipemode)
+#define EEpos_typespeed	(EEpos_wipemode + EElen_wipemode)
+#define EEpos_keyboardlayout	(EEpos_typespeed + EElen_typespeed)
+#define EEpos_failedlogins	(EEpos_keyboardlayout + EElen_keyboardlayout)
 
 extern int  onlykey_eeget_timeout (uint8_t *ptr);
 extern void onlykey_eeset_timeout(uint8_t *ptr);
 
 extern int  onlykey_eeget_wipemode (uint8_t *ptr);
 extern void onlykey_eeset_wipemode(uint8_t *ptr);
+
+extern int  onlykey_eeget_typespeed (uint8_t *ptr);
+extern void onlykey_eeset_typespeed(uint8_t *ptr);
+
+extern int  onlykey_eeget_keyboardlayout (uint8_t *ptr);
+extern void onlykey_eeset_keyboardlayout(uint8_t *ptr);
 
 extern int  onlykey_eeget_failedlogins (uint8_t *ptr);
 extern void onlykey_eeset_failedlogins(uint8_t *ptr);

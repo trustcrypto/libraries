@@ -51,6 +51,24 @@ void onlykey_eeset_wipemode (uint8_t *ptr) {
 }
 /*********************************/
 /*********************************/
+int onlykey_eeget_typespeed (uint8_t *ptr) {
+    onlykey_eeget_common(ptr, EEpos_typespeed, EElen_typespeed);
+    return EElen_typespeed;
+}
+void onlykey_eeset_typespeed (uint8_t *ptr) {
+    onlykey_eeset_common(ptr, EEpos_typespeed, EElen_typespeed);
+}
+/*********************************/
+/*********************************/
+int onlykey_eeget_keyboardlayout (uint8_t *ptr) {
+    onlykey_eeget_common(ptr, EEpos_keyboardlayout, EElen_keyboardlayout);
+    return EElen_keyboardlayout;
+}
+void onlykey_eeset_keyboardlayout (uint8_t *ptr) {
+    onlykey_eeset_common(ptr, EEpos_keyboardlayout, EElen_keyboardlayout);
+}
+/*********************************/
+/*********************************/
 int onlykey_eeget_failedlogins (uint8_t *ptr) {
     onlykey_eeget_common(ptr, EEpos_failedlogins, EElen_failedlogins);
     return EElen_failedlogins;

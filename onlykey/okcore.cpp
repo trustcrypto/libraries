@@ -1088,24 +1088,41 @@ void SETSLOT (uint8_t *buffer)
 	    }
             return;
             case 11:
-            //Set value in EEPROM 
 #ifdef DEBUG
             Serial.println(); //newline
             Serial.println("Writing idle timeout to EEPROM...");
 #endif 
             onlykey_eeset_timeout(buffer + 7);
             TIMEOUT[0] = buffer[7];
-	    hidprint("Successfully set idle timeout");
+	        hidprint("Successfully set idle timeout");
             return;
             case 12:
-            //Set value in EEPROM
 #ifdef DEBUG
             Serial.println(); //newline
             Serial.println("Writing wipemode to EEPROM...");
 #endif 
-            buffer[7] = (buffer[7] -'0');
-            onlykey_eeset_wipemode(buffer + 7);
-	    hidprint("Successfully set wipe mode");
+            if(buffer[7] == 2) onlykey_eeset_wipemode(buffer + 7);
+	        hidprint("Successfully set wipe mode");
+            return;
+			case 13:
+#ifdef DEBUG
+            Serial.println(); //newline
+            Serial.println("Writing keyboard type speed to EEPROM...");
+#endif 
+            if(buffer[7] <= 10) {
+				buffer[7]=11-buffer[7];
+				onlykey_eeset_typespeed(buffer + 7);
+			}
+	        hidprint("Successfully set keyboard type");
+            return;
+            case 14:
+#ifdef DEBUG
+            Serial.println(); //newline
+            Serial.println("Writing keyboard layout to EEPROM...");
+#endif 
+            update_keyboard_layout(buffer + 7);
+			onlykey_eeset_keyboardlayout(buffer + 7);
+	        hidprint("Successfully set keyboard layout");
             return;
             //break;
             default: 
@@ -1368,7 +1385,7 @@ void factorydefault() {
 	uint8_t mode;
 	uintptr_t adr = 0x0;
 	onlykey_eeget_wipemode(&mode);
-	if (mode == 0x00) {
+	if (mode <= 1) {
 	wipeflash(); //Wipe flash first need eeprom address for flash to wipe
 	wipeEEPROM();
 	} else {
