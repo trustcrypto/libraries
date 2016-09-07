@@ -105,6 +105,7 @@ bool unlocked = false;
 bool initialized = false;
 uint8_t TIMEOUT[1] = {0x30}; //Default 30 Min
 extern uint8_t KeyboardLayout[1];
+elapsedMillis idletimer; 
 /*************************************/
 //softtimer
 /*************************************/
@@ -702,7 +703,7 @@ void SETTIME (uint8_t *buffer)
     Serial.println(buffer[j+5], HEX);
 #endif
     }
-	unixTimeStamp = unixTimeStamp + ((millis())/1000);                
+	if (idletimer < 3000) unixTimeStamp = unixTimeStamp + ((millis())/1000); //Device was just unlocked add difference in time since app sent settime               
       time_t t2 = unixTimeStamp;
 #ifdef DEBUG
       Serial.print(F("Received Unix Epoch Time: "));
