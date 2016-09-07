@@ -104,6 +104,7 @@ bool PDmode;
 bool unlocked = false;
 bool initialized = false;
 uint8_t TIMEOUT[1] = {0x30}; //Default 30 Min
+extern uint8_t KeyboardLayout[1];
 /*************************************/
 //softtimer
 /*************************************/
@@ -1120,8 +1121,9 @@ void SETSLOT (uint8_t *buffer)
             Serial.println(); //newline
             Serial.println("Writing keyboard layout to EEPROM...");
 #endif 
-            update_keyboard_layout(buffer + 7);
+            KeyboardLayout[0] = buffer[7];
 			onlykey_eeset_keyboardlayout(buffer + 7);
+			update_keyboard_layout();
 	        hidprint("Successfully set keyboard layout");
             return;
             //break;
