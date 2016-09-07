@@ -85,6 +85,9 @@
 #include "flashkinetis.h"
 #include <RNG.h>
 #include "T3MacLib.h"
+// XXX(tsileo): only in US version?
+#include <Ed25519.h>
+
 /*************************************/
 //Firmware Version Selection
 /*************************************/
@@ -163,6 +166,20 @@ extern char attestation_priv[33];
 extern char attestation_der[768];
 /*************************************/
 
+const char ssh_stored_private_key[] = "\xF4\x2C\x74\xF8\x03\x50\xD0\x05\xEA\x82\x80\x1C\x95\xD2\x82\xCB\xB8\x1E\x6E\xF3\x63\xF7\x67\x59\xE8\x14\x0F\xBF\x31\x4D\x68\xA0";
+uint8_t ssh_signature[64];
+uint8_t ssh_public_key[32];
+uint8_t ssh_private_key[32];
+
+// XXX(tsileo): maybe this should be in a separate file? I put it here since it's only few LOCs
+void SSHinit()
+{
+    // FIXME(tsileo): retrieve the ssh_private_key stored in Flash
+    memcpy(ssh_private_key, ssh_stored_private_key, 32);
+    // Derivate the public key only once and store the result
+    Ed25519::derivePublicKey(ssh_public_key, ssh_private_key);
+}
+
 void recvmsg() {
   int n;
   int c;
@@ -213,6 +230,29 @@ void recvmsg() {
 	   hidprint("ERROR DEVICE LOCKED");
 	   return;
 	   }	
+      return;
+      break;
+      case OKSIGNSSHCHALLENGE:
+           if(initialized==false && unlocked==true) 
+	   {
+		hidprint("No PIN set, You must set a PIN first");
+		return;
+	   }else if (initialized==true && unlocked==true) 
+	   {
+                SIGNSSHCHALLENGE(recv_buffer);
+	   }
+	   else
+	   {
+	   hidprint("ERROR DEVICE LOCKED");
+	   return;
+	   }	
+      return;
+      break;
+
+      case OKGETSSHPUBKEY:
+            // Output the SSH public key
+            RawHID.send(ssh_public_key, 32);
+            blink(3);
       return;
       break;
       case OKSETSLOT:
@@ -335,6 +375,47 @@ void setCounter(int counter)
 {
   unsigned int eeAddress = EEpos_U2Fcounter; //EEPROM address to start reading from
   EEPROM.put( eeAddress, counter );
+}
+
+
+void SIGNSSHCHALLENGE (uint8_t *buffer)
+{
+#ifdef DEBUG
+    Serial.println();
+    Serial.println("OKSIGNSSHCHALLENGE MESSAGE RECEIVED"); 
+#endif
+    // XXX(tsileo): on my system the challenge always seems to be 147 bytes, but I keep it dynamic
+    // // since it change.
+    if (buffer[5]==0xFF) //Not last packet
+    {
+        if (large_data_offset <= 710) {
+            memcpy(large_buffer+large_data_offset, buffer+6, 58);
+            large_data_offset = large_data_offset + 58;
+        } else {
+              hidprint("Error SSH challenge larger than 768 bytes");
+        }
+        return;
+    } else {
+        if (large_data_offset <= 710 && buffer[5] <= 58) {
+            memcpy(large_buffer+large_data_offset, buffer+6, buffer[5]);
+            large_data_offset = large_data_offset + buffer[5];
+        } else {
+            hidprint("Error SSH challenge larger than 768 bytes");
+        }
+    }
+
+    // FIXME(tsileo): need button input before going further, and the SSH auth type must exist for a button
+
+    // Sign the blob stored in the buffer
+    Ed25519::sign(ssh_signature, ssh_private_key, ssh_public_key, large_buffer, large_data_offset);
+
+    // Reset the large buffer offset
+    large_data_offset = 0;
+
+    // Send the signature
+    RawHID.send(ssh_signature, 64);
+    blink(3);
+    return;
 }
 
 
