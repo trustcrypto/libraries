@@ -165,11 +165,13 @@ extern char attestation_pub[66];
 extern char attestation_priv[33];
 extern char attestation_der[768];
 /*************************************/
-
+//SSH Authentication assignments
+/*************************************/
 const char ssh_stored_private_key[] = "\xF4\x2C\x74\xF8\x03\x50\xD0\x05\xEA\x82\x80\x1C\x95\xD2\x82\xCB\xB8\x1E\x6E\xF3\x63\xF7\x67\x59\xE8\x14\x0F\xBF\x31\x4D\x68\xA0";
 uint8_t ssh_signature[64];
 uint8_t ssh_public_key[32];
 uint8_t ssh_private_key[32];
+/*************************************/
 
 // XXX(tsileo): maybe this should be in a separate file? I put it here since it's only few LOCs
 void SSHinit()
