@@ -103,6 +103,8 @@ extern "C"
 #define OKWIPEU2FCERT  		(TYPE_INIT | 0x6B)  // Last vendor defined command
 #define OKGETSSHPUBKEY          (TYPE_INIT | 0x6C)
 #define OKSIGNSSHCHALLENGE      (TYPE_INIT | 0x6D)
+#define OKWIPESSHPRIV           (TYPE_INIT | 0x6E)
+#define OKSETSSHPRIV            (TYPE_INIT | 0x6F)
 
 
 extern int getCounter();
@@ -129,6 +131,8 @@ extern void SETPIN (uint8_t *buffer);
 extern void SETPDPIN (uint8_t *buffer);
 extern void SETSDPIN (uint8_t *buffer);
 extern void SIGNSSHCHALLENGE (uint8_t *buffer);
+extern void SETSSHPRIV (uint8_t *buffer);
+extern void WIPESSHPRIV (uint8_t *buffer);
 extern void setOtherTimeout();
 extern void processPacket(uint8_t *buffer);
 extern void setCounter(int counter);
@@ -179,6 +183,7 @@ extern int onlykey_flashget_totpkey (uint8_t *ptr, int slot);
 extern void onlykey_flashset_totpkey (uint8_t *ptr, int size, int slot);
 extern void onlykey_flashget_U2F ();
 extern void U2Finit();
+extern void SSHinit();
 extern void yubikeyinit();
 extern void yubikeysim(char *ptr);
 extern void yubikey_incr_time();
