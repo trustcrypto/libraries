@@ -91,8 +91,8 @@ extern "C"
 //Vendor Defined OnlyKey MSG Type assignments
 /*************************************/
 #define OKSETPIN 			(TYPE_INIT | 0x61)  // First vendor defined command
-#define OKSETSDPIN 			(TYPE_INIT | 0x62)  // First vendor defined command
-#define OKSETPDPIN 			(TYPE_INIT | 0x63)  // First vendor defined command
+#define OKSETSDPIN 			(TYPE_INIT | 0x62)  // 
+#define OKSETPDPIN 			(TYPE_INIT | 0x63)  // 
 #define OKSETTIME 			(TYPE_INIT | 0x64)  // 
 #define OKGETLABELS 		(TYPE_INIT | 0x65)  //
 #define OKSETSLOT  			(TYPE_INIT | 0x66)  // 
@@ -100,11 +100,11 @@ extern "C"
 #define OKSETU2FPRIV 		(TYPE_INIT | 0x68)  // 
 #define OKWIPEU2FPRIV 		(TYPE_INIT | 0x69)  // 
 #define OKSETU2FCERT 		(TYPE_INIT | 0x6A)  // 
-#define OKWIPEU2FCERT  		(TYPE_INIT | 0x6B)  // Last vendor defined command
-#define OKGETSSHPUBKEY          (TYPE_INIT | 0x6C)
-#define OKSIGNSSHCHALLENGE      (TYPE_INIT | 0x6D)
-#define OKWIPESSHPRIV           (TYPE_INIT | 0x6E)
-#define OKSETSSHPRIV            (TYPE_INIT | 0x6F)
+#define OKWIPEU2FCERT  		(TYPE_INIT | 0x6B)  //
+#define OKGETSSHPUBKEY          (TYPE_INIT | 0x6C)//
+#define OKSIGNSSHCHALLENGE      (TYPE_INIT | 0x6D)//
+#define OKWIPESSHPRIV           (TYPE_INIT | 0x6E)//
+#define OKSETSSHPRIV            (TYPE_INIT | 0x6F)// Last vendor defined command
 
 
 extern int getCounter();
@@ -130,9 +130,6 @@ extern void SETSLOT (uint8_t *buffer);
 extern void SETPIN (uint8_t *buffer);
 extern void SETPDPIN (uint8_t *buffer);
 extern void SETSDPIN (uint8_t *buffer);
-extern void SIGNSSHCHALLENGE (uint8_t *buffer);
-extern void SETSSHPRIV (uint8_t *buffer);
-extern void WIPESSHPRIV (uint8_t *buffer);
 extern void setOtherTimeout();
 extern void processPacket(uint8_t *buffer);
 extern void setCounter(int counter);
@@ -182,8 +179,7 @@ extern void onlykey_flashget_common (uint8_t *ptr, uintptr_t adr, int len);
 extern int onlykey_flashget_totpkey (uint8_t *ptr, int slot);
 extern void onlykey_flashset_totpkey (uint8_t *ptr, int size, int slot);
 extern void onlykey_flashget_U2F ();
-extern void U2Finit();
-extern void SSHinit();
+extern int onlykey_flashget_SSH ();
 extern void yubikeyinit();
 extern void yubikeysim(char *ptr);
 extern void yubikey_incr_time();

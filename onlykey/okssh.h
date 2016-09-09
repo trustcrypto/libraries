@@ -1,5 +1,3 @@
-/* onlykey.h
-*/
 
 /* Tim Steiner
  * Copyright (c) 2016 , CryptoTrust LLC.
@@ -48,26 +46,27 @@
  * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
  * OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
  */
+
+#include <Ed25519.h>
+
  
-#ifndef ONLYKEY_H
-#define ONLYKEY_H
-
-#define DEBUG //Enable Serial Monitor 
-#define US_VERSION //Define for US Version Firmare
-
-#include "okcore.h"
+#ifndef OKSSH_H
+#define OKSSH_H
 
 #ifdef __cplusplus
 extern "C"
 {
 #endif
 
-#include "okeeprom.h"
-#ifdef US_VERSION
-#include "okssh.h"
-#include "oku2f.h"
-#endif
+
+
+extern void SSHinit();
+extern void SIGNSSHCHALLENGE (uint8_t *buffer);
+extern void SETSSHPRIV (uint8_t *buffer);
+extern void WIPESSHPRIV (uint8_t *buffer);
+extern void GETSSHPUBKEY ();
 
 #ifdef __cplusplus
 }
