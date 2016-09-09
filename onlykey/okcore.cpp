@@ -1822,7 +1822,7 @@ void onlykey_flashset_noncehash (uint8_t *ptr) {
     uintptr_t adr;
     onlykey_eeget_hashpos(addr);
     if (addr[0]+addr[1] == 0) { //First time setting pinhash
-        adr = 0x20004;
+       adr = 0x20004;
 #ifdef DEBUG 
 	Serial.printf("First empty Sector is 0x%X\r\n", flashFirstEmptySector());
 #endif 
