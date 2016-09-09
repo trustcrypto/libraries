@@ -102,12 +102,12 @@ void onlykey_eeset_U2Fcertlen (uint8_t *ptr) {
 /*********************************/
 /*********************************/
 
-int onlykey_eeget_hashpos (uint8_t *ptr) {
-    onlykey_eeget_common(ptr, EEpos_hashpos, EElen_hashpos);
-    return EElen_hashpos;
+int onlykey_eeget_flashpos (uint8_t *ptr) {
+    onlykey_eeget_common(ptr, EEpos_flashpos, EElen_flashpos);
+    return EElen_flashpos;
 }
-void onlykey_eeset_hashpos (uint8_t *ptr) {
-    onlykey_eeset_common(ptr, EEpos_hashpos, EElen_hashpos);
+void onlykey_eeset_flashpos (uint8_t *ptr) {
+    onlykey_eeset_common(ptr, EEpos_flashpos, EElen_flashpos);
 }
 
 /*********************************/

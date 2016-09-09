@@ -315,12 +315,20 @@ void recvmsg() {
       return;
       break;
       default: 
+		if(!PDmode) {
+		#ifdef US_VERSION
 		SoftTimer.add(&FadeinTask);
 	    recvu2fmsg(recv_buffer);
+		#endif
+		}
       break;
     }
   } else {
+	  if(!PDmode) {
+	  #ifdef US_VERSION
 	  u2fmsgtimeout(recv_buffer);
+	  #endif
+	  }
   } 
 }
 
@@ -1103,8 +1111,12 @@ void SETSLOT (uint8_t *buffer)
             Serial.println(); //newline
             Serial.println("Writing wipemode to EEPROM...");
 #endif 
-            if(buffer[7] == 2) onlykey_eeset_wipemode(buffer + 7);
-	        hidprint("Successfully set wipe mode");
+            if(buffer[7] == 2) {
+            	onlykey_eeset_wipemode(buffer + 7);
+            	hidprint("Successfully set Wipe Mode to Full Wipe");
+            } else {
+	        hidprint("Successful");
+			}
             return;
 			case 13:
 #ifdef DEBUG
@@ -1449,9 +1461,9 @@ void wipeEEPROM() {
 }
 
 void wipeflash() {
-	uint8_t addr[2];
-	onlykey_eeget_hashpos(addr);
-	uintptr_t adr = (0x02 << 16L) | (addr[0] << 8L) | addr[1];
+    uint8_t flashoffset[1];	
+	onlykey_eeget_flashpos((uint8_t*)flashoffset);
+	uintptr_t adr = (unsigned long)flashoffset[0] * (unsigned long)2048;
 	//Erase flash sectors used
 #ifdef DEBUG
 	Serial.printf("Erase Sector 0x%X ",adr);
@@ -1610,56 +1622,52 @@ void onlykey_flashset_common (uint8_t *ptr, unsigned long *adr, int len) {
 /*********************************/
 
 int onlykey_flashget_noncehash (uint8_t *ptr, int size) {
-    uint8_t addr[2];
-    onlykey_eeget_hashpos(addr);
-    if (addr[0]+addr[1] == 0) { //pinhash not set
-    	return 0;
-    }
-    else {
-    unsigned long address = (0x02 << 16L) | (addr[0] << 8L) | addr[1];
-    onlykey_flashget_common(ptr, (unsigned long*)address, size);
-    return 1;
-    }
+	
+	uint8_t flashoffset[1];	
+	onlykey_eeget_flashpos((uint8_t*)flashoffset);
+	if (flashoffset[0]==255 || flashoffset[0]==0) {
+		Serial.printf("There is no Nonce hash set");
+		return 0;
+	} else {
+	uintptr_t adr = (unsigned long)flashoffset[0] * (unsigned long)2048;
+	#ifdef DEBUG
+	Serial.printf("Reading nonce from Sector 0x%X ",adr);
+	#endif
+    onlykey_flashget_common(ptr, (unsigned long*)adr, size);
+	}
 }
 void onlykey_flashset_noncehash (uint8_t *ptr) {
-    uint8_t addr[2];
-    uintptr_t adr;
-    onlykey_eeget_hashpos(addr);
-    if (addr[0]+addr[1] == 0) { //First time setting pinhash
-	adr = 0x20004;
-#ifdef DEBUG 
-	Serial.printf("First empty Sector is 0x%X\r\n", flashFirstEmptySector());
-#endif 
-	addr[0] = (uint8_t)((adr >> 8) & 0XFF); //convert long to array
-#ifdef DEBUG 
-	Serial.print("addr 1 = "); //TODO debug remove
-	Serial.println(addr[0]); //TODO debug remove
-#endif 
-	addr[1] = (uint8_t)((adr & 0XFF));
-#ifdef DEBUG 
-	Serial.print("addr 2 = "); //TODO debug remove
-	Serial.println(addr[1]); //TODO debug remove
-#endif 
-	onlykey_eeset_hashpos(addr); //Set the starting position for hash
-	onlykey_flashset_common(ptr, (unsigned long*)adr, EElen_noncehash);
-#ifdef DEBUG 
-	Serial.print("Nonce hash address =");
-    	Serial.println(adr, HEX);
-#endif 
-    onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_noncehash);
-    }
-    else {
-	  uintptr_t adr = (0x02 << 16L) | (addr[0] << 8L) | addr[1];
-	  uint8_t temp[255];
-	  uint8_t *tptr;
-	  tptr=temp;
-	  //Get current flash contents
-	  onlykey_flashget_common(tptr, (unsigned long*)adr, 254);
-	  //Add new flash contents
-		for( int z = 0; z <= 31; z++){
+	
+	uint8_t flashoffset[1];
+	uintptr_t adr;
+	onlykey_eeget_flashpos((uint8_t*)flashoffset);
+	if (flashoffset[0] == 0)
+	{
+	#ifdef DEBUG 
+	Serial.printf("There is no Nonce hash set");
+	#endif
+	adr = flashFirstEmptySector();
+	flashoffset[0] = (uint8_t)((adr / (unsigned long)2048)& 0XFF); //number of sectors 
+	#ifdef DEBUG
+	Serial.printf("Setting First flash Sector to 0x%X ",flashoffset[0]);
+	#endif
+	onlykey_eeset_flashpos((uint8_t*)flashoffset);
+	} else {
+	adr = (unsigned long)flashoffset[0] * (unsigned long)2048;
+	}	
+	#ifdef DEBUG 
+	Serial.printf("First Empty Flash Sector 0x%X ",adr);
+	#endif
+	uint8_t temp[255];
+	uint8_t *tptr;
+	tptr=temp;
+	//Get current flash contents
+	onlykey_flashget_common(tptr, (unsigned long*)adr, 254);
+	//Add new flash contents
+	for( int z = 0; z <= 31; z++){
 		temp[z] = ((uint8_t)*(ptr+z));
-		}
-	  //Erase flash sector
+	}
+	//Erase flash sector
 #ifdef DEBUG 
 	  Serial.printf("Erase Sector 0x%X ",adr);
 #endif 
@@ -1678,41 +1686,49 @@ void onlykey_flashset_noncehash (uint8_t *ptr) {
 	  Serial.println(adr, HEX);
 	  Serial.print("Nonce hash value =");
 #endif 
-	  onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_noncehash);
-  }    
+	  onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_noncehash); 
+
 }
 
 
 int onlykey_flashget_pinhash (uint8_t *ptr, int size) {
-    uint8_t addr[2];
-    onlykey_eeget_hashpos(addr);
-    if (addr[0]+addr[1] == 0) { //pinhash not set
+	
+    uint8_t flashoffset[1];	
+	onlykey_eeget_flashpos((uint8_t*)flashoffset);
+	uintptr_t adr = (unsigned long)flashoffset[0] * (unsigned long)2048;
+	adr = adr + EElen_noncehash;
+    onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_pinhash);
+    if (*ptr == 255 && *(ptr + 1) == 255 && *(ptr + 2) == 255) { //pinhash not set
+		#ifdef DEBUG 
+		Serial.printf("Read Pin hash from Sector 0x%X ",adr);
+		Serial.printf("There is no Pin hash set");
+		#endif
     	return 0;
     }
     else {
-      uintptr_t adr =  (0x02 << 16L) | (addr[0] << 8L) | addr[1];
-      adr=adr+32;
-      onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_pinhash);
-      }
-    return 1;
-}
-void onlykey_flashset_pinhash (uint8_t *ptr) {
-    uint8_t addr[2];
-    onlykey_eeget_hashpos(addr);
-    if (addr[0]+addr[1] == 0) { //pinhash not set
-    	return;
+		#ifdef DEBUG 
+		Serial.printf("Read Pin hash from Sector 0x%X ",adr);
+		Serial.printf("Pin hash has been set");
+		#endif
+		return 1;
     }
-    else {
-    uintptr_t adr = (0x02 << 16L) | (addr[0] << 8L) | addr[1];
-	  uint8_t temp[255];
-	  uint8_t *tptr;
-	  tptr=temp;
-	  //Copy current flash contents to buffer
-      onlykey_flashget_common(tptr, (unsigned long*)adr, 254);
-	  //Add new flash contents to buffer
-		for( int z = 0; z <= 31; z++){
-		temp[z+32] = ((uint8_t)*(ptr+z));
-		}
+	
+}
+
+void onlykey_flashset_pinhash (uint8_t *ptr) {
+	
+	uint8_t flashoffset[1];	
+	onlykey_eeget_flashpos((uint8_t*)flashoffset);
+	uintptr_t adr = (unsigned long)flashoffset[0] * (unsigned long)2048;
+	uint8_t temp[255];
+	uint8_t *tptr;
+	tptr=temp;
+	//Copy current flash contents to buffer
+    onlykey_flashget_common(tptr, (unsigned long*)adr, 254);
+	//Add new flash contents to buffer
+	for( int z = 0; z <= 31; z++){
+		temp[z + EElen_noncehash] = ((uint8_t)*(ptr+z));
+	}
 	//Erase flash sector
 #ifdef DEBUG 
       Serial.printf("Erase Sector 0x%X ",adr);
@@ -1729,145 +1745,148 @@ void onlykey_flashset_pinhash (uint8_t *ptr) {
       onlykey_flashset_common(tptr, (unsigned long*)adr, 254);
 #ifdef DEBUG 
       Serial.print("Pin hash address =");
-#endif 
-      adr=adr+32;
-#ifdef DEBUG 
       Serial.println(adr, HEX);
       Serial.print("Pin hash value =");
 #endif 
       onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_pinhash);
-      }  
+
 }
 /*********************************/
 /*********************************/
 
 int onlykey_flashget_selfdestructhash (uint8_t *ptr) {
-    uint8_t addr[2];
-    onlykey_eeget_hashpos(addr);
-    if (addr[0]+addr[1] == 0) { //pinhash not set
+
+    uint8_t flashoffset[1];	
+	onlykey_eeget_flashpos((uint8_t*)flashoffset);
+	uintptr_t adr = (unsigned long)flashoffset[0] * (unsigned long)2048;
+	adr = adr + EElen_noncehash + EElen_pinhash;
+    onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_selfdestructhash);
+	
+    if (*ptr == 255 && *(ptr + 1) == 255 && *(ptr + 2) == 255) { //pinhash not set
+		#ifdef DEBUG 
+		Serial.printf("Read Self-Destruct PIN hash from Sector 0x%X ",adr);
+		Serial.printf("There is no Self-Destruct PIN hash set");
+		#endif
     	return 0;
     }
     else {
-    uintptr_t adr =  (0x02 << 16L) | (addr[0] << 8L) | addr[1];
-    adr=adr+64;
-    onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_selfdestructhash);
+		#ifdef DEBUG 
+		Serial.printf("Read Self-Destruct PIN hash from Sector 0x%X ",adr);
+		Serial.printf("Self-Destruct PIN hash has been set");
+		#endif
+		return 1;
     }
+
 }
+
 void onlykey_flashset_selfdestructhash (uint8_t *ptr) {
-    uint8_t addr[2];
-    onlykey_eeget_hashpos(addr);
-    if (addr[0]+addr[1] == 0) { //pinhash not set
-    	return;
-    }
-    else {
-     uintptr_t adr = (0x02 << 16L) | (addr[0] << 8L) | addr[1];
-     uint8_t temp[255];
-     uint8_t *tptr;
-     tptr=temp;
-     //Get current flash contents
-     onlykey_flashget_common(tptr, (unsigned long*)adr, 254);
-     //Add new flash contents
-     for( int z = 0; z < EElen_selfdestructhash; z++){
-     temp[z+64] = ((uint8_t)*(ptr+z));
-     }
-     //Erase flash sector
+
+	uint8_t flashoffset[1];	
+	onlykey_eeget_flashpos((uint8_t*)flashoffset);
+	uintptr_t adr = (unsigned long)flashoffset[0] * (unsigned long)2048;
+	uint8_t temp[255];
+	uint8_t *tptr;
+	tptr=temp;
+	//Copy current flash contents to buffer
+    onlykey_flashget_common(tptr, (unsigned long*)adr, 254);
+	//Add new flash contents to buffer
+	for( int z = 0; z <= 31; z++){
+		temp[z + EElen_noncehash + EElen_pinhash] = ((uint8_t)*(ptr+z));
+	}
+	//Erase flash sector
 #ifdef DEBUG 
-     Serial.printf("Erase Sector 0x%X ",adr);
+      Serial.printf("Erase Sector 0x%X ",adr);
 #endif 
-     if (flashEraseSector((unsigned long*)adr)) {
+      if (flashEraseSector((unsigned long*)adr)) {
 #ifdef DEBUG 
 	Serial.printf("NOT ");
 #endif 
 	}
 #ifdef DEBUG 
-     Serial.printf("successful\r\n");
+      Serial.printf("successful\r\n");
 #endif 
-     //Write buffer to flash
-     onlykey_flashset_common(tptr, (unsigned long*)adr, 254);
+      //Write buffer to flash
+      onlykey_flashset_common(tptr, (unsigned long*)adr, 254);
 #ifdef DEBUG 
-     Serial.println("SD hash address =");
+      Serial.print("Self-Destruct PIN hash address =");
+      Serial.println(adr, HEX);
+      Serial.print("Self-Destruct PIN hash value =");
 #endif 
-     adr=adr+64;
-#ifdef DEBUG 
-     Serial.print(adr, HEX);
-     Serial.print("SD hash value =");
-#endif 
-     onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_selfdestructhash);
-     }  
+      onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_selfdestructhash);  
 }
 
 /*********************************/
 /*********************************/
 
 int onlykey_flashget_plausdenyhash (uint8_t *ptr) {
-    uint8_t addr[2];
-    onlykey_eeget_hashpos(addr);
-    if (addr[0]+addr[1] == 0) { //pinhash not set
+
+    uint8_t flashoffset[1];	
+	onlykey_eeget_flashpos((uint8_t*)flashoffset);
+	uintptr_t adr = (unsigned long)flashoffset[0] * (unsigned long)2048;
+	adr = adr + EElen_noncehash + EElen_pinhash + EElen_selfdestructhash;
+    onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_plausdenyhash);
+	
+    if (*ptr == 255 && *(ptr + 1) == 255 && *(ptr + 2) == 255) { //pinhash not set
+		#ifdef DEBUG 
+		Serial.printf("Read PIN hash from Sector 0x%X ",adr);
+		Serial.printf("There is no PIN hash set");
+		#endif
     	return 0;
     }
     else {
-    uintptr_t adr =  (0x02 << 16L) | (addr[0] << 8L) | addr[1];
-    adr=adr+96;
-    onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_plausdenyhash);
+		#ifdef DEBUG 
+		Serial.printf("Read PIN hash from Sector 0x%X ",adr);
+		Serial.printf("PIN hash has been set");
+		#endif
+		return 1;
     }
+	
 }
 void onlykey_flashset_plausdenyhash (uint8_t *ptr) {
-    uint8_t addr[2];
-    onlykey_eeget_hashpos(addr);
-    if (addr[0]+addr[1] == 0) { //pinhash not set
-    	return;
-    }
-    else {
-    uintptr_t adr = (0x02 << 16L) | (addr[0] << 8L) | addr[1];
-    uint8_t temp[255];
-    uint8_t *tptr;
-    tptr=temp;
-    //Get current flash contents
+
+	uint8_t flashoffset[1];	
+	onlykey_eeget_flashpos((uint8_t*)flashoffset);
+	uintptr_t adr = (unsigned long)flashoffset[0] * (unsigned long)2048;
+	uint8_t temp[255];
+	uint8_t *tptr;
+	tptr=temp;
+	//Copy current flash contents to buffer
     onlykey_flashget_common(tptr, (unsigned long*)adr, 254);
-    //Add new flash contents
-    for( int z = 0; z < EElen_plausdenyhash; z++){
-    temp[z+96] = ((uint8_t)*(ptr+z));
+	//Add new flash contents to buffer
+	for( int z = 0; z <= 31; z++){
+		temp[z + EElen_noncehash + EElen_pinhash + EElen_selfdestructhash] = ((uint8_t)*(ptr+z));
+	}
+	//Erase flash sector
 #ifdef DEBUG 
-    Serial.println(*(tptr+z), HEX);
+      Serial.printf("Erase Sector 0x%X ",adr);
 #endif 
-    }
-    //Erase flash sector
-#ifdef DEBUG 
-    Serial.printf("Erase Sector 0x%X ",adr);
-#endif 
-    if (flashEraseSector((unsigned long*)adr)) {
+      if (flashEraseSector((unsigned long*)adr)) {
 #ifdef DEBUG 
 	Serial.printf("NOT ");
 #endif 
 	}
 #ifdef DEBUG 
-    Serial.printf("successful\r\n");
+      Serial.printf("successful\r\n");
 #endif 
-    //Write buffer to flash
-    onlykey_flashset_common(tptr, (unsigned long*)adr, 254);
+      //Write buffer to flash
+      onlykey_flashset_common(tptr, (unsigned long*)adr, 254);
 #ifdef DEBUG 
-    Serial.println("PD hash address =");
+      Serial.print("PIN hash address =");
+      Serial.println(adr, HEX);
+      Serial.print("PIN hash value =");
 #endif 
-    adr=adr+96;
-#ifdef DEBUG 
-    Serial.print(adr, HEX);
-    Serial.print("PD hash value =");
-#endif 
-    onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_plausdenyhash);
-    }     
-}
+      onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_plausdenyhash);
+
+}  
+
 
 
 int onlykey_flashget_totpkey (uint8_t *ptr, int slot) {
-    uint8_t addr[2];
-    onlykey_eeget_hashpos(addr);
-    if (addr[0]+addr[1] == 0) { //pinhash not set
-    	return 0;
-    }
-    else {
-    uintptr_t adr =  (0x02 << 16L) | (addr[0] << 8L) | addr[1];
-    adr=adr+2048; //Next Sector
 
+    uint8_t flashoffset[1];	
+	onlykey_eeget_flashpos((uint8_t*)flashoffset);
+	uintptr_t adr = (unsigned long)flashoffset[0] * (unsigned long)2048;
+	adr = adr + 2048; //Next Sector
 	switch (slot) {
 		uint8_t length;
 		int size;
@@ -2063,19 +2082,16 @@ int onlykey_flashget_totpkey (uint8_t *ptr, int slot) {
 			return size;
             break;	
 	}
-    }
 
+return 0;
 }
 
 void onlykey_flashset_totpkey (uint8_t *ptr, int size, int slot) {
-    uint8_t addr[2];
-    onlykey_eeget_hashpos(addr);
-    if (addr[0]+addr[1] == 0) { //pinhash not set
-    	return;
-    }
-    else {
-    uintptr_t adr =  (0x02 << 16L) | (addr[0] << 8L) | addr[1];
-    adr=adr+2048;
+
+    uint8_t flashoffset[1];	
+	onlykey_eeget_flashpos((uint8_t*)flashoffset);
+	uintptr_t adr = (unsigned long)flashoffset[0] * (unsigned long)2048;
+	adr = adr + 2048;
     uint8_t temp[1536];
     uint8_t *tptr;
     tptr=temp;
@@ -2290,25 +2306,22 @@ void onlykey_flashset_totpkey (uint8_t *ptr, int size, int slot) {
 			onlykey_eeset_totpkeylen24(&length);
             break;
 	}
-    }
+return;
 }
 
 /*********************************/
 void onlykey_flashget_U2F ()
 {
+
 if (PDmode) return;
 #ifdef DEBUG 
     Serial.println("Flashget U2F");
 #endif 
-    uint8_t addr[2];
-    uint8_t length[2];
-    onlykey_eeget_hashpos(addr);
-    if (addr[0]+addr[1] == 0) { //pinhash not set
-    	return;
-    }
-    else {
-    uintptr_t adr = (0x02 << 16L) | (addr[0] << 8L) | addr[1];
-    adr=adr+4096; //3rd flash sector
+	uint8_t length[2];
+    uint8_t flashoffset[1];	
+	onlykey_eeget_flashpos((uint8_t*)flashoffset);
+	uintptr_t adr = (unsigned long)flashoffset[0] * (unsigned long)2048;
+	adr = adr + 4096; //3rd flash sector
     onlykey_flashget_common((uint8_t*)attestation_priv, (unsigned long*)adr, 32); 
 #ifdef DEBUG 
     Serial.print("attestation priv =");
@@ -2333,24 +2346,21 @@ if (PDmode) return;
     }
 #endif 
     return;
-    }
+
 }
 
 /*********************************/
 void SETU2FPRIV (uint8_t *buffer)
 {
+
 if (PDmode) return;
 #ifdef DEBUG 
     Serial.println("OKSETU2FPRIV MESSAGE RECEIVED");
 #endif 
-    uint8_t addr[2];
-    onlykey_eeget_hashpos(addr);
-    if (addr[0]+addr[1] == 0) { //pinhash not set
-    	return;
-    }
-    else {
-    uintptr_t adr = (0x02 << 16L) | (addr[0] << 8L) | addr[1];
-	adr=adr+4096; //3rd flash sector
+    uint8_t flashoffset[1];	
+	onlykey_eeget_flashpos((uint8_t*)flashoffset);
+	uintptr_t adr = (unsigned long)flashoffset[0] * (unsigned long)2048;
+	adr = adr + 4096; //3rd flash sector
 	uint8_t *ptr;
 	//Erase flash sector
 #ifdef DEBUG 
@@ -2381,26 +2391,24 @@ if (PDmode) return;
 #endif
     }
     hidprint("Successfully set U2F Private");
-	}
+
   blink(3);
+
   return;
 }
     
 
 void WIPEU2FPRIV (uint8_t *buffer)
 {
+
 if (PDmode) return;
 #ifdef DEBUG
     Serial.println("OKWIPEU2FPRIV MESSAGE RECEIVED");
 #endif
-	uint8_t addr[2];
-    onlykey_eeget_hashpos(addr);
-    if (addr[0]+addr[1] == 0) { //pinhash not set
-    	return;
-    }
-    else {
-    uintptr_t adr = (0x02 << 16L) | (addr[0] << 8L) | addr[1];
-	adr=adr+4096;
+	uint8_t flashoffset[1];	
+	onlykey_eeget_flashpos((uint8_t*)flashoffset);
+	uintptr_t adr = (unsigned long)flashoffset[0] * (unsigned long)2048;
+	adr = adr + 4096; //3rd flash sector
 	//Erase flash sector
 #ifdef DEBUG
 		Serial.printf("Erase Sector 0x%X ",adr);
@@ -2415,25 +2423,23 @@ if (PDmode) return;
 #endif 
 		hidprint("Successfully wiped U2F Private");
     blink(3);
+
     return;
-}
+
 }
 
 void SETU2FCERT (uint8_t *buffer)
 {
+
 if (PDmode) return;
 #ifdef DEBUG 
     Serial.println("OKSETU2FCERT MESSAGE RECEIVED");
 #endif 
-    uint8_t addr[2];
-    uint8_t length[2];
-    onlykey_eeget_hashpos(addr);
-    if (addr[0]+addr[1] == 0) { //pinhash not set
-    	return;
-    }
-    else {
-    uintptr_t adr = (0x02 << 16L) | (addr[0] << 8L) | addr[1];
-	adr=adr+6144;
+	uint8_t length[2];
+    uint8_t flashoffset[1];	
+	onlykey_eeget_flashpos((uint8_t*)flashoffset);
+	uintptr_t adr = (unsigned long)flashoffset[0] * (unsigned long)2048;
+	adr = adr + 6144; //4th flash sector
 	uint8_t *ptr;
 	if (buffer[5]==0xFF) //Not last packet
 	{
@@ -2486,25 +2492,22 @@ if (PDmode) return;
 	large_data_offset = 0;
 	hidprint("Successfully set U2F Certificate");
       blink(3);
+
       return;
-	}
 }
 
 void WIPEU2FCERT (uint8_t *buffer)
 {
+
 if (PDmode) return;
 #ifdef DEBUG 
     Serial.println("OKWIPEU2FCERT MESSAGE RECEIVED");
 #endif
-	uint8_t addr[2];
 	uint8_t length[2] = {0x00,0x00};
-    onlykey_eeget_hashpos(addr);
-    if (addr[0]+addr[1] == 0) { //pinhash not set
-    	return;
-    }
-    else {
-    uintptr_t adr = (0x02 << 16L) | (addr[0] << 8L) | addr[1];
-	adr=adr+6144; //4th flash sector
+    uint8_t flashoffset[1];	
+	onlykey_eeget_flashpos((uint8_t*)flashoffset);
+	uintptr_t adr = (unsigned long)flashoffset[0] * (unsigned long)2048;
+	adr = adr + 6144; //4th flash sector
 	//Erase flash sector
 #ifdef DEBUG 
 		Serial.printf("Erase Sector 0x%X ",adr);
@@ -2521,8 +2524,8 @@ if (PDmode) return;
 	onlykey_eeset_U2Fcertlen(length); 
 	hidprint("Successfully wiped U2F Certificate");
     blink(3);
+
     return;
-}
 }
 
 /*************************************/
