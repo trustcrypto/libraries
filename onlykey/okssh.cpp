@@ -136,6 +136,7 @@ void SIGNSSHCHALLENGE (uint8_t *buffer)
     /* hidprint((const char*)ssh_signature); */
     RawHID.send(ssh_signature, 64);
 	SSH_AUTH = 0;
+	SSH_button = 0;
     blink(3);
 	}
     return;
