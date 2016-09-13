@@ -2450,7 +2450,7 @@ if (PDmode) return;
     Serial.printf("successful\r\n"); 
 #endif 
 	//Write buffer to flash
-	ptr=buffer+6;
+	ptr=buffer+5;
     onlykey_flashset_common(ptr, (unsigned long*)adr, 32);
 #ifdef DEBUG
     Serial.print("U2F Private address =");
@@ -2659,7 +2659,7 @@ if (PDmode) return;
     Serial.printf("successful\r\n"); 
 #endif 
 	//Write buffer to flash
-	ptr=buffer+6;
+	ptr=buffer+5;
     onlykey_flashset_common(ptr, (unsigned long*)adr, 32);
 #ifdef DEBUG
     Serial.print("SSH Private Key address =");
