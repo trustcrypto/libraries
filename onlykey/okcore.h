@@ -86,7 +86,6 @@ extern "C"
 
 #include <SoftTimer.h>
 
-
 /*************************************/
 //Vendor Defined OnlyKey MSG Type assignments
 /*************************************/

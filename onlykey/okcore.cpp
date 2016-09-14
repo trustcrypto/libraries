@@ -787,11 +787,17 @@ void SETTIME (uint8_t *buffer)
     Serial.println(buffer[j+5], HEX);
 #endif
     }
+#ifdef DEBUG
+		Serial.print("Time received from app = ");
+		Serial.println(unixTimeStamp);
+		Serial.print("Idle timer = ");
+		Serial.println(idletimer);
+#endif
 	if (idletimer < 3000) unixTimeStamp = unixTimeStamp + ((millis())/1000); //Device was just unlocked add difference in time since app sent settime               
       time_t t2 = unixTimeStamp;
 #ifdef DEBUG
       Serial.print(F("Received Unix Epoch Time: "));
-      Serial.println(unixTimeStamp, HEX); 
+      Serial.println(unixTimeStamp); 
 #endif
       setTime(t2); 
 #ifdef DEBUG
