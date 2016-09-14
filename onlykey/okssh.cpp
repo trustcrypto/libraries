@@ -54,6 +54,7 @@
 #include <okcore.h>
 #include <cstring>
 #include "Arduino.h"
+#include "onlykey.h"
 
 /*************************************/
 //SSH Authentication assignments
@@ -131,6 +132,9 @@ void SIGNSSHCHALLENGE (uint8_t *buffer)
 
     // Reset the large buffer offset
     large_data_offset = 0;
+
+    // Stop the fade in
+    fadeoff();
 
     // Send the signature
     /* hidprint((const char*)ssh_signature); */
