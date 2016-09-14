@@ -69,6 +69,16 @@ void onlykey_eeset_keyboardlayout (uint8_t *ptr) {
 }
 /*********************************/
 /*********************************/
+int onlykey_eeget_sincelastregularlogin (uint8_t *ptr) {
+    onlykey_eeget_common(ptr, EEpos_sincelastregularlogin, EElen_sincelastregularlogin);
+    return EElen_sincelastregularlogin;
+}
+void onlykey_eeset_sincelastregularlogin (uint8_t *ptr) {
+    onlykey_eeset_common(ptr, EEpos_sincelastregularlogin, EElen_sincelastregularlogin);
+}
+
+/*********************************/
+/*********************************/
 int onlykey_eeget_failedlogins (uint8_t *ptr) {
     onlykey_eeget_common(ptr, EEpos_failedlogins, EElen_failedlogins);
     return EElen_failedlogins;
@@ -2729,5 +2739,4 @@ void onlykey_eeset_username (uint8_t *ptr, int size, int slot) {
 	}
 
 }
-
 

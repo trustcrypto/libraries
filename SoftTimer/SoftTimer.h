@@ -36,6 +36,8 @@ class SoftTimerClass
     /**
      * Register a task in the timer manager.
      */
+    void add(Task* task, unsigned long newperiodMs);
+    
     void add(Task* task);
     
     /**

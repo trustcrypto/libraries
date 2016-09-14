@@ -565,6 +565,7 @@ void processMessage(uint8_t *buffer)
       len += 2;
      
       u2f_button = 0;
+      fadeoff();
       sendLargeResponse(buffer, len);
       large_data_offset = 0;
     }
@@ -730,6 +731,7 @@ void processMessage(uint8_t *buffer)
         Serial.println(len);
 #endif
         u2f_button = 0;
+        fadeoff();
         sendLargeResponse(buffer, len);
         setCounter(counter+1);
       } else {
