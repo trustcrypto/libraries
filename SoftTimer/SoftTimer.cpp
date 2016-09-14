@@ -39,6 +39,32 @@ void loop() {
 /**
  * Register a task in the timer manager.
  */
+void SoftTimerClass::add(Task* task, unsigned long newperiodMs) {
+
+  // -- A task should be registered only once.
+  this->remove(task);
+  
+  if(this->_tasks == NULL) {
+  
+    // -- This is the first task being registered.
+    this->_tasks = task;
+    
+  } else {
+  
+    Task* lastTask = this->_tasks;
+    // -- Find the last task, to build a chain.
+    while(lastTask->nextTask != NULL) {
+      lastTask = lastTask->nextTask;
+    }
+    // -- Last task found, let's add this task to the end of the chain.
+    lastTask->nextTask = task;
+    
+  }
+  task->lastCallTimeMicros = micros() - task->periodMicros; // -- Start immediately after registering.
+  task->periodMicros = (newperiodMs * newperiodMs) * 10000;
+  task->nextTask = NULL;
+}
+
 void SoftTimerClass::add(Task* task) {
 
   // -- A task should be registered only once.
@@ -60,11 +86,10 @@ void SoftTimerClass::add(Task* task) {
     lastTask->nextTask = task;
     
   }
-  
+
   task->lastCallTimeMicros = micros() - task->periodMicros; // -- Start immediately after registering.
   task->nextTask = NULL;
 }
-
 
 /**
  * Remove registration of a task in the timer manager.

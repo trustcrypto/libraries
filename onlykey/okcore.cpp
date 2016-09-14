@@ -103,7 +103,8 @@ int PINSET = 0;
 bool PDmode;
 bool unlocked = false;
 bool initialized = false;
-uint8_t TIMEOUT[1] = {0x30}; //Default 30 Min
+uint8_t TIMEOUT[1] = {30}; //Default 30 Min
+uint8_t TYPESPEED[1] = {100}; //Default 100 Ms
 extern uint8_t KeyboardLayout[1];
 elapsedMillis idletimer; 
 /*************************************/
@@ -787,17 +788,11 @@ void SETTIME (uint8_t *buffer)
     Serial.println(buffer[j+5], HEX);
 #endif
     }
-#ifdef DEBUG
-		Serial.print("Time received from app = ");
-		Serial.println(unixTimeStamp);
-		Serial.print("Idle timer = ");
-		Serial.println(idletimer);
-#endif
 	if (idletimer < 3000) unixTimeStamp = unixTimeStamp + ((millis())/1000); //Device was just unlocked add difference in time since app sent settime               
       time_t t2 = unixTimeStamp;
 #ifdef DEBUG
       Serial.print(F("Received Unix Epoch Time: "));
-      Serial.println(unixTimeStamp); 
+      Serial.println(unixTimeStamp, HEX); 
 #endif
       setTime(t2); 
 #ifdef DEBUG
@@ -1205,11 +1200,13 @@ void SETSLOT (uint8_t *buffer)
             Serial.println(); //newline
             Serial.println("Writing keyboard type speed to EEPROM...");
 #endif 
+	    
             if(buffer[7] <= 10) {
 				buffer[7]=11-buffer[7];
 				onlykey_eeset_typespeed(buffer + 7);
+				TYPESPEED[0] = buffer[7];
 			}
-	        hidprint("Successfully set keyboard type");
+	        hidprint("Successfully set keyboard typespeed");
             return;
             case 14:
 #ifdef DEBUG
@@ -1593,6 +1590,18 @@ void wipeflash() {
 	}
 #ifdef DEBUG 
 	Serial.printf("successful\r\n");
+	adr=adr+8192; //Next Sector
+#ifdef DEBUG 
+	Serial.printf("Erase Sector 0x%X ",adr);
+#endif 
+	if (flashEraseSector((unsigned long*)adr)) {
+#ifdef DEBUG 
+	Serial.printf("NOT ");
+#endif 
+	}
+#ifdef DEBUG 
+	Serial.printf("successful\r\n");
+#endif 
 	Serial.println("Flash Sectors erased");//TODO remove debug
 #endif 
 }
@@ -2456,7 +2465,7 @@ if (PDmode) return;
     Serial.printf("successful\r\n"); 
 #endif 
 	//Write buffer to flash
-	ptr=buffer+6;
+	ptr=buffer+5;
     onlykey_flashset_common(ptr, (unsigned long*)adr, 32);
 #ifdef DEBUG
     Serial.print("U2F Private address =");
@@ -2665,7 +2674,7 @@ if (PDmode) return;
     Serial.printf("successful\r\n"); 
 #endif 
 	//Write buffer to flash
-	ptr=buffer+6;
+	ptr=buffer+5;
     onlykey_flashset_common(ptr, (unsigned long*)adr, 32);
 #ifdef DEBUG
     Serial.print("SSH Private Key address =");
