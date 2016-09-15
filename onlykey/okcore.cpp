@@ -788,20 +788,26 @@ void SETTIME (uint8_t *buffer)
     Serial.println(buffer[j+5], HEX);
 #endif
     }
-	if (idletimer < 3000) unixTimeStamp = unixTimeStamp + ((millis())/1000); //Device was just unlocked add difference in time since app sent settime               
+	if (idletimer < 3000) {
+#ifdef DEBUG
+      Serial.print("Adding time offset");
+      Serial.println(millis()); 
+#endif
+	unixTimeStamp = unixTimeStamp + ((millis())/1000); //Device was just unlocked add difference in time since app sent settime 
+	}              
       time_t t2 = unixTimeStamp;
 #ifdef DEBUG
-      Serial.print(F("Received Unix Epoch Time: "));
+      Serial.print("Received Unix Epoch Time: ");
       Serial.println(unixTimeStamp, HEX); 
 #endif
       setTime(t2); 
 #ifdef DEBUG
-      Serial.print(F("Current Time Set to: "));
+      Serial.println("Current Time Set to: ");
 #endif
       digitalClockDisplay();  
 	  } else {
 	  #ifdef DEBUG
-      Serial.print(F("Time Already Set"));
+      Serial.println("Time Already Set");
 	  #endif  
 	  }
 	  }
