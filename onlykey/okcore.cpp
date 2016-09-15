@@ -2485,12 +2485,16 @@ if (PDmode) return;
     Serial.printf("Erase Sector 0x%X ",adr);
 #endif 
     if (flashEraseSector((unsigned long*)adr)) 
-#ifdef DEBUG     
     {
+#ifdef DEBUG   
 	Serial.printf("NOT ");
-    }
-    Serial.printf("successful\r\n"); 
 #endif 
+    }
+
+#ifdef DEBUG   
+    Serial.printf("successful\r\n"); 
+#endif
+
 	//Write buffer to flash
 	ptr=buffer+5;
     onlykey_flashset_common(ptr, (unsigned long*)adr, 32);
@@ -2703,12 +2707,16 @@ if (PDmode) return;
     Serial.printf("Erase Sector 0x%X ",adr);
 #endif 
     if (flashEraseSector((unsigned long*)adr)) 
-#ifdef DEBUG     
     {
+#ifdef DEBUG   
 	Serial.printf("NOT ");
-    }
-    Serial.printf("successful\r\n"); 
 #endif 
+    }
+
+#ifdef DEBUG   
+    Serial.printf("successful\r\n"); 
+#endif
+
 	//Write buffer to flash
 	ptr=buffer+5;
     onlykey_flashset_common(ptr, (unsigned long*)adr, 32);
