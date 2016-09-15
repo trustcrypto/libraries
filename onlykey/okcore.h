@@ -86,6 +86,7 @@ extern "C"
 
 #include <SoftTimer.h>
 
+#define TYPE_INIT               0x80  // Initial frame identifier
 /*************************************/
 //Vendor Defined OnlyKey MSG Type assignments
 /*************************************/

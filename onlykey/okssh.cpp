@@ -49,6 +49,8 @@
  *
  */
 
+#ifdef US_VERSION
+
 #include "okssh.h"
 #include <SoftTimer.h>
 #include <okcore.h>
@@ -145,3 +147,5 @@ void SIGNSSHCHALLENGE (uint8_t *buffer)
 	}
     return;
 }
+
+#endif

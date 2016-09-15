@@ -152,18 +152,18 @@ size_t length = 48; // First block should wait for the pool to fill up.
 /*************************************/
 //U2F Assignments
 /*************************************/
-extern uint8_t expected_next_packet;
-extern int large_data_len;
-extern int large_data_offset;
-extern uint8_t large_buffer[1024];
-extern uint8_t large_resp_buffer[1024];
-extern uint8_t recv_buffer[64];
-extern uint8_t resp_buffer[64];
+uint8_t expected_next_packet;
+int large_data_len;
+int large_data_offset;
+uint8_t large_buffer[1024];
+uint8_t large_resp_buffer[1024];
+uint8_t recv_buffer[64];
+uint8_t resp_buffer[64];
 extern uint8_t handle[64];
-extern uint8_t sha256_hash[32];
-extern char attestation_pub[66];
-extern char attestation_priv[33];
-extern char attestation_der[768];
+uint8_t sha256_hash[32];
+char attestation_pub[66];
+char attestation_priv[33];
+char attestation_der[768];
 /*************************************/
 //SSH Authentication assignments
 /*************************************/
@@ -267,7 +267,9 @@ void recvmsg() {
 		return;
 	   }else if (initialized==true && unlocked==true) 
 	   {
+		#ifdef US_VERSION
 		SETU2FPRIV(recv_buffer);
+		#endif
 	   }
 	   else
 	   {
@@ -283,7 +285,9 @@ void recvmsg() {
 		return;
 	   }else if (initialized==true && unlocked==true) 
 	   {
+		#ifdef US_VERSION
 		WIPEU2FPRIV(recv_buffer);
+		#endif
 	   }
 	   else
 	   {
@@ -298,7 +302,9 @@ void recvmsg() {
 		return;
 	   }else if (initialized==true && unlocked==true) 
 	   {
+		#ifdef US_VERSION
 		SETU2FCERT(recv_buffer);
+		#endif
 	   }
 	   else
 	   {
@@ -314,7 +320,9 @@ void recvmsg() {
 		return;
 	   }else if (initialized==true && unlocked==true) 
 	   {
+		#ifdef US_VERSION
 		WIPEU2FCERT(recv_buffer);
+		#endif
 	   }
 	   else
 	   {
@@ -330,7 +338,9 @@ void recvmsg() {
 		return;
 	   }else if (initialized==true && unlocked==true) 
 	   {
+                #ifdef US_VERSION
                 SETSSHPRIV(recv_buffer);
+                #endif
 	   }
 	   else
 	   {
@@ -346,7 +356,9 @@ void recvmsg() {
 		return;
 	   }else if (initialized==true && unlocked==true) 
 	   {
+                #ifdef US_VERSION
                 WIPESSHPRIV(recv_buffer);
+                #endif
 	   }
 	   else
 	   {
@@ -383,7 +395,9 @@ void recvmsg() {
 		return;
 	   }else if (initialized==true && unlocked==true) 
 	   {
+                #ifdef US_VERSION
                 GETSSHPUBKEY();
+                #endif
 	   }
 	   else
 	   {
@@ -396,7 +410,7 @@ void recvmsg() {
 		if(!PDmode) {
 		#ifdef US_VERSION
 		SoftTimer.add(&FadeinTask);
-	    recvu2fmsg(recv_buffer);
+	    	recvu2fmsg(recv_buffer);
 		#endif
 		}
       break;
@@ -1651,6 +1665,7 @@ int aes_gcm_decrypt (uint8_t * state, uint8_t * iv1, const uint8_t * key, int le
 		return 1;
 	}
 	#endif
+
 }
 
 void aes_gcm_encrypt2 (uint8_t * state, uint8_t * iv1, const uint8_t * key, int len) {
@@ -2411,6 +2426,7 @@ void onlykey_flashget_U2F ()
 {
 
 if (PDmode) return;
+#ifdef US_VERSION
 #ifdef DEBUG 
     Serial.println("Flashget U2F");
 #endif 
@@ -2442,6 +2458,7 @@ if (PDmode) return;
     Serial.print(attestation_der[i],HEX);
     }
 #endif 
+#endif
     return;
 
 }
@@ -2451,6 +2468,7 @@ void SETU2FPRIV (uint8_t *buffer)
 {
 
 if (PDmode) return;
+#ifdef US_VERSION
 #ifdef DEBUG 
     Serial.println("OKSETU2FPRIV MESSAGE RECEIVED");
 #endif 
@@ -2490,8 +2508,9 @@ if (PDmode) return;
     hidprint("Successfully set U2F Private");
 
   blink(3);
-
+#endif
   return;
+
 }
     
 
@@ -2499,6 +2518,7 @@ void WIPEU2FPRIV (uint8_t *buffer)
 {
 
 if (PDmode) return;
+#ifdef US_VERSION
 #ifdef DEBUG
     Serial.println("OKWIPEU2FPRIV MESSAGE RECEIVED");
 #endif
@@ -2520,7 +2540,7 @@ if (PDmode) return;
 #endif 
 		hidprint("Successfully wiped U2F Private");
     blink(3);
-
+#endif
     return;
 
 }
@@ -2529,6 +2549,7 @@ void SETU2FCERT (uint8_t *buffer)
 {
 
 if (PDmode) return;
+#ifdef US_VERSION
 #ifdef DEBUG 
     Serial.println("OKSETU2FCERT MESSAGE RECEIVED");
 #endif 
@@ -2589,14 +2610,16 @@ if (PDmode) return;
 	large_data_offset = 0;
 	hidprint("Successfully set U2F Certificate");
       blink(3);
-
+#endif
       return;
+
 }
 
 void WIPEU2FCERT (uint8_t *buffer)
 {
 
 if (PDmode) return;
+#ifdef US_VERSION
 #ifdef DEBUG 
     Serial.println("OKWIPEU2FCERT MESSAGE RECEIVED");
 #endif
@@ -2621,14 +2644,16 @@ if (PDmode) return;
 	onlykey_eeset_U2Fcertlen(length); 
 	hidprint("Successfully wiped U2F Certificate");
     blink(3);
-
+#endif
     return;
+
 }
 
 int onlykey_flashget_SSH ()
 {
 
 if (PDmode) return 0;
+#ifdef US_VERSION
 #ifdef DEBUG 
     Serial.println("Flashget SSH");
 #endif 
@@ -2653,12 +2678,14 @@ if (PDmode) return 0;
 		#endif
 		return 1;
     }
-
+#endif
 }
 
 void SETSSHPRIV (uint8_t *buffer)
 {
+
 if (PDmode) return;
+#ifdef US_VERSION
 #ifdef DEBUG
     Serial.println();
     Serial.println("OKSETSSHPRIV MESSAGE RECEIVED");
@@ -2691,12 +2718,15 @@ if (PDmode) return;
     hidprint("Successfully set SSH private key");
 
     blink(3);
+#endif
     return;
+
 }
 
 void WIPESSHPRIV (uint8_t *buffer)
 {
 if (PDmode) return;
+#ifdef US_VERSION
 #ifdef DEBUG
     Serial.println("OKWIPESSHPRIV MESSAGE RECEIVED");
 #endif
@@ -2721,7 +2751,7 @@ if (PDmode) return;
 	SSHinit();
 	hidprint("Successfully wiped SSH Private Key");
     blink(3);
-
+#endif
     return;
 
 }

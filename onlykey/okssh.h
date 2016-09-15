@@ -49,11 +49,15 @@
  *
  */
 
+#ifdef US_VERSION
+
 #include <Ed25519.h>
 
  
 #ifndef OKSSH_H
 #define OKSSH_H
+
+
 
 #ifdef __cplusplus
 extern "C"
@@ -70,5 +74,6 @@ extern void GETSSHPUBKEY ();
 
 #ifdef __cplusplus
 }
+#endif
 #endif
 #endif

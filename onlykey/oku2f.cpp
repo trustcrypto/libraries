@@ -74,12 +74,11 @@
  *OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  *OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+#ifdef US_VERSION
 
 #include "oku2f.h"
 #include <SoftTimer.h>
 #include <okcore.h>
-
-
 
 struct ch_state {
   int cid;
@@ -90,15 +89,19 @@ struct ch_state {
 /*************************************/
 //U2F Assignments
 /*************************************/
-uint8_t expected_next_packet;
-int large_data_len;
-int large_data_offset;
-uint8_t large_buffer[1024];
-uint8_t large_resp_buffer[1024];
-uint8_t recv_buffer[64];
-uint8_t resp_buffer[64];
-uint8_t handle[64];
-uint8_t sha256_hash[32];
+
+extern uint8_t expected_next_packet;
+extern int large_data_len;
+extern int large_data_offset;
+extern uint8_t large_buffer[1024];
+extern uint8_t large_resp_buffer[1024];
+extern uint8_t recv_buffer[64];
+extern uint8_t resp_buffer[64];
+extern uint8_t handle[64];
+extern uint8_t sha256_hash[32];
+extern char attestation_pub[66];
+extern char attestation_priv[33];
+extern char attestation_der[768];
 extern uint8_t nonce[32];
 
 const char stored_pub[] = "\x04\xC3\xC9\x1F\x25\x2E\x20\x10\x7B\x5E\x8D\xEA\xB1\x90\x20\x98\xF7\x28\x70\x71\xE4\x54\x18\xB8\x98\xCE\x5F\xF1\x7C\xA7\x25\xAE\x78\xC3\x3C\xC7\x01\xC0\x74\x60\x11\xCB\xBB\xB5\x8B\x08\xB6\x1D\x20\xC0\x5E\x75\xD5\x01\xA3\xF8\xF7\xA1\x67\x3F\xBE\x32\x63\xAE\xBE";
@@ -107,14 +110,11 @@ const char stored_priv[] = "\xD3\x0C\x9C\xAC\x7D\xA2\xB4\xA7\xD7\x1B\x00\x2A\x40
 
 const char stored_der[] = "\x30\x82\x01\xB4\x30\x82\x01\x58\xA0\x03\x02\x01\x02\x02\x01\x01\x30\x0C\x06\x08\x2A\x86\x48\xCE\x3D\x04\x03\x02\x05\x00\x30\x61\x31\x0B\x30\x09\x06\x03\x55\x04\x06\x13\x02\x44\x45\x31\x26\x30\x24\x06\x03\x55\x04\x0A\x0C\x1D\x55\x6E\x74\x72\x75\x73\x74\x77\x6F\x72\x74\x68\x79\x20\x43\x41\x20\x4F\x72\x67\x61\x6E\x69\x73\x61\x74\x69\x6F\x6E\x31\x0F\x30\x0D\x06\x03\x55\x04\x08\x0C\x06\x42\x65\x72\x6C\x69\x6E\x31\x19\x30\x17\x06\x03\x55\x04\x03\x0C\x10\x55\x6E\x74\x72\x75\x73\x74\x77\x6F\x72\x74\x68\x79\x20\x43\x41\x30\x22\x18\x0F\x32\x30\x31\x34\x30\x39\x32\x34\x31\x32\x30\x30\x30\x30\x5A\x18\x0F\x32\x31\x31\x34\x30\x39\x32\x34\x31\x32\x30\x30\x30\x30\x5A\x30\x5E\x31\x0B\x30\x09\x06\x03\x55\x04\x06\x13\x02\x44\x45\x31\x21\x30\x1F\x06\x03\x55\x04\x0A\x0C\x18\x76\x69\x72\x74\x75\x61\x6C\x2D\x75\x32\x66\x2D\x6D\x61\x6E\x75\x66\x61\x63\x74\x75\x72\x65\x72\x31\x0F\x30\x0D\x06\x03\x55\x04\x08\x0C\x06\x42\x65\x72\x6C\x69\x6E\x31\x1B\x30\x19\x06\x03\x55\x04\x03\x0C\x12\x76\x69\x72\x74\x75\x61\x6C\x2D\x75\x32\x66\x2D\x76\x30\x2E\x30\x2E\x31\x30\x59\x30\x13\x06\x07\x2A\x86\x48\xCE\x3D\x02\x01\x06\x08\x2A\x86\x48\xCE\x3D\x03\x01\x07\x03\x42\x00\x04\xC3\xC9\x1F\x25\x2E\x20\x10\x7B\x5E\x8D\xEA\xB1\x90\x20\x98\xF7\x28\x70\x71\xE4\x54\x18\xB8\x98\xCE\x5F\xF1\x7C\xA7\x25\xAE\x78\xC3\x3C\xC7\x01\xC0\x74\x60\x11\xCB\xBB\xB5\x8B\x08\xB6\x1D\x20\xC0\x5E\x75\xD5\x01\xA3\xF8\xF7\xA1\x67\x3F\xBE\x32\x63\xAE\xBE\x30\x0C\x06\x08\x2A\x86\x48\xCE\x3D\x04\x03\x02\x05\x00\x03\x48\x00\x30\x45\x02\x21\x00\x8E\xB9\x20\x57\xA1\xF3\x41\x4F\x1B\x79\x1A\x58\xE6\x07\xAB\xA4\x66\x1C\x93\x61\xFB\xC4\xBA\x89\x65\x5C\x8A\x3B\xEC\x10\x68\xDA\x02\x20\x15\x90\xA8\x76\xF0\x80\x47\xDF\x60\x8E\x23\xB2\x2A\xA0\xAA\xD2\x4B\x0D\x49\xC9\x75\x33\x00\xAF\x32\xB6\x90\x73\xF0\xA1\xA4\xDB";
 
-char attestation_pub[66];
-char attestation_priv[33];
-char attestation_der[768];
   
 char handlekey[34] = {NULL};
-#ifdef US_VERSION
+
 const struct uECC_Curve_t * curve = uECC_secp256r1(); //P-256
-#endif
+
 uint8_t private_k[36]; //32
 uint8_t public_k[68]; //64
 uint8_t public_temp[64]; //64
@@ -409,9 +409,9 @@ void processMessage(uint8_t *buffer)
 
       memset(public_k, 0, sizeof(public_k));
       memset(private_k, 0, sizeof(private_k));
-      #ifdef US_VERSION
+
       uECC_make_key(public_k + 1, private_k, curve); //so we ca insert 0x04
-      #endif
+
       public_k[0] = 0x04;
 #ifdef DEBUG
       Serial.println(F("Public K"));
@@ -441,9 +441,9 @@ void processMessage(uint8_t *buffer)
       sha256_init(&IV);
       sha256_update(&IV, application_parameter, 32);
       sha256_final(&IV, sha256_hash);
-      #ifdef US_VERSION
+
       aes_gcm_encrypt2(handle, (uint8_t*)sha256_hash, (uint8_t*)handlekey, 64);
-      #endif 
+
 #ifdef DEBUG
       Serial.println();
       Serial.println("Encrypted handle");
@@ -486,7 +486,7 @@ void processMessage(uint8_t *buffer)
 #endif
 
       uint8_t *signature = resp_buffer; //temporary
-#ifdef US_VERSION
+
 	  uint8_t tmp[32 + 32 + 64];
 	  SHA256_HashContext ectx = {{&init_SHA256, &update_SHA256, &finish_SHA256, 64, 32, tmp}};
 	  if (!uECC_sign_deterministic((uint8_t *)attestation_priv,
@@ -495,7 +495,7 @@ void processMessage(uint8_t *buffer)
 						&ectx.uECC,
 						signature,
 						curve)) {
-#endif         
+    
 #ifdef DEBUG
       Serial.println("ECC Signature Failed Register");
 	  //respondErrorPDU(buffer, SW_CONDITIONS_NOT_SATISFIED);
@@ -622,9 +622,9 @@ void processMessage(uint8_t *buffer)
       Serial.print(handle[i]);
       }
 #endif
-#ifdef US_VERSION
+
       aes_gcm_decrypt2(handle, (uint8_t*)sha256_hash, (uint8_t*)handlekey, 64);
-#endif 
+
 #ifdef DEBUG
       Serial.println();
       Serial.println("Unencrypted handle");
@@ -669,7 +669,7 @@ void processMessage(uint8_t *buffer)
 
         uint8_t *signature = resp_buffer; //temporary
         
-        #ifdef US_VERSION
+
         uint8_t tmp[32 + 32 + 64];
 		SHA256_HashContext ectx = {{&init_SHA256, &update_SHA256, &finish_SHA256, 64, 32, tmp}};
         if (!uECC_sign_deterministic((uint8_t *)key,
@@ -692,7 +692,7 @@ void processMessage(uint8_t *buffer)
       	//respondErrorPDU(buffer, SW_CONDITIONS_NOT_SATISFIED);
       	//return;
       	//}
-	#endif	
+	
 
         int len = 5;
 
@@ -1031,3 +1031,5 @@ void finish_SHA256(uECC_HashContext *base, uint8_t *hash_result) {
     SHA256_HashContext *context = (SHA256_HashContext *)base;
     sha256_final(&context->ctx, hash_result);
 }
+
+#endif

@@ -74,6 +74,7 @@
  *OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  *OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+#ifdef US_VERSION
 
 #include "uECC.h"
 #include "sha256.h"
@@ -83,6 +84,7 @@
  
 #ifndef OKU2F_H
 #define OKU2F_H
+
 
 typedef struct SHA256_HashContext{
     uECC_HashContext uECC;
@@ -99,7 +101,6 @@ extern "C"
 /*************************************/
 #define CID_BROADCAST           0xffffffff  // Broadcast channel id
 #define TYPE_MASK               0x80  // Frame type mask
-#define TYPE_INIT               0x80  // Initial frame identifier
 #define TYPE_CONT               0x00  // Continuation frame identifier
 
 #define U2F_INS_REGISTER  0x01
@@ -169,5 +170,6 @@ extern void U2Finit();
 
 #ifdef __cplusplus
 }
+#endif
 #endif
 #endif
