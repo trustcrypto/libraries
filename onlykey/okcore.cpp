@@ -75,6 +75,7 @@
  *OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+
 #include "sha256.h"
 #include <string.h>
 #include <EEPROM.h>
@@ -1738,7 +1739,9 @@ int onlykey_flashget_noncehash (uint8_t *ptr, int size) {
 	uint8_t flashoffset[1];	
 	onlykey_eeget_flashpos((uint8_t*)flashoffset);
 	if (flashoffset[0]==255 || flashoffset[0]==0) {
+#ifdef DEBUG
 		Serial.printf("There is no Nonce hash set");
+#endif
 		return 0;
 	} else {
 	uintptr_t adr = (unsigned long)flashoffset[0] * (unsigned long)2048;

@@ -49,14 +49,15 @@
  *
  */
 
-#ifdef US_VERSION
+
 
 #include "okssh.h"
 #include <SoftTimer.h>
-#include <okcore.h>
 #include <cstring>
 #include "Arduino.h"
 #include "onlykey.h"
+
+#ifdef US_VERSION
 
 /*************************************/
 //SSH Authentication assignments
@@ -127,7 +128,6 @@ void SIGNSSHCHALLENGE (uint8_t *buffer)
     Serial.printf("SSH challenge blob size=%d", large_data_offset);
 #endif
 
-    // FIXME(tsileo): need button input before going further, and the SSH auth type must exist for a button
 
     // Sign the blob stored in the buffer
     Ed25519::sign(ssh_signature, ssh_private_key, ssh_public_key, large_buffer, large_data_offset);

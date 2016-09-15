@@ -74,11 +74,13 @@
  *OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  *OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#ifdef US_VERSION
+
 
 #include "oku2f.h"
 #include <SoftTimer.h>
 #include <okcore.h>
+
+#ifdef US_VERSION
 
 struct ch_state {
   int cid;
@@ -97,7 +99,7 @@ extern uint8_t large_buffer[1024];
 extern uint8_t large_resp_buffer[1024];
 extern uint8_t recv_buffer[64];
 extern uint8_t resp_buffer[64];
-extern uint8_t handle[64];
+uint8_t handle[64];
 extern uint8_t sha256_hash[32];
 extern char attestation_pub[66];
 extern char attestation_priv[33];

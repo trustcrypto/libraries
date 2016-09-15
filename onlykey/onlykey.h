@@ -53,8 +53,8 @@
 #ifndef ONLYKEY_H
 #define ONLYKEY_H
 
-#define DEBUG //Enable Serial Monitor 
-//#define US_VERSION //Define for US Version Firmare
+//#define DEBUG //Enable Serial Monitor 
+#define US_VERSION //Define for US Version Firmare
 
 #include "okcore.h"
 
@@ -66,8 +66,6 @@ extern "C"
 #include "okeeprom.h"
 #ifdef US_VERSION
 #include "okssh.h"
-#endif
-#ifdef US_VERSION
 #include "oku2f.h"
 #endif
 

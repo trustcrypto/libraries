@@ -74,13 +74,14 @@
  *OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  *OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#ifdef US_VERSION
+
 
 #include "uECC.h"
 #include "sha256.h"
 #include "T3MacLib.h"
 #include "onlykey.h"
 
+#ifdef US_VERSION
  
 #ifndef OKU2F_H
 #define OKU2F_H

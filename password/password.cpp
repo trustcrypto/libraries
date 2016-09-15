@@ -36,8 +36,6 @@
 #include "flashkinetis.h"
 #include "onlykey.h"
 
-//#define DEBUG
-
 uint8_t temp[32];
 uint8_t phash[32];
 uint8_t sdhash[32];
