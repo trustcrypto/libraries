@@ -53,7 +53,7 @@
 #ifndef ONLYKEY_H
 #define ONLYKEY_H
 
-//#define DEBUG //Enable Serial Monitor 
+#define DEBUG //Enable Serial Monitor 
 #define US_VERSION //Define for US Version Firmare
 
 #include "okcore.h"

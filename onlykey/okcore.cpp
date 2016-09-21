@@ -268,9 +268,11 @@ void recvmsg() {
 		return;
 	   }else if (initialized==true && unlocked==true) 
 	   {
+		if(!PDmode) {
 		#ifdef US_VERSION
 		SETU2FPRIV(recv_buffer);
 		#endif
+		}
 	   }
 	   else
 	   {
@@ -286,9 +288,11 @@ void recvmsg() {
 		return;
 	   }else if (initialized==true && unlocked==true) 
 	   {
+		if(!PDmode) {
 		#ifdef US_VERSION
 		WIPEU2FPRIV(recv_buffer);
 		#endif
+		}
 	   }
 	   else
 	   {
@@ -303,9 +307,11 @@ void recvmsg() {
 		return;
 	   }else if (initialized==true && unlocked==true) 
 	   {
+		if(!PDmode) {
 		#ifdef US_VERSION
 		SETU2FCERT(recv_buffer);
 		#endif
+		}
 	   }
 	   else
 	   {
@@ -321,9 +327,11 @@ void recvmsg() {
 		return;
 	   }else if (initialized==true && unlocked==true) 
 	   {
+		if(!PDmode) {
 		#ifdef US_VERSION
 		WIPEU2FCERT(recv_buffer);
 		#endif
+		}
 	   }
 	   else
 	   {
@@ -339,9 +347,11 @@ void recvmsg() {
 		return;
 	   }else if (initialized==true && unlocked==true) 
 	   {
+                if(!PDmode) {
                 #ifdef US_VERSION
                 SETSSHPRIV(recv_buffer);
                 #endif
+                }
 	   }
 	   else
 	   {
@@ -357,9 +367,11 @@ void recvmsg() {
 		return;
 	   }else if (initialized==true && unlocked==true) 
 	   {
+                if(!PDmode) {
                 #ifdef US_VERSION
                 WIPESSHPRIV(recv_buffer);
                 #endif
+                }
 	   }
 	   else
 	   {
@@ -375,12 +387,12 @@ void recvmsg() {
 		return;
 	   }else if (initialized==true && unlocked==true) 
 	   {
-                if(!PDmode) {
-				#ifdef US_VERSION
-				SoftTimer.add(&FadeinTask);
-				SIGNSSHCHALLENGE(recv_buffer);
-				#endif
-				}
+		if(!PDmode) {
+		#ifdef US_VERSION
+		SoftTimer.add(&FadeinTask);
+		SIGNSSHCHALLENGE(recv_buffer);
+		#endif
+		}
 	   }
 	   else
 	   {
@@ -396,9 +408,11 @@ void recvmsg() {
 		return;
 	   }else if (initialized==true && unlocked==true) 
 	   {
+                if(!PDmode) {
                 #ifdef US_VERSION
                 GETSSHPUBKEY();
                 #endif
+                }
 	   }
 	   else
 	   {
@@ -792,7 +806,7 @@ void SETTIME (uint8_t *buffer)
 #ifdef DEBUG
 		Serial.print("UNLOCKED");
 #endif
-		hidprint("UNLOCKED");
+		hidprint("UNLOCKEDv0.2-beta.3");
 	if (timeStatus() == timeNotSet) {  
     int i, j;                
     for(i=0, j=3; i<4; i++, j--){
@@ -2671,7 +2685,7 @@ if (PDmode) return 0;
 	adr = adr + 8192; //5th flash sector
     onlykey_flashget_common((uint8_t*)ssh_private_key, (unsigned long*)adr, 32); 
 	
-	if (ssh_private_key[0] == 255 && ssh_private_key[1] == 255 && ssh_private_key[2] == 255) { //pinhash not set
+	if (ssh_private_key[0] == 255 && ssh_private_key[1] == 255 && ssh_private_key[2] == 255) { //ssh not set
 		#ifdef DEBUG 
 		Serial.printf("Read SSH Private Key from Sector 0x%X ",adr);
 		Serial.printf("There is no SSH Private Key set");

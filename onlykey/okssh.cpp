@@ -80,14 +80,18 @@ void SSHinit()
     }
 #endif
   }
-#ifdef US_VERSION
     Ed25519::derivePublicKey(ssh_public_key, ssh_private_key);
-#endif
     return;
 }
 
 void GETSSHPUBKEY ()
 {
+            #ifdef DEBUG
+    	    Serial.println("OKGETSSHPUBKEY MESSAGE RECEIVED"); 
+	    for (int i = 0; i< 32; i++) {
+    	    Serial.print(ssh_public_key[i],HEX);
+     	    }
+	    #endif
             RawHID.send(ssh_public_key, 32);
             blink(3);
 }
@@ -140,6 +144,11 @@ void SIGNSSHCHALLENGE (uint8_t *buffer)
 
     // Send the signature
     /* hidprint((const char*)ssh_signature); */
+#ifdef DEBUG
+	    for (int i = 0; i< 64; i++) {
+    	    Serial.print(ssh_signature[i],HEX);
+     	    }
+#endif
     RawHID.send(ssh_signature, 64);
 	SSH_AUTH = 0;
 	SSH_button = 0;
