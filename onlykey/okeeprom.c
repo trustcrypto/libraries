@@ -1,4 +1,4 @@
-/* ykseeprom.c --- adaption of libonlykey for Teensy 3.X 
+/* okeeprom.c 
 */
 
 /* Tim Steiner
