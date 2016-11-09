@@ -26,7 +26,7 @@ Crypto
  
  aes - Not used to be removed
  
- flashkinetis 
+ flashkinetis - https://github.com/FrankBoesing/Arduino-Teensy3-Flash/
  
  /*
 	Arduino - Kinetis ("Teensy") Flashing Library
