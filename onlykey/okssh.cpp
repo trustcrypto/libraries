@@ -76,7 +76,7 @@ void SSHinit()
 	if (!onlykey_flashget_SSH ()) {
 	memcpy(ssh_private_key, ssh_stored_private_key, 32);
 #ifdef DEBUG
-	for (int i = 0; i< sizeof(ssh_private_key); i++) {
+	for (unsigned int i = 0; i< sizeof(ssh_private_key); i++) {
     Serial.print(ssh_private_key[i],HEX);
     }
 #endif
