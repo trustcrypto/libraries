@@ -110,7 +110,7 @@ bool Password::hashevaluate(){
 	ptr = temp;
 
 	//Copy characters to byte array
-			for (int i =0; i <= strlen(guess); i++) {
+			for (unsigned int i =0; i <= strlen(guess); i++) {
 			temp[i] = (byte)guess[i];
 			}
 			SHA256_CTX pinhash;
