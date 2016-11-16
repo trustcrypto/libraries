@@ -1088,6 +1088,8 @@ int onlykey_eeget_password (uint8_t *ptr, int slot) {
 			return size;
             break;	
 	}
+	
+	return 0;
 
 }
 /*********************************/
@@ -1395,6 +1397,8 @@ int onlykey_eeget_label (uint8_t *ptr, int slot) {
             break;
 			
 	}
+	
+	return 0;
 
 }
 /*********************************/
@@ -1604,6 +1608,8 @@ int onlykey_eeget_addchar1 (uint8_t *ptr, int slot) {
             break;	
 	}
 
+	return 0;
+	
 }
 /*********************************/
 /*********************************/
@@ -1789,6 +1795,8 @@ int onlykey_eeget_addchar2 (uint8_t *ptr, int slot) {
             break;	
 	}
 
+	return 0;
+	
 }
 /*********************************/
 /*********************************/
@@ -1973,7 +1981,9 @@ int onlykey_eeget_delay1 (uint8_t *ptr, int slot) {
 			return EElen_delay;
             break;	
 	}
-
+	
+	return 0;
+	
 }
 /*********************************/
 /*********************************/
@@ -2160,6 +2170,8 @@ int onlykey_eeget_delay2 (uint8_t *ptr, int slot) {
 			
 	}
 
+	return 0;
+	
 }
 /*********************************/
 /*********************************/
@@ -2346,6 +2358,8 @@ int onlykey_eeget_2FAtype (uint8_t *ptr, int slot) {
             break;
 			
 	}
+	
+	return 0;
 
 }
 /*********************************/
@@ -2607,6 +2621,8 @@ int onlykey_eeget_username (uint8_t *ptr, int slot) {
 			
 	}
 
+	return 0;
+	
 }
 /*********************************/
 /*********************************/
@@ -2786,4 +2802,3 @@ void onlykey_eeset_username (uint8_t *ptr, int size, int slot) {
 	}
 
 }
-
