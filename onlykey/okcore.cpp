@@ -99,7 +99,7 @@ yubikey_ctx_st ctx;
 /*************************************/
 //Password.cpp Assignments
 /*************************************/
-Password password = Password( "not used" );
+Password password = Password( (char*) "not used" );
 extern uint8_t phash[32];
 extern uint8_t sdhash[32];
 extern uint8_t pdhash[32];
@@ -452,7 +452,7 @@ switch (PINSET) {
 #endif
         hidprint("Successful PIN entry");
 		static char passguess[10];
-      for (int i =0; i <= strlen(password.guess); i++) {
+      for (unsigned int i =0; i <= strlen(password.guess); i++) {
 		passguess[i] = password.guess[i];
       }
 		password.set(passguess);
@@ -490,7 +490,7 @@ switch (PINSET) {
 			uint8_t *ptr;
 			ptr = temp;
 			//Copy characters to byte array
-			for (int i =0; i <= strlen(password.guess); i++) {
+			for (unsigned int i =0; i <= strlen(password.guess); i++) {
 			temp[i] = (uint8_t)password.guess[i];
 			}
 			SHA256_CTX pinhash;
@@ -570,7 +570,7 @@ void SETSDPIN (uint8_t *buffer)
 #endif
         hidprint("Successful PIN entry");
 		static char passguess[10];
-      for (int i =0; i <= strlen(password.guess); i++) {
+      for (unsigned int i =0; i <= strlen(password.guess); i++) {
 		passguess[i] = password.guess[i];
       }
 		password.set(passguess);
@@ -608,7 +608,7 @@ void SETSDPIN (uint8_t *buffer)
 		uint8_t *ptr;
 		ptr = temp;
 		//Copy characters to byte array
-		for (int i =0; i <= strlen(password.guess); i++) {
+		for (unsigned int i =0; i <= strlen(password.guess); i++) {
 		temp[i] = (uint8_t)password.guess[i];
 		}
 		SHA256_CTX pinhash;
@@ -671,7 +671,7 @@ void SETPDPIN (uint8_t *buffer)
 #endif
         hidprint("Successful PIN entry");
 		static char passguess[10];
-      for (int i =0; i <= strlen(password.guess); i++) {
+      for (unsigned int i =0; i <= strlen(password.guess); i++) {
 		passguess[i] = password.guess[i];
       }
 	password.set(passguess);
@@ -708,7 +708,7 @@ void SETPDPIN (uint8_t *buffer)
 			uint8_t *ptr;
 			ptr = temp;
 			//Copy characters to byte array
-			for (int i =0; i <= strlen(password.guess); i++) {
+			for (unsigned int i =0; i <= strlen(password.guess); i++) {
 			temp[i] = (uint8_t)password.guess[i];
 			}
 			SHA256_CTX pinhash;
@@ -2432,7 +2432,7 @@ if (PDmode) return;
 #ifdef DEBUG 
     Serial.print("attestation priv =");
 #endif 
-    for (int i = 0; i< sizeof(attestation_priv); i++) {
+    for (unsigned int i = 0; i< sizeof(attestation_priv); i++) {
 #ifdef DEBUG 
     Serial.println(attestation_priv[i],HEX);
 #endif 
@@ -2447,7 +2447,7 @@ if (PDmode) return;
     onlykey_flashget_common((uint8_t*)attestation_der, (unsigned long*)adr, length2); 
 #ifdef DEBUG 
     Serial.print("attestation der =");
-    for (int i = 0; i< sizeof(attestation_der); i++) {
+    for (unsigned int i = 0; i< sizeof(attestation_der); i++) {
     Serial.print(attestation_der[i],HEX);
     }
 #endif 

@@ -106,11 +106,11 @@ bool Password::evaluate(){
 
 //is the hash of the current guessed password equal to the stored hash?
 bool Password::hashevaluate(){ 
-	uint8_t *ptr;
-	ptr = temp;
+//	uint8_t *ptr;
+//	ptr = temp;
 
 	//Copy characters to byte array
-			for (int i =0; i <= strlen(guess); i++) {
+			for (unsigned int i =0; i <= strlen(guess); i++) {
 			temp[i] = (byte)guess[i];
 			}
 			SHA256_CTX pinhash;

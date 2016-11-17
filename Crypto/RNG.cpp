@@ -508,7 +508,7 @@ void RNGClass::setAutoSaveTime(uint16_t minutes)
 void RNGClass::rand(uint8_t *data, size_t len)
 {
     // Decrease the amount of entropy in the pool.
-    if (len > (credits / 8))
+    if (len > (uint16_t)(credits / 8))
         credits = 0;
     else
         credits -= len * 8;
@@ -587,7 +587,7 @@ bool RNGClass::available(size_t len) const
     if (len >= (RNG_MAX_CREDITS / 8))
         return credits >= RNG_MAX_CREDITS;
     else
-        return len <= (credits / 8);
+        return len <= (uint16_t)(credits / 8);
 }
 
 /**
@@ -620,7 +620,7 @@ void RNGClass::stir(const uint8_t *data, size_t len, unsigned int credit)
     // Increase the entropy credit.
     if ((credit / 8) >= len && len)
         credit = len * 8;
-    if ((RNG_MAX_CREDITS - credits) > credit)
+    if ((unsigned int)(RNG_MAX_CREDITS - credits) > credit)
         credits += credit;
     else
         credits = RNG_MAX_CREDITS;
