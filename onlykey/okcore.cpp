@@ -151,14 +151,12 @@ extern uint8_t ssh_private_key[32];
 
 void recvmsg() {
   int n;
-  int c;
-  int z;
   
   n = RawHID.recv(recv_buffer, 0); // 0 timeout = do not wait
   if (n > 0) {
 #ifdef DEBUG    
     Serial.print(F("\n\nReceived packet"));
-    for (z=0; z<64; z++) {
+    for (int z=0; z<64; z++) {
         Serial.print(recv_buffer[z], HEX);
     }
 	
@@ -1242,7 +1240,6 @@ void WIPESLOT (uint8_t *buffer)
       char cmd = buffer[4]; //cmd or continuation
       int slot = buffer[5];
       int value = buffer[6];
-      int length;
 #ifdef DEBUG
       Serial.print("OKWIPESLOT MESSAGE RECEIVED:");
       Serial.println((int)cmd - 0x80, HEX);
@@ -1637,11 +1634,11 @@ void aes_gcm_encrypt (uint8_t * state, uint8_t * iv1, const uint8_t * key, int l
 	#endif
 }
 
-int aes_gcm_decrypt (uint8_t * state, uint8_t * iv1, const uint8_t * key, int len) {
+void aes_gcm_decrypt (uint8_t * state, uint8_t * iv1, const uint8_t * key, int len) {
         #ifdef US_VERSION
 	GCM<AES256> gcm; 
 	uint8_t iv2[12];
-	uint8_t tag[16];
+	//uint8_t tag[16];
 	uint8_t *ptr;
 	ptr = iv2;
 	onlykey_flashget_noncehash(ptr, 12);
@@ -1652,9 +1649,9 @@ int aes_gcm_decrypt (uint8_t * state, uint8_t * iv1, const uint8_t * key, int le
 	gcm.setKey(key, sizeof(key));
 	gcm.setIV(iv2, 12);
 	gcm.decrypt(state, state, len);
-	if (!gcm.checkTag(tag, sizeof(tag))) {
-		return 1;
-	}
+	//if (!gcm.checkTag(tag, sizeof(tag))) {
+	//	return 1;
+	//}
 	#endif
 
 }
@@ -1671,17 +1668,17 @@ void aes_gcm_encrypt2 (uint8_t * state, uint8_t * iv1, const uint8_t * key, int 
 	#endif
 }
 
-int aes_gcm_decrypt2 (uint8_t * state, uint8_t * iv1, const uint8_t * key, int len) {
+void aes_gcm_decrypt2 (uint8_t * state, uint8_t * iv1, const uint8_t * key, int len) {
         #ifdef US_VERSION
 	GCM<AES256> gcm; 
-	uint8_t tag[16];
+	//uint8_t tag[16];
 	gcm.clear ();
 	gcm.setKey(key, sizeof(key));
 	gcm.setIV(iv1, 12);
 	gcm.decrypt(state, state, len);
-	if (!gcm.checkTag(tag, sizeof(tag))) {
-		return 1;
-	}
+	//if (!gcm.checkTag(tag, sizeof(tag))) {
+	//	return 1;
+	//}
 	#endif
 }
 
@@ -1740,7 +1737,9 @@ int onlykey_flashget_noncehash (uint8_t *ptr, int size) {
 	#endif
     onlykey_flashget_common(ptr, (unsigned long*)adr, size);
 	}
+	return 1;
 }
+
 void onlykey_flashset_noncehash (uint8_t *ptr) {
 	
 	uint8_t flashoffset[1];
@@ -2654,7 +2653,6 @@ if (PDmode) return 0;
 #ifdef DEBUG 
     Serial.println("Flashget SSH");
 #endif 
-	uint8_t length[2];
     uint8_t flashoffset[1];	
 	onlykey_eeget_flashpos((uint8_t*)flashoffset);
 	uintptr_t adr = (unsigned long)flashoffset[0] * (unsigned long)2048;

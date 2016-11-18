@@ -52,7 +52,7 @@
  */
 
 
-#include <Arduino.h>
+//#include <Arduino.h>
 #include <avr/eeprom.h>
 #include "okeeprom.h"
 

@@ -24,7 +24,7 @@
 #include "NoiseSource.h"
 #include "ChaCha.h"
 #include "Crypto.h"
-#include "utility/ProgMemUtil.h"
+//#include "utility/ProgMemUtil.h"
 #include <Arduino.h>
 #if defined (__arm__) && defined (__SAM3X8E__)
 // The Arduino Due does not have any EEPROM natively on the main chip.
