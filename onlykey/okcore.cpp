@@ -967,12 +967,11 @@ void GETLABELS (uint8_t *buffer)
 
 void SETSLOT (uint8_t *buffer)
 {
-	
-      char cmd = buffer[4]; //cmd or continuation
       int slot = buffer[5];
       int value = buffer[6];
       int length;
 #ifdef DEBUG
+      char cmd = buffer[4]; //cmd or continuation
       Serial.print("OKSETSLOT MESSAGE RECEIVED:");
       Serial.println((int)cmd - 0x80, HEX);
       Serial.print("Setting Slot #");
@@ -1237,10 +1236,10 @@ void SETSLOT (uint8_t *buffer)
 
 void WIPESLOT (uint8_t *buffer)
 {
-      char cmd = buffer[4]; //cmd or continuation
       int slot = buffer[5];
       int value = buffer[6];
 #ifdef DEBUG
+      char cmd = buffer[4]; //cmd or continuation
       Serial.print("OKWIPESLOT MESSAGE RECEIVED:");
       Serial.println((int)cmd - 0x80, HEX);
       Serial.print("Wiping Slot #");
@@ -1436,17 +1435,17 @@ void rngloop() {
 
 void printHex(const uint8_t *data, unsigned len)
 {
+#ifdef DEBUG
     static char const hexchars[] = "0123456789ABCDEF";
     while (len > 0) {
         int b = *data++;
-#ifdef DEBUG
+
         Serial.print(hexchars[(b >> 4) & 0x0F]);
         Serial.print(hexchars[b & 0x0F]);
-#endif 
 
         --len;
     } 
-#ifdef DEBUG
+
     Serial.println();
 #endif 
 }
@@ -1485,7 +1484,6 @@ while(*chars) {
 
 void factorydefault() {
 	uint8_t mode;
-	uintptr_t adr = 0x0;
 	onlykey_eeget_wipemode(&mode);
 	if (mode <= 1) {
 	wipeflash(); //Wipe flash first need eeprom address for flash to wipe
@@ -1494,6 +1492,7 @@ void factorydefault() {
 	//FULLWIPE Mode
 	flashEraseAll();
 #ifdef DEBUG
+	uintptr_t adr = 0x0;
         for (int i = 0; i < 7000; i++)
         {
         Serial.printf("0x%X", adr);
