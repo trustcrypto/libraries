@@ -123,6 +123,11 @@ unsigned int touchread4;
 unsigned int touchread5;
 unsigned int touchread6;
 /*************************************/
+//HID Report Assignments
+/*************************************/
+uint8_t setBuffer[64] = {0};
+uint8_t getBuffer[64] = {0};
+/*************************************/
 //RNG Assignments
 /*************************************/
 size_t length = 48; // First block should wait for the pool to fill up.
@@ -152,6 +157,17 @@ extern uint8_t ssh_private_key[32];
 void recvmsg() {
   int n;
   
+  if(setBuffer[0]) {
+#ifdef DEBUG    
+    Serial.print(F("\n\nReceived Set_Report packet"));
+    for (int z=0; z<64; z++) {
+        Serial.print(setBuffer[z], HEX);
+    }
+#endif
+memcpy(recv_buffer, setBuffer, 64);
+memset(setBuffer, 0, 64); //Wipe all data from buffer 
+}
+
   n = RawHID.recv(recv_buffer, 0); // 0 timeout = do not wait
   if (n > 0) {
 #ifdef DEBUG    
@@ -159,8 +175,7 @@ void recvmsg() {
     for (int z=0; z<64; z++) {
         Serial.print(recv_buffer[z], HEX);
     }
-	
-#endif    
+#endif 
 	
 	  switch (recv_buffer[4]) {
       case OKSETPIN:
@@ -1483,6 +1498,19 @@ while(*chars) {
   memset(resp_buffer, 0, sizeof(resp_buffer));
 }
 
+/*
+void hidfeature_print(char const * chars) 
+{ 
+int len=0;
+while(*chars) {
+     resp_buffer[len] = (uint8_t)*chars;
+     chars++;
+	 len++;
+  }
+  extern FeatureHID_send(resp_buffer, len);
+  memset(resp_buffer, 0, sizeof(resp_buffer));
+}
+*/
 void factorydefault() {
 	uint8_t mode;
 	uintptr_t adr = 0x0;
