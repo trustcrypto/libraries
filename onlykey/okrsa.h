@@ -64,9 +64,6 @@ extern "C"
 {
 #endif
 
-
-
-extern void RSAinit();
 extern void SIGNRSACHALLENGE (uint8_t *buffer);
 extern void SETRSAPRIV (uint8_t *buffer);
 extern void WIPERSAPRIV (uint8_t *buffer);

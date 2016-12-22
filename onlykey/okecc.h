@@ -65,13 +65,10 @@ extern "C"
 {
 #endif
 
-
-
-extern void ECCinit();
 extern void SIGNECCCHALLENGE (uint8_t *buffer);
 extern void SETECCPRIV (uint8_t *buffer);
 extern void WIPEECCPRIV (uint8_t *buffer);
-extern void GETECCPUBKEY ();
+extern void GETECCPUBKEY (uint8_t *buffer);
 
 #ifdef __cplusplus
 }

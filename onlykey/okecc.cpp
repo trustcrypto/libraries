@@ -71,29 +71,18 @@ uint8_t ECC_button = 0;
 uint8_t ECC_AUTH = 0;
 /*************************************/
 
-void ECCinit()
+void GETECCPUBKEY (uint8_t *buffer)
 {
-	if (!onlykey_flashget_ECC ()) {
-	memcpy(ecc_private_key, ecc_stored_private_key, 32);
-#ifdef DEBUG
-	for (unsigned int i = 0; i< sizeof(ecc_private_key); i++) {
-    Serial.print(ecc_private_key[i],HEX);
-    }
-#endif
-  }
-    Ed25519::derivePublicKey(ecc_public_key, ecc_private_key);
-    return;
-}
-
-void GETECCPUBKEY ()
-{
-            #ifdef DEBUG
+		onlykey_flashget_ECC (buffer[5]);        
+			#ifdef DEBUG
     	    Serial.println("OKGETECCPUBKEY MESSAGE RECEIVED"); 
 	    for (int i = 0; i< 32; i++) {
     	    Serial.print(ecc_public_key[i],HEX);
      	    }
 	    #endif
             RawHID.send(ecc_public_key, 32);
+			memset(ecc_public_key, 0, 32); //wipe buffer
+			memset(ecc_private_key, 0, 32); //wipe buffer
             blink(3);
 }
 
@@ -109,20 +98,20 @@ void SIGNECCCHALLENGE (uint8_t *buffer)
     // // since it may change.
 	extern int large_data_offset;
 	extern uint8_t large_buffer[1024];
-    if (buffer[5]==0xFF) //Not last packet
+    if (buffer[6]==0xFF) //Not last packet
     {
         // TODO(tsileo): best max size
         if (large_data_offset <= 768) {
-            memcpy(large_buffer+large_data_offset, buffer+6, 58);
-            large_data_offset = large_data_offset + 58;
+            memcpy(large_buffer+large_data_offset, buffer+7, 57);
+            large_data_offset = large_data_offset + 57;
         } else {
               hidprint("Error ECC challenge larger than 768 bytes");
         }
         return;
     } else {
-        if (large_data_offset <= 710 && buffer[5] <= 58) {
-            memcpy(large_buffer+large_data_offset, buffer+6, buffer[5]);
-            large_data_offset = large_data_offset + buffer[5];
+        if (large_data_offset <= 710 && buffer[6] <= 57) {
+            memcpy(large_buffer+large_data_offset, buffer+7, buffer[6]);
+            large_data_offset = large_data_offset + buffer[6];
         } else {
             hidprint("Error ECC challenge larger than 768 bytes");
         }
@@ -133,13 +122,23 @@ void SIGNECCCHALLENGE (uint8_t *buffer)
     Serial.printf("ECC challenge blob size=%d", large_data_offset);
 #endif
 
-
-    // Sign the blob stored in the buffer
-    Ed25519::sign(ecc_signature, ecc_private_key, ecc_public_key, large_buffer, large_data_offset);
-
+	int type = onlykey_flashget_ECC (buffer[5]); 
+	const struct uECC_Curve_t * curves[2];
+    int num_curves = 0;
+    curves[num_curves++] = uECC_secp256r1();
+    curves[num_curves++] = uECC_secp256k1();
+	// Sign the blob stored in the buffer
+	if (type==0x01) Ed25519::sign(ecc_signature, ecc_private_key, ecc_public_key, large_buffer, large_data_offset);
+	else if (type==0x02) {
+		uECC_sign(ecc_private_key, large_buffer, large_data_offset, ecc_signature, curves[1]);
+	}
+	else if (type==0x03) {
+		uECC_sign(ecc_private_key, large_buffer, large_data_offset, ecc_signature, curves[2]);
+	}
+    
     // Reset the large buffer offset
     large_data_offset = 0;
-
+	memset(large_buffer, 0, 1024); //wipe buffer
     // Stop the fade in
     fadeoff();
 
@@ -155,6 +154,10 @@ void SIGNECCCHALLENGE (uint8_t *buffer)
 	ECC_button = 0;
     blink(3);
 	}
+	
+	memset(ecc_signature, 0, 64); //wipe buffer
+	memset(ecc_public_key, 0, 32); //wipe buffer
+	memset(ecc_private_key, 0, 32); //wipe buffer
     return;
 }
 

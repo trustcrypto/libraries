@@ -395,7 +395,7 @@ void recvmsg() {
 	   {
                 if(!PDmode) {
                 #ifdef US_VERSION
-                GETECCPUBKEY();
+                GETECCPUBKEY(recv_buffer);
                 #endif
                 }
 	   }
@@ -3844,6 +3844,17 @@ if (PDmode) return 0;
 	#ifdef DEBUG 
 	Serial.printf("Read ECC Private Key from Sector 0x%X ",adr);
 	#endif
+	const struct uECC_Curve_t * curves[2];
+    int num_curves = 0;
+    curves[num_curves++] = uECC_secp256r1();
+    curves[num_curves++] = uECC_secp256k1();
+	if (type==0x01) Ed25519::derivePublicKey(ecc_public_key, ecc_private_key);
+	else if (type==0x02) {
+		uECC_compute_public_key(ecc_private_key, ecc_public_key, curves[1]);
+	}
+	else if (type==0x03) {
+		uECC_compute_public_key(ecc_private_key, ecc_public_key, curves[2]);
+	}
 	return type;
 #endif
 }
@@ -3937,7 +3948,7 @@ if (PDmode) return;
 
 }
 
-int onlykey_flashget_rsakey (int slot)
+int onlykey_flashget_RSA (int slot)
 {
 
 if (PDmode) return 0;
