@@ -65,8 +65,8 @@ extern "C"
 
 #include "okeeprom.h"
 #ifdef US_VERSION
-#include "okssh.h"
-#include "okgpg.h"
+#include "okecc.h"
+#include "okrsa.h"
 #include "oku2f.h"
 #endif
 

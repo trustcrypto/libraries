@@ -47,6 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  *
+ * Thanks to Thomas Sileo for making SSH support possible
  */
 
 #ifdef US_VERSION
@@ -54,8 +55,8 @@
 #include <Ed25519.h>
 
  
-#ifndef OKGPG_H
-#define OKGPG_H
+#ifndef OKECC_H
+#define OKECC_H
 
 
 
@@ -66,11 +67,11 @@ extern "C"
 
 
 
-extern void GPGinit();
-extern void SIGNGPGCHALLENGE (uint8_t *buffer);
-extern void SETGPGPRIV (uint8_t *buffer);
-extern void WIPEGPGPRIV (uint8_t *buffer);
-extern void GETGPGPUBKEY ();
+extern void ECCinit();
+extern void SIGNECCCHALLENGE (uint8_t *buffer);
+extern void SETECCPRIV (uint8_t *buffer);
+extern void WIPEECCPRIV (uint8_t *buffer);
+extern void GETECCPUBKEY ();
 
 #ifdef __cplusplus
 }

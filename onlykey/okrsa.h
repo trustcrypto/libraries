@@ -47,7 +47,6 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Thanks to Thomas Sileo for making SSH support possible
  */
 
 #ifdef US_VERSION
@@ -55,8 +54,8 @@
 #include <Ed25519.h>
 
  
-#ifndef OKSSH_H
-#define OKSSH_H
+#ifndef OKRSA_H
+#define OKRSA_H
 
 
 
@@ -67,11 +66,11 @@ extern "C"
 
 
 
-extern void SSHinit();
-extern void SIGNSSHCHALLENGE (uint8_t *buffer);
-extern void SETSSHPRIV (uint8_t *buffer);
-extern void WIPESSHPRIV (uint8_t *buffer);
-extern void GETSSHPUBKEY ();
+extern void RSAinit();
+extern void SIGNRSACHALLENGE (uint8_t *buffer);
+extern void SETRSAPRIV (uint8_t *buffer);
+extern void WIPERSAPRIV (uint8_t *buffer);
+extern void GETRSAPUBKEY ();
 
 #ifdef __cplusplus
 }

@@ -147,18 +147,18 @@ char attestation_pub[66];
 char attestation_priv[33];
 char attestation_der[768];
 /*************************************/
-//SSH Authentication assignments
+//ECC assignments
 /*************************************/
-extern uint8_t ssh_signature[64];
-extern uint8_t ssh_public_key[32];
-extern uint8_t ssh_private_key[32];
+extern uint8_t ecc_signature[64];
+extern uint8_t ecc_public_key[32];
+extern uint8_t ecc_private_key[32];
 /*************************************/
 /*************************************/
-//GPG assignments
+//RSA assignments
 /*************************************/
-extern uint8_t gpg_signature[64];
-extern uint8_t gpg_public_key[32];
-extern uint8_t gpg_private_key[32];
+extern uint8_t rsa_signature[256];
+extern uint8_t rsa_public_key[256];
+extern uint8_t rsa_private_key[256];
 /*************************************/
 
 void recvmsg() {
@@ -325,7 +325,7 @@ void recvmsg() {
 	   }	
       return;
       break;
-	  case OKSETSSHPRIV:
+	  case OKSETECCPRIV:
            if(initialized==false && unlocked==true) 
 	   {
 		hidprint("No PIN set, You must set a PIN first");
@@ -334,7 +334,7 @@ void recvmsg() {
 	   {
                 if(!PDmode) {
                 #ifdef US_VERSION
-                SETSSHPRIV(recv_buffer);
+                SETECCPRIV(recv_buffer);
                 #endif
                 }
 	   }
@@ -345,7 +345,7 @@ void recvmsg() {
 	   }	
       return;
       break;
-      case OKWIPESSHPRIV:
+      case OKWIPEECCPRIV:
            if(initialized==false && unlocked==true) 
 	   {
 		hidprint("No PIN set, You must set a PIN first");
@@ -354,7 +354,7 @@ void recvmsg() {
 	   {
                 if(!PDmode) {
                 #ifdef US_VERSION
-                WIPESSHPRIV(recv_buffer);
+                WIPEECCPRIV(recv_buffer);
                 #endif
                 }
 	   }
@@ -365,7 +365,7 @@ void recvmsg() {
 	   }	
       return;
       break;
-      case OKSIGNSSHCHALLENGE:
+      case OKSIGNECCCHALLENGE:
            if(initialized==false && unlocked==true) 
 	   {
 		hidprint("No PIN set, You must set a PIN first");
@@ -375,7 +375,7 @@ void recvmsg() {
 		if(!PDmode) {
 		#ifdef US_VERSION
 		SoftTimer.add(&FadeinTask);
-		SIGNSSHCHALLENGE(recv_buffer);
+		SIGNECCCHALLENGE(recv_buffer);
 		#endif
 		}
 	   }
@@ -386,7 +386,7 @@ void recvmsg() {
 	   }	
       return;
       break;
-      case OKGETSSHPUBKEY:
+      case OKGETECCPUBKEY:
 			if(initialized==false && unlocked==true) 
 	   {
 		hidprint("No PIN set, You must set a PIN first");
@@ -395,7 +395,7 @@ void recvmsg() {
 	   {
                 if(!PDmode) {
                 #ifdef US_VERSION
-                GETSSHPUBKEY();
+                GETECCPUBKEY();
                 #endif
                 }
 	   }
@@ -406,7 +406,7 @@ void recvmsg() {
 	   }	
       return;
       break;
-	  case OKSETGPGPRIV:
+	  case OKSETRSAPRIV:
            if(initialized==false && unlocked==true) 
 	   {
 		hidprint("No PIN set, You must set a PIN first");
@@ -415,7 +415,7 @@ void recvmsg() {
 	   {
                 if(!PDmode) {
                 #ifdef US_VERSION
-                SETGPGPRIV(recv_buffer);
+                SETRSAPRIV(recv_buffer);
                 #endif
                 }
 	   }
@@ -426,7 +426,7 @@ void recvmsg() {
 	   }	
       return;
       break;
-      case OKWIPEGPGPRIV:
+      case OKWIPERSAPRIV:
            if(initialized==false && unlocked==true) 
 	   {
 		hidprint("No PIN set, You must set a PIN first");
@@ -435,7 +435,7 @@ void recvmsg() {
 	   {
                 if(!PDmode) {
                 #ifdef US_VERSION
-                WIPEGPGPRIV(recv_buffer);
+                WIPERSAPRIV(recv_buffer);
                 #endif
                 }
 	   }
@@ -446,7 +446,7 @@ void recvmsg() {
 	   }	
       return;
       break;
-	  case OKSIGNGPGCHALLENGE:
+	  case OKSIGNRSACHALLENGE:
            if(initialized==false && unlocked==true) 
 	   {
 		hidprint("No PIN set, You must set a PIN first");
@@ -456,7 +456,7 @@ void recvmsg() {
 		if(!PDmode) {
 		#ifdef US_VERSION
 		SoftTimer.add(&FadeinTask);
-		SIGNGPGCHALLENGE(recv_buffer);
+		SIGNRSACHALLENGE(recv_buffer);
 		#endif
 		}
 	   }
@@ -467,7 +467,7 @@ void recvmsg() {
 	   }	
       return;
       break;
-      case OKGETGPGPUBKEY:
+      case OKGETRSAPUBKEY:
 			if(initialized==false && unlocked==true) 
 	   {
 		hidprint("No PIN set, You must set a PIN first");
@@ -476,7 +476,7 @@ void recvmsg() {
 	   {
                 if(!PDmode) {
                 #ifdef US_VERSION
-                GETGPGPUBKEY();
+                GETRSAPUBKEY();
                 #endif
                 }
 	   }
@@ -3820,220 +3820,258 @@ if (PDmode) return;
 
 }
 
-int onlykey_flashget_SSH ()
+int onlykey_flashget_ECC (int slot)
 {
 
 if (PDmode) return 0;
 #ifdef US_VERSION
 #ifdef DEBUG 
-    Serial.println("Flashget SSH");
+    Serial.println("Flashget ECC");
 #endif 
     uint8_t flashoffset[1];	
 	onlykey_eeget_flashpos((uint8_t*)flashoffset);
 	uintptr_t adr = (unsigned long)flashoffset[0] * (unsigned long)2048;
 	adr = adr + 12288; //7th flash sector
-    onlykey_flashget_common((uint8_t*)ssh_private_key, (unsigned long*)adr, 32); 
-	
-	if (ssh_private_key[0] == 255 && ssh_private_key[1] == 255 && ssh_private_key[2] == 255) { //ssh not set
-		#ifdef DEBUG 
-		Serial.printf("Read SSH Private Key from Sector 0x%X ",adr);
-		Serial.printf("There is no SSH Private Key set");
-		#endif
-    	return 0;
-    }
-    else {
-		#ifdef DEBUG 
-		Serial.printf("Read SSH Private Key from Sector 0x%X ",adr);
-		Serial.printf("SSH Private Key has been set");
-		#endif
-		return 1;
-    }
+	uint8_t type;
+	onlykey_eeget_ecckey((uint8_t*)type, slot); //Key ID (1-3) and slot (1-32)
+	if (type==0x00) {	
+	Serial.printf("There is no ECC Private Key set in this slot");
+	hidprint("There is no ECC Private Key set in this slot");
+	return 0;
+	}
+	adr = adr + (slot*32);
+    onlykey_flashget_common((uint8_t*)ecc_private_key, (unsigned long*)adr, 32); 
+	#ifdef DEBUG 
+	Serial.printf("Read ECC Private Key from Sector 0x%X ",adr);
+	#endif
+	return type;
 #endif
 }
 
-void SETSSHPRIV (uint8_t *buffer)
+void SETECCPRIV (uint8_t *buffer)
 {
 
 if (PDmode) return;
 #ifdef US_VERSION
+#ifdef DEBUG 
+    Serial.println("OKSETECCPRIV MESSAGE RECEIVED");
+#endif 
+    uint8_t flashoffset[1];	
+	onlykey_eeget_flashpos((uint8_t*)flashoffset);
+	uintptr_t adr = (unsigned long)flashoffset[0] * (unsigned long)2048;
+	adr = adr + 12288; //7th free flash sector
+	uint8_t *ptr;
+	//Write ID to EEPROM
+	ptr = buffer+5; 
+	onlykey_eeset_ecckey((ptr+1), (int)(ptr)); //Key ID (1-3) and slot (1-32)
+	//Write buffer to flash
+    uint8_t temp[2048];
+    uint8_t *tptr;
+    tptr=temp;
+	ptr = buffer+7;
+    //Copy current flash contents to buffer
+    onlykey_flashget_common(tptr, (unsigned long*)adr, 2048);
+    //Add new flash contents to buffer
+    for( int z = 0; z <= 32; z++){
+    temp[z+((32*buffer[5])-32)] = ((uint8_t)*(ptr+z));
+    }
+    //Erase flash sector
+#ifdef DEBUG 
+    Serial.printf("Erase Sector 0x%X ",adr);
+#endif 
+    if (flashEraseSector((unsigned long*)adr)) {
+#ifdef DEBUG 
+	Serial.printf("NOT ");
+#endif 
+	}
+#ifdef DEBUG 
+    Serial.printf("successful\r\n");
+#endif 
+	//Write buffer to flash
+    onlykey_flashset_common(ptr, (unsigned long*)adr, 2048);
+
+#ifdef DEBUG 
+    Serial.print("ECC Key value =");
+    for (int i = 0; i<32; i++) {
+    Serial.print(buffer[i+7],HEX);
+    }
+#endif
+	hidprint("Successfully set ECC Key");
+      blink(3);
+#endif
+      return;
+
+}
+
+void WIPEECCPRIV (uint8_t *buffer)
+{
+if (PDmode) return;
+#ifdef US_VERSION
 #ifdef DEBUG
-    Serial.println();
-    Serial.println("OKSETSSHPRIV MESSAGE RECEIVED");
+    Serial.println("OKWIPEECCPRIV MESSAGE RECEIVED");
 #endif
 	uint8_t flashoffset[1];	
 	onlykey_eeget_flashpos((uint8_t*)flashoffset);
 	uintptr_t adr = (unsigned long)flashoffset[0] * (unsigned long)2048;
 	adr = adr + 12288; //7th flash sector
 	uint8_t *ptr;
-	//Erase flash sector
-#ifdef DEBUG 
-    Serial.printf("Erase Sector 0x%X ",adr);
-#endif 
-    if (flashEraseSector((unsigned long*)adr)) 
-    {
-#ifdef DEBUG   
-	Serial.printf("NOT ");
-#endif 
+	//Wipe ID from EEPROM
+	ptr = buffer+5; 
+	onlykey_eeset_ecckey(0, (int)(ptr)); //Key ID (1-3) and slot (1-32)
+	//Wipe flash
+	uint8_t temp[2048];
+    uint8_t *tptr;
+    tptr=temp;
+    //Copy current flash contents to buffer
+    onlykey_flashget_common(tptr, (unsigned long*)adr, 2048);
+    //Wipe content from buffer
+    for( int z = 0; z <= 32; z++){
+    temp[z+((32*buffer[5])-32)] = 0x00;
     }
-
-#ifdef DEBUG   
-    Serial.printf("successful\r\n"); 
-#endif
-
 	//Write buffer to flash
-	ptr=buffer+5;
-    onlykey_flashset_common(ptr, (unsigned long*)adr, 32);
-#ifdef DEBUG
-    Serial.print("SSH Private Key address =");
-    Serial.println(adr, HEX);
-#endif
-
-	SSHinit();
-    hidprint("Successfully set SSH private key");
-
+    onlykey_flashset_common(ptr, (unsigned long*)adr, 2048);
+	hidprint("Successfully wiped ECC Private Key");
     blink(3);
 #endif
     return;
 
 }
 
-void WIPESSHPRIV (uint8_t *buffer)
-{
-if (PDmode) return;
-#ifdef US_VERSION
-#ifdef DEBUG
-    Serial.println("OKWIPESSHPRIV MESSAGE RECEIVED");
-#endif
-	uint8_t flashoffset[1];	
-	onlykey_eeget_flashpos((uint8_t*)flashoffset);
-	uintptr_t adr = (unsigned long)flashoffset[0] * (unsigned long)2048;
-	adr = adr + 12288; //7th flash sector
-	//Erase flash sector
-#ifdef DEBUG
-		Serial.printf("Erase Sector 0x%X ",adr);
-#endif
-		if (flashEraseSector((unsigned long*)adr)) {
-#ifdef DEBUG 
-	Serial.printf("NOT ");
-#endif 
-	}
-#ifdef DEBUG 
-		Serial.printf("successful\r\n");
-#endif 
-	memset(ssh_public_key, 0, 64); //Wipe all data from buffer 
-	memset(ssh_private_key, 0, 64); //Wipe all data from buffer 
-	SSHinit();
-	hidprint("Successfully wiped SSH Private Key");
-    blink(3);
-#endif
-    return;
-
-}
-
-int onlykey_flashget_GPG ()
+int onlykey_flashget_rsakey (int slot)
 {
 
 if (PDmode) return 0;
 #ifdef US_VERSION
 #ifdef DEBUG 
-    Serial.println("Flashget GPG");
+    Serial.print("Flashget RSA key from slot # ");
+	Serial.println(slot);
 #endif 
     uint8_t flashoffset[1];	
 	onlykey_eeget_flashpos((uint8_t*)flashoffset);
 	uintptr_t adr = (unsigned long)flashoffset[0] * (unsigned long)2048;
 	adr = adr + 14336; //8th free flash sector
-    onlykey_flashget_common((uint8_t*)gpg_private_key, (unsigned long*)adr, 32); 
-	
-	if (gpg_private_key[0] == 255 && gpg_private_key[1] == 255 && gpg_private_key[2] == 255) { //gpg not set
-		#ifdef DEBUG 
-		Serial.printf("Read GPG Private Key from Sector 0x%X ",adr);
-		Serial.printf("There is no GPG Private Key set");
-		#endif
-    	return 0;
-    }
-    else {
-		#ifdef DEBUG 
-		Serial.printf("Read GPG Private Key from Sector 0x%X ",adr);
-		Serial.printf("GPG Private Key has been set");
-		#endif
-		return 1;
-    }
+	uint8_t type;
+	onlykey_eeget_rsakey((uint8_t*)type, slot); //Key ID (1-3) and slot (1-32)
+	if (type==0x00) {	
+	Serial.printf("There is no RSA Private Key set in this slot");
+	hidprint("There is no RSA Private Key set in this slot");
+	return 0;
+	}
+	adr = adr + (slot*256);
+    onlykey_flashget_common((uint8_t*)rsa_private_key, (unsigned long*)adr, (type*128)); 
+	#ifdef DEBUG 
+	Serial.printf("Read RSA Private Key from Sector 0x%X ",adr);
+	#endif
+	return type;
 #endif
 }
 
-void SETGPGPRIV (uint8_t *buffer)
+
+void SETRSAPRIV (uint8_t *buffer)
 {
 
 if (PDmode) return;
 #ifdef US_VERSION
+#ifdef DEBUG 
+    Serial.println("OKSETRSAPRIV MESSAGE RECEIVED");
+#endif 
+    uint8_t flashoffset[1];	
+	onlykey_eeget_flashpos((uint8_t*)flashoffset);
+	uintptr_t adr = (unsigned long)flashoffset[0] * (unsigned long)2048;
+	adr = adr + 14336; //8th free flash sector
+	uint8_t *ptr;
+	
+	if (buffer[6]==0x01) //Expect 128 Bytes
+	{
+		if (large_data_offset <= 114) {
+		memcpy(large_buffer+large_data_offset, buffer+7, 57);
+		large_data_offset = large_data_offset + 57;
+		return;
+		}
+	} else if (buffer[6]==0x02) { //Expect 256 Bytes
+		if (large_data_offset <= 228) {
+		memcpy(large_buffer+large_data_offset, buffer+7, 57);
+		large_data_offset = large_data_offset + 57;
+		return;
+		}
+	}
+
+	//Write ID to EEPROM
+	ptr = buffer+5; 
+	onlykey_eeset_rsakey((ptr+1), (int)(ptr)); //Key ID (1-3) and slot (1-32)
+	//Write buffer to flash
+#ifdef DEBUG 
+		Serial.print("Received RSA Key of size ");
+        Serial.println(large_data_offset);
+#endif 
+    uint8_t temp[2048];
+    uint8_t *tptr;
+    tptr=temp;
+	ptr=large_buffer;
+    //Copy current flash contents to buffer
+    onlykey_flashget_common(tptr, (unsigned long*)adr, 2048);
+    //Add new flash contents to buffer
+    for( int z = 0; z <= 256; z++){
+    temp[z+((256*buffer[5])-256)] = ((uint8_t)*(ptr+z));
+    }
+    //Erase flash sector
+#ifdef DEBUG 
+    Serial.printf("Erase Sector 0x%X ",adr);
+#endif 
+    if (flashEraseSector((unsigned long*)adr)) {
+#ifdef DEBUG 
+	Serial.printf("NOT ");
+#endif 
+	}
+#ifdef DEBUG 
+    Serial.printf("successful\r\n");
+#endif 
+	//Write buffer to flash
+    onlykey_flashset_common(ptr, (unsigned long*)adr, 2048);
+
+#ifdef DEBUG 
+    Serial.print("RSA Key value =");
+    for (int i = 0; i<large_data_offset; i++) {
+    Serial.print(large_buffer[i],HEX);
+    }
+#endif
+	large_data_offset = 0;
+	hidprint("Successfully set RSA Key");
+      blink(3);
+#endif
+      return;
+
+}
+
+
+void WIPERSAPRIV (uint8_t *buffer)
+{
+if (PDmode) return;
+#ifdef US_VERSION
 #ifdef DEBUG
-    Serial.println();
-    Serial.println("OKSETGPGPRIV MESSAGE RECEIVED");
+    Serial.println("OKWIPERSAPRIV MESSAGE RECEIVED");
 #endif
 	uint8_t flashoffset[1];	
 	onlykey_eeget_flashpos((uint8_t*)flashoffset);
 	uintptr_t adr = (unsigned long)flashoffset[0] * (unsigned long)2048;
 	adr = adr + 14336; //8th free flash sector
 	uint8_t *ptr;
-	//Erase flash sector
-#ifdef DEBUG 
-    Serial.printf("Erase Sector 0x%X ",adr);
-#endif 
-    if (flashEraseSector((unsigned long*)adr)) 
-    {
-#ifdef DEBUG   
-	Serial.printf("NOT ");
-#endif 
+	//Wipe ID from EEPROM
+	ptr = buffer+5; 
+	onlykey_eeset_rsakey(0, (int)(ptr)); //Key ID (1-3) and slot (1-32)
+	//Wipe flash
+	uint8_t temp[2048];
+    uint8_t *tptr;
+    tptr=temp;
+    //Copy current flash contents to buffer
+    onlykey_flashget_common(tptr, (unsigned long*)adr, 2048);
+    //Wipe content from buffer
+    for( int z = 0; z <= 256; z++){
+    temp[z+((256*buffer[5])-256)] = 0x00;
     }
-
-#ifdef DEBUG   
-    Serial.printf("successful\r\n"); 
-#endif
-
 	//Write buffer to flash
-	ptr=buffer+5;
-    onlykey_flashset_common(ptr, (unsigned long*)adr, 32);
-#ifdef DEBUG
-    Serial.print("GPG Private Key address =");
-    Serial.println(adr, HEX);
-#endif
-
-	GPGinit();
-    hidprint("Successfully set GPG private key");
-
-    blink(3);
-#endif
-    return;
-
-}
-
-void WIPEGPGPRIV (uint8_t *buffer)
-{
-if (PDmode) return;
-#ifdef US_VERSION
-#ifdef DEBUG
-    Serial.println("OKWIPEGPGPRIV MESSAGE RECEIVED");
-#endif
-	uint8_t flashoffset[1];	
-	onlykey_eeget_flashpos((uint8_t*)flashoffset);
-	uintptr_t adr = (unsigned long)flashoffset[0] * (unsigned long)2048;
-	adr = adr + 14336; //8th free flash sector
-	//Erase flash sector
-#ifdef DEBUG
-		Serial.printf("Erase Sector 0x%X ",adr);
-#endif
-		if (flashEraseSector((unsigned long*)adr)) {
-#ifdef DEBUG 
-	Serial.printf("NOT ");
-#endif 
-	}
-#ifdef DEBUG 
-		Serial.printf("successful\r\n");
-#endif 
-	memset(gpg_public_key, 0, 64); //Wipe all data from buffer 
-	memset(gpg_private_key, 0, 64); //Wipe all data from buffer 
-	GPGinit();
-	hidprint("Successfully wiped GPG Private Key");
+    onlykey_flashset_common(ptr, (unsigned long*)adr, 2048);
+	hidprint("Successfully wiped RSA Private Key");
     blink(3);
 #endif
     return;

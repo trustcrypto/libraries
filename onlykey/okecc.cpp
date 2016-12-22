@@ -52,7 +52,7 @@
 
 
 
-#include "okssh.h"
+#include "okecc.h"
 #include <SoftTimer.h>
 #include <cstring>
 #include "Arduino.h"
@@ -61,50 +61,50 @@
 #ifdef US_VERSION
 
 /*************************************/
-//SSH Authentication assignments
+//ECC Authentication assignments
 /*************************************/
-const char ssh_stored_private_key[] = "\xF4\x2C\x74\xF8\x03\x50\xD0\x05\xEA\x82\x80\x1C\x95\xD2\x82\xCB\xB8\x1E\x6E\xF3\x63\xF7\x67\x59\xE8\x14\x0F\xBF\x31\x4D\x68\xA0";
-uint8_t ssh_signature[64];
-uint8_t ssh_public_key[32];
-uint8_t ssh_private_key[32];
-uint8_t SSH_button = 0;
-uint8_t SSH_AUTH = 0;
+const char ecc_stored_private_key[] = "\xF4\x2C\x74\xF8\x03\x50\xD0\x05\xEA\x82\x80\x1C\x95\xD2\x82\xCB\xB8\x1E\x6E\xF3\x63\xF7\x67\x59\xE8\x14\x0F\xBF\x31\x4D\x68\xA0";
+uint8_t ecc_signature[64];
+uint8_t ecc_public_key[32];
+uint8_t ecc_private_key[32];
+uint8_t ECC_button = 0;
+uint8_t ECC_AUTH = 0;
 /*************************************/
 
-void SSHinit()
+void ECCinit()
 {
-	if (!onlykey_flashget_SSH ()) {
-	memcpy(ssh_private_key, ssh_stored_private_key, 32);
+	if (!onlykey_flashget_ECC ()) {
+	memcpy(ecc_private_key, ecc_stored_private_key, 32);
 #ifdef DEBUG
-	for (unsigned int i = 0; i< sizeof(ssh_private_key); i++) {
-    Serial.print(ssh_private_key[i],HEX);
+	for (unsigned int i = 0; i< sizeof(ecc_private_key); i++) {
+    Serial.print(ecc_private_key[i],HEX);
     }
 #endif
   }
-    Ed25519::derivePublicKey(ssh_public_key, ssh_private_key);
+    Ed25519::derivePublicKey(ecc_public_key, ecc_private_key);
     return;
 }
 
-void GETSSHPUBKEY ()
+void GETECCPUBKEY ()
 {
             #ifdef DEBUG
-    	    Serial.println("OKGETSSHPUBKEY MESSAGE RECEIVED"); 
+    	    Serial.println("OKGETECCPUBKEY MESSAGE RECEIVED"); 
 	    for (int i = 0; i< 32; i++) {
-    	    Serial.print(ssh_public_key[i],HEX);
+    	    Serial.print(ecc_public_key[i],HEX);
      	    }
 	    #endif
-            RawHID.send(ssh_public_key, 32);
+            RawHID.send(ecc_public_key, 32);
             blink(3);
 }
 
-void SIGNSSHCHALLENGE (uint8_t *buffer)
+void SIGNECCCHALLENGE (uint8_t *buffer)
 {
 #ifdef DEBUG
     Serial.println();
-    Serial.println("OKSIGNSSHCHALLENGE MESSAGE RECEIVED"); 
+    Serial.println("OKSIGNECCCHALLENGE MESSAGE RECEIVED"); 
 #endif
-	SSH_AUTH = 1;
-    if(SSH_button) {
+	ECC_AUTH = 1;
+    if(ECC_button) {
     // XXX(tsileo): on my system the challenge always seems to be 147 bytes, but I keep it dynamic
     // // since it may change.
 	extern int large_data_offset;
@@ -116,7 +116,7 @@ void SIGNSSHCHALLENGE (uint8_t *buffer)
             memcpy(large_buffer+large_data_offset, buffer+6, 58);
             large_data_offset = large_data_offset + 58;
         } else {
-              hidprint("Error SSH challenge larger than 768 bytes");
+              hidprint("Error ECC challenge larger than 768 bytes");
         }
         return;
     } else {
@@ -124,18 +124,18 @@ void SIGNSSHCHALLENGE (uint8_t *buffer)
             memcpy(large_buffer+large_data_offset, buffer+6, buffer[5]);
             large_data_offset = large_data_offset + buffer[5];
         } else {
-            hidprint("Error SSH challenge larger than 768 bytes");
+            hidprint("Error ECC challenge larger than 768 bytes");
         }
     }
 
 #ifdef DEBUG
     Serial.println();
-    Serial.printf("SSH challenge blob size=%d", large_data_offset);
+    Serial.printf("ECC challenge blob size=%d", large_data_offset);
 #endif
 
 
     // Sign the blob stored in the buffer
-    Ed25519::sign(ssh_signature, ssh_private_key, ssh_public_key, large_buffer, large_data_offset);
+    Ed25519::sign(ecc_signature, ecc_private_key, ecc_public_key, large_buffer, large_data_offset);
 
     // Reset the large buffer offset
     large_data_offset = 0;
@@ -144,15 +144,15 @@ void SIGNSSHCHALLENGE (uint8_t *buffer)
     fadeoff();
 
     // Send the signature
-    /* hidprint((const char*)ssh_signature); */
+    /* hidprint((const char*)ecc_signature); */
 #ifdef DEBUG
 	    for (int i = 0; i< 64; i++) {
-    	    Serial.print(ssh_signature[i],HEX);
+    	    Serial.print(ecc_signature[i],HEX);
      	    }
 #endif
-    RawHID.send(ssh_signature, 64);
-	SSH_AUTH = 0;
-	SSH_button = 0;
+    RawHID.send(ecc_signature, 64);
+	ECC_AUTH = 0;
+	ECC_button = 0;
     blink(3);
 	}
     return;

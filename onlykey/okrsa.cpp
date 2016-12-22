@@ -51,7 +51,7 @@
 
 
 
-#include "okgpg.h"
+#include "okrsa.h"
 #include <SoftTimer.h>
 #include <cstring>
 #include "Arduino.h"
@@ -60,50 +60,50 @@
 #ifdef US_VERSION
 
 /*************************************/
-//GPG Authentication assignments
+//RSA Authentication assignments
 /*************************************/
-const char gpg_stored_private_key[] = "\xF4\x2C\x74\xF8\x03\x50\xD0\x05\xEA\x82\x80\x1C\x95\xD2\x82\xCB\xB8\x1E\x6E\xF3\x63\xF7\x67\x59\xE8\x14\x0F\xBF\x31\x4D\x68\xA0";
-uint8_t gpg_signature[64];
-uint8_t gpg_public_key[32];
-uint8_t gpg_private_key[32];
-uint8_t GPG_button = 0;
-uint8_t GPG_AUTH = 0;
+const char rsa_stored_private_key[] = "\xF4\x2C\x74\xF8\x03\x50\xD0\x05\xEA\x82\x80\x1C\x95\xD2\x82\xCB\xB8\x1E\x6E\xF3\x63\xF7\x67\x59\xE8\x14\x0F\xBF\x31\x4D\x68\xA0\xF4\x2C\x74\xF8\x03\x50\xD0\x05\xEA\x82\x80\x1C\x95\xD2\x82\xCB\xB8\x1E\x6E\xF3\x63\xF7\x67\x59\xE8\x14\x0F\xBF\x31\x4D\x68\xA0\xF4\x2C\x74\xF8\x03\x50\xD0\x05\xEA\x82\x80\x1C\x95\xD2\x82\xCB\xB8\x1E\x6E\xF3\x63\xF7\x67\x59\xE8\x14\x0F\xBF\x31\x4D\x68\xA0\xF4\x2C\x74\xF8\x03\x50\xD0\x05\xEA\x82\x80\x1C\x95\xD2\x82\xCB\xB8\x1E\x6E\xF3\x63\xF7\x67\x59\xE8\x14\x0F\xBF\x31\x4D\x68\xA0\xF4\x2C\x74\xF8\x03\x50\xD0\x05\xEA\x82\x80\x1C\x95\xD2\x82\xCB\xB8\x1E\x6E\xF3\x63\xF7\x67\x59\xE8\x14\x0F\xBF\x31\x4D\x68\xA0\xF4\x2C\x74\xF8\x03\x50\xD0\x05\xEA\x82\x80\x1C\x95\xD2\x82\xCB\xB8\x1E\x6E\xF3\x63\xF7\x67\x59\xE8\x14\x0F\xBF\x31\x4D\x68\xA0\xF4\x2C\x74\xF8\x03\x50\xD0\x05\xEA\x82\x80\x1C\x95\xD2\x82\xCB\xB8\x1E\x6E\xF3\x63\xF7\x67\x59\xE8\x14\x0F\xBF\x31\x4D\x68\xA0\xF4\x2C\x74\xF8\x03\x50\xD0\x05\xEA\x82\x80\x1C\x95\xD2\x82\xCB\xB8\x1E\x6E\xF3\x63\xF7\x67\x59\xE8\x14\x0F\xBF\x31\x4D\x68\xA0";
+uint8_t rsa_signature[256];
+uint8_t rsa_public_key[256];
+uint8_t rsa_private_key[256];
+uint8_t RSA_button = 0;
+uint8_t RSA_AUTH = 0;
 /*************************************/
 
-void GPGinit()
+void RSAinit()
 {
-	if (!onlykey_flashget_GPG ()) {
-	memcpy(gpg_private_key, gpg_stored_private_key, 32);
+	if (!onlykey_flashget_RSA ()) {
+	memcpy(rsa_private_key, rsa_stored_private_key, 32);
 #ifdef DEBUG
-	for (unsigned int i = 0; i< sizeof(gpg_private_key); i++) {
-    Serial.print(gpg_private_key[i],HEX);
+	for (unsigned int i = 0; i< sizeof(rsa_private_key); i++) {
+    Serial.print(rsa_private_key[i],HEX);
     }
 #endif
   }
-    Ed25519::derivePublicKey(gpg_public_key, gpg_private_key);
+    Ed25519::derivePublicKey(rsa_public_key, rsa_private_key);
     return;
 }
 
-void GETGPGPUBKEY ()
+void GETRSAPUBKEY ()
 {
             #ifdef DEBUG
-    	    Serial.println("OKGETGPGPUBKEY MESSAGE RECEIVED"); 
+    	    Serial.println("OKGETRSAPUBKEY MESSAGE RECEIVED"); 
 	    for (int i = 0; i< 32; i++) {
-    	    Serial.print(gpg_public_key[i],HEX);
+    	    Serial.print(rsa_public_key[i],HEX);
      	    }
 	    #endif
-            RawHID.send(gpg_public_key, 32);
+            RawHID.send(rsa_public_key, 32);
             blink(3);
 }
 
-void SIGNGPGCHALLENGE (uint8_t *buffer)
+void SIGNRSACHALLENGE (uint8_t *buffer)
 {
 #ifdef DEBUG
     Serial.println();
-    Serial.println("OKSIGNGPGCHALLENGE MESSAGE RECEIVED"); 
+    Serial.println("OKSIGNRSACHALLENGE MESSAGE RECEIVED"); 
 #endif
-	GPG_AUTH = 1;
-    if(GPG_button) {
+	RSA_AUTH = 1;
+    if(RSA_button) {
     // XXX(tsileo): on my system the challenge always seems to be 147 bytes, but I keep it dynamic
     // // since it may change.
 	extern int large_data_offset;
@@ -115,7 +115,7 @@ void SIGNGPGCHALLENGE (uint8_t *buffer)
             memcpy(large_buffer+large_data_offset, buffer+6, 58);
             large_data_offset = large_data_offset + 58;
         } else {
-              hidprint("Error GPG challenge larger than 768 bytes");
+              hidprint("Error RSA challenge larger than 768 bytes");
         }
         return;
     } else {
@@ -123,18 +123,18 @@ void SIGNGPGCHALLENGE (uint8_t *buffer)
             memcpy(large_buffer+large_data_offset, buffer+6, buffer[5]);
             large_data_offset = large_data_offset + buffer[5];
         } else {
-            hidprint("Error GPG challenge larger than 768 bytes");
+            hidprint("Error RSA challenge larger than 768 bytes");
         }
     }
 
 #ifdef DEBUG
     Serial.println();
-    Serial.printf("GPG challenge blob size=%d", large_data_offset);
+    Serial.printf("RSA challenge blob size=%d", large_data_offset);
 #endif
 
 
     // Sign the blob stored in the buffer
-    Ed25519::sign(gpg_signature, gpg_private_key, gpg_public_key, large_buffer, large_data_offset);
+    Ed25519::sign(rsa_signature, rsa_private_key, rsa_public_key, large_buffer, large_data_offset);
 
     // Reset the large buffer offset
     large_data_offset = 0;
@@ -143,15 +143,15 @@ void SIGNGPGCHALLENGE (uint8_t *buffer)
     fadeoff();
 
     // Send the signature
-    /* hidprint((const char*)gpg_signature); */
+    /* hidprint((const char*)rsa_signature); */
 #ifdef DEBUG
 	    for (int i = 0; i< 64; i++) {
-    	    Serial.print(gpg_signature[i],HEX);
+    	    Serial.print(rsa_signature[i],HEX);
      	    }
 #endif
-    RawHID.send(gpg_signature, 64);
-	GPG_AUTH = 0;
-	GPG_button = 0;
+    RawHID.send(rsa_signature, 64);
+	RSA_AUTH = 0;
+	RSA_button = 0;
     blink(3);
 	}
     return;
