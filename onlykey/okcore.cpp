@@ -1092,7 +1092,7 @@ void SETSLOT (uint8_t *buffer)
             onlykey_flashset_label(buffer + 7, slot);
 			hidprint("Successfully set Label");
             return;
-			case 2:
+			case 15:
 #ifdef DEBUG
             Serial.println("Writing URL Value to Flash...");
 #endif
@@ -1118,7 +1118,7 @@ void SETSLOT (uint8_t *buffer)
             onlykey_flashset_url(buffer + 7, length, slot);
 			hidprint("Successfully set URL");
             return;
-            case 3:
+            case 16:
 #ifdef DEBUG
             Serial.println(); //newline
             Serial.print("Writing Additional Character1 to EEPROM...");
@@ -1129,7 +1129,7 @@ void SETSLOT (uint8_t *buffer)
 #endif
 	    hidprint("Successfully set Character1");
             return;
-            case 4:
+            case 17:
             //Set value in EEPROM
 #ifdef DEBUG
             Serial.println(); //newline
@@ -1139,7 +1139,7 @@ void SETSLOT (uint8_t *buffer)
             onlykey_eeset_delay1(buffer + 7, slot);
 	    hidprint("Successfully set Delay1");
             return;
-            case 5:
+            case 2:
             //Encrypt and Set value in EEPROM
 #ifdef DEBUG
             Serial.println("Writing Username Value to EEPROM...");
@@ -1166,7 +1166,7 @@ void SETSLOT (uint8_t *buffer)
             onlykey_flashset_username(buffer + 7, length, slot);
 	    hidprint("Successfully set Username");
             return;
-            case 6:
+            case 3:
             //Set value in EEPROM
 #ifdef DEBUG
             Serial.println(); //newline
@@ -1178,7 +1178,7 @@ void SETSLOT (uint8_t *buffer)
 #endif
 	    hidprint("Successfully set Character2");
             return;
-            case 7:
+            case 4:
             //Set value in EEPROM
 #ifdef DEBUG
             Serial.println(); //newline
@@ -1188,7 +1188,7 @@ void SETSLOT (uint8_t *buffer)
             onlykey_eeset_delay2(buffer + 7, slot);
 	    hidprint("Successfully set Delay2");
             return;
-            case 8:
+            case 5:
             //Encrypt and Set value in EEPROM
 #ifdef DEBUG
             Serial.println("Writing Password to EEPROM...");
@@ -1215,7 +1215,7 @@ void SETSLOT (uint8_t *buffer)
             onlykey_eeset_password(buffer + 7, length, slot);
 	    hidprint("Successfully set Password");
             return;
-            case 9:
+            case 6:
             //Set value in EEPROM
 #ifdef DEBUG
             Serial.println(); //newline
@@ -1227,7 +1227,7 @@ void SETSLOT (uint8_t *buffer)
 #endif
 	    hidprint("Successfully set Character3");
             return;
-            case 10:
+            case 7:
             //Set value in EEPROM
 #ifdef DEBUG
             Serial.println(); //newline
@@ -1237,7 +1237,7 @@ void SETSLOT (uint8_t *buffer)
             onlykey_eeset_delay3(buffer + 7, slot);
 	    hidprint("Successfully set Delay3");
             return;
-            case 11:
+            case 8:
             //Set value in EEPROM
 #ifdef DEBUG
             Serial.println(); //newline
@@ -1246,7 +1246,7 @@ void SETSLOT (uint8_t *buffer)
             onlykey_eeset_2FAtype(buffer + 7, slot);
 	    hidprint("Successfully set 2FA Type");
             return;
-            case 12:
+            case 9:
             //Encrypt and Set value in EEPROM
 #ifdef DEBUG
             Serial.println("Writing TOTP Key to Flash...");
@@ -1271,7 +1271,7 @@ void SETSLOT (uint8_t *buffer)
             onlykey_flashset_totpkey(buffer + 7, length, slot);
 	    hidprint("Successfully set TOTP Key");
             return;
-            case 13:
+            case 10:
             if (!PDmode) {
             //Encrypt and Set value in EEPROM
 #ifdef DEBUG
@@ -1311,7 +1311,7 @@ void SETSLOT (uint8_t *buffer)
 	    hidprint("Successfully set AES Key, Private ID, and Public ID");
 	    }
             return;
-			case 14:
+			case 18:
             //Set value in EEPROM
 #ifdef DEBUG
             Serial.println(); //newline
@@ -1323,7 +1323,7 @@ void SETSLOT (uint8_t *buffer)
 #endif
 	    hidprint("Successfully set Character4");
             return;
-            case 15:
+            case 11:
 #ifdef DEBUG
             Serial.println(); //newline
             Serial.println("Writing idle timeout to EEPROM...");
@@ -1332,7 +1332,7 @@ void SETSLOT (uint8_t *buffer)
             TIMEOUT[0] = buffer[7];
 	        hidprint("Successfully set idle timeout");
             return;
-            case 16:
+            case 12:
 #ifdef DEBUG
             Serial.println(); //newline
             Serial.println("Writing wipemode to EEPROM...");
@@ -1344,7 +1344,7 @@ void SETSLOT (uint8_t *buffer)
 	        hidprint("Successful");
 			}
             return;
-			case 17:
+			case 13:
 #ifdef DEBUG
             Serial.println(); //newline
             Serial.println("Writing keyboard type speed to EEPROM...");
@@ -1357,7 +1357,7 @@ void SETSLOT (uint8_t *buffer)
 			}
 	        hidprint("Successfully set keyboard typespeed");
             return;
-            case 18:
+            case 14:
 #ifdef DEBUG
             Serial.println(); //newline
             Serial.println("Writing keyboard layout to EEPROM...");
