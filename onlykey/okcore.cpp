@@ -67,6 +67,7 @@
 //Firmware Version Selection
 /*************************************/
 #ifdef US_VERSION
+#include "Base64.h"
 #include "yksim.h"
 #include "uECC.h"
 #include "ykcore.h"
@@ -4218,3 +4219,276 @@ void fadeoff() {
   fade=0;
 }
 		  
+void backupslots() {
+  uint8_t key_buffer[3865];
+  uint8_t temp[64];
+  int urllength;
+  int usernamelength;
+  int passwordlength;
+  int otplength;
+  uint8_t *ptr;
+  large_data_offset = 0;
+  memset(key_buffer, 0, sizeof(key_buffer)); //Wipe all data from largebuffer
+  
+  for (int slot=1; slot<=24; slot++)
+  {
+  #ifdef DEBUG
+    Serial.print("Backing up Slot Number ");
+    Serial.println(slot);
+  #endif
+    memset(temp, 0, 64); //Wipe all data from temp buffer
+    ptr = temp;
+	onlykey_flashget_label(ptr, slot);
+	if(temp[0] != 0xFF && temp[0] != 0x00)
+      {
+		key_buffer[large_data_offset] = 0xFF; //delimiter
+		key_buffer[large_data_offset+1] = slot;
+		key_buffer[large_data_offset+2] = 1; //1 - Label
+		memcpy(key_buffer+large_data_offset+3, temp, EElen_label);
+        large_data_offset=large_data_offset+EElen_label+3;
+      }
+	memset(temp, 0, 64); //Wipe all data from temp buffer
+    urllength = onlykey_flashget_url(ptr, slot);
+    if(urllength > 0)
+    {
+	#ifdef DEBUG
+		Serial.println("Reading URL from Flash...");
+        Serial.print("URL Length = ");
+        Serial.println(urllength);
+	#endif
+    
+    #ifdef DEBUG
+        Serial.println("Encrypted");
+        for (int z = 0; z < urllength; z++) {
+        Serial.print(temp[z], HEX);
+        }
+        Serial.println();
+    #endif
+    #ifdef US_VERSION
+        aes_gcm_decrypt(temp, (uint8_t*)('r'+ID[34]+slot), phash, urllength);
+    #endif
+    #ifdef DEBUG
+        Serial.println("Unencrypted");
+        for (int z = 0; z < urllength; z++) {
+        Serial.print(temp[z], HEX);
+        }
+        Serial.println();
+        #endif
+		key_buffer[large_data_offset] = 0xFF; //delimiter
+		key_buffer[large_data_offset+1] = slot;
+		key_buffer[large_data_offset+2] = 15; //15 - URL
+		memcpy(key_buffer+large_data_offset+3, temp, urllength);
+        large_data_offset=large_data_offset+urllength+3;
+      }
+      memset(temp, 0, 64); //Wipe all data from buffer
+      onlykey_eeget_addchar1(ptr, slot);
+      if(temp[0] > 0)
+      {
+		key_buffer[large_data_offset] = 0xFF; //delimiter
+		key_buffer[large_data_offset+1] = slot;
+		key_buffer[large_data_offset+2] = 16; //16 - Add Char 1
+		key_buffer[large_data_offset+3] = temp[0]; 
+        large_data_offset=large_data_offset+4;
+      }
+      memset(temp, 0, 64); //Wipe all data from buffer
+      onlykey_eeget_delay1(ptr, slot);
+      if(temp[0] > 0)
+      {
+		key_buffer[large_data_offset] = 0xFF; //delimiter
+		key_buffer[large_data_offset+1] = slot;
+		key_buffer[large_data_offset+2] = 17; //17 - Delay 1
+		key_buffer[large_data_offset+3] = temp[0]; 
+        large_data_offset=large_data_offset+4;
+      }
+      usernamelength = onlykey_flashget_username(ptr, slot);
+      if(usernamelength > 0)
+      {
+        #ifdef DEBUG
+        Serial.println("Reading Username from Flash...");
+        Serial.print("Username Length = ");
+        Serial.println(usernamelength);
+        #endif
+        if (!PDmode) {
+        #ifdef DEBUG
+        Serial.println("Encrypted");
+            for (int z = 0; z < usernamelength; z++) {
+            Serial.print(temp[z], HEX);
+            }
+            Serial.println();
+        #endif
+        #ifdef US_VERSION
+        aes_gcm_decrypt(temp, (uint8_t*)('u'+ID[34]+slot), phash, usernamelength);
+        #endif
+        }
+		#ifdef DEBUG
+        Serial.println("Unencrypted");
+        for (int z = 0; z < usernamelength; z++) {
+        Serial.print(temp[z], HEX);
+        }
+        Serial.println();
+        #endif
+		key_buffer[large_data_offset] = 0xFF; //delimiter
+		key_buffer[large_data_offset+1] = slot;
+		key_buffer[large_data_offset+2] = 2; //2 - Username
+		memcpy(key_buffer+large_data_offset+3, temp, usernamelength);
+        large_data_offset=large_data_offset+usernamelength+3;
+      }
+      memset(temp, 0, 64); //Wipe all data from buffer
+      onlykey_eeget_addchar2(ptr, slot);
+      if(temp[0] > 0)
+      {
+        key_buffer[large_data_offset] = 0xFF; //delimiter
+		key_buffer[large_data_offset+1] = slot;
+		key_buffer[large_data_offset+2] = 3; //3 - Add Char 2
+		key_buffer[large_data_offset+3] = temp[0]; 
+        large_data_offset=large_data_offset+4;
+      }
+      memset(temp, 0, 64); //Wipe all data from buffer
+      onlykey_eeget_delay2(ptr, slot);
+      if(temp[0] > 0)
+      {
+       	key_buffer[large_data_offset] = 0xFF; //delimiter
+		key_buffer[large_data_offset+1] = slot;
+		key_buffer[large_data_offset+2] = 4; //4 - Delay 2
+		key_buffer[large_data_offset+3] = temp[0]; 
+        large_data_offset=large_data_offset+4;
+      }
+      passwordlength = onlykey_eeget_password(ptr, slot);
+      if(passwordlength > 0)
+      {
+        #ifdef DEBUG
+        Serial.println("Reading Password from EEPROM...");
+        Serial.print("Password Length = ");
+        Serial.println(passwordlength);
+        #endif
+        if (!PDmode) {
+        #ifdef DEBUG
+        Serial.println("Encrypted");
+            for (int z = 0; z < passwordlength; z++) {
+            Serial.print(temp[z], HEX);
+            }
+            Serial.println();
+          #endif
+        #ifdef US_VERSION
+        aes_gcm_decrypt(temp, (uint8_t*)('p'+ID[34]+slot), phash, passwordlength);
+        #endif
+        }
+		#ifdef DEBUG
+        Serial.println("Unencrypted");
+        for (int z = 0; z < passwordlength; z++) {
+        Serial.print(temp[z], HEX);
+        }
+        Serial.println();
+        #endif
+		key_buffer[large_data_offset] = 0xFF; //delimiter
+		key_buffer[large_data_offset+1] = slot;
+		key_buffer[large_data_offset+2] = 5; //5 - Password
+		memcpy(key_buffer+large_data_offset+3, temp, passwordlength);
+        large_data_offset=large_data_offset+passwordlength+3;
+      }
+      memset(temp, 0, 64); //Wipe all data from buffer    
+      onlykey_eeget_addchar3(ptr, slot);
+      if(temp[0] > 0)
+      {
+        key_buffer[large_data_offset] = 0xFF; //delimiter
+		key_buffer[large_data_offset+1] = slot;
+		key_buffer[large_data_offset+2] = 6; //6 - Add Char 3
+		key_buffer[large_data_offset+3] = temp[0]; 
+        large_data_offset=large_data_offset+4;
+      }
+      memset(temp, 0, 64); //Wipe all data from buffer    
+      onlykey_eeget_delay3(ptr, slot);
+      if(temp[0] > 0)
+      {
+       	key_buffer[large_data_offset] = 0xFF; //delimiter
+		key_buffer[large_data_offset+1] = slot;
+		key_buffer[large_data_offset+2] = 7; //7 - Delay 3
+		key_buffer[large_data_offset+3] = temp[0]; 
+        large_data_offset=large_data_offset+4;
+      }
+      memset(temp, 0, 64); //Wipe all data from buffer 
+      otplength = onlykey_eeget_2FAtype(ptr, slot);
+      if(temp[0] > 0)
+      {
+        key_buffer[large_data_offset] = 0xFF; //delimiter
+		key_buffer[large_data_offset+1] = slot;
+		key_buffer[large_data_offset+2] = 8; //8 - 2FA type
+		key_buffer[large_data_offset+3] = temp[0]; 
+        large_data_offset=large_data_offset+4;
+	  }
+	  memset(temp, 0, 64); //Wipe all data from buffer 
+      onlykey_eeget_addchar4(ptr, slot);
+      if(temp[0] > 0)
+      {
+        key_buffer[large_data_offset] = 0xFF; //delimiter
+		key_buffer[large_data_offset+1] = slot;
+		key_buffer[large_data_offset+2] = 18; //18 - Add Char 4
+		key_buffer[large_data_offset+3] = temp[0]; 
+        large_data_offset=large_data_offset+4;
+	  }
+	  for(int i=0;i<large_data_offset;i++) {
+	  Serial.print(key_buffer[i], HEX);
+	  }
+}
+//Encrypt
+//Base64
+ char beginsbackup[] = "-----BEGIN ONLYKEY SLOT BACKUP-----";
+ char endsbackup[] = "-----END ONLYKEY SLOT BACKUP-----";
+    for (int z = 0; z <= 35; z++) {
+        Keyboard.write(beginsbackup[z]);
+		delay(((TYPESPEED[0]*TYPESPEED[0])*10));
+	} 
+    #ifdef DEBUG
+        Serial.println("Unencoded");
+        for (int z = 0; z <= large_data_offset; z++) {
+        Serial.print((char*)key_buffer[z]);
+        }
+        Serial.println();
+    #endif
+base64_encode((char*)key_buffer, (char*)key_buffer, large_data_offset);
+    for (int z = 0; z <= large_data_offset && z < sizeof(key_buffer); z++) {
+        Keyboard.write((char*)key_buffer[z]);
+		delay(((TYPESPEED[0]*TYPESPEED[0])*10));
+	} 
+	Keyboard.println();
+	#ifdef DEBUG
+        Serial.println("Encoded");
+        for (int z = 0; z <= large_data_offset; z++) {
+        Serial.print(key_buffer[z]);
+        }
+        Serial.println();
+    #endif
+    for (int z = 0; z <= 33; z++) {
+        Keyboard.write(endsbackup[z]);
+		delay(((TYPESPEED[0]*TYPESPEED[0])*10));
+	} 
+large_data_offset = 0;
+memset(key_buffer, 0 , sizeof(key_buffer));
+}
+
+void backupkeys() {
+	
+/*backup 
+9 - TOTP Key
+10 - Yubikey AES Key, Private ID, and Public ID
+11 - Idle Timeout
+12 - Wipemode
+13 - Keyboard type speed
+14- Keyboard layout 
+*/
+
+ char beginkbackup[] = "-----BEGIN ONLYKEY KEY BACKUP-----";
+ char endkbackup[] = "-----END ONLYKEY KEY BACKUP-----";
+
+    for (int z = 0; z <= 34; z++) {
+        Keyboard.write(beginkbackup[z]);
+		delay(((TYPESPEED[0]*TYPESPEED[0])*10));
+	} 
+ 
+ 
+	for (int z = 0; z <= 32; z++) {
+        Keyboard.write(endkbackup[z]);
+		delay(((TYPESPEED[0]*TYPESPEED[0])*10));
+	} 
+}
+

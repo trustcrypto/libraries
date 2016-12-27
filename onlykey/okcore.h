@@ -171,8 +171,10 @@ extern void yubikeysim(char *ptr);
 extern void yubikey_incr_time();
 extern void increment(Task* me);
 extern void decrement(Task* me);
+extern void typeoutbackup(Task* me);
 extern void fadeoff();
-
+extern void backupslots();
+extern void backupkeys();
 
 #ifdef __cplusplus
 }
