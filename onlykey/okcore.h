@@ -60,6 +60,7 @@ extern "C"
 #endif
 
 #include <SoftTimer.h>
+#include "base64.h"
 
 #define TYPE_INIT               0x80  // Initial frame identifier
 /*************************************/
@@ -76,15 +77,13 @@ extern "C"
 #define OKWIPEU2FPRIV 		(TYPE_INIT | 0x69)  // 
 #define OKSETU2FCERT 		(TYPE_INIT | 0x6A)  // 
 #define OKWIPEU2FCERT  		(TYPE_INIT | 0x6B)  //
-#define OKGETECCPUBKEY          (TYPE_INIT | 0x6C)//
-#define OKSIGNECCCHALLENGE      (TYPE_INIT | 0x6D)//
-#define OKWIPEECCPRIV           (TYPE_INIT | 0x6E)//
-#define OKSETECCPRIV            (TYPE_INIT | 0x6F)// 
-#define OKGETRSAPUBKEY          (TYPE_INIT | 0x70)//
-#define OKSIGNRSACHALLENGE      (TYPE_INIT | 0x71)//
-#define OKWIPERSAPRIV           (TYPE_INIT | 0x72)//
-#define OKSETRSAPRIV            (TYPE_INIT | 0x73)// Last vendor defined command
+#define OKGETPUBKEY          (TYPE_INIT | 0x6C)//
+#define OKSIGN      (TYPE_INIT | 0x6D)//
+#define OKDECRYPT      (TYPE_INIT | 0x6E)//
+#define OKWIPEPRIV           (TYPE_INIT | 0x6F)//
+#define OKSETPRIV            (TYPE_INIT | 0x70)// Last vendor defined command
 
+#define BUFFER_SIZE 2048 //Large RAM buffer size
 
 extern int getCounter();
 extern void setCounter(int counter);
@@ -109,6 +108,8 @@ extern void SETSLOT (uint8_t *buffer);
 extern void SETPIN (uint8_t *buffer);
 extern void SETPDPIN (uint8_t *buffer);
 extern void SETSDPIN (uint8_t *buffer);
+extern void SETPRIV (uint8_t *buffer);
+extern void WIPEPRIV (uint8_t *buffer);
 extern void setOtherTimeout();
 extern void processPacket(uint8_t *buffer);
 extern void setCounter(int counter);
@@ -175,6 +176,9 @@ extern void typeoutbackup(Task* me);
 extern void fadeoff();
 extern void backupslots();
 extern void backupkeys();
+extern void SETRSAPRIV (uint8_t *buffer);
+extern void WIPERSAPRIV (uint8_t *buffer);
+extern void SETECCPRIV (uint8_t *buffer);
 
 #ifdef __cplusplus
 }

@@ -62,12 +62,12 @@
 #include "flashkinetis.h"
 #include <RNG.h>
 #include "T3MacLib.h"
+#include "base64.h"
 
 /*************************************/
 //Firmware Version Selection
 /*************************************/
 #ifdef US_VERSION
-#include "Base64.h"
 #include "yksim.h"
 #include "uECC.h"
 #include "ykcore.h"
@@ -138,7 +138,7 @@ size_t length = 48; // First block should wait for the pool to fill up.
 uint8_t expected_next_packet;
 int large_data_len;
 int large_data_offset;
-uint8_t large_buffer[1024];
+uint8_t large_buffer[BUFFER_SIZE];
 uint8_t large_resp_buffer[1024];
 uint8_t recv_buffer[64];
 uint8_t resp_buffer[64];
@@ -295,7 +295,7 @@ void recvmsg() {
 	   {
 		if(!PDmode) {
 		#ifdef US_VERSION
-		SETU2FCERT(recv_buffer);
+		if (recv_buffer[0] != 0xBA) SETU2FCERT(recv_buffer);
 		#endif
 		}
 	   }
@@ -326,7 +326,7 @@ void recvmsg() {
 	   }	
       return;
       break;
-	  case OKSETECCPRIV:
+	  case OKSETPRIV:
            if(initialized==false && unlocked==true) 
 	   {
 		hidprint("No PIN set, You must set a PIN first");
@@ -335,7 +335,7 @@ void recvmsg() {
 	   {
                 if(!PDmode) {
                 #ifdef US_VERSION
-                SETECCPRIV(recv_buffer);
+                if (recv_buffer[0] != 0xBA) SETPRIV(recv_buffer);
                 #endif
                 }
 	   }
@@ -346,7 +346,7 @@ void recvmsg() {
 	   }	
       return;
       break;
-      case OKWIPEECCPRIV:
+      case OKWIPEPRIV:
            if(initialized==false && unlocked==true) 
 	   {
 		hidprint("No PIN set, You must set a PIN first");
@@ -355,7 +355,7 @@ void recvmsg() {
 	   {
                 if(!PDmode) {
                 #ifdef US_VERSION
-                WIPEECCPRIV(recv_buffer);
+                WIPEPRIV(recv_buffer);
                 #endif
                 }
 	   }
@@ -366,7 +366,7 @@ void recvmsg() {
 	   }	
       return;
       break;
-      case OKSIGNECCCHALLENGE:
+      case OKSIGN:
            if(initialized==false && unlocked==true) 
 	   {
 		hidprint("No PIN set, You must set a PIN first");
@@ -376,7 +376,7 @@ void recvmsg() {
 		if(!PDmode) {
 		#ifdef US_VERSION
 		SoftTimer.add(&FadeinTask);
-		SIGNECCCHALLENGE(recv_buffer);
+		SIGN(recv_buffer);
 		#endif
 		}
 	   }
@@ -387,67 +387,7 @@ void recvmsg() {
 	   }	
       return;
       break;
-      case OKGETECCPUBKEY:
-			if(initialized==false && unlocked==true) 
-	   {
-		hidprint("No PIN set, You must set a PIN first");
-		return;
-	   }else if (initialized==true && unlocked==true) 
-	   {
-                if(!PDmode) {
-                #ifdef US_VERSION
-                GETECCPUBKEY(recv_buffer);
-                #endif
-                }
-	   }
-	   else
-	   {
-	   hidprint("ERROR DEVICE LOCKED");
-	   return;
-	   }	
-      return;
-      break;
-	  case OKSETRSAPRIV:
-           if(initialized==false && unlocked==true) 
-	   {
-		hidprint("No PIN set, You must set a PIN first");
-		return;
-	   }else if (initialized==true && unlocked==true) 
-	   {
-                if(!PDmode) {
-                #ifdef US_VERSION
-                SETRSAPRIV(recv_buffer);
-                #endif
-                }
-	   }
-	   else
-	   {
-	   hidprint("ERROR DEVICE LOCKED");
-	   return;
-	   }	
-      return;
-      break;
-      case OKWIPERSAPRIV:
-           if(initialized==false && unlocked==true) 
-	   {
-		hidprint("No PIN set, You must set a PIN first");
-		return;
-	   }else if (initialized==true && unlocked==true) 
-	   {
-                if(!PDmode) {
-                #ifdef US_VERSION
-                WIPERSAPRIV(recv_buffer);
-                #endif
-                }
-	   }
-	   else
-	   {
-	   hidprint("ERROR DEVICE LOCKED");
-	   return;
-	   }	
-      return;
-      break;
-	  case OKSIGNRSACHALLENGE:
+	  case OKDECRYPT:
            if(initialized==false && unlocked==true) 
 	   {
 		hidprint("No PIN set, You must set a PIN first");
@@ -457,7 +397,7 @@ void recvmsg() {
 		if(!PDmode) {
 		#ifdef US_VERSION
 		SoftTimer.add(&FadeinTask);
-		SIGNRSACHALLENGE(recv_buffer);
+		DECRYPT(recv_buffer);
 		#endif
 		}
 	   }
@@ -468,7 +408,7 @@ void recvmsg() {
 	   }	
       return;
       break;
-      case OKGETRSAPUBKEY:
+      case OKGETPUBKEY:
 			if(initialized==false && unlocked==true) 
 	   {
 		hidprint("No PIN set, You must set a PIN first");
@@ -477,7 +417,7 @@ void recvmsg() {
 	   {
                 if(!PDmode) {
                 #ifdef US_VERSION
-                GETRSAPUBKEY();
+                GETPUBKEY(recv_buffer);
                 #endif
                 }
 	   }
@@ -1312,18 +1252,6 @@ void SETSLOT (uint8_t *buffer)
 	    hidprint("Successfully set AES Key, Private ID, and Public ID");
 	    }
             return;
-			case 18:
-            //Set value in EEPROM
-#ifdef DEBUG
-            Serial.println(); //newline
-            Serial.print("Writing Additional Character4 to EEPROM...");
-#endif
-            onlykey_eeset_addchar4(buffer + 7, slot);
-#ifdef DEBUG
-			Serial.print(buffer[7]);
-#endif
-	    hidprint("Successfully set Character4");
-            return;
             case 11:
 #ifdef DEBUG
             Serial.println(); //newline
@@ -1482,12 +1410,6 @@ void WIPESLOT (uint8_t *buffer)
 #endif 
             onlykey_flashset_totpkey((buffer + 7), 0, slot);
             hidprint("Successfully wiped TOTP Key");
-#ifdef DEBUG
-            Serial.println(); //newline
-            Serial.print("Wiping Additional Character4 Value...");
-#endif 
-            onlykey_eeset_addchar4((buffer + 7), slot);
-            hidprint("Successfully wiped Additional Character 4");
 
       blink(3);
       return;
@@ -3733,28 +3655,30 @@ if (PDmode) return;
 	uint8_t *ptr;
 	if (buffer[5]==0xFF) //Not last packet
 	{
-		if (large_data_offset <= 710) {
-			memcpy(large_buffer+large_data_offset, buffer+6, 58);
-			large_data_offset = large_data_offset + 58;
+		if (large_data_len <= 710) {
+			memcpy(attestation_der+large_data_len, buffer+6, 58);
+			large_data_len = large_data_len + 58;
 		} else {
 			hidprint("Error U2F Cert larger than 768 bytes");
 		}
 		return;
 	} else { //Last packet
-		if (large_data_offset <= 710 && buffer[5] <= 58) {
-			memcpy(large_buffer+large_data_offset, buffer+6, buffer[5]);
-			large_data_offset = large_data_offset + buffer[5];
-		} else {
+		if (large_data_len <= 710 && buffer[5] <= 58) {
+			memcpy(attestation_der+large_data_len, buffer+6, buffer[5]);
+			large_data_len = large_data_len + buffer[5];
+		} else if (large_data_len <= 768 && buffer[0] == 0xBA) { //Import from backup
+			memcpy(attestation_der, buffer+6, large_data_len);
+		} else{
 			hidprint("Error U2F Cert larger than 768 bytes");
 		}
-		length[0] = large_data_offset >> 8  & 0xFF;
-		length[1] = large_data_offset       & 0xFF;
+		length[0] = large_data_len >> 8  & 0xFF;
+		length[1] = large_data_len       & 0xFF;
 		//Set U2F Certificate size
 		onlykey_eeset_U2Fcertlen(length); 
 #ifdef DEBUG 
 
 		Serial.print("Length of U2F certificate = ");
-        Serial.println(large_data_offset);
+        Serial.println(large_data_len);
 		//Erase flash sector
 		Serial.printf("Erase Sector 0x%X ",adr);
 #endif 
@@ -3767,19 +3691,18 @@ if (PDmode) return;
 		Serial.printf("successful\r\n");
 #endif
 		//Write buffer to flash
-		ptr=large_buffer;
-    	onlykey_flashset_common(ptr, (unsigned long*)adr, large_data_offset);
+		ptr=(uint8_t*)attestation_der;
+    	onlykey_flashset_common(ptr, (unsigned long*)adr, large_data_len);
     	       
 
 	}
-    memcpy(attestation_der, large_buffer, 768);
 #ifdef DEBUG 
     Serial.print("U2F Cert value =");
-    for (int i = 0; i<large_data_offset; i++) {
+    for (int i = 0; i<large_data_len; i++) {
     Serial.print(attestation_der[i],HEX);
     }
 #endif
-	large_data_offset = 0;
+	large_data_len = 0;
 	hidprint("Successfully set U2F Certificate");
       blink(3);
 #endif
@@ -3821,6 +3744,31 @@ if (PDmode) return;
 
 }
 
+void SETPRIV (uint8_t *buffer)
+{
+	if (buffer[6] > 80) {//Type is Backup key
+	buffer[6] = buffer[6] - 80;
+	onlykey_eeset_backupkey(buffer+5); //Set this key slot as the backup key
+	} 
+	
+	if (buffer[5] < 101) { 
+	SETRSAPRIV(buffer);
+	} else {
+	SETECCPRIV(buffer);
+	}
+}
+
+void WIPEPRIV (uint8_t *buffer) {
+	if (buffer[5] < 101) {
+	WIPERSAPRIV(buffer);
+	} else {
+		for(int i=6; i<=32; i++) {
+		buffer[i]=0x00;
+		}
+	SETECCPRIV(buffer);
+	}
+}
+
 int onlykey_flashget_ECC (int slot)
 {
 
@@ -3834,13 +3782,13 @@ if (PDmode) return 0;
 	uintptr_t adr = (unsigned long)flashoffset[0] * (unsigned long)2048;
 	adr = adr + 12288; //7th flash sector
 	uint8_t type;
-	onlykey_eeget_ecckey((uint8_t*)type, slot); //Key ID (1-3) and slot (1-32)
+	onlykey_eeget_ecckey((uint8_t*)type, slot); //Key Type (1-3) and slot (101-132)
 	if (type==0x00) {	
 	Serial.printf("There is no ECC Private Key set in this slot");
 	hidprint("There is no ECC Private Key set in this slot");
 	return 0;
 	}
-	adr = adr + (slot*32);
+	adr = adr + ((slot-100)*32);
     onlykey_flashget_common((uint8_t*)ecc_private_key, (unsigned long*)adr, 32); 
 	#ifdef DEBUG 
 	Serial.printf("Read ECC Private Key from Sector 0x%X ",adr);
@@ -3849,11 +3797,11 @@ if (PDmode) return 0;
     int num_curves = 0;
     curves[num_curves++] = uECC_secp256r1();
     curves[num_curves++] = uECC_secp256k1();
-	if (type==0x01) Ed25519::derivePublicKey(ecc_public_key, ecc_private_key);
-	else if (type==0x02) {
+	if (type==0x10) Ed25519::derivePublicKey(ecc_public_key, ecc_private_key);
+	else if (type==0x11) {
 		uECC_compute_public_key(ecc_private_key, ecc_public_key, curves[1]);
 	}
-	else if (type==0x03) {
+	else if (type==0x12) {
 		uECC_compute_public_key(ecc_private_key, ecc_public_key, curves[2]);
 	}
 	return type;
@@ -3875,7 +3823,7 @@ if (PDmode) return;
 	uint8_t *ptr;
 	//Write ID to EEPROM
 	ptr = buffer+5; 
-	onlykey_eeset_ecckey((ptr+1), (int)(ptr)); //Key ID (1-3) and slot (1-32)
+	onlykey_eeset_ecckey((ptr+1), (int)(ptr)); //Key Type (1-3) and slot (101-132)
 	//Write buffer to flash
     uint8_t temp[2048];
     uint8_t *tptr;
@@ -3885,7 +3833,7 @@ if (PDmode) return;
     onlykey_flashget_common(tptr, (unsigned long*)adr, 2048);
     //Add new flash contents to buffer
     for( int z = 0; z <= 32; z++){
-    temp[z+((32*buffer[5])-32)] = ((uint8_t)*(ptr+z));
+    temp[z+((32*(buffer[5]-100))-32)] = ((uint8_t)*(ptr+z));
     }
     //Erase flash sector
 #ifdef DEBUG 
@@ -3915,40 +3863,6 @@ if (PDmode) return;
 
 }
 
-void WIPEECCPRIV (uint8_t *buffer)
-{
-if (PDmode) return;
-#ifdef US_VERSION
-#ifdef DEBUG
-    Serial.println("OKWIPEECCPRIV MESSAGE RECEIVED");
-#endif
-	uint8_t flashoffset[1];	
-	onlykey_eeget_flashpos((uint8_t*)flashoffset);
-	uintptr_t adr = (unsigned long)flashoffset[0] * (unsigned long)2048;
-	adr = adr + 12288; //7th flash sector
-	uint8_t *ptr;
-	//Wipe ID from EEPROM
-	ptr = buffer+5; 
-	onlykey_eeset_ecckey(0, (int)(ptr)); //Key ID (1-3) and slot (1-32)
-	//Wipe flash
-	uint8_t temp[2048];
-    uint8_t *tptr;
-    tptr=temp;
-    //Copy current flash contents to buffer
-    onlykey_flashget_common(tptr, (unsigned long*)adr, 2048);
-    //Wipe content from buffer
-    for( int z = 0; z <= 32; z++){
-    temp[z+((32*buffer[5])-32)] = 0x00;
-    }
-	//Write buffer to flash
-    onlykey_flashset_common(ptr, (unsigned long*)adr, 2048);
-	hidprint("Successfully wiped ECC Private Key");
-    blink(3);
-#endif
-    return;
-
-}
-
 int onlykey_flashget_RSA (int slot)
 {
 
@@ -3963,7 +3877,7 @@ if (PDmode) return 0;
 	uintptr_t adr = (unsigned long)flashoffset[0] * (unsigned long)2048;
 	adr = adr + 14336; //8th free flash sector
 	uint8_t type;
-	onlykey_eeget_rsakey((uint8_t*)type, slot); //Key ID (1-3) and slot (1-32)
+	onlykey_eeget_rsakey((uint8_t*)type, slot); //Key Type (1-2) and slot (1-4)
 	if (type==0x00) {	
 	Serial.printf("There is no RSA Private Key set in this slot");
 	hidprint("There is no RSA Private Key set in this slot");
@@ -3987,39 +3901,40 @@ if (PDmode) return;
 #ifdef DEBUG 
     Serial.println("OKSETRSAPRIV MESSAGE RECEIVED");
 #endif 
+	extern uint8_t rsa_private_key[256];
     uint8_t flashoffset[1];	
 	onlykey_eeget_flashpos((uint8_t*)flashoffset);
 	uintptr_t adr = (unsigned long)flashoffset[0] * (unsigned long)2048;
 	adr = adr + 14336; //8th free flash sector
 	uint8_t *ptr;
-	
-	if (buffer[6]==0x01) //Expect 128 Bytes
+
+	if (buffer[0] == 0xFF && buffer[6]==0x01) //Expect 128 Bytes, if buffer[0] != FF we know this is import from backup
 	{
-		if (large_data_offset <= 114) {
-		memcpy(large_buffer+large_data_offset, buffer+7, 57);
-		large_data_offset = large_data_offset + 57;
+		if (large_data_len <= 114) {
+		memcpy(rsa_private_key+large_data_len, buffer+7, 57);
+		large_data_len = large_data_len + 57;
 		return;
 		}
-	} else if (buffer[6]==0x02) { //Expect 256 Bytes
-		if (large_data_offset <= 228) {
-		memcpy(large_buffer+large_data_offset, buffer+7, 57);
-		large_data_offset = large_data_offset + 57;
+	} else if (buffer[0] == 0xFF && buffer[6]==0x02) { //Expect 256 Bytes
+		if (large_data_len <= 228) {
+		memcpy(rsa_private_key+large_data_len, buffer+7, 57);
+		large_data_len = large_data_len + 57;
 		return;
 		}
 	}
-
 	//Write ID to EEPROM
 	ptr = buffer+5; 
-	onlykey_eeset_rsakey((ptr+1), (int)(ptr)); //Key ID (1-3) and slot (1-32)
+	onlykey_eeset_rsakey((ptr+1), (int)(ptr)); //Key Type (1-2) and slot (1-4)
 	//Write buffer to flash
 #ifdef DEBUG 
 		Serial.print("Received RSA Key of size ");
-        Serial.println(large_data_offset);
+        Serial.println((buffer[6]*128));
 #endif 
     uint8_t temp[2048];
     uint8_t *tptr;
     tptr=temp;
-	ptr=large_buffer;
+	ptr=rsa_private_key;
+	if (buffer[0] == 0xBA) ptr=buffer+7;
     //Copy current flash contents to buffer
     onlykey_flashget_common(tptr, (unsigned long*)adr, 2048);
     //Add new flash contents to buffer
@@ -4043,11 +3958,11 @@ if (PDmode) return;
 
 #ifdef DEBUG 
     Serial.print("RSA Key value =");
-    for (int i = 0; i<large_data_offset; i++) {
-    Serial.print(large_buffer[i],HEX);
+    for (int i = 0; i<(buffer[6]*128); i++) {
+    Serial.print(rsa_private_key[i],HEX);
     }
 #endif
-	large_data_offset = 0;
+	large_data_len = 0;
 	hidprint("Successfully set RSA Key");
       blink(3);
 #endif
@@ -4070,7 +3985,7 @@ if (PDmode) return;
 	uint8_t *ptr;
 	//Wipe ID from EEPROM
 	ptr = buffer+5; 
-	onlykey_eeset_rsakey(0, (int)(ptr)); //Key ID (1-3) and slot (1-32)
+	onlykey_eeset_rsakey(0, (int)(ptr)); //Key ID (1-2) and slot (1-4)
 	//Wipe flash
 	uint8_t temp[2048];
     uint8_t *tptr;
@@ -4121,7 +4036,7 @@ void yubikeyinit() {
   ptr = (temp+EElen_public+EElen_private);
   onlykey_eeget_aeskey(ptr);
   
-  aes_gcm_decrypt(temp, (uint8_t*)('y'+ID[34]), phash, (EElen_aeskey+EElen_private+EElen_aeskey));
+  aes_gcm_decrypt(temp, (uint8_t*)('y'+ID[34]), phash, (EElen_aeskey+EElen_private+EElen_public));
 #ifdef DEBUG 
   Serial.println("public_id");
 #endif
@@ -4220,17 +4135,26 @@ void fadeoff() {
 }
 		  
 void backupslots() {
-  uint8_t key_buffer[3865];
+  unsigned char *pos;
   uint8_t temp[64];
+  uint8_t large_temp[7028];
   int urllength;
   int usernamelength;
   int passwordlength;
   int otplength;
   uint8_t *ptr;
+  unsigned char beginsbackup[] = "-----BEGIN ONLYKEY SLOT BACKUP-----";
+  unsigned char endsbackup[] = "-----END ONLYKEY SLOT BACKUP-----";
   large_data_offset = 0;
-  memset(key_buffer, 0, sizeof(key_buffer)); //Wipe all data from largebuffer
+  memset(large_temp, 0, sizeof(large_temp)); //Wipe all data from largebuffer
+  int slot;
   
-  for (int slot=1; slot<=24; slot++)
+  for (int z = 0; z <= 35; z++) {
+        Keyboard.write(beginsbackup[z]);
+		delay(((TYPESPEED[0]*TYPESPEED[0])*10));
+	} 
+  
+  for (slot=1; slot<=24; slot++)
   {
   #ifdef DEBUG
     Serial.print("Backing up Slot Number ");
@@ -4241,13 +4165,12 @@ void backupslots() {
 	onlykey_flashget_label(ptr, slot);
 	if(temp[0] != 0xFF && temp[0] != 0x00)
       {
-		key_buffer[large_data_offset] = 0xFF; //delimiter
-		key_buffer[large_data_offset+1] = slot;
-		key_buffer[large_data_offset+2] = 1; //1 - Label
-		memcpy(key_buffer+large_data_offset+3, temp, EElen_label);
+		large_temp[large_data_offset] = 0xFF; //delimiter
+		large_temp[large_data_offset+1] = slot;
+		large_temp[large_data_offset+2] = 1; //1 - Label
+		memcpy(large_temp+large_data_offset+3, temp, EElen_label);
         large_data_offset=large_data_offset+EElen_label+3;
       }
-	memset(temp, 0, 64); //Wipe all data from temp buffer
     urllength = onlykey_flashget_url(ptr, slot);
     if(urllength > 0)
     {
@@ -4274,30 +4197,28 @@ void backupslots() {
         }
         Serial.println();
         #endif
-		key_buffer[large_data_offset] = 0xFF; //delimiter
-		key_buffer[large_data_offset+1] = slot;
-		key_buffer[large_data_offset+2] = 15; //15 - URL
-		memcpy(key_buffer+large_data_offset+3, temp, urllength);
+		large_temp[large_data_offset] = 0xFF; //delimiter
+		large_temp[large_data_offset+1] = slot;
+		large_temp[large_data_offset+2] = 15; //15 - URL
+		memcpy(large_temp+large_data_offset+3, temp, urllength);
         large_data_offset=large_data_offset+urllength+3;
       }
-      memset(temp, 0, 64); //Wipe all data from buffer
       onlykey_eeget_addchar1(ptr, slot);
       if(temp[0] > 0)
       {
-		key_buffer[large_data_offset] = 0xFF; //delimiter
-		key_buffer[large_data_offset+1] = slot;
-		key_buffer[large_data_offset+2] = 16; //16 - Add Char 1
-		key_buffer[large_data_offset+3] = temp[0]; 
+		large_temp[large_data_offset] = 0xFF; //delimiter
+		large_temp[large_data_offset+1] = slot;
+		large_temp[large_data_offset+2] = 16; //16 - Add Char 1
+		large_temp[large_data_offset+3] = temp[0]; 
         large_data_offset=large_data_offset+4;
       }
-      memset(temp, 0, 64); //Wipe all data from buffer
       onlykey_eeget_delay1(ptr, slot);
       if(temp[0] > 0)
       {
-		key_buffer[large_data_offset] = 0xFF; //delimiter
-		key_buffer[large_data_offset+1] = slot;
-		key_buffer[large_data_offset+2] = 17; //17 - Delay 1
-		key_buffer[large_data_offset+3] = temp[0]; 
+		large_temp[large_data_offset] = 0xFF; //delimiter
+		large_temp[large_data_offset+1] = slot;
+		large_temp[large_data_offset+2] = 17; //17 - Delay 1
+		large_temp[large_data_offset+3] = temp[0]; 
         large_data_offset=large_data_offset+4;
       }
       usernamelength = onlykey_flashget_username(ptr, slot);
@@ -4327,30 +4248,28 @@ void backupslots() {
         }
         Serial.println();
         #endif
-		key_buffer[large_data_offset] = 0xFF; //delimiter
-		key_buffer[large_data_offset+1] = slot;
-		key_buffer[large_data_offset+2] = 2; //2 - Username
-		memcpy(key_buffer+large_data_offset+3, temp, usernamelength);
+		large_temp[large_data_offset] = 0xFF; //delimiter
+		large_temp[large_data_offset+1] = slot;
+		large_temp[large_data_offset+2] = 2; //2 - Username
+		memcpy(large_temp+large_data_offset+3, temp, usernamelength);
         large_data_offset=large_data_offset+usernamelength+3;
       }
-      memset(temp, 0, 64); //Wipe all data from buffer
       onlykey_eeget_addchar2(ptr, slot);
       if(temp[0] > 0)
       {
-        key_buffer[large_data_offset] = 0xFF; //delimiter
-		key_buffer[large_data_offset+1] = slot;
-		key_buffer[large_data_offset+2] = 3; //3 - Add Char 2
-		key_buffer[large_data_offset+3] = temp[0]; 
+        large_temp[large_data_offset] = 0xFF; //delimiter
+		large_temp[large_data_offset+1] = slot;
+		large_temp[large_data_offset+2] = 3; //3 - Add Char 2
+		large_temp[large_data_offset+3] = temp[0]; 
         large_data_offset=large_data_offset+4;
       }
-      memset(temp, 0, 64); //Wipe all data from buffer
       onlykey_eeget_delay2(ptr, slot);
       if(temp[0] > 0)
       {
-       	key_buffer[large_data_offset] = 0xFF; //delimiter
-		key_buffer[large_data_offset+1] = slot;
-		key_buffer[large_data_offset+2] = 4; //4 - Delay 2
-		key_buffer[large_data_offset+3] = temp[0]; 
+       	large_temp[large_data_offset] = 0xFF; //delimiter
+		large_temp[large_data_offset+1] = slot;
+		large_temp[large_data_offset+2] = 4; //4 - Delay 2
+		large_temp[large_data_offset+3] = temp[0]; 
         large_data_offset=large_data_offset+4;
       }
       passwordlength = onlykey_eeget_password(ptr, slot);
@@ -4380,115 +4299,471 @@ void backupslots() {
         }
         Serial.println();
         #endif
-		key_buffer[large_data_offset] = 0xFF; //delimiter
-		key_buffer[large_data_offset+1] = slot;
-		key_buffer[large_data_offset+2] = 5; //5 - Password
-		memcpy(key_buffer+large_data_offset+3, temp, passwordlength);
+		large_temp[large_data_offset] = 0xFF; //delimiter
+		large_temp[large_data_offset+1] = slot;
+		large_temp[large_data_offset+2] = 5; //5 - Password
+		memcpy(large_temp+large_data_offset+3, temp, passwordlength);
         large_data_offset=large_data_offset+passwordlength+3;
-      }
-      memset(temp, 0, 64); //Wipe all data from buffer    
+      }  
       onlykey_eeget_addchar3(ptr, slot);
       if(temp[0] > 0)
       {
-        key_buffer[large_data_offset] = 0xFF; //delimiter
-		key_buffer[large_data_offset+1] = slot;
-		key_buffer[large_data_offset+2] = 6; //6 - Add Char 3
-		key_buffer[large_data_offset+3] = temp[0]; 
+        large_temp[large_data_offset] = 0xFF; //delimiter
+		large_temp[large_data_offset+1] = slot;
+		large_temp[large_data_offset+2] = 6; //6 - Add Char 3
+		large_temp[large_data_offset+3] = temp[0]; 
         large_data_offset=large_data_offset+4;
-      }
-      memset(temp, 0, 64); //Wipe all data from buffer    
+      } 
       onlykey_eeget_delay3(ptr, slot);
       if(temp[0] > 0)
       {
-       	key_buffer[large_data_offset] = 0xFF; //delimiter
-		key_buffer[large_data_offset+1] = slot;
-		key_buffer[large_data_offset+2] = 7; //7 - Delay 3
-		key_buffer[large_data_offset+3] = temp[0]; 
+       	large_temp[large_data_offset] = 0xFF; //delimiter
+		large_temp[large_data_offset+1] = slot;
+		large_temp[large_data_offset+2] = 7; //7 - Delay 3
+		large_temp[large_data_offset+3] = temp[0]; 
         large_data_offset=large_data_offset+4;
       }
-      memset(temp, 0, 64); //Wipe all data from buffer 
       otplength = onlykey_eeget_2FAtype(ptr, slot);
       if(temp[0] > 0)
       {
-        key_buffer[large_data_offset] = 0xFF; //delimiter
-		key_buffer[large_data_offset+1] = slot;
-		key_buffer[large_data_offset+2] = 8; //8 - 2FA type
-		key_buffer[large_data_offset+3] = temp[0]; 
+        large_temp[large_data_offset] = 0xFF; //delimiter
+		large_temp[large_data_offset+1] = slot;
+		large_temp[large_data_offset+2] = 8; //8 - 2FA type
+		large_temp[large_data_offset+3] = temp[0]; 
         large_data_offset=large_data_offset+4;
 	  }
-	  memset(temp, 0, 64); //Wipe all data from buffer 
-      onlykey_eeget_addchar4(ptr, slot);
-      if(temp[0] > 0)
-      {
-        key_buffer[large_data_offset] = 0xFF; //delimiter
-		key_buffer[large_data_offset+1] = slot;
-		key_buffer[large_data_offset+2] = 18; //18 - Add Char 4
-		key_buffer[large_data_offset+3] = temp[0]; 
-        large_data_offset=large_data_offset+4;
-	  }
-	  for(int i=0;i<large_data_offset;i++) {
-	  Serial.print(key_buffer[i], HEX);
-	  }
+	  if(temp[0] == 103) { //Google Auth
+      #ifdef DEBUG
+      Serial.println("Reading TOTP Key from Flash...");
+      #endif
+      otplength = onlykey_flashget_totpkey(ptr, slot);
+	  #ifdef DEBUG
+      Serial.println("Encrypted");
+        for (int z = 0; z < otplength; z++) {
+        Serial.print(temp[z], HEX);
+        }
+      Serial.println();
+      Serial.print("TOTP Key Length = ");
+      Serial.println(otplength);
+      #endif
+      #ifdef US_VERSION
+      if (!PDmode) aes_gcm_decrypt(temp, (uint8_t*)('t'+ID[34]+slot), phash, otplength);
+      #endif
+      #ifdef DEBUG
+      Serial.println("Unencrypted");
+        for (int z = 0; z < otplength; z++) {
+        Serial.print(temp[z], HEX);
+        }
+        Serial.println();
+	  #endif
+	  large_temp[large_data_offset] = 0xFF; //delimiter
+	  large_temp[large_data_offset+1] = slot;
+	  large_temp[large_data_offset+2] = 9; //9 - TOTP Key
+	  memcpy(large_temp+large_data_offset+3, temp, otplength);
+      large_data_offset=large_data_offset+otplength+3;
+	  }	  
 }
+      onlykey_eeget_public(ptr);
+  
+      ptr = (temp+EElen_public);
+      onlykey_eeget_private(ptr);
+  
+      ptr = (temp+EElen_public+EElen_private);
+      onlykey_eeget_aeskey(ptr);
+  
+      aes_gcm_decrypt(temp, (uint8_t*)('y'+ID[34]), phash, (EElen_aeskey+EElen_private+EElen_public));
+
+	  large_temp[large_data_offset] = 0xFF; //delimiter
+	  large_temp[large_data_offset+1] = slot;
+	  large_temp[large_data_offset+2] = 10; //10 - Yubikey
+	  memcpy(large_temp+large_data_offset+3, temp, (EElen_aeskey+EElen_private+EElen_public));
+      large_data_offset=large_data_offset+(EElen_aeskey+EElen_private+EElen_public)+3;
+	  
+      onlykey_eeget_timeout(ptr);
+	  if (*ptr != 0) {
+	  large_temp[large_data_offset] = 0xFF; //delimiter
+	  large_temp[large_data_offset+1] = slot;
+	  large_temp[large_data_offset+2] = 11; //11 - Idle Timeout
+	  large_temp[large_data_offset+3] = temp[0]; 
+      large_data_offset=large_data_offset+4;
+	  }
+	  onlykey_eeget_typespeed(ptr);
+	  if (*ptr != 0) {
+	  large_temp[large_data_offset] = 0xFF; //delimiter
+	  large_temp[large_data_offset+1] = slot;
+	  large_temp[large_data_offset+2] = 13; //13 - Keyboard type speed
+	  large_temp[large_data_offset+3] = temp[0]; 
+      large_data_offset=large_data_offset+4;
+	  }
+	  onlykey_eeget_keyboardlayout(ptr);
+	  if (*ptr != 0) {
+	  large_temp[large_data_offset] = 0xFF; //delimiter
+	  large_temp[large_data_offset+1] = slot;
+	  large_temp[large_data_offset+2] = 14; //14- Keyboard layout 
+	  large_temp[large_data_offset+3] = temp[0]; 
+      large_data_offset=large_data_offset+4;
+	  }
 //Encrypt
-//Base64
- char beginsbackup[] = "-----BEGIN ONLYKEY SLOT BACKUP-----";
- char endsbackup[] = "-----END ONLYKEY SLOT BACKUP-----";
-    for (int z = 0; z <= 35; z++) {
-        Keyboard.write(beginsbackup[z]);
-		delay(((TYPESPEED[0]*TYPESPEED[0])*10));
-	} 
+    
     #ifdef DEBUG
+	Serial.println();
         Serial.println("Unencoded");
         for (int z = 0; z <= large_data_offset; z++) {
-        Serial.print((char*)key_buffer[z]);
+        Serial.print(large_temp[z], HEX);
         }
         Serial.println();
     #endif
-base64_encode((char*)key_buffer, (char*)key_buffer, large_data_offset);
-    for (int z = 0; z <= large_data_offset && z < sizeof(key_buffer); z++) {
-        Keyboard.write((char*)key_buffer[z]);
+	int i = 0;
+	while(i <= large_data_offset && i < sizeof(large_temp)) {
+		Keyboard.println();
 		delay(((TYPESPEED[0]*TYPESPEED[0])*10));
-	} 
+		if ((large_data_offset - i) < 42) {
+			int enclen = base64_encode(large_temp+i, temp, (large_data_offset - i), '/n'); //Equals 56 in base32
+			for (int z = 0; z <= enclen; z++) {
+			Keyboard.write(temp[z]);
+			delay(((TYPESPEED[0]*TYPESPEED[0])*10));
+			}  
+		}	
+		else {
+			base64_encode(large_temp+i, temp, 42, '/n'); //Equals 56 in base32
+			for (int z = 0; z <= 56; z++) {
+			Keyboard.write(temp[z]);
+			delay(((TYPESPEED[0]*TYPESPEED[0])*10));
+			}  
+		}
+		i = i+42;
+		memset(temp, 0, sizeof(temp));
+	}
 	Keyboard.println();
+	delay(((TYPESPEED[0]*TYPESPEED[0])*10));
 	#ifdef DEBUG
         Serial.println("Encoded");
         for (int z = 0; z <= large_data_offset; z++) {
-        Serial.print(key_buffer[z]);
+        Serial.print(large_temp[z], HEX);
         }
         Serial.println();
     #endif
+	
+	//End backup footer
     for (int z = 0; z <= 33; z++) {
         Keyboard.write(endsbackup[z]);
 		delay(((TYPESPEED[0]*TYPESPEED[0])*10));
 	} 
+	Keyboard.println();
 large_data_offset = 0;
-memset(key_buffer, 0 , sizeof(key_buffer));
+memset(large_temp, 0 , sizeof(large_temp));
 }
 
 void backupkeys() {
-	
-/*backup 
-9 - TOTP Key
-10 - Yubikey AES Key, Private ID, and Public ID
-11 - Idle Timeout
-12 - Wipemode
-13 - Keyboard type speed
-14- Keyboard layout 
-*/
-
- char beginkbackup[] = "-----BEGIN ONLYKEY KEY BACKUP-----";
- char endkbackup[] = "-----END ONLYKEY KEY BACKUP-----";
-
-    for (int z = 0; z <= 34; z++) {
-        Keyboard.write(beginkbackup[z]);
+  uint8_t length[2];
+  uint8_t temp[256];
+  uint8_t large_temp[2970];
+  int type;
+  uint8_t *ptr;
+  unsigned char beginkbackup[] = "-----BEGIN ONLYKEY KEY BACKUP-----";
+  unsigned char endkbackup[] = "-----END ONLYKEY KEY BACKUP-----";
+  large_data_offset = 0;
+  memset(large_temp, 0, sizeof(large_temp)); //Wipe all data from largebuffer
+  
+  //Begin backup header 
+	for (int z = 0; z <= sizeof(beginkbackup); z++) {
+		Keyboard.write(beginkbackup[z]);
 		delay(((TYPESPEED[0]*TYPESPEED[0])*10));
 	} 
- 
- 
-	for (int z = 0; z <= 32; z++) {
+	Keyboard.println();
+	
+  //Copy RSA keys to buffer  
+  for (int slot=1; slot<=4; slot++)
+  {
+	  
+	#ifdef DEBUG
+    Serial.print("Backing up RSA Key Number ");
+    Serial.println(slot);
+   #endif
+    memset(temp, 0, 256); //Wipe all data from temp buffer
+    ptr = temp;
+	type = onlykey_flashget_RSA(slot);
+	if(type != 0x00)
+      {
+		large_temp[large_data_offset] = 0xFF; //delimiter
+		large_temp[large_data_offset+1] = slot;
+		large_temp[large_data_offset+2] = type;
+		memcpy(large_temp+large_data_offset+3, rsa_private_key, (type*128));
+        large_data_offset=large_data_offset+(type*128)+3;
+      } else {
+			#ifdef DEBUG
+			Serial.print("No key set to slot");
+			#endif
+	  }
+  }
+  
+  //Copy ECC keys to buffer
+  for (int slot=101; slot<=132; slot++)
+  {
+	#ifdef DEBUG
+    Serial.print("Backing up ECC Key Number ");
+    Serial.println(slot);
+   #endif
+    memset(temp, 0, 256); //Wipe all data from temp buffer
+    ptr = temp;
+	type = onlykey_flashget_ECC(slot);
+	if(type != 0x00)
+      {
+		large_temp[large_data_offset] = 0xFF; //delimiter
+		large_temp[large_data_offset+1] = slot;
+		large_temp[large_data_offset+2] = type;
+		memcpy(large_temp+large_data_offset+3, ecc_private_key, 32);
+        large_data_offset=large_data_offset+32+3;
+      } else {
+			#ifdef DEBUG
+			Serial.print("No key set to slot");
+			#endif
+	  }
+  }
+  
+//Copy U2F key/Cert to buffer
+	large_temp[large_data_offset] = 0xF1; //delimiter
+	memcpy(large_temp+large_data_offset+1, attestation_priv, 32);
+    large_data_offset=large_data_offset+32+1;
+	
+	onlykey_eeget_U2Fcertlen(length);
+    int length2 = length[0] << 8 | length[1];
+	large_temp[large_data_offset] = 0xF2; //delimiter
+	memcpy(large_temp+large_data_offset+1, attestation_der, length2);
+    large_data_offset=large_data_offset+length2+1;
+
+//Encrypt
+    
+    #ifdef DEBUG
+	Serial.println();
+        Serial.println("Unencoded");
+        for (int z = 0; z <= large_data_offset; z++) {
+        Serial.print(large_temp[z], HEX);
+        }
+        Serial.println();
+    #endif
+	int i = 0;
+	while(i <= large_data_offset && i < sizeof(large_temp)) {
+		Keyboard.println();
+		delay(((TYPESPEED[0]*TYPESPEED[0])*10));
+		if ((large_data_offset - i) < 42) {
+			int enclen = base64_encode(large_temp+i, temp, (large_data_offset - i), '/n'); //Equals 56 in base32
+			for (int z = 0; z <= enclen; z++) {
+			Keyboard.write(temp[z]);
+			delay(((TYPESPEED[0]*TYPESPEED[0])*10));
+			}  
+		}	
+		else {
+			base64_encode(large_temp+i, temp, 42, '/n'); //Equals 56 in base32
+			for (int z = 0; z <= 56; z++) {
+			Keyboard.write(temp[z]);
+			delay(((TYPESPEED[0]*TYPESPEED[0])*10));
+			}  
+		}
+		i = i+42;
+		memset(temp, 0, sizeof(temp));
+	}
+	Keyboard.println();
+	delay(((TYPESPEED[0]*TYPESPEED[0])*10));
+	#ifdef DEBUG
+        Serial.println("Encoded");
+        for (int z = 0; z <= large_data_offset; z++) {
+        Serial.print(large_temp[z], HEX);
+        }
+        Serial.println();
+    #endif
+	
+//End backup footer
+    for (int z = 0; z <= sizeof(endkbackup); z++) {
         Keyboard.write(endkbackup[z]);
 		delay(((TYPESPEED[0]*TYPESPEED[0])*10));
 	} 
+	Keyboard.println();
+large_data_offset = 0;
+memset(large_temp, 0 , sizeof(large_temp));
 }
 
+
+void restoreslots(uint8_t *buffer) {
+  uint8_t temp[64];
+  static uint8_t large_temp [7028];
+  int urllength;
+  int usernamelength;
+  int passwordlength;
+  int otplength;
+  uint8_t *ptr;
+  large_data_offset = 0;
+  memset(large_temp, 0, sizeof(large_temp)); //Wipe all data from largebuffer
+
+  if (buffer[5]==0xFF) //Not last packet
+	{
+	if (large_data_offset <= (sizeof(large_temp) - 57)) {
+			base64_decode(large_temp+large_data_offset, buffer+6, 56); //Equals 56 in base32
+			large_data_offset = large_data_offset + 42;
+		} else {
+			hidprint("Error backup file too large");
+		}
+		return;
+	} else { //Last packet
+		if (large_data_offset <= (sizeof(large_temp) - 57) && buffer[5] <= 56) {
+			base64_decode(large_temp+large_data_offset, buffer+6, buffer[5]); //Equals 56 in base32
+			large_data_offset = large_data_offset + buffer[5];
+		} else {
+			hidprint("Error backup file too large");
+		}
+#ifdef DEBUG 
+		Serial.print("Length of backup file = ");
+        Serial.println(large_data_offset);
+#endif 
+		
+	//TODO Decrypt  
+    }
+	ptr = large_temp;
+	large_temp[sizeof(large_temp)] = 0;
+	while(*ptr) {
+		if (*ptr = 0xFF) {
+			temp[0] = 0xFF;
+			temp[1] = 0xFF;
+			temp[2] = 0xFF;
+			temp[3] = 0xFF;
+			temp[4] = OKSETSLOT;
+			ptr++;
+			temp[5] = *ptr; //Slot
+			ptr++;
+			temp[6] = *ptr; //Value
+			ptr++;
+			temp[7] = *ptr; 
+			int i = 8;
+			ptr++;
+			while (*ptr != 0xFF && *ptr != 0x00) {
+				temp[i] = *ptr;
+				ptr++;
+				i++;
+			} 
+			SETSLOT(temp);
+		} else {
+		ptr++;
+		}
+	}
+hidprint("Backup file successfully loaded");
+memset(temp, 0, sizeof(temp)); //Wipe all data from temp
+memset(large_temp, 0, sizeof(large_temp)); //Wipe all data from largebuffer
+}
+
+void restorekeys(uint8_t *buffer) {
+  uint8_t temp[768];
+  static uint8_t large_temp[2970];
+  int urllength;
+  int usernamelength;
+  int passwordlength;
+  int otplength;
+  uint8_t *ptr;
+  large_data_offset = 0;
+  memset(large_temp, 0, sizeof(large_temp)); //Wipe all data from largebuffer
+
+  if (buffer[5]==0xFF) //Not last packet
+	{
+		if (large_data_offset <= (sizeof(large_temp) - 57)) {
+			base64_decode(large_temp+large_data_offset, buffer+6, 56); //Equals 56 in base32
+			large_data_offset = large_data_offset + 42;
+		} else {
+			hidprint("Error backup file too large");
+		}
+		return;
+	} else { //Last packet
+		if (large_data_offset <= (sizeof(large_temp) - 57) && buffer[5] <= 56) {
+			base64_decode(large_temp+large_data_offset, buffer+6, buffer[5]); //Equals 56 in base32
+			large_data_offset = large_data_offset + buffer[5];
+		} else {
+			hidprint("Error backup file too large");
+		}
+#ifdef DEBUG 
+		Serial.print("Length of backup file = ");
+        Serial.println(large_data_offset);
+#endif 
+		
+	//TODO Decrypt  
+    }
+	ptr = large_temp;
+	large_temp[sizeof(large_temp)] = 0;
+	
+
+	//Import Keys
+while (*ptr == 0xFF) {
+	memset(temp, 0, sizeof(temp));
+	temp[0] = 0xBA;
+	temp[1] = 0xFF;
+	temp[2] = 0xFF;
+	temp[3] = 0xFF;
+	temp[4] = OKSETPRIV;
+	ptr++;
+	temp[5] = *ptr; //Slot
+	ptr++;
+	temp[6] = *ptr; //Key type
+	if (temp[5] > 100) {
+		ptr++;
+		memcpy(temp+7, ptr, 32);
+		SETPRIV(temp);
+		ptr = ptr + 32;
+		large_data_offset = large_data_offset - 35;
+	} 
+	else if (*ptr == 1) {
+		ptr++;
+		memcpy(temp+7, ptr, 128);
+		SETPRIV(temp);
+		ptr = ptr + 128;
+		large_data_offset = large_data_offset - 131;
+	}
+	else if (*ptr == 2) {
+		ptr++;
+		memcpy(temp+7, ptr, 256);
+		SETPRIV(temp);
+		ptr = ptr + 256;
+		large_data_offset = large_data_offset - 259;
+	} else {
+		hidprint("Error backup file format incorrect");
+	}
+
+}
+
+	//Import U2F Priv
+if (*ptr == 0xF1) {
+	memset(temp, 0, sizeof(temp));
+	temp[0] = 0xBA;
+	temp[1] = 0xFF;
+	temp[2] = 0xFF;
+	temp[3] = 0xFF;
+	temp[4] = OKSETU2FPRIV;
+	memcpy(temp+5, ptr, 32);
+	SETU2FPRIV(temp);
+	ptr = ptr + 32;
+	large_data_offset = large_data_offset - 34;
+} else {
+	hidprint("Error backup file format incorrect");
+}
+
+	//Import U2F Cert
+if (*ptr == 0xF2) {
+	memset(temp, 0, sizeof(temp));
+	temp[0] = 0xBA;
+	temp[1] = 0xFF;
+	temp[2] = 0xFF;
+	temp[3] = 0xFF;
+	temp[4] = OKSETU2FCERT;
+	temp[5] = 0xBA;
+	memcpy(temp+6, ptr, (large_data_offset-3));
+	large_data_len=(large_data_offset-3);
+	SETU2FCERT(temp);
+} else {
+	hidprint("Error backup file format incorrect");
+}
+	
+hidprint("Backup file successfully loaded");
+memset(temp, 0, sizeof(temp)); //Wipe all data from temp
+memset(large_temp, 0, sizeof(large_temp)); //Wipe all data from largebuffer
+delay(2000);
+hidprint("Remove and Reinsert OnlyKey to complete restore");
+while (1==1) {
+	blink(3);
+}
+}

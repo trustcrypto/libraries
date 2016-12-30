@@ -54,8 +54,8 @@
 #include <Ed25519.h>
 
  
-#ifndef OKRSA_H
-#define OKRSA_H
+#ifndef OKCRYPTO_H
+#define OKCRYPTO_H
 
 
 
@@ -64,10 +64,16 @@ extern "C"
 {
 #endif
 
-extern void SIGNRSACHALLENGE (uint8_t *buffer);
-extern void SETRSAPRIV (uint8_t *buffer);
-extern void WIPERSAPRIV (uint8_t *buffer);
-extern void GETRSAPUBKEY ();
+extern void SIGN (uint8_t *buffer);
+extern void GETPUBKEY (uint8_t *buffer);
+extern void GETECCPUBKEY (uint8_t *buffer);
+extern void GETRSAPUBKEY (uint8_t *buffer);
+extern void DECRYPT (uint8_t *buffer);
+extern void DECRYPTECC (uint8_t *buffer);
+extern void DECRYPTRSA(uint8_t *buffer);
+extern void SIGNRSA (uint8_t *buffer);
+extern void SIGNECC (uint8_t *buffer);
+
 
 #ifdef __cplusplus
 }

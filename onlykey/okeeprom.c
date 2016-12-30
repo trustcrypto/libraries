@@ -80,6 +80,15 @@ void onlykey_eeset_common(
 }
 /*********************************/
 /*********************************/
+int onlykey_eeget_backupkey (uint8_t *ptr) {
+    onlykey_eeget_common(ptr, EEpos_backupkey, EElen_backupkey);
+    return EElen_backupkey;
+}
+void onlykey_eeset_backupkey (uint8_t *ptr) {
+    onlykey_eeset_common(ptr, EEpos_backupkey, EElen_backupkey);
+}
+/*********************************/
+/*********************************/
 int onlykey_eeget_timeout (uint8_t *ptr) {
     onlykey_eeget_common(ptr, EEpos_timeout, EElen_timeout);
     return EElen_timeout;
@@ -1860,192 +1869,6 @@ void onlykey_eeset_addchar2 (uint8_t *ptr, int slot) {
 
 }
 /*********************************/
-/*********************************/
-int onlykey_eeget_addchar4 (uint8_t *ptr, int slot) {
-    
-	switch (slot) {
-        	case 1:
-			onlykey_eeget_common(ptr, EEpos_addchar4_1, EElen_addchar);
-			return EElen_addchar;
-            break;
-		case 2:
-			onlykey_eeget_common(ptr, EEpos_addchar4_2, EElen_addchar);
-			return EElen_addchar;
-            break;
-		case 3:
-			onlykey_eeget_common(ptr, EEpos_addchar4_3, EElen_addchar);
-			return EElen_addchar;
-            break;
-		case 4:
-			onlykey_eeget_common(ptr, EEpos_addchar4_4, EElen_addchar);
-			return EElen_addchar;
-            break;
-		case 5:
-			onlykey_eeget_common(ptr, EEpos_addchar4_5, EElen_addchar);
-			return EElen_addchar;
-            break;
-		case 6:
-			onlykey_eeget_common(ptr, EEpos_addchar4_6, EElen_addchar);
-			return EElen_addchar;
-            break;
-		case 7:
-			onlykey_eeget_common(ptr, EEpos_addchar4_7, EElen_addchar);
-			return EElen_addchar;
-            break;
-		case 8:
-			onlykey_eeget_common(ptr, EEpos_addchar4_8, EElen_addchar);
-			return EElen_addchar;
-            break;
-		case 9:
-			onlykey_eeget_common(ptr, EEpos_addchar4_9, EElen_addchar);
-			return EElen_addchar;
-            break;
-		case 10:
-			onlykey_eeget_common(ptr, EEpos_addchar4_10, EElen_addchar);
-			return EElen_addchar;
-            break;
-		case 11:
-			onlykey_eeget_common(ptr, EEpos_addchar4_11, EElen_addchar);
-			return EElen_addchar;
-            break;
-		case 12:
-			onlykey_eeget_common(ptr, EEpos_addchar4_12, EElen_addchar);
-			return EElen_addchar;
-            break;
-		case 13:
-			onlykey_eeget_common(ptr, EEpos_addchar4_13, EElen_addchar);
-			return EElen_addchar;
-            break;
-		case 14:
-			onlykey_eeget_common(ptr, EEpos_addchar4_14, EElen_addchar);
-			return EElen_addchar;
-            break;
-		case 15:
-			onlykey_eeget_common(ptr, EEpos_addchar4_15, EElen_addchar);
-			return EElen_addchar;
-            break;
-		case 16:
-			onlykey_eeget_common(ptr, EEpos_addchar4_16, EElen_addchar);
-			return EElen_addchar;
-            break;
-		case 17:
-			onlykey_eeget_common(ptr, EEpos_addchar4_17, EElen_addchar);
-			return EElen_addchar;
-            break;
-		case 18:
-			onlykey_eeget_common(ptr, EEpos_addchar4_18, EElen_addchar);
-			return EElen_addchar;
-            break;
-		case 19:
-			onlykey_eeget_common(ptr, EEpos_addchar4_19, EElen_addchar);
-			return EElen_addchar;
-            break;
-		case 20:
-			onlykey_eeget_common(ptr, EEpos_addchar4_20, EElen_addchar);
-			return EElen_addchar;
-            break;
-		case 21:
-			onlykey_eeget_common(ptr, EEpos_addchar4_21, EElen_addchar);
-			return EElen_addchar;
-            break;
-		case 22:
-			onlykey_eeget_common(ptr, EEpos_addchar4_22, EElen_addchar);
-			return EElen_addchar;
-            break;
-		case 23:
-			onlykey_eeget_common(ptr, EEpos_addchar4_23, EElen_addchar);
-			return EElen_addchar;
-            break;
-		case 24:
-			onlykey_eeget_common(ptr, EEpos_addchar4_24, EElen_addchar);
-			return EElen_addchar;
-            break;	
-	}
-
-	return 0;
-	
-}
-/*********************************/
-/*********************************/
-void onlykey_eeset_addchar4 (uint8_t *ptr, int slot) {
-    
-		switch (slot) {
-
-        	case 1:
-		onlykey_eeset_common(ptr, EEpos_addchar4_1, EElen_addchar);
-            break;
-		case 2:
-		onlykey_eeset_common(ptr, EEpos_addchar4_2, EElen_addchar);
-            break;
-		case 3:
-		onlykey_eeset_common(ptr, EEpos_addchar4_3, EElen_addchar);
-            break;
-		case 4:
-		onlykey_eeset_common(ptr, EEpos_addchar4_4, EElen_addchar);
-            break;
-		case 5:
-		onlykey_eeset_common(ptr, EEpos_addchar4_5, EElen_addchar);
-            break;
-		case 6:
-		onlykey_eeset_common(ptr, EEpos_addchar4_6, EElen_addchar);
-            break;
-		case 7:
-		onlykey_eeset_common(ptr, EEpos_addchar4_7, EElen_addchar);
-            break;
-		case 8:
-		onlykey_eeset_common(ptr, EEpos_addchar4_8, EElen_addchar);
-            break;
-		case 9:
-		onlykey_eeset_common(ptr, EEpos_addchar4_9, EElen_addchar);
-            break;
-		case 10:
-		onlykey_eeset_common(ptr, EEpos_addchar4_10, EElen_addchar);
-            break;
-		case 11:
-		onlykey_eeset_common(ptr, EEpos_addchar4_11, EElen_addchar);
-            break;
-		case 12:
-		onlykey_eeset_common(ptr, EEpos_addchar4_12, EElen_addchar);
-            break;
-        case 13:
-		onlykey_eeset_common(ptr, EEpos_addchar4_13, EElen_addchar);
-            break;
-		case 14:
-		onlykey_eeset_common(ptr, EEpos_addchar4_14, EElen_addchar);
-            break;
-		case 15:
-		onlykey_eeset_common(ptr, EEpos_addchar4_15, EElen_addchar);
-            break;
-		case 16:
-		onlykey_eeset_common(ptr, EEpos_addchar4_16, EElen_addchar);
-            break;
-		case 17:
-		onlykey_eeset_common(ptr, EEpos_addchar4_17, EElen_addchar);
-            break;
-		case 18:
-		onlykey_eeset_common(ptr, EEpos_addchar4_18, EElen_addchar);
-            break;
-		case 19:
-		onlykey_eeset_common(ptr, EEpos_addchar4_19, EElen_addchar);
-            break;
-		case 20:
-		onlykey_eeset_common(ptr, EEpos_addchar4_20, EElen_addchar);
-            break;
-		case 21:
-		onlykey_eeset_common(ptr, EEpos_addchar4_21, EElen_addchar);
-            break;
-		case 22:
-		onlykey_eeset_common(ptr, EEpos_addchar4_22, EElen_addchar);
-            break;
-		case 23:
-		onlykey_eeset_common(ptr, EEpos_addchar4_23, EElen_addchar);
-            break;
-		case 24:
-		onlykey_eeset_common(ptr, EEpos_addchar4_24, EElen_addchar);
-            break;
-	}
-
-}
 /*********************************//*********************************/
 int onlykey_eeget_addchar3 (uint8_t *ptr, int slot) {
     
@@ -2990,131 +2813,131 @@ void onlykey_eeset_2FAtype (uint8_t *ptr, int slot) {
 int onlykey_eeget_ecckey (uint8_t *ptr, int slot) {
     
 	switch (slot) {
-        case 1:
+        case 101:
 			onlykey_eeget_common(ptr, EEpos_ecckey1, EElen_ecckey);
 			return EElen_ecckey;
             break;
-		case 2:
+		case 102:
 			onlykey_eeget_common(ptr, EEpos_ecckey2, EElen_ecckey);
 			return EElen_ecckey;
             break;
-		case 3:
+		case 103:
 			onlykey_eeget_common(ptr, EEpos_ecckey3, EElen_ecckey);
 			return EElen_ecckey;
             break;
-		case 4:
+		case 104:
 			onlykey_eeget_common(ptr, EEpos_ecckey4, EElen_ecckey);
 			return EElen_ecckey;
             break;
-		case 5:
+		case 105:
 			onlykey_eeget_common(ptr, EEpos_ecckey5, EElen_ecckey);
 			return EElen_ecckey;
             break;
-		case 6:
+		case 106:
 			onlykey_eeget_common(ptr, EEpos_ecckey6, EElen_ecckey);
 			return EElen_ecckey;
             break;
-		case 7:
+		case 107:
 			onlykey_eeget_common(ptr, EEpos_ecckey7, EElen_ecckey);
 			return EElen_ecckey;
             break;
-		case 8:
+		case 108:
 			onlykey_eeget_common(ptr, EEpos_ecckey8, EElen_ecckey);
 			return EElen_ecckey;
             break;
-		case 9:
+		case 109:
 			onlykey_eeget_common(ptr, EEpos_ecckey9, EElen_ecckey);
 			return EElen_ecckey;
             break;
-		case 10:
+		case 110:
 			onlykey_eeget_common(ptr, EEpos_ecckey10, EElen_ecckey);
 			return EElen_ecckey;
             break;
-		case 11:
+		case 111:
 			onlykey_eeget_common(ptr, EEpos_ecckey11, EElen_ecckey);
 			return EElen_ecckey;
             break;
-		case 12:
+		case 112:
 			onlykey_eeget_common(ptr, EEpos_ecckey12, EElen_ecckey);
 			return EElen_ecckey;
             break;
-        case 13:
+        case 113:
 			onlykey_eeget_common(ptr, EEpos_ecckey13, EElen_ecckey);
 			return EElen_ecckey;
             break;
-		case 14:
+		case 114:
 			onlykey_eeget_common(ptr, EEpos_ecckey14, EElen_ecckey);
 			return EElen_ecckey;
             break;
-		case 15:
+		case 115:
 			onlykey_eeget_common(ptr, EEpos_ecckey15, EElen_ecckey);
 			return EElen_ecckey;
             break;
-		case 16:
+		case 116:
 			onlykey_eeget_common(ptr, EEpos_ecckey16, EElen_ecckey);
 			return EElen_ecckey;
             break;
-		case 17:
+		case 117:
 			onlykey_eeget_common(ptr, EEpos_ecckey17, EElen_ecckey);
 			return EElen_ecckey;
             break;
-		case 18:
+		case 118:
 			onlykey_eeget_common(ptr, EEpos_ecckey18, EElen_ecckey);
 			return EElen_ecckey;
             break;
-		case 19:
+		case 119:
 			onlykey_eeget_common(ptr, EEpos_ecckey19, EElen_ecckey);
 			return EElen_ecckey;
             break;
-		case 20:
+		case 120:
 			onlykey_eeget_common(ptr, EEpos_ecckey20, EElen_ecckey);
 			return EElen_ecckey;
             break;
-		case 21:
+		case 121:
 			onlykey_eeget_common(ptr, EEpos_ecckey21, EElen_ecckey);
 			return EElen_ecckey;
             break;
-		case 22:
+		case 122:
 			onlykey_eeget_common(ptr, EEpos_ecckey22, EElen_ecckey);
 			return EElen_ecckey;
             break;
-		case 23:
+		case 123:
 			onlykey_eeget_common(ptr, EEpos_ecckey23, EElen_ecckey);
 			return EElen_ecckey;
             break;
-		case 24:
+		case 124:
 			onlykey_eeget_common(ptr, EEpos_ecckey24, EElen_ecckey);
 			return EElen_ecckey;
             break;
-		case 25:
+		case 125:
 			onlykey_eeget_common(ptr, EEpos_ecckey25, EElen_ecckey);
 			return EElen_ecckey;
             break;
-		case 26:
+		case 126:
 			onlykey_eeget_common(ptr, EEpos_ecckey26, EElen_ecckey);
 			return EElen_ecckey;
             break;
-		case 27:
+		case 127:
 			onlykey_eeget_common(ptr, EEpos_ecckey27, EElen_ecckey);
 			return EElen_ecckey;
             break;
-		case 28:
+		case 128:
 			onlykey_eeget_common(ptr, EEpos_ecckey28, EElen_ecckey);
 			return EElen_ecckey;
             break;
-		case 29:
+		case 129:
 			onlykey_eeget_common(ptr, EEpos_ecckey29, EElen_ecckey);
 			return EElen_ecckey;
             break;
-		case 30:
+		case 130:
 			onlykey_eeget_common(ptr, EEpos_ecckey30, EElen_ecckey);
 			return EElen_ecckey;
             break;
-		case 31:
+		case 131:
 			onlykey_eeget_common(ptr, EEpos_ecckey31, EElen_ecckey);
 			return EElen_ecckey;
             break;
-		case 32:
+		case 132:
 			onlykey_eeget_common(ptr, EEpos_ecckey32, EElen_ecckey);
 			return EElen_ecckey;
             break;		
@@ -3129,100 +2952,100 @@ void onlykey_eeset_ecckey (uint8_t *ptr, int slot) {
     
 		switch (slot) {
 
-        case 1:
+        case 101:
 		onlykey_eeset_common(ptr, EEpos_ecckey1, EElen_ecckey);
             break;
-		case 2:
+		case 102:
 		onlykey_eeset_common(ptr, EEpos_ecckey2, EElen_ecckey);
             break;
-		case 3:
+		case 103:
 		onlykey_eeset_common(ptr, EEpos_ecckey3, EElen_ecckey);
             break;
-		case 4:
+		case 104:
 		onlykey_eeset_common(ptr, EEpos_ecckey4, EElen_ecckey);
             break;
-		case 5:
+		case 105:
 		onlykey_eeset_common(ptr, EEpos_ecckey5, EElen_ecckey);
             break;
-		case 6:
+		case 106:
 		onlykey_eeset_common(ptr, EEpos_ecckey6, EElen_ecckey);
             break;
-		case 7:
+		case 107:
 		onlykey_eeset_common(ptr, EEpos_ecckey7, EElen_ecckey);
             break;
-		case 8:
+		case 108:
 		onlykey_eeset_common(ptr, EEpos_ecckey8, EElen_ecckey);
             break;
-		case 9:
+		case 109:
 		onlykey_eeset_common(ptr, EEpos_ecckey9, EElen_ecckey);
             break;
-		case 10:
+		case 110:
 		onlykey_eeset_common(ptr, EEpos_ecckey10, EElen_ecckey);
             break;
-		case 11:
+		case 111:
 		onlykey_eeset_common(ptr, EEpos_ecckey11, EElen_ecckey);
             break;
-		case 12:
+		case 112:
 		onlykey_eeset_common(ptr, EEpos_ecckey12, EElen_ecckey);
             break;
-        case 13:
+        case 113:
 		onlykey_eeset_common(ptr, EEpos_ecckey13, EElen_ecckey);
             break;
-		case 14:
+		case 114:
 		onlykey_eeset_common(ptr, EEpos_ecckey14, EElen_ecckey);
             break;
-		case 15:
+		case 115:
 		onlykey_eeset_common(ptr, EEpos_ecckey15, EElen_ecckey);
             break;
-		case 16:
+		case 116:
 		onlykey_eeset_common(ptr, EEpos_ecckey16, EElen_ecckey);
             break;
-		case 17:
+		case 117:
 		onlykey_eeset_common(ptr, EEpos_ecckey17, EElen_ecckey);
             break;
-		case 18:
+		case 118:
 		onlykey_eeset_common(ptr, EEpos_ecckey18, EElen_ecckey);
             break;
-		case 19:
+		case 119:
 		onlykey_eeset_common(ptr, EEpos_ecckey19, EElen_ecckey);
             break;
-		case 20:
+		case 120:
 		onlykey_eeset_common(ptr, EEpos_ecckey20, EElen_ecckey);
             break;
-		case 21:
+		case 121:
 		onlykey_eeset_common(ptr, EEpos_ecckey21, EElen_ecckey);
             break;
-		case 22:
+		case 122:
 		onlykey_eeset_common(ptr, EEpos_ecckey22, EElen_ecckey);
             break;
-		case 23:
+		case 123:
 		onlykey_eeset_common(ptr, EEpos_ecckey23, EElen_ecckey);
             break;
-		case 24:
+		case 124:
 		onlykey_eeset_common(ptr, EEpos_ecckey24, EElen_ecckey);
             break;
-		case 25:
+		case 125:
 		onlykey_eeset_common(ptr, EEpos_ecckey25, EElen_ecckey);
             break;
-		case 26:
+		case 126:
 		onlykey_eeset_common(ptr, EEpos_ecckey26, EElen_ecckey);
             break;
-		case 27:
+		case 127:
 		onlykey_eeset_common(ptr, EEpos_ecckey27, EElen_ecckey);
             break;
-		case 28:
+		case 128:
 		onlykey_eeset_common(ptr, EEpos_ecckey28, EElen_ecckey);
             break;
-		case 29:
+		case 129:
 		onlykey_eeset_common(ptr, EEpos_ecckey29, EElen_ecckey);
             break;
-		case 30:
+		case 130:
 		onlykey_eeset_common(ptr, EEpos_ecckey30, EElen_ecckey);
             break;
-		case 31:
+		case 131:
 		onlykey_eeset_common(ptr, EEpos_ecckey31, EElen_ecckey);
             break;
-		case 32:
+		case 132:
 		onlykey_eeset_common(ptr, EEpos_ecckey32, EElen_ecckey);
             break;
 	}

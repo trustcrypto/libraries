@@ -95,7 +95,7 @@ struct ch_state {
 extern uint8_t expected_next_packet;
 extern int large_data_len;
 extern int large_data_offset;
-extern uint8_t large_buffer[1024];
+extern uint8_t large_buffer[BUFFER_SIZE];
 extern uint8_t large_resp_buffer[1024];
 extern uint8_t recv_buffer[64];
 extern uint8_t resp_buffer[64];
