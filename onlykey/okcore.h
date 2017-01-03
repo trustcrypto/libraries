@@ -79,9 +79,9 @@ extern "C"
 #define OKWIPEU2FCERT  		(TYPE_INIT | 0x6B)  //
 #define OKGETPUBKEY          (TYPE_INIT | 0x6C)//
 #define OKSIGN      (TYPE_INIT | 0x6D)//
-#define OKDECRYPT      (TYPE_INIT | 0x6E)//
-#define OKWIPEPRIV           (TYPE_INIT | 0x6F)//
-#define OKSETPRIV            (TYPE_INIT | 0x70)// 
+#define OKWIPEPRIV           (TYPE_INIT | 0x6E)//
+#define OKSETPRIV            (TYPE_INIT | 0x6F)// 
+#define OKDECRYPT      (TYPE_INIT | 0x70)//
 #define OKRESTORE            (TYPE_INIT | 0x71)// Last vendor defined command
 
 #define BUFFER_SIZE 2048 //Large RAM buffer size

@@ -288,11 +288,11 @@ void DECRYPTRSA (uint8_t *buffer)
     curves[num_curves++] = uECC_secp256r1();
     curves[num_curves++] = uECC_secp256k1();
 	// Sign the blob stored in the buffer
-	if (type==0x01) Ed25519::sign(ecc_signature, ecc_private_key, ecc_public_key, large_buffer, large_data_offset);
-	else if (type==0x02) {
+	if (type==1) Ed25519::sign(ecc_signature, ecc_private_key, ecc_public_key, large_buffer, large_data_offset);
+	else if (type==2) {
 		uECC_sign(ecc_private_key, large_buffer, large_data_offset, ecc_signature, curves[1]);
 	}
-	else if (type==0x03) {
+	else if (type==3) {
 		uECC_sign(ecc_private_key, large_buffer, large_data_offset, ecc_signature, curves[2]);
 	}
     

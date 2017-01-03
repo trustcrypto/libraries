@@ -3804,20 +3804,32 @@ int onlykey_flashget_ECC (int slot)
 if (PDmode) return 0;
 #ifdef US_VERSION
 #ifdef DEBUG 
-    Serial.println("Flashget ECC");
+    Serial.print("Flashget ECC key from slot # ");
+	Serial.println(slot);
 #endif 
     uint8_t flashoffset[1];	
+    uint8_t type;
 	onlykey_eeget_flashpos((uint8_t*)flashoffset);
+	if (slot<101 || slot>132) {	
+#ifdef DEBUG 
+	Serial.printf("Error invalid ECC slot");
+#endif 
+	hidprint("Error invalid ECC slot");
+	return 0;
+	}
 	uintptr_t adr = (unsigned long)flashoffset[0] * (unsigned long)2048;
 	adr = adr + 12288; //7th flash sector
-	uint8_t type;
-	onlykey_eeget_ecckey((uint8_t*)type, slot); //Key Type (1-3) and slot (101-132)
+	onlykey_eeget_ecckey(&type, slot); //Key Type (1-3) and slot (101-132)
+	#ifdef DEBUG 
+    Serial.print("Type of ECC KEY is ");
+	Serial.println(type);
+	#endif
 	if (type==0x00) {	
 	Serial.printf("There is no ECC Private Key set in this slot");
 	hidprint("There is no ECC Private Key set in this slot");
 	return 0;
 	}
-	adr = adr + ((slot-100)*32);
+	adr = adr + (((slot-100)*32)-32);
     onlykey_flashget_common((uint8_t*)ecc_private_key, (unsigned long*)adr, 32); 
 	#ifdef DEBUG 
 	Serial.printf("Read ECC Private Key from Sector 0x%X ",adr);
@@ -3826,11 +3838,11 @@ if (PDmode) return 0;
     int num_curves = 0;
     curves[num_curves++] = uECC_secp256r1();
     curves[num_curves++] = uECC_secp256k1();
-	if (type==0x10) Ed25519::derivePublicKey(ecc_public_key, ecc_private_key);
-	else if (type==0x11) {
+	if (type==1) Ed25519::derivePublicKey(ecc_public_key, ecc_private_key);
+	else if (type==2) {
 		uECC_compute_public_key(ecc_private_key, ecc_public_key, curves[1]);
 	}
-	else if (type==0x12) {
+	else if (type==3) {
 		uECC_compute_public_key(ecc_private_key, ecc_public_key, curves[2]);
 	}
 	return type;
@@ -3849,20 +3861,30 @@ if (PDmode) return;
 	onlykey_eeget_flashpos((uint8_t*)flashoffset);
 	uintptr_t adr = (unsigned long)flashoffset[0] * (unsigned long)2048;
 	adr = adr + 12288; //7th free flash sector
-	uint8_t *ptr;
 	//Write ID to EEPROM
-	ptr = buffer+5; 
-	onlykey_eeset_ecckey((ptr+1), (int)(ptr)); //Key Type (1-3) and slot (101-132)
+	if (buffer[5]<101 || buffer[5]>132) {	
+#ifdef DEBUG 
+	Serial.printf("Error invalid ECC slot");
+#endif 
+	hidprint("Error invalid ECC slot");
+	return;
+	} else {
+#ifdef DEBUG 
+	Serial.printf("Slot = 0x%X ",buffer[5]);
+	Serial.printf("Type = 0x%X ",buffer[6]);
+#endif 
+	}
+	onlykey_eeset_ecckey(&buffer[6], (int)buffer[5]); //Key Type (1-3) and slot (101-132)
 	//Write buffer to flash
     uint8_t temp[2048];
     uint8_t *tptr;
     tptr=temp;
-	ptr = buffer+7;
+	uint8_t *ptr = buffer+7;
     //Copy current flash contents to buffer
     onlykey_flashget_common(tptr, (unsigned long*)adr, 2048);
     //Add new flash contents to buffer
     for( int z = 0; z <= 32; z++){
-    temp[z+((32*(buffer[5]-100))-32)] = ((uint8_t)*(ptr+z));
+    temp[z+(((buffer[5]-100)*32)-32)] = ((uint8_t)*(ptr+z));
     }
     //Erase flash sector
 #ifdef DEBUG 
@@ -3902,17 +3924,29 @@ if (PDmode) return 0;
 	Serial.println(slot);
 #endif 
     uint8_t flashoffset[1];	
+	uint8_t type;
+	if (slot<1 || slot>4) {	
+#ifdef DEBUG
+	Serial.printf("Error invalid RSA slot");
+#endif 
+	hidprint("Error invalid RSA slot");
+	return 0;
+	}
 	onlykey_eeget_flashpos((uint8_t*)flashoffset);
 	uintptr_t adr = (unsigned long)flashoffset[0] * (unsigned long)2048;
 	adr = adr + 14336; //8th free flash sector
-	uint8_t type;
-	onlykey_eeget_rsakey((uint8_t*)type, slot); //Key Type (1-2) and slot (1-4)
+	onlykey_eeget_rsakey(&type, slot); //Key Type (1-2) and slot (1-4)
+	#ifdef DEBUG 
+    Serial.print("Type of RSA KEY is ");
+	Serial.println(type);
+	#endif
 	if (type==0x00) {	
 	Serial.printf("There is no RSA Private Key set in this slot");
 	hidprint("There is no RSA Private Key set in this slot");
 	return 0;
 	}
-	adr = adr + (slot*256);
+
+	adr = adr + ((slot*256)-256);
     onlykey_flashget_common((uint8_t*)rsa_private_key, (unsigned long*)adr, (type*128)); 
 	#ifdef DEBUG 
 	Serial.printf("Read RSA Private Key from Sector 0x%X ",adr);
@@ -3935,7 +3969,18 @@ if (PDmode) return;
 	onlykey_eeget_flashpos((uint8_t*)flashoffset);
 	uintptr_t adr = (unsigned long)flashoffset[0] * (unsigned long)2048;
 	adr = adr + 14336; //8th free flash sector
-	uint8_t *ptr;
+	if (buffer[5]<1 || buffer[5]>4) {
+#ifdef DEBUG 		
+	Serial.printf("Error invalid RSA slot");
+#endif 
+	hidprint("Error invalid RSA slot");
+	return;
+	} else {
+#ifdef DEBUG 
+	Serial.printf("Slot = 0x%X ",buffer[5]);
+	Serial.printf("Type = 0x%X ",buffer[6]);
+#endif 
+	}
 
 	if (buffer[0] == 0xFF && buffer[6]==0x01) //Expect 128 Bytes, if buffer[0] != FF we know this is import from backup
 	{
@@ -3952,8 +3997,7 @@ if (PDmode) return;
 		}
 	}
 	//Write ID to EEPROM
-	ptr = buffer+5; 
-	onlykey_eeset_rsakey((ptr+1), (int)(ptr)); //Key Type (1-2) and slot (1-4)
+	onlykey_eeset_rsakey(&buffer[6], (int)buffer[5]); //Key Type (1-2) and slot (1-4)
 	//Write buffer to flash
 #ifdef DEBUG 
 		Serial.print("Received RSA Key of size ");
@@ -3962,13 +4006,13 @@ if (PDmode) return;
     uint8_t temp[2048];
     uint8_t *tptr;
     tptr=temp;
-	ptr=rsa_private_key;
+	uint8_t *ptr=rsa_private_key;
 	if (buffer[0] == 0xBA) ptr=buffer+7;
     //Copy current flash contents to buffer
     onlykey_flashget_common(tptr, (unsigned long*)adr, 2048);
     //Add new flash contents to buffer
     for( int z = 0; z <= 256; z++){
-    temp[z+((256*buffer[5])-256)] = ((uint8_t)*(ptr+z));
+    temp[z+((buffer[5]*256)-256)] = ((uint8_t)*(ptr+z));
     }
     //Erase flash sector
 #ifdef DEBUG 
@@ -4023,7 +4067,7 @@ if (PDmode) return;
     onlykey_flashget_common(tptr, (unsigned long*)adr, 2048);
     //Wipe content from buffer
     for( int z = 0; z <= 256; z++){
-    temp[z+((256*buffer[5])-256)] = 0x00;
+    temp[z+((buffer[5]*256)-256)] = 0x00;
     }
 	//Write buffer to flash
     onlykey_flashset_common(ptr, (unsigned long*)adr, 2048);
