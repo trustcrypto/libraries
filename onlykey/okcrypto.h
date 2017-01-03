@@ -73,6 +73,10 @@ extern void DECRYPTECC (uint8_t *buffer);
 extern void DECRYPTRSA(uint8_t *buffer);
 extern void SIGNRSA (uint8_t *buffer);
 extern void SIGNECC (uint8_t *buffer);
+extern uint8_t Challenge_button1;
+extern uint8_t Challenge_button2;
+extern uint8_t Challenge_button3;
+extern uint8_t CRYPTO_AUTH;
 
 
 #ifdef __cplusplus

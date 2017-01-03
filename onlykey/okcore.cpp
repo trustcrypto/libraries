@@ -81,6 +81,7 @@ int PINSET = 0;
 bool PDmode;
 bool unlocked = false;
 bool initialized = false;
+bool configmode = false;
 uint8_t TIMEOUT[1] = {30}; //Default 30 Min
 uint8_t TYPESPEED[1] = {100}; //Default 100 Ms
 extern uint8_t KeyboardLayout[1];
@@ -252,13 +253,16 @@ void recvmsg() {
 	   {
 		hidprint("No PIN set, You must set a PIN first");
 		return;
-	   }else if (initialized==true && unlocked==true) 
+	   }else if (initialized==true && unlocked==true && configmode==true) 
 	   {
 		if(!PDmode) {
 		#ifdef US_VERSION
 		SETU2FPRIV(recv_buffer);
 		#endif
 		}
+	   }
+	   else if (initialized==true && unlocked==true && configmode==false) { 
+	   hidprint("ERROR NOT IN CONFIG MODE, HOLD BUTTON 6 DOWN FOR 5 SEC");
 	   }
 	   else
 	   {
@@ -331,13 +335,16 @@ void recvmsg() {
 	   {
 		hidprint("No PIN set, You must set a PIN first");
 		return;
-	   }else if (initialized==true && unlocked==true) 
+	   }else if (initialized==true && unlocked==true && configmode==true) 
 	   {
                 if(!PDmode) {
                 #ifdef US_VERSION
                 if (recv_buffer[0] != 0xBA) SETPRIV(recv_buffer);
                 #endif
                 }
+	   }
+	   else if (initialized==true && unlocked==true && configmode==false) { 
+	   hidprint("ERROR NOT IN CONFIG MODE, HOLD BUTTON 6 DOWN FOR 5 SEC");
 	   }
 	   else
 	   {
@@ -423,6 +430,28 @@ void recvmsg() {
 	   }
 	   else
 	   {
+	   hidprint("ERROR DEVICE LOCKED");
+	   return;
+	   }	
+      return;
+      break;
+	  case OKRESTORE:
+			if(initialized==false && unlocked==true) 
+	   {
+		hidprint("No PIN set, You must set a PIN first");
+		return;
+	   }else if (initialized==true && unlocked==true && configmode==true) 
+	   {
+                if(!PDmode) {
+                #ifdef US_VERSION
+                RESTORE(recv_buffer);
+                #endif
+                }
+	   }
+	   else if (initialized==true && unlocked==true && configmode==false) { 
+	   hidprint("ERROR NOT IN CONFIG MODE, HOLD BUTTON 6 DOWN FOR 5 SEC");
+	   }
+	   else {
 	   hidprint("ERROR DEVICE LOCKED");
 	   return;
 	   }	
@@ -4583,33 +4612,34 @@ large_data_offset = 0;
 memset(large_temp, 0 , sizeof(large_temp));
 }
 
-
-void restoreslots(uint8_t *buffer) {
+void RESTORE(uint8_t *buffer) {
   uint8_t temp[64];
   static uint8_t large_temp [7028];
+  static bool finishedslots;
   int urllength;
   int usernamelength;
   int passwordlength;
   int otplength;
   uint8_t *ptr;
-  large_data_offset = 0;
-  memset(large_temp, 0, sizeof(large_temp)); //Wipe all data from largebuffer
 
-  if (buffer[5]==0xFF) //Not last packet
+  //Slot restore
+  if (buffer[5]==0xFF && !finishedslots) //Not last packet
 	{
 	if (large_data_offset <= (sizeof(large_temp) - 57)) {
 			base64_decode(large_temp+large_data_offset, buffer+6, 56); //Equals 56 in base32
 			large_data_offset = large_data_offset + 42;
 		} else {
 			hidprint("Error backup file too large");
+			return;
 		}
 		return;
-	} else { //Last packet
+	} else if (!finishedslots) { //Last packet
 		if (large_data_offset <= (sizeof(large_temp) - 57) && buffer[5] <= 56) {
 			base64_decode(large_temp+large_data_offset, buffer+6, buffer[5]); //Equals 56 in base32
 			large_data_offset = large_data_offset + buffer[5];
 		} else {
 			hidprint("Error backup file too large");
+			return;
 		}
 #ifdef DEBUG 
 		Serial.print("Length of backup file = ");
@@ -4617,65 +4647,58 @@ void restoreslots(uint8_t *buffer) {
 #endif 
 		
 	//TODO Decrypt  
-    }
-	ptr = large_temp;
-	large_temp[sizeof(large_temp)] = 0;
-	while(*ptr) {
-		if (*ptr = 0xFF) {
-			temp[0] = 0xFF;
-			temp[1] = 0xFF;
-			temp[2] = 0xFF;
-			temp[3] = 0xFF;
-			temp[4] = OKSETSLOT;
-			ptr++;
-			temp[5] = *ptr; //Slot
-			ptr++;
-			temp[6] = *ptr; //Value
-			ptr++;
-			temp[7] = *ptr; 
-			int i = 8;
-			ptr++;
-			while (*ptr != 0xFF && *ptr != 0x00) {
-				temp[i] = *ptr;
+		ptr = large_temp;
+		large_temp[sizeof(large_temp)] = 0;
+		while(*ptr) {
+			if (*ptr = 0xFF) {
+				temp[0] = 0xFF;
+				temp[1] = 0xFF;
+				temp[2] = 0xFF;
+				temp[3] = 0xFF;
+				temp[4] = OKSETSLOT;
 				ptr++;
-				i++;
-			} 
-			SETSLOT(temp);
-		} else {
-		ptr++;
+				temp[5] = *ptr; //Slot
+				ptr++;
+				temp[6] = *ptr; //Value
+				ptr++;
+				temp[7] = *ptr; 
+				int i = 8;
+				ptr++;
+				while (*ptr != 0xFF && *ptr != 0x00) {
+					temp[i] = *ptr;
+					ptr++;
+					i++;
+				} 
+				SETSLOT(temp);
+			} else {
+			ptr++;
+			}
 		}
+	hidprint("Successfully loaded backup of slot configuration");
+	memset(temp, 0, sizeof(temp)); //Wipe all data from temp
+	memset(large_temp, 0, sizeof(large_temp)); //Wipe all data from largebuffer
+	large_data_offset = 0;
+	finishedslots = true;
 	}
-hidprint("Backup file successfully loaded");
-memset(temp, 0, sizeof(temp)); //Wipe all data from temp
-memset(large_temp, 0, sizeof(large_temp)); //Wipe all data from largebuffer
-}
 
-void restorekeys(uint8_t *buffer) {
-  uint8_t temp[768];
-  static uint8_t large_temp[2970];
-  int urllength;
-  int usernamelength;
-  int passwordlength;
-  int otplength;
-  uint8_t *ptr;
-  large_data_offset = 0;
-  memset(large_temp, 0, sizeof(large_temp)); //Wipe all data from largebuffer
-
-  if (buffer[5]==0xFF) //Not last packet
+  //Key restore
+  if (buffer[5]==0xFF && finishedslots) //Not last packet
 	{
 		if (large_data_offset <= (sizeof(large_temp) - 57)) {
 			base64_decode(large_temp+large_data_offset, buffer+6, 56); //Equals 56 in base32
 			large_data_offset = large_data_offset + 42;
 		} else {
 			hidprint("Error backup file too large");
+			return;
 		}
 		return;
-	} else { //Last packet
+	} else if (finishedslots) { //Last packet
 		if (large_data_offset <= (sizeof(large_temp) - 57) && buffer[5] <= 56) {
 			base64_decode(large_temp+large_data_offset, buffer+6, buffer[5]); //Equals 56 in base32
 			large_data_offset = large_data_offset + buffer[5];
 		} else {
 			hidprint("Error backup file too large");
+			return;
 		}
 #ifdef DEBUG 
 		Serial.print("Length of backup file = ");
@@ -4683,87 +4706,86 @@ void restorekeys(uint8_t *buffer) {
 #endif 
 		
 	//TODO Decrypt  
-    }
-	ptr = large_temp;
 	large_temp[sizeof(large_temp)] = 0;
 	
-
 	//Import Keys
-while (*ptr == 0xFF) {
-	memset(temp, 0, sizeof(temp));
-	temp[0] = 0xBA;
-	temp[1] = 0xFF;
-	temp[2] = 0xFF;
-	temp[3] = 0xFF;
-	temp[4] = OKSETPRIV;
-	ptr++;
-	temp[5] = *ptr; //Slot
-	ptr++;
-	temp[6] = *ptr; //Key type
-	if (temp[5] > 100) {
+	while (*ptr == 0xFF) {
+		memset(temp, 0, sizeof(temp));
+		temp[0] = 0xBA;
+		temp[1] = 0xFF;
+		temp[2] = 0xFF;
+		temp[3] = 0xFF;
+		temp[4] = OKSETPRIV;
 		ptr++;
-		memcpy(temp+7, ptr, 32);
-		SETPRIV(temp);
-		ptr = ptr + 32;
-		large_data_offset = large_data_offset - 35;
-	} 
-	else if (*ptr == 1) {
+		temp[5] = *ptr; //Slot
 		ptr++;
-		memcpy(temp+7, ptr, 128);
-		SETPRIV(temp);
-		ptr = ptr + 128;
-		large_data_offset = large_data_offset - 131;
+		temp[6] = *ptr; //Key type
+		if (temp[5] > 100) {
+			ptr++;
+			memcpy(temp+7, ptr, 32);
+			SETPRIV(temp);
+			ptr = ptr + 32;
+			large_data_offset = large_data_offset - 35;
+		} 
+		else if (*ptr == 1) {
+			ptr++;
+			memcpy(temp+7, ptr, 128);
+			SETPRIV(temp);
+			ptr = ptr + 128;
+			large_data_offset = large_data_offset - 131;
+		}
+		else if (*ptr == 2) {
+			ptr++;
+			memcpy(temp+7, ptr, 256);
+			SETPRIV(temp);
+			ptr = ptr + 256;
+			large_data_offset = large_data_offset - 259;
+		} else {
+			hidprint("Error backup file format incorrect");
+		}
+
 	}
-	else if (*ptr == 2) {
-		ptr++;
-		memcpy(temp+7, ptr, 256);
-		SETPRIV(temp);
-		ptr = ptr + 256;
-		large_data_offset = large_data_offset - 259;
+
+		//Import U2F Priv
+	if (*ptr == 0xF1) {
+		memset(temp, 0, sizeof(temp));
+		temp[0] = 0xBA;
+		temp[1] = 0xFF;
+		temp[2] = 0xFF;
+		temp[3] = 0xFF;
+		temp[4] = OKSETU2FPRIV;
+		memcpy(temp+5, ptr, 32);
+		SETU2FPRIV(temp);
+		ptr = ptr + 32;
+		large_data_offset = large_data_offset - 34;
 	} else {
 		hidprint("Error backup file format incorrect");
 	}
 
-}
-
-	//Import U2F Priv
-if (*ptr == 0xF1) {
-	memset(temp, 0, sizeof(temp));
-	temp[0] = 0xBA;
-	temp[1] = 0xFF;
-	temp[2] = 0xFF;
-	temp[3] = 0xFF;
-	temp[4] = OKSETU2FPRIV;
-	memcpy(temp+5, ptr, 32);
-	SETU2FPRIV(temp);
-	ptr = ptr + 32;
-	large_data_offset = large_data_offset - 34;
-} else {
-	hidprint("Error backup file format incorrect");
-}
-
-	//Import U2F Cert
-if (*ptr == 0xF2) {
-	memset(temp, 0, sizeof(temp));
-	temp[0] = 0xBA;
-	temp[1] = 0xFF;
-	temp[2] = 0xFF;
-	temp[3] = 0xFF;
-	temp[4] = OKSETU2FCERT;
-	temp[5] = 0xBA;
-	memcpy(temp+6, ptr, (large_data_offset-3));
-	large_data_len=(large_data_offset-3);
-	SETU2FCERT(temp);
-} else {
-	hidprint("Error backup file format incorrect");
-}
+		//Import U2F Cert
+	if (*ptr == 0xF2) {
+		memset(temp, 0, sizeof(temp));
+		temp[0] = 0xBA;
+		temp[1] = 0xFF;
+		temp[2] = 0xFF;
+		temp[3] = 0xFF;
+		temp[4] = OKSETU2FCERT;
+		temp[5] = 0xBA;
+		memcpy(temp+6, ptr, (large_data_offset-3));
+		large_data_len=(large_data_offset-3);
+		SETU2FCERT(temp);
+	} else {
+		hidprint("Error backup file format incorrect");
+	}
+	hidprint("Successfully loaded backup file");
+	memset(temp, 0, sizeof(temp)); //Wipe all data from temp
+	memset(large_temp, 0, sizeof(large_temp)); //Wipe all data from largebuffer
+	large_data_offset = 0;
+	delay(2000);
+	hidprint("Remove and Reinsert OnlyKey to complete restore");
+	while (1==1) {
+		blink(3);
+	}
+    }
 	
-hidprint("Backup file successfully loaded");
-memset(temp, 0, sizeof(temp)); //Wipe all data from temp
-memset(large_temp, 0, sizeof(large_temp)); //Wipe all data from largebuffer
-delay(2000);
-hidprint("Remove and Reinsert OnlyKey to complete restore");
-while (1==1) {
-	blink(3);
-}
 }

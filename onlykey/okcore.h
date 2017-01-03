@@ -81,7 +81,8 @@ extern "C"
 #define OKSIGN      (TYPE_INIT | 0x6D)//
 #define OKDECRYPT      (TYPE_INIT | 0x6E)//
 #define OKWIPEPRIV           (TYPE_INIT | 0x6F)//
-#define OKSETPRIV            (TYPE_INIT | 0x70)// Last vendor defined command
+#define OKSETPRIV            (TYPE_INIT | 0x70)// 
+#define OKRESTORE            (TYPE_INIT | 0x71)// Last vendor defined command
 
 #define BUFFER_SIZE 2048 //Large RAM buffer size
 
@@ -131,9 +132,11 @@ extern void wipeEEPROM();
 extern void wipeflash();
 extern bool unlocked;
 extern bool initialized;
+extern bool configmode;
 extern bool PDmode;
 extern int PINSET;
 extern int u2f_button;
+extern int large_data_offset;
 extern void aes_gcm_encrypt (uint8_t * state, uint8_t * iv1, const uint8_t * key, int len);
 extern void aes_gcm_decrypt (uint8_t * state, uint8_t * iv1, const uint8_t * key, int len);
 extern void aes_gcm_encrypt2 (uint8_t * state, uint8_t * iv1, const uint8_t * key, int len);
@@ -179,6 +182,7 @@ extern void backupkeys();
 extern void SETRSAPRIV (uint8_t *buffer);
 extern void WIPERSAPRIV (uint8_t *buffer);
 extern void SETECCPRIV (uint8_t *buffer);
+extern void RESTORE (uint8_t *buffer);
 
 #ifdef __cplusplus
 }
