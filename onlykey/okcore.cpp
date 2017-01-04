@@ -203,7 +203,8 @@ void recvmsg() {
 		return;
 	   }else if (initialized==true && unlocked==true) 
 	   {
-		GETLABELS(recv_buffer);
+		if (recv_buffer[5] == 'k') GETKEYLABELS();
+		else GETSLOTLABELS();
 	   }
 	   else
 	   {
@@ -888,7 +889,46 @@ void SETTIME (uint8_t *buffer)
       return;
 }
 
-void GETLABELS (uint8_t *buffer)
+void GETKEYLABELS ()
+{
+#ifdef DEBUG
+      Serial.println();
+	  Serial.println("OKGETKEYLABELS MESSAGE RECEIVED");
+#endif
+	  uint8_t label[EElen_label+3];
+	  uint8_t *ptr;
+	  char labelchar[EElen_label+3];
+	  int offset  = 0;
+	  ptr=label+2;
+	  
+	for (int i = 25; i<=28; i++) { //4 labels for RSA keys
+	  onlykey_flashget_label(ptr, (offset + i));
+	  label[0] = (uint8_t)i-24; //1-4
+	  label[1] = (uint8_t)0x7C;
+	  ByteToChar(label, labelchar, EElen_label+3);
+#ifdef DEBUG
+	  Serial.println(labelchar);
+#endif
+	  hidprint(labelchar);
+	  delay(20);
+	}
+	for (int i = 29; i<=61; i++) { //31 labels for ECC keys
+	  onlykey_flashget_label(ptr, (offset + i));
+	  label[0] = (uint8_t)i+72; //101-132
+	  label[1] = (uint8_t)0x7C;
+	  ByteToChar(label, labelchar, EElen_label+3);
+#ifdef DEBUG
+	  Serial.println(labelchar);
+#endif
+	  hidprint(labelchar);
+	  delay(20);
+	}
+	  
+      blink(3);
+      return;
+}
+
+void GETSLOTLABELS ()
 {
 #ifdef DEBUG
       	  Serial.println();
@@ -897,12 +937,14 @@ void GETLABELS (uint8_t *buffer)
 	  uint8_t label[EElen_label+3];
 	  uint8_t *ptr;
 	  char labelchar[EElen_label+3];
-	  int offset  = 0;
+	  int offset = 0;
 	  ptr=label+2;
 	  if (PDmode) offset = 12;
 	  
-	  onlykey_flashget_label(ptr, (offset + 1));
-	  label[0] = (uint8_t)0x01;
+	for (uint8_t i = 0x01; i<=0x0C; i++) {
+	  onlykey_flashget_label(ptr, (offset + i));
+	  if (i<=9) label[0] = i;
+	  else label[0] = i+6;
 	  label[1] = (uint8_t)0x7C;
 	  ByteToChar(label, labelchar, EElen_label+3);
 #ifdef DEBUG
@@ -910,122 +952,11 @@ void GETLABELS (uint8_t *buffer)
 #endif
 	  hidprint(labelchar);
 	  delay(20);
-	  
-	  onlykey_flashget_label(ptr, (offset   + 2));
-	  label[0] = (uint8_t)0x02;
-	  label[1] = (uint8_t)0x7C;
-	  ByteToChar(label, labelchar, EElen_label+3);
-#ifdef DEBUG
-	  Serial.println(labelchar);
-#endif
-      	  hidprint(labelchar);
-      	  delay(20);
-	  
-	  onlykey_flashget_label(ptr, (offset  + 3));
-	  label[0] = (uint8_t)0x03;
-	  label[1] = (uint8_t)0x7C;
-	  ByteToChar(label, labelchar, EElen_label+3);
-#ifdef DEBUG
-	  Serial.println(labelchar);
-#endif
-          hidprint(labelchar);
-          delay(20);
-	  
-	  onlykey_flashget_label(ptr, (offset  + 4));
-	  label[0] = (uint8_t)0x04;
-	  label[1] = (uint8_t)0x7C;
-	  ByteToChar(label, labelchar, EElen_label+3);
-#ifdef DEBUG
-	  Serial.println(labelchar);
-#endif
-          hidprint(labelchar);
-          delay(20);
-	  
-	  onlykey_flashget_label(ptr, (offset  + 5));
-	  label[0] = (uint8_t)0x05;
-	  label[1] = (uint8_t)0x7C;
-	  ByteToChar(label, labelchar, EElen_label+3);
-#ifdef DEBUG
-	  Serial.println(labelchar);
-#endif
-          hidprint(labelchar);
-          delay(20);
-	  
-	  onlykey_flashget_label(ptr, (offset  + 6));
-	  label[0] = (uint8_t)0x06;
-	  label[1] = (uint8_t)0x7C;
-	  ByteToChar(label, labelchar, EElen_label+3);
-#ifdef DEBUG
-	  Serial.println(labelchar);
-#endif
-          hidprint(labelchar);
-          delay(20);
-	  
-	  onlykey_flashget_label(ptr, (offset  + 7));
-	  label[0] = (uint8_t)0x07;
-	  label[1] = (uint8_t)0x7C;
-	  ByteToChar(label, labelchar, EElen_label+3);
-#ifdef DEBUG
-	  Serial.println(labelchar);
-#endif
-          hidprint(labelchar);
-          delay(20);
-	  
-	  onlykey_flashget_label(ptr, (offset  + 8));
-	  label[0] = (uint8_t)0x08;
-	  label[1] = (uint8_t)0x7C;
-	  ByteToChar(label, labelchar, EElen_label+3);
-#ifdef DEBUG
-	  Serial.println(labelchar);
-#endif
-          hidprint(labelchar);
-          delay(20);
-	  
-	  onlykey_flashget_label(ptr, (offset  + 9));
-	  label[0] = (uint8_t)0x09;
-	  label[1] = (uint8_t)0x7C;
-	  ByteToChar(label, labelchar, EElen_label+3);
-#ifdef DEBUG
-	  Serial.println(labelchar);
-#endif
-          hidprint(labelchar);
-          delay(20);
-	  
-	  onlykey_flashget_label(ptr, (offset  + 10));
-	  label[0] = (uint8_t)0x10;
-	  label[1] = (uint8_t)0x7C;
-	  ByteToChar(label, labelchar, EElen_label+3);
-#ifdef DEBUG
-	  Serial.println(labelchar);
-#endif
-          hidprint(labelchar);
-          delay(20);
-	  
-	  onlykey_flashget_label(ptr, (offset  + 11));
-	  label[0] = (uint8_t)0x11;
-	  label[1] = (uint8_t)0x7C;
-	  ByteToChar(label, labelchar, EElen_label+3);
-#ifdef DEBUG
-	  Serial.println(labelchar);
-#endif
-          hidprint(labelchar);
-          delay(20);
-	  
-	  onlykey_flashget_label(ptr, (offset  + 12));
-	  label[0] = (uint8_t)0x12;
-	  label[1] = (uint8_t)0x7C;
-	  ByteToChar(label, labelchar, EElen_label+3);
-#ifdef DEBUG
-	  Serial.println(labelchar);
-#endif
-          hidprint(labelchar);
-          delay(20);
+	}
 	  
       blink(3);
       return;
 }
-
-
 
 void SETSLOT (uint8_t *buffer)
 {
@@ -1590,7 +1521,8 @@ void hidprint(char const * chars)
 { 
 int i=0;
 while(*chars) {
-     resp_buffer[i] = (uint8_t)*chars;
+	 if (*chars == 0xFF) resp_buffer[i] = 0x00; //Empty flash sector is 0xFF
+     else resp_buffer[i] = (uint8_t)*chars;
      chars++;
 	 i++;
   }
@@ -2975,108 +2907,12 @@ return;
 
 
 void onlykey_flashget_label (uint8_t *ptr, int slot) {
-
     uint8_t flashoffset[1];	
 	onlykey_eeget_flashpos((uint8_t*)flashoffset);
 	uintptr_t adr = (unsigned long)flashoffset[0] * (unsigned long)2048;
 	adr = adr + 6144; //4th free sector
-	switch (slot) {
-        case 1:
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
-            break;
-		case 2:
-			adr=adr+((EElen_label*slot)-EElen_label);
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
-            break;
-		case 3:
-			adr=adr+((EElen_label*slot)-EElen_label);
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
-            break;
-		case 4:
-			adr=adr+((EElen_label*slot)-EElen_label);
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
-            break;
-		case 5:
-			adr=adr+((EElen_label*slot)-EElen_label);
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
-            break;
-		case 6:
-			adr=adr+((EElen_label*slot)-EElen_label);
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
-            break;
-		case 7:
-			adr=adr+((EElen_label*slot)-EElen_label);
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
-            break;
-		case 8:
-			adr=adr+((EElen_label*slot)-EElen_label);
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
-            break;
-		case 9:
-			adr=adr+((EElen_label*slot)-EElen_label);
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
-            break;
-		case 10:
-			adr=adr+((EElen_label*slot)-EElen_label);
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
-            break;
-		case 11:
-			adr=adr+((EElen_label*slot)-EElen_label);
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
-            break;
-		case 12:
-			adr=adr+((EElen_label*slot)-EElen_label);
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
-            break;
-		case 13:
-			adr=adr+((EElen_label*slot)-EElen_label);
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
-            break;
-		case 14:
-			adr=adr+((EElen_label*slot)-EElen_label);
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
-            break;
-		case 15:
-			adr=adr+((EElen_label*slot)-EElen_label);
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
-            break;
-		case 16:
-			adr=adr+((EElen_label*slot)-EElen_label);
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
-            break;
-		case 17:
-			adr=adr+((EElen_label*slot)-EElen_label);
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
-            break;
-		case 18:
-			adr=adr+((EElen_label*slot)-EElen_label);
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
-            break;
-		case 19:
-			adr=adr+((EElen_label*slot)-EElen_label);
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
-            break;
-		case 20:
-			adr=adr+((EElen_label*slot)-EElen_label);
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
-            break;
-		case 21:
-			adr=adr+((EElen_label*slot)-EElen_label);
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
-            break;
-		case 22:
-			adr=adr+((EElen_label*slot)-EElen_label);
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
-            break;
-		case 23:
-			adr=adr+((EElen_label*slot)-EElen_label);
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
-            break;
-		case 24:
-			adr=adr+((EElen_label*slot)-EElen_label);
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
-            break;	
-	}
+	adr=adr+((EElen_label*slot)-EElen_label);
+	onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
 }
 
 void onlykey_flashset_label (uint8_t *ptr, int slot) {
@@ -3095,6 +2931,7 @@ void onlykey_flashset_label (uint8_t *ptr, int slot) {
     temp[z+((EElen_label*slot)-EElen_label)] = ((uint8_t)*(ptr+z));
     }
     //Erase flash sector
+	if (*ptr!=0x00) { //No need to erase sector if wiping slot
 #ifdef DEBUG 
     Serial.printf("Erase Sector 0x%X ",adr);
 #endif 
@@ -3106,6 +2943,7 @@ void onlykey_flashset_label (uint8_t *ptr, int slot) {
 #ifdef DEBUG 
     Serial.printf("successful\r\n");
 #endif 
+	}
     onlykey_flashset_common(tptr, (unsigned long*)adr, 2048);
 return;
 }
@@ -4210,7 +4048,7 @@ void fadeoff() {
 void backupslots() {
   unsigned char *pos;
   uint8_t temp[64];
-  uint8_t large_temp[7028];
+  uint8_t large_temp[7712];
   int urllength;
   int usernamelength;
   int passwordlength;
@@ -4227,10 +4065,10 @@ void backupslots() {
 		delay(((TYPESPEED[0]*TYPESPEED[0])*10));
 	} 
   
-  for (slot=1; slot<=24; slot++)
+  for (slot=1; slot<=61; slot++)
   {
   #ifdef DEBUG
-    Serial.print("Backing up Slot Number ");
+    Serial.print("Backing up Label Number ");
     Serial.println(slot);
   #endif
     memset(temp, 0, 64); //Wipe all data from temp buffer
@@ -4244,6 +4082,15 @@ void backupslots() {
 		memcpy(large_temp+large_data_offset+3, temp, EElen_label);
         large_data_offset=large_data_offset+EElen_label+3;
       }
+  }
+  for (slot=1; slot<=24; slot++)
+  {
+	#ifdef DEBUG
+    Serial.print("Backing up Slot Number ");
+    Serial.println(slot);
+    #endif
+	memset(temp, 0, 64); //Wipe all data from temp buffer
+    ptr = temp;
     urllength = onlykey_flashget_url(ptr, slot);
     if(urllength > 0)
     {
