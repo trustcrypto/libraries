@@ -31,35 +31,39 @@
  *
  */
 
+ 
 #if !defined(MBEDTLS_CONFIG_FILE)
-#include "mbedtls/config.h"
+#include "config.h"
 #else
 #include MBEDTLS_CONFIG_FILE
 #endif
 
 #if defined(MBEDTLS_RSA_C)
 
-#include "mbedtls/rsa.h"
-#include "mbedtls/oid.h"
+#include "rsa.h"
+#include "oid.h"
 
 #include <string.h>
 
 #if defined(MBEDTLS_PKCS1_V21)
-#include "mbedtls/md.h"
+#include "md.h"
 #endif
 
 #if defined(MBEDTLS_PKCS1_V15) && !defined(__OpenBSD__)
 #include <stdlib.h>
 #endif
 
+
 #if defined(MBEDTLS_PLATFORM_C)
-#include "mbedtls/platform.h"
-#else
+#include "platform.h"
+//#else
 #include <stdio.h>
-#define mbedtls_printf printf
-#define mbedtls_calloc calloc
-#define mbedtls_free   free
+#include "WProgram.h"
+#define mbedtls_printf Serial.printf
+//#define mbedtls_calloc calloc
+//#define mbedtls_free   free
 #endif
+
 
 /*
  * Initialize an RSA context
@@ -1105,11 +1109,11 @@ int mbedtls_rsa_rsassa_pkcs1_v15_sign( mbedtls_rsa_context *ctx,
      * In order to prevent Lenstra's attack, make the signature in a
      * temporary buffer and check it before returning it.
      */
-    sig_try = mbedtls_calloc( 1, ctx->len );
+    sig_try = (unsigned char*)mbedtls_calloc( 1, ctx->len );
     if( sig_try == NULL )
         return( MBEDTLS_ERR_MPI_ALLOC_FAILED );
 
-    verif   = mbedtls_calloc( 1, ctx->len );
+    verif = (unsigned char*)mbedtls_calloc( 1, ctx->len );
     if( verif == NULL )
     {
         mbedtls_free( sig_try );
@@ -1527,7 +1531,7 @@ void mbedtls_rsa_free( mbedtls_rsa_context *ctx )
 
 #if defined(MBEDTLS_SELF_TEST)
 
-#include "mbedtls/sha1.h"
+#include "sha1.h"
 
 /*
  * Example RSA-1024 keypair, for test purposes
@@ -1617,9 +1621,9 @@ int mbedtls_rsa_self_test( int verbose )
     unsigned char rsa_plaintext[PT_LEN];
     unsigned char rsa_decrypted[PT_LEN];
     unsigned char rsa_ciphertext[KEY_LEN];
-#if defined(MBEDTLS_SHA1_C)
+/*#if defined(MBEDTLS_SHA1_C)
     unsigned char sha1sum[20];
-#endif
+#endif*/
 
     mbedtls_rsa_init( &rsa, MBEDTLS_RSA_PKCS_V15, 0 );
 
@@ -1712,7 +1716,7 @@ int mbedtls_rsa_self_test( int verbose )
 
     if( verbose != 0 )
         mbedtls_printf( "passed\n" );
-#endif /* MBEDTLS_SHA1_C */
+#endif  /* MBEDTLS_SHA1_C */
 
     if( verbose != 0 )
         mbedtls_printf( "\n" );

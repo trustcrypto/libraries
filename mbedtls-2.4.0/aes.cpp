@@ -26,7 +26,7 @@
  */
 
 #if !defined(MBEDTLS_CONFIG_FILE)
-#include "mbedtls/config.h"
+#include "config.h"
 #else
 #include MBEDTLS_CONFIG_FILE
 #endif
@@ -35,20 +35,14 @@
 
 #include <string.h>
 
-#include "mbedtls/aes.h"
-#if defined(MBEDTLS_PADLOCK_C)
-#include "mbedtls/padlock.h"
-#endif
-#if defined(MBEDTLS_AESNI_C)
-#include "mbedtls/aesni.h"
-#endif
+#include "aes.h"
 
 #if defined(MBEDTLS_SELF_TEST)
 #if defined(MBEDTLS_PLATFORM_C)
-#include "mbedtls/platform.h"
-#else
+#include "platform.h"
 #include <stdio.h>
-#define mbedtls_printf printf
+#include "WProgram.h"
+#define mbedtls_printf Serial.printf
 #endif /* MBEDTLS_PLATFORM_C */
 #endif /* MBEDTLS_SELF_TEST */
 
