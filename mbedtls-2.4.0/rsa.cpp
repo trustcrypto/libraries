@@ -1046,7 +1046,7 @@ int mbedtls_rsa_rsassa_pkcs1_v15_sign( mbedtls_rsa_context *ctx,
 
     olen = ctx->len;
     nb_pad = olen - 3;
-
+#if defined(MBEDTLS_SHA1_C)
     if( md_alg != MBEDTLS_MD_NONE )
     {
         const mbedtls_md_info_t *md_info = mbedtls_md_info_from_type( md_alg );
@@ -1060,7 +1060,7 @@ int mbedtls_rsa_rsassa_pkcs1_v15_sign( mbedtls_rsa_context *ctx,
 
         hashlen = mbedtls_md_get_size( md_info );
     }
-
+#endif
     nb_pad -= hashlen;
 
     if( ( nb_pad < 8 ) || ( nb_pad > olen ) )
@@ -1621,9 +1621,9 @@ int mbedtls_rsa_self_test( int verbose )
     unsigned char rsa_plaintext[PT_LEN];
     unsigned char rsa_decrypted[PT_LEN];
     unsigned char rsa_ciphertext[KEY_LEN];
-/*#if defined(MBEDTLS_SHA1_C)
+#if defined(MBEDTLS_SHA1_C)
     unsigned char sha1sum[20];
-#endif*/
+#endif
 
     mbedtls_rsa_init( &rsa, MBEDTLS_RSA_PKCS_V15, 0 );
 

@@ -3613,8 +3613,8 @@ if (PDmode) return;
 
 void SETPRIV (uint8_t *buffer)
 {
-	if (buffer[6] > 80) {//Type is Backup key
-	buffer[6] = buffer[6] - 80;
+	if (buffer[6] > 0x80) {//Type is Backup key
+	buffer[6] = buffer[6] - 0x80;
 	onlykey_eeset_backupkey(buffer+5); //Set this key slot as the backup key
 	} 
 	
@@ -3662,11 +3662,11 @@ if (PDmode) return 0;
     Serial.print("Type of ECC KEY is ");
 	Serial.println(type);
 	#endif
-	if (type==0x00) {	
-	Serial.printf("There is no ECC Private Key set in this slot");
-	hidprint("There is no ECC Private Key set in this slot");
-	return 0;
-	}
+	if(type==0x00) {
+		Serial.printf("There is no ECC Private Key set in this slot");
+		hidprint("There is no ECC Private Key set in this slot");
+		return 0;
+	} 
 	adr = adr + (((slot-100)*32)-32);
     onlykey_flashget_common((uint8_t*)ecc_private_key, (unsigned long*)adr, 32); 
 	#ifdef DEBUG 
@@ -3686,6 +3686,8 @@ if (PDmode) return 0;
 	return type;
 #endif
 }
+
+
 
 void SETECCPRIV (uint8_t *buffer)
 {
@@ -3708,8 +3710,8 @@ if (PDmode) return;
 	return;
 	} else {
 #ifdef DEBUG 
-	Serial.printf("Slot = 0x%X ",buffer[5]);
-	Serial.printf("Type = 0x%X ",buffer[6]);
+	Serial.printf("Slot = %d ",buffer[5]);
+	Serial.printf("Type = %d ",buffer[6]);
 #endif 
 	}
 	onlykey_eeset_ecckey(&buffer[6], (int)buffer[5]); //Key Type (1-3) and slot (101-132)
@@ -3815,8 +3817,8 @@ if (PDmode) return;
 	return;
 	} else {
 #ifdef DEBUG 
-	Serial.printf("Slot = 0x%X ",buffer[5]);
-	Serial.printf("Type = 0x%X ",buffer[6]);
+	Serial.printf("Slot = %d ",buffer[5]);
+	Serial.printf("Type = %d ",buffer[6]);
 #endif 
 	}
 
@@ -4537,7 +4539,14 @@ void RESTORE(uint8_t *buffer) {
         Serial.println(large_data_offset);
 #endif 
 		
-	//TODO Decrypt  
+	//TODO Decrypt 
+	//onlykey_eeget_backupkey (slot);
+	//if (slot > 100) onlykey_flashget_ECC (slot);
+	//else if (slot < 8) onlykey_flashget_RSA (slot);
+	//else return;
+	//sha256 hash of priv key and string 
+	//aes_gcm_decrypt2((buffer + 7), (uint8_t*)('t'+ID[34]+slot), phash, length);
+		
 		ptr = large_temp;
 		large_temp[sizeof(large_temp)] = 0;
 		while(*ptr) {
