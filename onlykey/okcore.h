@@ -128,6 +128,7 @@ extern void rngloop();
 extern int RNG2(uint8_t *dest, unsigned size);
 extern void printHex(const uint8_t *data, unsigned len);
 extern void hidprint(char const * chars);
+extern void byteprint(uint8_t* bytes, int size);
 extern void factorydefault();
 extern void wipeEEPROM();
 extern void wipeflash();
@@ -184,6 +185,7 @@ extern void SETRSAPRIV (uint8_t *buffer);
 extern void WIPERSAPRIV (uint8_t *buffer);
 extern void SETECCPRIV (uint8_t *buffer);
 extern void RESTORE (uint8_t *buffer);
+extern void process_packets (uint8_t *buffer);
 
 #ifdef __cplusplus
 }

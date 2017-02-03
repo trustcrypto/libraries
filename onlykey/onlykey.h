@@ -56,7 +56,10 @@
 #define DEBUG //Enable Serial Monitor 
 #define US_VERSION //Define for US Version Firmare
 
+#ifndef OKCORE_H
 #include "okcore.h"
+#define OKCORE_H
+#endif
 
 #ifdef __cplusplus
 extern "C"

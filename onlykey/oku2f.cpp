@@ -100,7 +100,6 @@ extern uint8_t large_resp_buffer[1024];
 extern uint8_t recv_buffer[64];
 extern uint8_t resp_buffer[64];
 uint8_t handle[64];
-extern uint8_t sha256_hash[32];
 extern char attestation_pub[66];
 extern char attestation_priv[33];
 extern char attestation_der[768];
@@ -113,7 +112,7 @@ const char stored_priv[] = "\xD3\x0C\x9C\xAC\x7D\xA2\xB4\xA7\xD7\x1B\x00\x2A\x40
 const char stored_der[] = "\x30\x82\x01\xB4\x30\x82\x01\x58\xA0\x03\x02\x01\x02\x02\x01\x01\x30\x0C\x06\x08\x2A\x86\x48\xCE\x3D\x04\x03\x02\x05\x00\x30\x61\x31\x0B\x30\x09\x06\x03\x55\x04\x06\x13\x02\x44\x45\x31\x26\x30\x24\x06\x03\x55\x04\x0A\x0C\x1D\x55\x6E\x74\x72\x75\x73\x74\x77\x6F\x72\x74\x68\x79\x20\x43\x41\x20\x4F\x72\x67\x61\x6E\x69\x73\x61\x74\x69\x6F\x6E\x31\x0F\x30\x0D\x06\x03\x55\x04\x08\x0C\x06\x42\x65\x72\x6C\x69\x6E\x31\x19\x30\x17\x06\x03\x55\x04\x03\x0C\x10\x55\x6E\x74\x72\x75\x73\x74\x77\x6F\x72\x74\x68\x79\x20\x43\x41\x30\x22\x18\x0F\x32\x30\x31\x34\x30\x39\x32\x34\x31\x32\x30\x30\x30\x30\x5A\x18\x0F\x32\x31\x31\x34\x30\x39\x32\x34\x31\x32\x30\x30\x30\x30\x5A\x30\x5E\x31\x0B\x30\x09\x06\x03\x55\x04\x06\x13\x02\x44\x45\x31\x21\x30\x1F\x06\x03\x55\x04\x0A\x0C\x18\x76\x69\x72\x74\x75\x61\x6C\x2D\x75\x32\x66\x2D\x6D\x61\x6E\x75\x66\x61\x63\x74\x75\x72\x65\x72\x31\x0F\x30\x0D\x06\x03\x55\x04\x08\x0C\x06\x42\x65\x72\x6C\x69\x6E\x31\x1B\x30\x19\x06\x03\x55\x04\x03\x0C\x12\x76\x69\x72\x74\x75\x61\x6C\x2D\x75\x32\x66\x2D\x76\x30\x2E\x30\x2E\x31\x30\x59\x30\x13\x06\x07\x2A\x86\x48\xCE\x3D\x02\x01\x06\x08\x2A\x86\x48\xCE\x3D\x03\x01\x07\x03\x42\x00\x04\xC3\xC9\x1F\x25\x2E\x20\x10\x7B\x5E\x8D\xEA\xB1\x90\x20\x98\xF7\x28\x70\x71\xE4\x54\x18\xB8\x98\xCE\x5F\xF1\x7C\xA7\x25\xAE\x78\xC3\x3C\xC7\x01\xC0\x74\x60\x11\xCB\xBB\xB5\x8B\x08\xB6\x1D\x20\xC0\x5E\x75\xD5\x01\xA3\xF8\xF7\xA1\x67\x3F\xBE\x32\x63\xAE\xBE\x30\x0C\x06\x08\x2A\x86\x48\xCE\x3D\x04\x03\x02\x05\x00\x03\x48\x00\x30\x45\x02\x21\x00\x8E\xB9\x20\x57\xA1\xF3\x41\x4F\x1B\x79\x1A\x58\xE6\x07\xAB\xA4\x66\x1C\x93\x61\xFB\xC4\xBA\x89\x65\x5C\x8A\x3B\xEC\x10\x68\xDA\x02\x20\x15\x90\xA8\x76\xF0\x80\x47\xDF\x60\x8E\x23\xB2\x2A\xA0\xAA\xD2\x4B\x0D\x49\xC9\x75\x33\x00\xAF\x32\xB6\x90\x73\xF0\xA1\xA4\xDB";
 
   
-char handlekey[34] = {0};
+uint8_t handlekey[34] = {0};
 
 const struct uECC_Curve_t * curve = uECC_secp256r1(); //P-256
 
@@ -132,7 +131,7 @@ void U2Finit()
   sha256_final(&hkey, (uint8_t*)handlekey); //Create hash and store in handlekey
 #ifdef DEBUG
   Serial.println("HANDLE KEY =");
-  Serial.println(handlekey); 
+  byteprint(handlekey, 32); 
 #endif
   uint8_t length[2];
   onlykey_eeget_U2Fcertlen(length);
@@ -142,17 +141,9 @@ void U2Finit()
   } else {
   memcpy(attestation_pub, stored_pub, 66);
   memcpy(attestation_priv, stored_priv, 33);
-#ifdef DEBUG
-  for (unsigned int i = 0; i< sizeof(stored_priv); i++) {
-    Serial.print(attestation_priv[i],HEX);
-    }
-#endif
+  byteprint((uint8_t*)attestation_priv,sizeof(stored_priv));
   memcpy(attestation_der, stored_der, sizeof(stored_der));
-#ifdef DEBUG
-  for (unsigned int i = 0; i< sizeof(stored_der); i++) {
-    Serial.print(attestation_der[i],HEX);
-    }
-#endif
+  byteprint((uint8_t*)attestation_der,sizeof(stored_der));
   }
 }
 
@@ -312,10 +303,7 @@ void sendLargeResponse(uint8_t *request, int len)
 #ifdef DEBUG	
 	Serial.print("Sending large response ");
 	Serial.println(len);
-	for (int i = 0; i < len; i++) {
-		Serial.print(large_resp_buffer[i], HEX);
-		Serial.print(" ");
-	}
+	byteprint(large_resp_buffer, len);
 	Serial.println("\n--\n");
 #endif	
 	memcpy(resp_buffer, request, 4); //copy cid
@@ -350,6 +338,7 @@ int u2f_button = 0;
 void processMessage(uint8_t *buffer)
 {
   int len = buffer[5] << 8 | buffer[6];
+  uint8_t sha256_hash[32];
 #ifdef DEBUG  
   Serial.println(F("Got message"));
   Serial.println(len);
@@ -357,9 +346,7 @@ void processMessage(uint8_t *buffer)
 #endif  
   uint8_t *message = buffer + 7;
 #ifdef DEBUG
-  for (int i = 7; i < 7+len; i++) {
-    Serial.print(buffer[i], HEX);
-  }
+  byteprint(buffer, 7+len);
   Serial.println(F(""));
 #endif  
   //todo: check CLA = 0
@@ -403,8 +390,6 @@ void processMessage(uint8_t *buffer)
 
 #endif
       }
-    
-
       uint8_t *datapart = message + 7;
       uint8_t *challenge_parameter = datapart;
       uint8_t *application_parameter = datapart+32;
@@ -417,17 +402,11 @@ void processMessage(uint8_t *buffer)
       public_k[0] = 0x04;
 #ifdef DEBUG
       Serial.println(F("Public K"));
-      for (unsigned int i =0; i < sizeof(public_k); i++) {
-        Serial.print(public_k[i], HEX);
-        Serial.print(" ");
-      }
-      Serial.println("");
+	  byteprint(public_k, sizeof(public_k));
+      Serial.println();
       Serial.println(F("Private K"));
-      for (unsigned int i =0; i < sizeof(private_k); i++) {
-        Serial.print(private_k[i], HEX);
-        Serial.print(" ");
-      }
-      Serial.println("");
+	  byteprint(private_k, sizeof(private_k));
+      Serial.println();
 #endif      
       //construct hash
 
@@ -435,9 +414,7 @@ void processMessage(uint8_t *buffer)
       memcpy(handle+32, private_k, 32);
 #ifdef DEBUG
       Serial.println("Unencrypted handle");
-      for (unsigned int i =0; i<sizeof(handle); i++) {
-      Serial.print(handle[i],HEX);
-      }
+	  byteprint(handle, sizeof(handle));
 #endif
       SHA256_CTX IV;
       sha256_init(&IV);
@@ -449,9 +426,7 @@ void processMessage(uint8_t *buffer)
 #ifdef DEBUG
       Serial.println();
       Serial.println("Encrypted handle");
-      for (unsigned int i =0; i<sizeof(handle); i++) {
-      Serial.print(handle[i],HEX);
-      }
+      byteprint(handle, sizeof(handle));
 #endif
       SHA256_CTX ctx;
       sha256_init(&ctx);
@@ -459,20 +434,14 @@ void processMessage(uint8_t *buffer)
       sha256_update(&ctx, large_resp_buffer, 1);
 #ifdef DEBUG      
       Serial.println(F("App Parameter:"));
-      for (int i =0; i < 32; i++) {
-        Serial.print(application_parameter[i], HEX);
-        Serial.print(" ");
-      }
-      Serial.println("");
+	  byteprint(application_parameter, 32);
+      Serial.println();
 #endif
       sha256_update(&ctx, application_parameter, 32);
 #ifdef DEBUG
       Serial.println(F("Chal Parameter:"));
-      for (int i =0; i < 32; i++) {
-        Serial.print(challenge_parameter[i], HEX);
-        Serial.print(" ");
-      }
-      Serial.println("");
+	  byteprint(challenge_parameter, 32);
+      Serial.println();
 #endif
       sha256_update(&ctx, challenge_parameter, 32);
       sha256_update(&ctx, handle, 64);
@@ -480,11 +449,8 @@ void processMessage(uint8_t *buffer)
       sha256_final(&ctx, sha256_hash);
 #ifdef DEBUG
       Serial.println(F("Hash:"));
-      for (int i =0; i < 32; i++) {
-        Serial.print(sha256_hash[i], HEX);
-        Serial.print(" ");
-      }
-      Serial.println("");
+	  byteprint(sha256_hash, 32);
+      Serial.println();
 #endif
 
       uint8_t *signature = resp_buffer; //temporary
@@ -620,9 +586,7 @@ void processMessage(uint8_t *buffer)
       sha256_final(&IV2, sha256_hash);
 #ifdef DEBUG
       Serial.println("Encrypted handle");
-      for (unsigned int i =0; i<sizeof(handle); i++) {
-      Serial.print(handle[i]);
-      }
+	  byteprint(handle, sizeof(handle));
 #endif
 
       aes_gcm_decrypt2(handle, (uint8_t*)sha256_hash, (uint8_t*)handlekey, 64);
@@ -630,9 +594,7 @@ void processMessage(uint8_t *buffer)
 #ifdef DEBUG
       Serial.println();
       Serial.println("Unencrypted handle");
-      for (unsigned int i =0; i<sizeof(handle); i++) {
-      Serial.print(handle[i]);
-      }
+	  byteprint(handle, sizeof(handle));
 #endif
       uint8_t *key = handle + 32;
 

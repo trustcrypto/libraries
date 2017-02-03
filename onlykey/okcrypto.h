@@ -51,19 +51,19 @@
 
 #ifdef US_VERSION
 
-#include <Ed25519.h>
-
  
 #ifndef OKCRYPTO_H
 #define OKCRYPTO_H
 
-
+#include <Ed25519.h>
+#include <Curve25519.h>
+#include "rsa.h"
 
 #ifdef __cplusplus
 extern "C"
 {
 #endif
-#define MAX_RSA_KEY_SIZE 256
+#define MAX_RSA_KEY_SIZE 512
 #define MAX_ECC_KEY_SIZE 32
 
 extern void SIGN (uint8_t *buffer);
@@ -71,16 +71,17 @@ extern void GETPUBKEY (uint8_t *buffer);
 extern void GETECCPUBKEY (uint8_t *buffer);
 extern void GETRSAPUBKEY (uint8_t *buffer);
 extern void DECRYPT (uint8_t *buffer);
-extern void DECRYPTECC (uint8_t *buffer);
-extern void DECRYPTRSA(uint8_t *buffer);
-extern void SIGNRSA (uint8_t *buffer);
-extern void SIGNECC (uint8_t *buffer);
+extern void ECDH (uint8_t *buffer);
+extern void RSADECRYPT(uint8_t *buffer);
+extern void RSASIGN (uint8_t *buffer);
+extern void ECDSA_EDDSA (uint8_t *buffer);
 extern uint8_t Challenge_button1;
 extern uint8_t Challenge_button2;
 extern uint8_t Challenge_button3;
 extern uint8_t CRYPTO_AUTH;
 extern int rsa_decrypt (int mlen, size_t olen, const uint8_t *in, uint8_t *out);
 extern int rsa_sign (int mlen, uint8_t *msg, uint8_t *out);
+extern void rsa_getpub (uint8_t type);
 extern bool is_bit_set(unsigned char byte, int index);
 
 

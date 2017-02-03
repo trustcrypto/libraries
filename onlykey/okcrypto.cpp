@@ -54,8 +54,9 @@
 #include <cstring>
 #include "Arduino.h"
 #include "onlykey.h"
-#include "rsa.h"
-#include "oku2f.h"
+#include <SoftTimer.h>
+
+
 #if !defined(MBEDTLS_CONFIG_FILE)
 #include "config.h"
 #else
@@ -71,7 +72,7 @@
 /*************************************/
 //RSA assignments
 /*************************************/
-uint8_t rsa_public_key[MAX_RSA_KEY_SIZE];
+uint8_t rsa_publicN[MAX_RSA_KEY_SIZE];
 uint8_t rsa_private_key[MAX_RSA_KEY_SIZE];
 /*************************************/
 /*************************************/
@@ -85,115 +86,129 @@ uint8_t Challenge_button2 = 0;
 uint8_t Challenge_button3 = 0;
 uint8_t CRYPTO_AUTH = 0;
 uint8_t type;
+extern uint8_t resp_buffer[64];
+
 extern int large_data_offset;
 extern uint8_t large_buffer[BUFFER_SIZE];
 
 void SIGN (uint8_t *buffer) {
+	uECC_set_rng(&RNG2); 
+	#ifdef DEBUG
+	Serial.println();
+	Serial.println("OKSIGN MESSAGE RECEIVED"); 
+	#endif
+	bool signingkey;
+	uint8_t features;
 	if (buffer[5] < 101) { //Slot 101-132 are for ECC, 1-4 are for RSA
-	type = onlykey_flashget_RSA (buffer[5]);
-	SIGNRSA(buffer);
-	} else {
-	type = onlykey_flashget_ECC (buffer[5]);
-	SIGNECC(buffer);
-	}
-	if (!is_bit_set(type, 6)) {
+	features = onlykey_flashget_RSA ((int)buffer[5]);
+	Serial.print(features, BIN);
+	signingkey = is_bit_set(features, 6);
+	if (!signingkey) {
+		Serial.print("Error key not set as signature key");
 		hidprint("Error key not set as signature key");
 		return;
+	}
+	RSASIGN(buffer);
+	} else {
+	features = onlykey_flashget_ECC ((int)buffer[5]);
+	Serial.print(features, BIN);
+	signingkey = is_bit_set(features, 6);
+	Serial.print("before is bit set");
+	if (!signingkey) {
+		Serial.print("Error key not set as signature key");
+		hidprint("Error key not set as signature key");
+		return;
+	}
+	Serial.print("after is bit set");
+	ECDSA_EDDSA(buffer);
+	Serial.print("after ECDSA_EDDSA");
 	}
 }
 
 void GETPUBKEY (uint8_t *buffer) {
+	#ifdef DEBUG
+	Serial.println();
+	Serial.println("OKGETPUBKEY MESSAGE RECEIVED"); 
+	#endif
 	if (buffer[5] < 101) { //Slot 101-132 are for ECC, 1-4 are for RSA
-	type = onlykey_flashget_RSA (buffer[5]);
+	onlykey_flashget_RSA ((int)buffer[5]);
 	GETRSAPUBKEY(buffer);
 	} else {
-	type = onlykey_flashget_ECC (buffer[5]);	
+	onlykey_flashget_ECC ((int)buffer[5]);	
 	GETECCPUBKEY(buffer);
 	}
 }
 
 void DECRYPT (uint8_t *buffer){
+	uECC_set_rng(&RNG2); 
+	#ifdef DEBUG
+	Serial.println();
+	Serial.println("OKDECRYPT MESSAGE RECEIVED"); 
+	#endif
 	if (buffer[5] < 101) { //Slot 101-132 are for ECC, 1-4 are for RSA
-	type = onlykey_flashget_RSA (buffer[5]);
-	DECRYPTRSA(buffer);
-	} else {
-	type = onlykey_flashget_ECC (buffer[5]);	
-	DECRYPTECC(buffer);
-	}
-	if (!is_bit_set(type, 5)) {
+	uint8_t features = onlykey_flashget_RSA (buffer[5]);
+	if (!is_bit_set(features, 5)) {
 		hidprint("Error key not set as decryption key");
 		return;
+	}
+	RSADECRYPT(buffer);
+	} else {
+	uint8_t features = onlykey_flashget_ECC (buffer[5]);	
+	if (!is_bit_set(features, 5)) {
+		hidprint("Error key not set as decryption key");
+		return;
+	}
+	ECDH(buffer);
 	}
 }
 
 void GETRSAPUBKEY (uint8_t *buffer)
 {
-            #ifdef DEBUG
-    	    Serial.println("OKGETRSAPUBKEY MESSAGE RECEIVED"); 
-	    for (int i = 0; i< 32; i++) {
-    	    Serial.print(rsa_public_key[i],HEX);
-     	    }
-	    #endif
-            RawHID.send(rsa_public_key, (type*128));
-            blink(3);
+#ifdef DEBUG
+	byteprint(rsa_publicN, (type*128));
+#endif
+	memcpy(resp_buffer, rsa_publicN, 64);
+    RawHID.send(resp_buffer, 0);
+	delay(10);
+	memcpy(resp_buffer, rsa_publicN+64, 64);
+    RawHID.send(resp_buffer, 0);
+	delay(10);
+	if (type>=2) {
+	memcpy(resp_buffer, rsa_publicN+128, 64);
+    RawHID.send(resp_buffer, 0);
+	delay(10);
+	memcpy(resp_buffer, rsa_publicN+192, 64);
+    RawHID.send(resp_buffer, 0);
+	delay(10);
+	} if (type>=3) {
+	memcpy(resp_buffer, rsa_publicN+256, 64);
+    RawHID.send(resp_buffer, 0);
+	delay(10);
+	memcpy(resp_buffer, rsa_publicN+320, 64);
+    RawHID.send(resp_buffer, 0);
+	delay(10);
+	} if (type==4) {
+	memcpy(resp_buffer, rsa_publicN+384, 64);
+    RawHID.send(resp_buffer, 0);
+	delay(10);
+	memcpy(resp_buffer, rsa_publicN+448, 64);
+    RawHID.send(resp_buffer, 0);
+	delay(10);
+	}
+	blink(3);
 }
 
-void SIGNRSA (uint8_t *buffer)
+void RSASIGN (uint8_t *buffer)
 {
 	extern int large_data_offset;
 	extern uint8_t large_buffer[sizeof(large_buffer)];
-	uint8_t temp[32];
 	uint8_t rsa_signature[(type*128)];
 #ifdef DEBUG
     Serial.println();
-    Serial.println("OKSIGNRSACHALLENGE MESSAGE RECEIVED"); 
+    Serial.println("OKRSASIGNCHALLENGE MESSAGE RECEIVED"); 
 #endif
-    if(!CRYPTO_AUTH) {
-    if (buffer[6]==0xFF) //Not last packet
-    {
-        if (large_data_offset <= (sizeof(large_buffer) - 57)) {
-            memcpy(large_buffer+large_data_offset, buffer+7, 57);
-            large_data_offset = large_data_offset + 57;
-			return;
-        } else {
-              hidprint("Error RSA challenge too large");
-			  return;
-        }
-        return;
-    } else {
-        if (large_data_offset <= (sizeof(large_buffer) - 57) && buffer[6] <= 57) {
-            memcpy(large_buffer+large_data_offset, buffer+7, buffer[6]);
-            large_data_offset = large_data_offset + buffer[6];
-			CRYPTO_AUTH = 1;
-			SHA256_CTX CRYPTO;
-			sha256_init(&CRYPTO);
-			sha256_update(&CRYPTO, large_buffer, large_data_offset); //add data to sign
-			sha256_final(&CRYPTO, temp); //Temporarily store hash
-			if (temp[0] < 6) Challenge_button1 = '1'; //Convert first byte of hash
-			else {
-				Challenge_button1 = temp[0] % 5; //Get the base 5 remainder (0-5)
-				Challenge_button1 = Challenge_button1 + '0' + 1; //Add '0' and 1 so number will be ASCII 1 - 6
-			}
-			if (temp[15] < 6) Challenge_button2 = '1'; //Convert last byte of hash
-			else {
-				Challenge_button2 = temp[15] % 5; //Get the base 5 remainder (0-5)
-				Challenge_button2 = Challenge_button2 + '0' + 1; //Add '0' and 1 so number will be ASCII 1 - 6
-			}
-			if (temp[31] < 6) Challenge_button3 = '1'; //Convert last byte of hash
-			else {
-				Challenge_button3 = temp[31] % 5; //Get the base 5 remainder (0-5)
-				Challenge_button3 = Challenge_button3 + '0' + 1; //Add '0' and 1 so number will be ASCII 1 - 6
-			}
-#ifdef DEBUG
-    Serial.println();
-    Serial.printf("Enter challenge code %c%c%c", Challenge_button1,Challenge_button2,Challenge_button3); 
-#endif
-        } else {
-            hidprint("Error RSA challenge too large");
-			return;
-        }
-    }
-	} else if (CRYPTO_AUTH == 4) {
+    if(!CRYPTO_AUTH) process_packets (buffer);
+	else if (CRYPTO_AUTH == 4) {
 
 #ifdef DEBUG
     Serial.println();
@@ -209,7 +224,34 @@ void SIGNRSA (uint8_t *buffer)
      	    }
 		Serial.println();
 #endif
-    RawHID.send(rsa_signature, sizeof(rsa_signature));
+	memcpy(resp_buffer, rsa_signature, 64);
+    RawHID.send(resp_buffer, 0);
+	delay(10);
+	memcpy(resp_buffer, rsa_signature+64, 64);
+    RawHID.send(resp_buffer, 0);
+	delay(10);
+	if (type>=2) {
+	memcpy(resp_buffer, rsa_signature+128, 64);
+    RawHID.send(resp_buffer, 0);
+	delay(10);
+	memcpy(resp_buffer, rsa_signature+192, 64);
+    RawHID.send(resp_buffer, 0);
+	delay(10);
+	} if (type>=3) {
+	memcpy(resp_buffer, rsa_signature+256, 64);
+    RawHID.send(resp_buffer, 0);
+	delay(10);
+	memcpy(resp_buffer, rsa_signature+320, 64);
+    RawHID.send(resp_buffer, 0);
+	delay(10);
+	} if (type==4) {
+	memcpy(resp_buffer, rsa_signature+384, 64);
+    RawHID.send(resp_buffer, 0);
+	delay(10);
+	memcpy(resp_buffer, rsa_signature+448, 64);
+    RawHID.send(resp_buffer, 0);
+	delay(10);
+	}
 	} else {
 		hidprint("Error with RSA signing");
 	}
@@ -230,63 +272,17 @@ void SIGNRSA (uint8_t *buffer)
 	}
 }
 
-void DECRYPTRSA (uint8_t *buffer)
+void RSADECRYPT (uint8_t *buffer)
 {
 	extern int large_data_offset;
 	extern uint8_t large_buffer[sizeof(large_buffer)];
-	uint8_t temp[32];
 	size_t plaintext_len;
 #ifdef DEBUG
     Serial.println();
-    Serial.println("OKDECRYPTRSA MESSAGE RECEIVED"); 
+    Serial.println("OKRSADECRYPT MESSAGE RECEIVED"); 
 #endif
-    if(!CRYPTO_AUTH) {
-    if (buffer[6]==0xFF) //Not last packet
-    {
-        if (large_data_offset <= (sizeof(large_buffer) - 57)) {
-            memcpy(large_buffer+large_data_offset, buffer+7, 57);
-            large_data_offset = large_data_offset + 57;
-			return;
-        } else {
-              hidprint("Error RSA challenge too large");
-			  return;
-        }
-        return;
-    } else {
-        if (large_data_offset <= (sizeof(large_buffer) - 57) && buffer[6] <= 57) {
-            memcpy(large_buffer+large_data_offset, buffer+7, buffer[6]);
-            large_data_offset = large_data_offset + buffer[6];
-			CRYPTO_AUTH = 1;
-			SHA256_CTX CRYPTO;
-			sha256_init(&CRYPTO);
-			sha256_update(&CRYPTO, large_buffer, large_data_offset); //add data to sign
-			sha256_final(&CRYPTO, temp); //Temporarily store hash
-			if (temp[0] < 6) Challenge_button1 = '1'; //Convert first byte of hash
-			else {
-				Challenge_button1 = temp[0] % 5; //Get the base 5 remainder (0-5)
-				Challenge_button1 = Challenge_button1 + '0' + 1; //Add '0' and 1 so number will be ASCII 1 - 6
-			}
-			if (temp[15] < 6) Challenge_button2 = '1'; //Convert last byte of hash
-			else {
-				Challenge_button2 = temp[15] % 5; //Get the base 5 remainder (0-5)
-				Challenge_button2 = Challenge_button2 + '0' + 1; //Add '0' and 1 so number will be ASCII 1 - 6
-			}
-			if (temp[31] < 6) Challenge_button3 = '1'; //Convert last byte of hash
-			else {
-				Challenge_button3 = temp[31] % 5; //Get the base 5 remainder (0-5)
-				Challenge_button3 = Challenge_button3 + '0' + 1; //Add '0' and 1 so number will be ASCII 1 - 6
-			}
-#ifdef DEBUG
-    Serial.println();
-    Serial.printf("Enter challenge code %c%c%c", Challenge_button1,Challenge_button2,Challenge_button3); 
-#endif
-        } else {
-            hidprint("Error RSA challenge too large");
-			return;
-        }
-    }
-	} else if (CRYPTO_AUTH == 4) {
-
+    if(!CRYPTO_AUTH) process_packets (buffer);
+	else if (CRYPTO_AUTH == 4) {
 #ifdef DEBUG
     Serial.println();
     Serial.printf("RSA challenge blob size=%d", large_data_offset);
@@ -301,7 +297,8 @@ void DECRYPTRSA (uint8_t *buffer)
      	    }
 		Serial.println();
 #endif
-    RawHID.send(large_buffer, plaintext_len);
+    memcpy(resp_buffer, large_buffer, 64);
+    RawHID.send(resp_buffer, 0);
 	} else {
 		hidprint("Error with RSA decryption");
 	}
@@ -327,74 +324,25 @@ void GETECCPUBKEY (uint8_t *buffer)
 		onlykey_flashget_ECC (buffer[5]);        
 			#ifdef DEBUG
     	    Serial.println("OKGETECCPUBKEY MESSAGE RECEIVED"); 
-	    for (int i = 0; i< 32; i++) {
-    	    Serial.print(ecc_public_key[i],HEX);
-     	    }
+			byteprint(ecc_public_key, 32);
 	    #endif
-            RawHID.send(ecc_public_key, 32);
+            RawHID.send(ecc_public_key, 0);
 			memset(ecc_public_key, 0, 32); //wipe buffer
 			memset(ecc_private_key, 0, 32); //wipe buffer
             blink(3);
 }
 
-void SIGNECC(uint8_t *buffer)
+void ECDSA_EDDSA(uint8_t *buffer)
 {
 	extern int large_data_offset;
 	extern uint8_t large_buffer[sizeof(large_buffer)];
-	uint8_t ecc_signature[MAX_ECC_KEY_SIZE*2];
+	uint8_t ecc_signature[64];
 #ifdef DEBUG
     Serial.println();
-    Serial.println("OKSIGNECCCHALLENGE MESSAGE RECEIVED"); 
+    Serial.println("OKECDSA_EDDSACHALLENGE MESSAGE RECEIVED"); 
 #endif
-
-    if(!CRYPTO_AUTH) {
-    // XXX(tsileo): on my system the challenge always seems to be 147 bytes, but I keep it dynamic
-    // // since it may change.
-    if (buffer[6]==0xFF) //Not last packet
-    {
-        if (large_data_offset <= (sizeof(large_buffer) - 57)) {
-            memcpy(large_buffer+large_data_offset, buffer+7, 57);
-            large_data_offset = large_data_offset + 57;
-			return;
-        } else {
-              hidprint("Error ECC challenge too large");
-			  return;
-        }
-        return;
-    } else {
-        if (large_data_offset <= (sizeof(large_buffer) - 57) && buffer[6] <= 57) {
-            memcpy(large_buffer+large_data_offset, buffer+7, buffer[6]);
-            large_data_offset = large_data_offset + buffer[6];
-			CRYPTO_AUTH = 1;
-			SHA256_CTX CRYPTO;
-			sha256_init(&CRYPTO);
-			sha256_update(&CRYPTO, large_buffer, large_data_offset); //add data to sign
-			sha256_final(&CRYPTO, ecc_signature); //Temporarily store hash
-			if (ecc_signature[0] < 6) Challenge_button1 = '1'; //Convert first byte of hash
-			else {
-				Challenge_button1 = ecc_signature[0] % 5; //Get the base 5 remainder (0-5)
-				Challenge_button1 = Challenge_button1 + '0' + 1; //Add '0' and 1 so number will be ASCII 1 - 6
-			}
-			if (ecc_signature[15] < 6) Challenge_button2 = '1'; //Convert last byte of hash
-			else {
-				Challenge_button2 = ecc_signature[15] % 5; //Get the base 5 remainder (0-5)
-				Challenge_button2 = Challenge_button2 + '0' + 1; //Add '0' and 1 so number will be ASCII 1 - 6
-			}
-			if (ecc_signature[31] < 6) Challenge_button3 = '1'; //Convert last byte of hash
-			else {
-				Challenge_button3 = ecc_signature[31] % 5; //Get the base 5 remainder (0-5)
-				Challenge_button3 = Challenge_button3 + '0' + 1; //Add '0' and 1 so number will be ASCII 1 - 6
-			}
-#ifdef DEBUG
-    Serial.println();
-    Serial.printf("Enter challenge code %c%c%c",Challenge_button1,Challenge_button2,Challenge_button3); 
-#endif
-        } else {
-            hidprint("Error ECC challenge too large");
-			return;
-        }
-    }
-	} else if (CRYPTO_AUTH == 4) {
+    if(!CRYPTO_AUTH) process_packets (buffer);
+	else if (CRYPTO_AUTH == 4) {
 
 #ifdef DEBUG
     Serial.println();
@@ -427,7 +375,7 @@ void SIGNECC(uint8_t *buffer)
     	    Serial.print(ecc_signature[i],HEX);
      	    }
 #endif
-    RawHID.send(ecc_signature, 64);
+    RawHID.send(ecc_signature, 0);
 	// Reset the large buffer offset
     large_data_offset = 0;
 	memset(large_buffer, 0, sizeof(large_buffer)); //wipe buffer
@@ -449,101 +397,108 @@ void SIGNECC(uint8_t *buffer)
 }
 
 
-void DECRYPTECC(uint8_t *buffer)
+void ECDH(uint8_t *buffer)
 {
 	extern int large_data_offset;
 	extern uint8_t large_buffer[sizeof(large_buffer)];
-	uint8_t secret[32];
-	uint8_t temp[32];
+	uint8_t secret[64];
 #ifdef DEBUG
     Serial.println();
-    Serial.println("OKDECRYPTECC MESSAGE RECEIVED"); 
+    Serial.println("OKECDH MESSAGE RECEIVED"); 
 #endif
-    if(!CRYPTO_AUTH) {
-    if (buffer[6]==0xFF) //Not last packet
-    {
-        if (large_data_offset <= (sizeof(large_buffer) - 57)) {
-            memcpy(large_buffer+large_data_offset, buffer+7, 57);
-            large_data_offset = large_data_offset + 57;
-			return;
-        } else {
-              hidprint("Error ECC challenge too large");
-			  return;
-        }
-        return;
-    } else {
-        if (large_data_offset <= (sizeof(large_buffer) - 57) && buffer[6] <= 57) {
-            memcpy(large_buffer+large_data_offset, buffer+7, buffer[6]);
-            large_data_offset = large_data_offset + buffer[6];
-			CRYPTO_AUTH = 1;
-			SHA256_CTX CRYPTO;
-			sha256_init(&CRYPTO);
-			sha256_update(&CRYPTO, large_buffer, large_data_offset); //add data to sign
-			sha256_final(&CRYPTO, temp); //Temporarily store hash
-			if (temp[0] < 6) Challenge_button1 = '1'; //Convert first byte of hash
-			else {
-				Challenge_button1 = temp[0] % 5; //Get the base 5 remainder (0-5)
-				Challenge_button1 = Challenge_button1 + '0' + 1; //Add '0' and 1 so number will be ASCII 1 - 6
-			}
-			if (temp[15] < 6) Challenge_button2 = '1'; //Convert middle byte of hash
-			else {
-				Challenge_button2 = temp[15] % 5; //Get the base 5 remainder (0-5)
-				Challenge_button2 = Challenge_button2 + '0' + 1; //Add '0' and 1 so number will be ASCII 1 - 6
-			}
-			if (temp[31] < 6) Challenge_button3 = '1'; //Convert last byte of hash
-			else {
-				Challenge_button3 = temp[31] % 5; //Get the base 5 remainder (0-5)
-				Challenge_button3 = Challenge_button3 + '0' + 1; //Add '0' and 1 so number will be ASCII 1 - 6
-			}
-#ifdef DEBUG
-    Serial.println();
-    Serial.printf("Enter challenge code %c%c%c", Challenge_button1,Challenge_button2,Challenge_button3); 
-#endif
-        } else {
-            hidprint("Error ECC challenge too large");
-			return;
-        }
-    }
-	} else if (CRYPTO_AUTH == 4) {
-
-#ifdef DEBUG
-    Serial.println();
-    Serial.printf("ECC blob to ECDH decrypt size=%d", large_data_offset);
-#endif
+    if(!CRYPTO_AUTH) process_packets (buffer);
+	else if (CRYPTO_AUTH == 4) {
 
 	const struct uECC_Curve_t * curves[2];
     int num_curves = 0;
     curves[num_curves++] = uECC_secp256r1();
     curves[num_curves++] = uECC_secp256k1();
-	
-	//We need senders public key
-    //use first 32 bytes of large_buffer
-	if (type==0x01) {
-		//mbedtls_ecdh_compute_shared
-	}		
-	else if (type==0x02) {
-		uECC_shared_secret(large_buffer, ecc_private_key, secret, curves[1]);
+	//We need the hash alg large_buffer[0] and the public key large_buffer+1
+	switch (type) {
+	case 1:
+	    memcpy (secret, large_buffer+1, 32);
+		Curve25519::dh2(secret, ecc_private_key);
+		type = 32;
+	break;		
+	case 2:
+		uECC_shared_secret(large_buffer+1, ecc_private_key, secret, curves[1]);
+		type = 32;
+	break;
+	case 3:
+		uECC_shared_secret(large_buffer+1, ecc_private_key, secret, curves[2]);
+		type = 32;
+	break;
+	default:
+		hidprint("Error ECC type incorrect");
+	return;
 	}
-	else if (type==0x03) {
-		uECC_shared_secret(large_buffer, ecc_private_key, secret, curves[2]);
-	}
-	// From https://github.com/kmackay/micro-ecc/blob/14222e062d77f45321676e813d9525f32a88e8fa/uECC.h
-	// Note: It is recommended that you hash the result of uECC_shared_secret() before using it for
-	// symmetric encryption or HMAC.
-	// assuming SHA-256
-	//SHA256_CTX CRYPTO;
-	//sha256_init(&CRYPTO);
-	//sha256_update(&CRYPTO, secret, sizeof(secret)); //add data to sign
-	//sha256_final(&CRYPTO, secret); //store hash as secret
 	
-    // Send the secret for now - TODO, implement how GPG does this
-
 #ifdef DEBUG
+    Serial.println();
+    Serial.print("Public key to generate shared secret for"); 
+	for (int i = 0; i< type; i++) {
+		Serial.print(large_buffer[i+1],HEX);
+		}
+    Serial.println();
+    Serial.print("ECDH Secret is "); 
 	for (int i = 0; i< sizeof(secret); i++) {
 		Serial.print(secret[i],HEX);
 		}
 #endif
-    RawHID.send(secret, sizeof(secret));
+    // Reference - GPG requires entire message to generate KEK
+	// https://fossies.org/linux/misc/gnupg-2.1.17.tar.gz/gnupg-2.1.17/g10/ecdh.c
+	// gcry_md_write(h, "\x00\x00\x00\x01", 4);      /* counter = 1 */
+    // gcry_md_write(h, secret_x, secret_x_size);    /* x of the point X */
+    // gcry_md_write(h, message, message_size);      /* KDF parameters */
+	// This is a limitation as we have to be able to fit the entire message to decrypt
+	// In this way RSA seems to have an advantage?
+	// Our packet format will be -
+	uint8_t hash_alg = large_buffer[0];
+	uint8_t *pub_key = large_buffer+1;
+	uint8_t *msg = large_buffer+1+type;
+	uint8_t counter[] = "\x00\x00\x00\x01";
+    mbedtls_sha512_context sha512;
+	switch (hash_alg) {
+		case 2: //sha256
+		SHA256_CTX context;
+		sha256_init(&context);
+		sha256_update(&context, counter, 4); //add counter
+		sha256_update(&context, secret, type); //add secret
+		sha256_update(&context, msg, (large_data_offset-1-type)); //add message
+		sha256_final(&context, secret); //store hash as secret
+		break;
+		case 3: //sha384
+		mbedtls_sha512_init (&sha512);
+		mbedtls_sha512_starts (&sha512, 1); //is 384
+		mbedtls_sha512_update (&sha512, counter, 4); //add counter
+		mbedtls_sha512_update (&sha512, secret, type); //add secret
+		mbedtls_sha512_update (&sha512, msg, (large_data_offset-1-type)); //add message
+		mbedtls_sha512_finish (&sha512, secret); //store hash as secret
+		mbedtls_sha512_free (&sha512);
+		break;
+		case 5: //sha512
+		mbedtls_sha512_init (&sha512);
+		mbedtls_sha512_starts (&sha512, 0); //is not 384
+		mbedtls_sha512_update (&sha512, counter, 4); //add counter
+		mbedtls_sha512_update (&sha512, secret, type); //add secret
+		mbedtls_sha512_update (&sha512, msg, (large_data_offset-1-type)); //add message
+		mbedtls_sha512_finish (&sha512, secret); //store hash as secret
+		mbedtls_sha512_free (&sha512);
+		break;
+		default:
+		hidprint("Error hash algorithm incorrect");
+		return;
+	}
+	//Send the KEK, client app should know the symmetric encryption alg
+	//Depending on the alg the client will drop the uneeded tail of the the key
+#ifdef DEBUG
+    Serial.println();
+    Serial.print("ECDH KEK is "); 
+	for (int i = 0; i< sizeof(secret); i++) {
+		Serial.print(secret[i],HEX);
+		}
+#endif
+    RawHID.send(secret, 0);
 	CRYPTO_AUTH = 0;
 	Challenge_button1 = 0;
 	Challenge_button2 = 0;
@@ -575,10 +530,9 @@ int rsa_sign (int mlen, uint8_t *msg, uint8_t *out)
 	
 	mbedtls_mpi_init (&P1);  mbedtls_mpi_init (&Q1);  mbedtls_mpi_init (&H);
 	
-	rsa.len = (type*128);
 	MBEDTLS_MPI_CHK( mbedtls_mpi_lset (&rsa.E, 0x10001) );
-	MBEDTLS_MPI_CHK( mbedtls_mpi_read_binary (&rsa.P, &rsa_private_key[0], (type*128) / 2) );
-	MBEDTLS_MPI_CHK( mbedtls_mpi_read_binary (&rsa.Q, &rsa_private_key[(type*128) / 2], (type*128) / 2) );
+	MBEDTLS_MPI_CHK( mbedtls_mpi_read_binary (&rsa.P, &rsa_private_key[0], ((type*128) / 2) ));
+	MBEDTLS_MPI_CHK( mbedtls_mpi_read_binary (&rsa.Q, &rsa_private_key[((type*128) / 2)], ((type*128) / 2) ));
 	MBEDTLS_MPI_CHK( mbedtls_mpi_sub_int (&P1, &rsa.P, 1) );
 	MBEDTLS_MPI_CHK( mbedtls_mpi_sub_int (&Q1, &rsa.Q, 1) );
 	MBEDTLS_MPI_CHK( mbedtls_mpi_mul_mpi (&H, &P1, &Q1) );
@@ -586,25 +540,45 @@ int rsa_sign (int mlen, uint8_t *msg, uint8_t *out)
 	MBEDTLS_MPI_CHK( mbedtls_mpi_mod_mpi (&rsa.DP, &rsa.D, &P1) );
 	MBEDTLS_MPI_CHK( mbedtls_mpi_mod_mpi (&rsa.DQ, &rsa.D, &Q1) );
 	MBEDTLS_MPI_CHK( mbedtls_mpi_inv_mod (&rsa.QP, &rsa.Q, &rsa.P) );
+	rsa.len = mbedtls_mpi_size( &rsa.N );
+    Serial.println (rsa.len);
 	cleanup:
 	mbedtls_mpi_free (&P1);  mbedtls_mpi_free (&Q1);  mbedtls_mpi_free (&H);
+	
+	//check private key
+	#ifdef DEBUG
+	Serial.printf( "\n  . Checking the private key" );
+	#endif
+  if( ( ret = mbedtls_rsa_check_privkey( &rsa ) ) != 0 )
+    {
+		#ifdef DEBUG
+        Serial.printf( " failed\n  ! mbedtls_rsa_check_privkey failed with -0x%0x\n", -ret );
+		#endif
+        return -1;
+    }
   if (ret == 0)
     {
+      #ifdef DEBUG
       Serial.print("RSA sign");
-      ret = mbedtls_rsa_rsassa_pkcs1_v15_sign (&rsa, NULL, NULL, MBEDTLS_RSA_PRIVATE, MBEDTLS_MD_NONE, mlen, msg, rsa_temp);
+	  #endif
+      ret = mbedtls_rsa_rsassa_pkcs1_v15_sign (&rsa, NULL, NULL, MBEDTLS_RSA_PRIVATE, MBEDTLS_MD_NONE, (type*128), msg, rsa_temp);
       memcpy (out, rsa_temp, (type*128));
     }
 
   if (ret == 0)
     {
+    #ifdef DEBUG
     Serial.println("completed successfully");
+	#endif
 	mbedtls_rsa_free (&rsa);
     return 0;
     }
   else
     {
+	#ifdef DEBUG
 	Serial.print("MBEDTLS_ERR_RSA_XXX error code ");
     Serial.println(ret);
+	#endif
 	mbedtls_rsa_free (&rsa);
     return -1; 
     }
@@ -613,20 +587,19 @@ int rsa_sign (int mlen, uint8_t *msg, uint8_t *out)
 int rsa_decrypt (int mlen, size_t olen, const uint8_t *in, uint8_t *out)
 {
   mbedtls_mpi P1, Q1, H;
-  int ret;
+  int ret = 0;
   static mbedtls_rsa_context rsa;
+  #ifdef DEBUG
   Serial.print ("RSA decrypt:");
   Serial.println ((uint32_t)&ret);
+  #endif
 
   mbedtls_rsa_init (&rsa, MBEDTLS_RSA_PKCS_V15, 0);
   mbedtls_mpi_init (&P1);  mbedtls_mpi_init (&Q1);  mbedtls_mpi_init (&H);
 
-  rsa.len = mlen;
-  Serial.println (mlen);
-
   MBEDTLS_MPI_CHK( mbedtls_mpi_lset (&rsa.E, 0x10001) );
-  MBEDTLS_MPI_CHK( mbedtls_mpi_read_binary (&rsa.P, &rsa_private_key[0], mlen / 2) );
-  MBEDTLS_MPI_CHK( mbedtls_mpi_read_binary (&rsa.Q, &rsa_private_key[mlen / 2], mlen / 2) );
+  MBEDTLS_MPI_CHK( mbedtls_mpi_read_binary (&rsa.P, &rsa_private_key[0], ((type*128) / 2) ));
+  MBEDTLS_MPI_CHK( mbedtls_mpi_read_binary (&rsa.Q, &rsa_private_key[((type*128) / 2)], ((type*128) / 2) ));
   MBEDTLS_MPI_CHK( mbedtls_mpi_sub_int (&P1, &rsa.P, 1) );
   MBEDTLS_MPI_CHK( mbedtls_mpi_sub_int (&Q1, &rsa.Q, 1) );
   MBEDTLS_MPI_CHK( mbedtls_mpi_mul_mpi (&H, &P1, &Q1) );
@@ -634,26 +607,81 @@ int rsa_decrypt (int mlen, size_t olen, const uint8_t *in, uint8_t *out)
   MBEDTLS_MPI_CHK( mbedtls_mpi_mod_mpi (&rsa.DP, &rsa.D, &P1) );
   MBEDTLS_MPI_CHK( mbedtls_mpi_mod_mpi (&rsa.DQ, &rsa.D, &Q1) );
   MBEDTLS_MPI_CHK( mbedtls_mpi_inv_mod (&rsa.QP, &rsa.Q, &rsa.P) );
+  rsa.len = mbedtls_mpi_size( &rsa.N );
+  Serial.println (rsa.len);
   cleanup:
   mbedtls_mpi_free (&P1);  mbedtls_mpi_free (&Q1);  mbedtls_mpi_free (&H);
+  
+  //check key
+  #ifdef DEBUG
+  Serial.printf( "\n  . Checking the private key" );
+  #endif
+  if( ( ret = mbedtls_rsa_check_privkey( &rsa ) ) != 0 )
+    {
+		#ifdef DEBUG
+        Serial.printf( " failed\n  ! mbedtls_rsa_check_privkey failed with -0x%0x\n", -ret );
+		#endif
+        return -1;
+    }
+  
   if (ret == 0)
     {
+	  #ifdef DEBUG
       Serial.print ("RSA decrypt ");
+	  #endif
       ret = mbedtls_rsa_rsaes_pkcs1_v15_decrypt (&rsa, NULL, NULL, MBEDTLS_RSA_PRIVATE, &olen, in, out, BUFFER_SIZE);
     }
   if (ret == 0)
     {
+	  #ifdef DEBUG
       Serial.print ("completed successfully");
+	  #endif
       mbedtls_rsa_free (&rsa);
       return 0;
     }
   else
     {
+	  #ifdef DEBUG
       Serial.print ("MBEDTLS_ERR_RSA_XXX error code ");
+	  Serial.println (ret);
+	  #endif
 	  mbedtls_rsa_free (&rsa);
-      Serial.println (ret);
       return -1;
     }
+}
+
+
+void rsa_getpub (uint8_t type)
+{
+  mbedtls_mpi P, Q, N;
+  int ret = 0;
+  static mbedtls_rsa_context rsa;
+  #ifdef DEBUG
+  Serial.print ("RSA generate public N:");
+  #endif
+  
+  mbedtls_mpi_init (&P);  mbedtls_mpi_init (&Q);  mbedtls_mpi_init (&N);
+
+  MBEDTLS_MPI_CHK( mbedtls_mpi_read_binary (&P, &rsa_private_key[0], ((type*128) / 2) ));
+  MBEDTLS_MPI_CHK( mbedtls_mpi_read_binary (&Q, &rsa_private_key[((type*128) / 2)], ((type*128) / 2) ));
+  MBEDTLS_MPI_CHK( mbedtls_mpi_mul_mpi (&N, &P, &Q) );
+  MBEDTLS_MPI_CHK( mbedtls_mpi_write_binary (&N, &rsa_publicN[0], (type*128) ));
+  cleanup:
+  mbedtls_mpi_free (&P);  mbedtls_mpi_free (&Q);  mbedtls_mpi_free (&N);
+  
+  if (ret == 0)
+    {
+	  #ifdef DEBUG
+      Serial.print ("Storing RSA public ");
+	  byteprint(rsa_publicN, (type*128));
+	  #endif
+    } else {
+	  hidprint("Error generating RSA public N");
+	  #ifdef DEBUG
+      Serial.print ("Error generating RSA public");
+	  byteprint(rsa_publicN, (type*128));
+	  #endif
+	}
 }
 
 bool is_bit_set(unsigned char byte, int index) {
