@@ -1403,10 +1403,12 @@ int RNG2(uint8_t *dest, unsigned size) {
     }
     RNG.rand(dest, size);
     length = 32;
-    //Serial.println("Random number =");
-    //printHex(dest, size);
-    //Serial.println("Size =");
-    //Serial.println(size);
+#ifdef DEBUG
+	Serial.println();
+	Serial.print("Generating random number of size = ");
+	Serial.print(size);
+	byteprint(dest, size);
+#endif
     return 1;
 }
 
@@ -1496,11 +1498,12 @@ while(*chars) {
 void byteprint(uint8_t* bytes, int size) 
 { 
 #ifdef DEBUG
-  Serial.println();
+Serial.println();
 for (int i; i < size; i++) {
   Serial.print(bytes[i], HEX);
   Serial.print(" ");
   }
+Serial.println();
 #endif
 }
 
@@ -1584,7 +1587,7 @@ void wipeflash() {
 #ifdef DEBUG 
 	Serial.printf("successful\r\n");
 #endif 
-	adr=adr+2048; //Next Sector
+	adr=adr+2048; //Next Sector 2048
 #ifdef DEBUG 
 	Serial.printf("Erase Sector 0x%X ",adr);
 #endif 
@@ -1596,7 +1599,7 @@ void wipeflash() {
 #ifdef DEBUG 
 	Serial.printf("successful\r\n");
 #endif 
-	adr=adr+4096; //Next Sector
+	adr=adr+2048; //Next Sector 4096
 #ifdef DEBUG 
 	Serial.printf("Erase Sector 0x%X ",adr);
 #endif 
@@ -1608,7 +1611,7 @@ void wipeflash() {
 #ifdef DEBUG 
 	Serial.printf("successful\r\n");
 #endif 
-	adr=adr+6144; //Next Sector
+	adr=adr+2048; //Next Sector 6144
 #ifdef DEBUG 
 	Serial.printf("Erase Sector 0x%X ",adr);
 #endif 
@@ -1619,7 +1622,8 @@ void wipeflash() {
 	}
 #ifdef DEBUG 
 	Serial.printf("successful\r\n");
-	adr=adr+8192; //Next Sector
+#endif
+	adr=adr+2048; //Next Sector 8192
 #ifdef DEBUG 
 	Serial.printf("Erase Sector 0x%X ",adr);
 #endif 
@@ -1630,8 +1634,43 @@ void wipeflash() {
 	}
 #ifdef DEBUG 
 	Serial.printf("successful\r\n");
+#endif
+	adr=adr+2048; //Next Sector 10240
+#ifdef DEBUG 
+	Serial.printf("Erase Sector 0x%X ",adr);
 #endif 
-	Serial.println("Flash Sectors erased");//TODO remove debug
+	if (flashEraseSector((unsigned long*)adr)) {
+#ifdef DEBUG 
+	Serial.printf("NOT ");
+#endif 
+	}
+#ifdef DEBUG 
+	Serial.printf("successful\r\n");
+	#endif
+	adr=adr+2048; //Next Sector 12288
+#ifdef DEBUG 
+	Serial.printf("Erase Sector 0x%X ",adr);
+#endif 
+	if (flashEraseSector((unsigned long*)adr)) {
+#ifdef DEBUG 
+	Serial.printf("NOT ");
+#endif 
+	}
+#ifdef DEBUG 
+	Serial.printf("successful\r\n");
+	#endif
+	adr=adr+2048; //Next Sector 14336
+#ifdef DEBUG 
+	Serial.printf("Erase Sector 0x%X ",adr);
+#endif 
+	if (flashEraseSector((unsigned long*)adr)) {
+#ifdef DEBUG 
+	Serial.printf("NOT ");
+#endif 
+	}
+#ifdef DEBUG 
+	Serial.printf("successful\r\n");
+	Serial.println("Flash Sectors erased");
 #endif 
 }
 

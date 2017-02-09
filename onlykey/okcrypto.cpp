@@ -203,25 +203,22 @@ void RSASIGN (uint8_t *buffer)
 	extern int large_data_offset;
 	extern uint8_t large_buffer[sizeof(large_buffer)];
 	uint8_t rsa_signature[(type*128)];
-#ifdef DEBUG
-    Serial.println();
-    Serial.println("OKRSASIGNCHALLENGE MESSAGE RECEIVED"); 
-#endif
+
     if(!CRYPTO_AUTH) process_packets (buffer);
 	else if (CRYPTO_AUTH == 4) {
 
 #ifdef DEBUG
     Serial.println();
-    Serial.printf("RSA challenge blob size=%d", large_data_offset);
+    Serial.printf("RSA data to sign size=%d", large_data_offset);
+	Serial.println();
+	byteprint(large_buffer, large_data_offset);
 #endif
 	// sign data in large_buffer 
-    if (rsa_sign (large_data_offset, large_buffer, rsa_signature) != 0)
+    if (rsa_sign (large_data_offset, large_buffer, rsa_signature) == 0)
 	{
 #ifdef DEBUG
 		Serial.print("Signature = ");
-	    for (int i = 0; i< sizeof(rsa_signature); i++) {
-    	    Serial.print(rsa_signature[i],HEX);
-     	    }
+	    byteprint(rsa_signature, sizeof(rsa_signature));
 		Serial.println();
 #endif
 	memcpy(resp_buffer, rsa_signature, 64);
@@ -277,28 +274,58 @@ void RSADECRYPT (uint8_t *buffer)
 	extern int large_data_offset;
 	extern uint8_t large_buffer[sizeof(large_buffer)];
 	size_t plaintext_len;
-#ifdef DEBUG
-    Serial.println();
-    Serial.println("OKRSADECRYPT MESSAGE RECEIVED"); 
-#endif
+
     if(!CRYPTO_AUTH) process_packets (buffer);
 	else if (CRYPTO_AUTH == 4) {
 #ifdef DEBUG
     Serial.println();
-    Serial.printf("RSA challenge blob size=%d", large_data_offset);
+    Serial.printf("RSA ciphertext blob size=%d", large_data_offset);
+	Serial.println();
+	byteprint(large_buffer, large_data_offset);
 #endif
 	// decrypt ciphertext in large_buffer to large_buffer
-    if (rsa_decrypt (large_data_offset, plaintext_len, large_buffer, large_buffer) != 0)
+    if (rsa_decrypt (large_data_offset, plaintext_len, large_buffer, large_buffer) == 0)
 	{
 #ifdef DEBUG
+		Serial.println();
+		Serial.print("Plaintext len = ");
+		Serial.println(plaintext_len);
 		Serial.print("Plaintext = ");
-	    for (int i = 0; i< plaintext_len; i++) {
-    	    Serial.print(large_buffer[i],HEX);
-     	    }
+		byteprint(large_buffer, ((type*128)-11));
 		Serial.println();
 #endif
     memcpy(resp_buffer, large_buffer, 64);
     RawHID.send(resp_buffer, 0);
+	delay(10);
+	if (plaintext_len > 64) {
+	memcpy(resp_buffer, large_buffer+64, 64);
+    RawHID.send(resp_buffer, 0);
+	delay(10);
+	} if (plaintext_len > 128) {
+	memcpy(resp_buffer, large_buffer+128, 64);
+    RawHID.send(resp_buffer, 0);
+	delay(10);
+	} if (plaintext_len > 192) {
+	memcpy(resp_buffer, large_buffer+192, 64);
+    RawHID.send(resp_buffer, 0);
+	delay(10);
+	} if (plaintext_len > 256) {
+	memcpy(resp_buffer, large_buffer+256, 64);
+    RawHID.send(resp_buffer, 0);
+	delay(10);
+	} if (plaintext_len > 320) {
+	memcpy(resp_buffer, large_buffer+320, 64);
+    RawHID.send(resp_buffer, 0);
+	delay(10);
+	} if (plaintext_len > 384) {
+	memcpy(resp_buffer, large_buffer+384, 64);
+    RawHID.send(resp_buffer, 0);
+	delay(10);
+	} if (plaintext_len > 448) {
+	memcpy(resp_buffer, large_buffer+448, 64);
+    RawHID.send(resp_buffer, 0);
+	delay(10);
+	}
 	} else {
 		hidprint("Error with RSA decryption");
 	}
@@ -520,19 +547,22 @@ void ECDH(uint8_t *buffer)
 	}
 }
 
-int rsa_sign (int mlen, uint8_t *msg, uint8_t *out)
+int rsa_sign (int mlen, const uint8_t *msg, uint8_t *out)
 {
+	mbedtls_rsa_self_test(1);
 	int ret = 0;
 	static mbedtls_rsa_context rsa;
-    uint8_t rsa_temp[(type*128)];
+    uint8_t rsa_ciphertext[(type*128)];
 	mbedtls_mpi P1, Q1, H;
 	mbedtls_rsa_init( &rsa, MBEDTLS_RSA_PKCS_V15, 0 );
 	
 	mbedtls_mpi_init (&P1);  mbedtls_mpi_init (&Q1);  mbedtls_mpi_init (&H);
-	
+	rsa.len = (type*128);
 	MBEDTLS_MPI_CHK( mbedtls_mpi_lset (&rsa.E, 0x10001) );
+	
 	MBEDTLS_MPI_CHK( mbedtls_mpi_read_binary (&rsa.P, &rsa_private_key[0], ((type*128) / 2) ));
 	MBEDTLS_MPI_CHK( mbedtls_mpi_read_binary (&rsa.Q, &rsa_private_key[((type*128) / 2)], ((type*128) / 2) ));
+	MBEDTLS_MPI_CHK( mbedtls_mpi_mul_mpi (&rsa.N, &rsa.P, &rsa.Q) );
 	MBEDTLS_MPI_CHK( mbedtls_mpi_sub_int (&P1, &rsa.P, 1) );
 	MBEDTLS_MPI_CHK( mbedtls_mpi_sub_int (&Q1, &rsa.Q, 1) );
 	MBEDTLS_MPI_CHK( mbedtls_mpi_mul_mpi (&H, &P1, &Q1) );
@@ -540,37 +570,41 @@ int rsa_sign (int mlen, uint8_t *msg, uint8_t *out)
 	MBEDTLS_MPI_CHK( mbedtls_mpi_mod_mpi (&rsa.DP, &rsa.D, &P1) );
 	MBEDTLS_MPI_CHK( mbedtls_mpi_mod_mpi (&rsa.DQ, &rsa.D, &Q1) );
 	MBEDTLS_MPI_CHK( mbedtls_mpi_inv_mod (&rsa.QP, &rsa.Q, &rsa.P) );
-	rsa.len = mbedtls_mpi_size( &rsa.N );
-    Serial.println (rsa.len);
+	
+	#ifdef DEBUG
+	Serial.printf( "\nRSA len = " );
+	Serial.println(rsa.len);
+	#endif
+	ret = mbedtls_rsa_check_privkey( &rsa );
 	cleanup:
 	mbedtls_mpi_free (&P1);  mbedtls_mpi_free (&Q1);  mbedtls_mpi_free (&H);
 	
-	//check private key
-	#ifdef DEBUG
-	Serial.printf( "\n  . Checking the private key" );
-	#endif
-  if( ( ret = mbedtls_rsa_check_privkey( &rsa ) ) != 0 )
+   if( ret != 0 )
     {
-		#ifdef DEBUG
-        Serial.printf( " failed\n  ! mbedtls_rsa_check_privkey failed with -0x%0x\n", -ret );
-		#endif
-        return -1;
-    }
+		Serial.printf("Error with key check =%d", ret);
+		return -1;
+	}
   if (ret == 0)
     {
       #ifdef DEBUG
-      Serial.print("RSA sign");
+      Serial.print("RSA sign messege length = ");
+	  Serial.println(mlen);
 	  #endif
-      ret = mbedtls_rsa_rsassa_pkcs1_v15_sign (&rsa, NULL, NULL, MBEDTLS_RSA_PRIVATE, MBEDTLS_MD_NONE, (type*128), msg, rsa_temp);
-      memcpy (out, rsa_temp, (type*128));
+	  if (mlen > ((type*128)-11)) mlen = ((type*128)-11);
+      ret = mbedtls_rsa_rsassa_pkcs1_v15_sign (&rsa, mbedtls_rand, NULL, MBEDTLS_RSA_PRIVATE, MBEDTLS_MD_NONE, mlen, msg, rsa_ciphertext);
+      memcpy (out, rsa_ciphertext, (type*128));
+	  int ret2 = mbedtls_rsa_rsassa_pkcs1_v15_verify ( &rsa, NULL, NULL, MBEDTLS_RSA_PUBLIC, MBEDTLS_MD_NONE, mlen, msg, rsa_ciphertext );
+	  if( ret2 != 0 ) {
+		  Serial.print("Signature Verification Failed ");
+		  Serial.println(ret2);
+	  }
     }
-
+  mbedtls_rsa_free (&rsa);
   if (ret == 0)
     {
     #ifdef DEBUG
     Serial.println("completed successfully");
 	#endif
-	mbedtls_rsa_free (&rsa);
     return 0;
     }
   else
@@ -579,7 +613,6 @@ int rsa_sign (int mlen, uint8_t *msg, uint8_t *out)
 	Serial.print("MBEDTLS_ERR_RSA_XXX error code ");
     Serial.println(ret);
 	#endif
-	mbedtls_rsa_free (&rsa);
     return -1; 
     }
 }
@@ -590,16 +623,17 @@ int rsa_decrypt (int mlen, size_t olen, const uint8_t *in, uint8_t *out)
   int ret = 0;
   static mbedtls_rsa_context rsa;
   #ifdef DEBUG
-  Serial.print ("RSA decrypt:");
+  Serial.printf ("\nRSA decrypt:");
   Serial.println ((uint32_t)&ret);
   #endif
 
   mbedtls_rsa_init (&rsa, MBEDTLS_RSA_PKCS_V15, 0);
   mbedtls_mpi_init (&P1);  mbedtls_mpi_init (&Q1);  mbedtls_mpi_init (&H);
-
+  rsa.len = (type*128);
   MBEDTLS_MPI_CHK( mbedtls_mpi_lset (&rsa.E, 0x10001) );
   MBEDTLS_MPI_CHK( mbedtls_mpi_read_binary (&rsa.P, &rsa_private_key[0], ((type*128) / 2) ));
   MBEDTLS_MPI_CHK( mbedtls_mpi_read_binary (&rsa.Q, &rsa_private_key[((type*128) / 2)], ((type*128) / 2) ));
+  MBEDTLS_MPI_CHK( mbedtls_mpi_mul_mpi (&rsa.N, &rsa.P, &rsa.Q) );
   MBEDTLS_MPI_CHK( mbedtls_mpi_sub_int (&P1, &rsa.P, 1) );
   MBEDTLS_MPI_CHK( mbedtls_mpi_sub_int (&Q1, &rsa.Q, 1) );
   MBEDTLS_MPI_CHK( mbedtls_mpi_mul_mpi (&H, &P1, &Q1) );
@@ -607,36 +641,29 @@ int rsa_decrypt (int mlen, size_t olen, const uint8_t *in, uint8_t *out)
   MBEDTLS_MPI_CHK( mbedtls_mpi_mod_mpi (&rsa.DP, &rsa.D, &P1) );
   MBEDTLS_MPI_CHK( mbedtls_mpi_mod_mpi (&rsa.DQ, &rsa.D, &Q1) );
   MBEDTLS_MPI_CHK( mbedtls_mpi_inv_mod (&rsa.QP, &rsa.Q, &rsa.P) );
-  rsa.len = mbedtls_mpi_size( &rsa.N );
   Serial.println (rsa.len);
   cleanup:
   mbedtls_mpi_free (&P1);  mbedtls_mpi_free (&Q1);  mbedtls_mpi_free (&H);
   
-  //check key
-  #ifdef DEBUG
-  Serial.printf( "\n  . Checking the private key" );
-  #endif
-  if( ( ret = mbedtls_rsa_check_privkey( &rsa ) ) != 0 )
-    {
-		#ifdef DEBUG
-        Serial.printf( " failed\n  ! mbedtls_rsa_check_privkey failed with -0x%0x\n", -ret );
-		#endif
-        return -1;
-    }
-  
+	#ifdef DEBUG
+	Serial.printf( "\nRSA len = " );
+	Serial.println(rsa.len);
+	#endif
+  if (mbedtls_rsa_check_privkey( &rsa ) != 0 ) Serial.printf("Error Private Key=%d", ret);
   if (ret == 0)
     {
 	  #ifdef DEBUG
       Serial.print ("RSA decrypt ");
 	  #endif
+	  if (mlen > ((type*128)-11)) mlen = ((type*128)-11);
       ret = mbedtls_rsa_rsaes_pkcs1_v15_decrypt (&rsa, NULL, NULL, MBEDTLS_RSA_PRIVATE, &olen, in, out, BUFFER_SIZE);
     }
+  mbedtls_rsa_free (&rsa);
   if (ret == 0)
     {
 	  #ifdef DEBUG
       Serial.print ("completed successfully");
 	  #endif
-      mbedtls_rsa_free (&rsa);
       return 0;
     }
   else
@@ -645,7 +672,6 @@ int rsa_decrypt (int mlen, size_t olen, const uint8_t *in, uint8_t *out)
       Serial.print ("MBEDTLS_ERR_RSA_XXX error code ");
 	  Serial.println (ret);
 	  #endif
-	  mbedtls_rsa_free (&rsa);
       return -1;
     }
 }
@@ -686,6 +712,14 @@ void rsa_getpub (uint8_t type)
 
 bool is_bit_set(unsigned char byte, int index) {
   return (byte >> index) & 1;
+}
+
+int mbedtls_rand( void *rng_state, unsigned char *output, size_t len )
+{
+	if( rng_state != NULL )
+        rng_state = NULL;
+    RNG2( output, len );
+    return( 0 );
 }
 
 #endif

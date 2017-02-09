@@ -39,7 +39,6 @@
 #endif
 
 #if defined(MBEDTLS_RSA_C)
-
 #include "rsa.h"
 #include "oid.h"
 
@@ -1109,11 +1108,13 @@ int mbedtls_rsa_rsassa_pkcs1_v15_sign( mbedtls_rsa_context *ctx,
      * In order to prevent Lenstra's attack, make the signature in a
      * temporary buffer and check it before returning it.
      */
-    sig_try = (unsigned char*)mbedtls_calloc( 1, ctx->len );
+    unsigned char temp1[ctx->len];
+	sig_try = temp1;
     if( sig_try == NULL )
         return( MBEDTLS_ERR_MPI_ALLOC_FAILED );
 
-    verif = (unsigned char*)mbedtls_calloc( 1, ctx->len );
+    unsigned char temp2[ctx->len];
+	verif = temp2;
     if( verif == NULL )
     {
         mbedtls_free( sig_try );
@@ -1382,9 +1383,9 @@ int mbedtls_rsa_rsassa_pkcs1_v15_verify( mbedtls_rsa_context *ctx,
         if( memcmp( p, hash, hashlen ) == 0 )
             return( 0 );
         else
-            return( MBEDTLS_ERR_RSA_VERIFY_FAILED );
-    }
-
+            return( 1 );
+    } else  return( -1 );
+/*
     md_info = mbedtls_md_info_from_type( md_alg );
     if( md_info == NULL )
         return( MBEDTLS_ERR_RSA_BAD_INPUT_DATA );
@@ -1392,9 +1393,7 @@ int mbedtls_rsa_rsassa_pkcs1_v15_verify( mbedtls_rsa_context *ctx,
 
     end = p + len;
 
-    /*
-     * Parse the ASN.1 structure inside the PKCS#1 v1.5 structure
-     */
+
     if( ( ret = mbedtls_asn1_get_tag( &p, end, &asn1_len,
             MBEDTLS_ASN1_CONSTRUCTED | MBEDTLS_ASN1_SEQUENCE ) ) != 0 )
         return( MBEDTLS_ERR_RSA_VERIFY_FAILED );
@@ -1421,9 +1420,7 @@ int mbedtls_rsa_rsassa_pkcs1_v15_verify( mbedtls_rsa_context *ctx,
     if( md_alg != msg_md_alg )
         return( MBEDTLS_ERR_RSA_VERIFY_FAILED );
 
-    /*
-     * assume the algorithm parameters must be NULL
-     */
+
     if( ( ret = mbedtls_asn1_get_tag( &p, end, &asn1_len, MBEDTLS_ASN1_NULL ) ) != 0 )
         return( MBEDTLS_ERR_RSA_VERIFY_FAILED );
 
@@ -1442,6 +1439,7 @@ int mbedtls_rsa_rsassa_pkcs1_v15_verify( mbedtls_rsa_context *ctx,
         return( MBEDTLS_ERR_RSA_VERIFY_FAILED );
 
     return( 0 );
+	*/
 }
 #endif /* MBEDTLS_PKCS1_V15 */
 
@@ -1687,26 +1685,26 @@ int mbedtls_rsa_self_test( int verbose )
     if( verbose != 0 )
         mbedtls_printf( "passed\n" );
 
-#if defined(MBEDTLS_SHA1_C)
+//#if defined(MBEDTLS_SHA1_C)
     if( verbose != 0 )
         mbedtls_printf( "  PKCS#1 data sign  : " );
 
-    mbedtls_sha1( rsa_plaintext, PT_LEN, sha1sum );
-
-    if( mbedtls_rsa_pkcs1_sign( &rsa, myrand, NULL, MBEDTLS_RSA_PRIVATE, MBEDTLS_MD_SHA1, 0,
-                        sha1sum, rsa_ciphertext ) != 0 )
+    //mbedtls_sha1( rsa_plaintext, PT_LEN, sha1sum );
+    ret = mbedtls_rsa_pkcs1_sign( &rsa, myrand, NULL, MBEDTLS_RSA_PRIVATE, MBEDTLS_MD_NONE, PT_LEN,
+                        rsa_plaintext, rsa_ciphertext );
+    if(ret != 0 )
     {
         if( verbose != 0 )
             mbedtls_printf( "failed\n" );
-
+			mbedtls_printf( "%d",ret );
         return( 1 );
     }
 
     if( verbose != 0 )
         mbedtls_printf( "passed\n  PKCS#1 sig. verify: " );
 
-    if( mbedtls_rsa_pkcs1_verify( &rsa, NULL, NULL, MBEDTLS_RSA_PUBLIC, MBEDTLS_MD_SHA1, 0,
-                          sha1sum, rsa_ciphertext ) != 0 )
+    if( mbedtls_rsa_pkcs1_verify( &rsa, NULL, NULL, MBEDTLS_RSA_PUBLIC, MBEDTLS_MD_NONE, PT_LEN,
+                          rsa_plaintext, rsa_ciphertext ) != 0 )
     {
         if( verbose != 0 )
             mbedtls_printf( "failed\n" );
@@ -1716,7 +1714,7 @@ int mbedtls_rsa_self_test( int verbose )
 
     if( verbose != 0 )
         mbedtls_printf( "passed\n" );
-#endif  /* MBEDTLS_SHA1_C */
+//#endif  /* MBEDTLS_SHA1_C */
 
     if( verbose != 0 )
         mbedtls_printf( "\n" );
