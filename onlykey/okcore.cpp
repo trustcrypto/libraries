@@ -4285,6 +4285,7 @@ void backupslots() {
 }			  
       onlykey_eeget_typespeed(ptr);
 	  if (*ptr != 0) {
+	  *ptr=11-*ptr;
 	  large_temp[large_data_offset] = 0xFF; //delimiter
 	  large_temp[large_data_offset+1] = 0; //slot 0
 	  large_temp[large_data_offset+2] = 13; //13 - Keyboard type speed
@@ -4324,8 +4325,8 @@ void backupslots() {
 	  large_temp[large_data_offset+2] = 10; //10 - Yubikey
 	  memcpy(large_temp+large_data_offset+3, temp, (EElen_aeskey+EElen_private+EElen_public));
       large_data_offset=large_data_offset+(EElen_aeskey+EElen_private+EElen_public)+3;
-	  large_temp[large_data_offset+1] = ctr[0]; //first part of counter
-	  large_temp[large_data_offset+2] = ctr[1]; //second part of counter
+	  large_temp[large_data_offset] = ctr[0]; //first part of counter
+	  large_temp[large_data_offset+1] = ctr[1]; //second part of counter
 	  large_data_offset=large_data_offset+2;
 	  }
 //Encrypt
@@ -4521,8 +4522,8 @@ memset(large_temp, 0 , sizeof(large_temp));
 }
 
 void RESTORE(uint8_t *buffer) {
-  uint8_t temp[64];
-  static uint8_t large_temp [7032];
+  uint8_t temp[64] = {0};
+  static uint8_t large_temp [7032] ={0};
   static int offset = 0;
   static bool finishedslots;
   int urllength;
@@ -4615,7 +4616,7 @@ void RESTORE(uint8_t *buffer) {
 				SETSLOT(temp);
 				memset(temp, 0, 64);
 				ptr++;
-				}
+				} else {
 				temp[7] = *ptr; 
 				int i = 8;
 				ptr++;
@@ -4625,10 +4626,9 @@ void RESTORE(uint8_t *buffer) {
 					i++;
 				} 
 				SETSLOT(temp);
-			} else {
-				ptr++;
+				}
+			} 
 			}
-		}
 	hidprint("Successfully loaded backup of slot configuration");
 #ifdef DEBUG
 			Serial.print("Successfully loaded backup of slot configuration");
@@ -4664,7 +4664,7 @@ void RESTORE(uint8_t *buffer) {
 #endif 
 			offset = offset + buffer[5];
 		} else {
-			hidprint("Error key configuration backup file too largee");
+			hidprint("Error key configuration backup file too large");
 			return;
 		}
 #ifdef DEBUG 
