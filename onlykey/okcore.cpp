@@ -246,16 +246,13 @@ void recvmsg() {
 	   {
 		hidprint("No PIN set, You must set a PIN first");
 		return;
-	   }else if (initialized==true && unlocked==true && configmode==true) 
+	   }else if (initialized==true && unlocked==true) 
 	   {
 		if(!PDmode) {
 		#ifdef US_VERSION
 		SETU2FPRIV(recv_buffer);
 		#endif
 		}
-	   }
-	   else if (initialized==true && unlocked==true && configmode==false) { 
-	   hidprint("ERROR NOT IN CONFIG MODE, HOLD BUTTON 6 DOWN FOR 5 SEC");
 	   }
 	   else
 	   {
@@ -830,7 +827,14 @@ void SETTIME (uint8_t *buffer)
 #endif
 		hidprint("UNINITIALIZED");
 		return;
-	   }else if (initialized==true && unlocked==true) 
+	   } else if (initialized==true && unlocked==true && configmode==true) 
+	   {
+#ifdef DEBUG
+		Serial.print("CONFIG_MODE");
+#endif
+		hidprint("CONFIG_MODE");
+	   }
+	   else if (initialized==true && unlocked==true ) 
 	   {
 #ifdef DEBUG
 		Serial.print("UNLOCKED");
@@ -1172,9 +1176,9 @@ void SETSLOT (uint8_t *buffer)
             uint8_t *ptr;
   	    ptr = (uint8_t *) &counter;
   	    yubikey_eeset_counter(ptr); 
-            onlykey_eeset_public((buffer + 7), EElen_public);
+            onlykey_eeset_public(buffer + 7);
             onlykey_eeset_private((buffer + 7 + EElen_public));
-            onlykey_eeset_aeskey((buffer + 7 + EElen_public + EElen_private), EElen_aeskey);
+            onlykey_eeset_aeskey(buffer + 7 + EElen_public + EElen_private);
             yubikeyinit();
 	    hidprint("Successfully set AES Key, Private ID, and Public ID");
 	    }
@@ -1254,9 +1258,10 @@ void WIPESLOT (uint8_t *buffer)
             Serial.println(); //newline
             Serial.print("Wiping OnlyKey AES Key, Private ID, and Public ID...");
 #endif 
-            onlykey_eeset_aeskey((buffer + 7), 0);
-            onlykey_eeset_private((buffer + 7 + EElen_aeskey));
-            onlykey_eeset_public((buffer + 7 + EElen_aeskey + EElen_private), 0);
+            onlykey_eeset_aeskey(buffer + 7);
+            onlykey_eeset_private(buffer + 7 + EElen_aeskey);
+            onlykey_eeset_public(buffer + 7 + EElen_aeskey + EElen_private);
+			yubikey_eeset_counter(buffer + 7);
             hidprint("Successfully wiped AES Key, Private ID, and Public ID");
 			return;
 	 }
@@ -3972,12 +3977,13 @@ void yubikeyinit() {
   uint8_t yaeskey[16];
   uint8_t privID[6];
   uint8_t pubID[16];
+  uint8_t ctr[2];
   uint16_t counter;
   char public_id[32+1];
   char private_id[12+1];
 
 #ifdef DEBUG 
-  Serial.println("Initializing onlyKey ...");
+  Serial.println("Initializing YubiKey OTP...");
 #endif
   memset(temp, 0, 32); //Clear temp buffer
   
@@ -4020,9 +4026,9 @@ void yubikeyinit() {
   }
   
   memset(temp, 0, 32); //Clear temp buffer
-  
-  ptr = (uint8_t*) &counter;
-  yubikey_eeget_counter(ptr);
+
+  yubikey_eeget_counter(ctr);
+  counter = ctr[0] << 8 | ctr[1];
 
   yubikey_hex_encode(private_id, (char *)privID, 6);
   yubikey_hex_encode(public_id, (char *)pubID, 6);
@@ -4039,9 +4045,10 @@ void yubikeyinit() {
   yubikey_init1(&ctx, yaeskey, public_id, private_id, counter, time, seed);
  
   yubikey_incr_counter(&ctx);
- 
-  ptr = (uint8_t*) &(ctx.counter);
-  yubikey_eeset_counter(ptr);
+  ctr[0] = ctx.counter >> 8  & 0xFF;
+  ctr[1] = ctx.counter       & 0xFF;
+
+  yubikey_eeset_counter(ctr);
 #endif
 }
 /*************************************/
@@ -4091,7 +4098,7 @@ void fadeoff() {
 void backupslots() {
   unsigned char *pos;
   uint8_t temp[64];
-  uint8_t large_temp[7712];
+  uint8_t large_temp[7715];
   int urllength;
   int usernamelength;
   int passwordlength;
@@ -4099,6 +4106,7 @@ void backupslots() {
   uint8_t *ptr;
   unsigned char beginsbackup[] = "-----BEGIN ONLYKEY SLOT BACKUP-----";
   unsigned char endsbackup[] = "-----END ONLYKEY SLOT BACKUP-----";
+  uint8_t ctr[2];
   large_data_offset = 0;
   memset(large_temp, 0, sizeof(large_temp)); //Wipe all data from largebuffer
   int slot;
@@ -4306,12 +4314,39 @@ void backupslots() {
 	  large_temp[large_data_offset] = 0xFF; //delimiter
 	  large_temp[large_data_offset+1] = slot;
 	  large_temp[large_data_offset+2] = 9; //9 - TOTP Key
-	  memcpy(large_temp+large_data_offset+3, temp, otplength);
-      large_data_offset=large_data_offset+otplength+3;
+	  large_temp[large_data_offset+3] = otplength;
+	  memcpy(large_temp+large_data_offset+4, temp, otplength);
+      large_data_offset=large_data_offset+otplength+4;
 	  }	  
-}
-      onlykey_eeget_public(ptr);
-  
+}			  
+      onlykey_eeget_typespeed(ptr);
+	  if (*ptr != 0) {
+	  large_temp[large_data_offset] = 0xFF; //delimiter
+	  large_temp[large_data_offset+1] = 0; //slot 0
+	  large_temp[large_data_offset+2] = 13; //13 - Keyboard type speed
+	  large_temp[large_data_offset+3] = temp[0]; 
+      large_data_offset=large_data_offset+4;
+	  }
+	  onlykey_eeget_keyboardlayout(ptr);
+	  if (*ptr != 0) {
+	  large_temp[large_data_offset] = 0xFF; //delimiter
+	  large_temp[large_data_offset+1] = 0; //slot 0
+	  large_temp[large_data_offset+2] = 14; //14- Keyboard layout 
+	  large_temp[large_data_offset+3] = temp[0]; 
+      large_data_offset=large_data_offset+4;
+	  }
+	  onlykey_eeget_timeout(ptr);
+	  if (*ptr != 0) {
+	  large_temp[large_data_offset] = 0xFF; //delimiter
+	  large_temp[large_data_offset+1] = 0; //slot 0
+	  large_temp[large_data_offset+2] = 11; //11 - Idle Timeout
+	  large_temp[large_data_offset+3] = temp[0]; 
+      large_data_offset=large_data_offset+4;
+	  }
+	  yubikey_eeget_counter(ctr);
+      if (ctr[0] != 0 | ctr[1] != 0) {	    
+	  onlykey_eeget_public(ptr);
+
       ptr = (temp+EElen_public);
       onlykey_eeget_private(ptr);
   
@@ -4321,34 +4356,13 @@ void backupslots() {
       aes_gcm_decrypt(temp, (uint8_t*)('y'+ID[34]), phash, (EElen_aeskey+EElen_private+EElen_public));
 
 	  large_temp[large_data_offset] = 0xFF; //delimiter
-	  large_temp[large_data_offset+1] = slot;
+	  large_temp[large_data_offset+1] = 0; //slot 0
 	  large_temp[large_data_offset+2] = 10; //10 - Yubikey
 	  memcpy(large_temp+large_data_offset+3, temp, (EElen_aeskey+EElen_private+EElen_public));
       large_data_offset=large_data_offset+(EElen_aeskey+EElen_private+EElen_public)+3;
-	  
-      onlykey_eeget_timeout(ptr);
-	  if (*ptr != 0) {
-	  large_temp[large_data_offset] = 0xFF; //delimiter
-	  large_temp[large_data_offset+1] = slot;
-	  large_temp[large_data_offset+2] = 11; //11 - Idle Timeout
-	  large_temp[large_data_offset+3] = temp[0]; 
-      large_data_offset=large_data_offset+4;
-	  }
-	  onlykey_eeget_typespeed(ptr);
-	  if (*ptr != 0) {
-	  large_temp[large_data_offset] = 0xFF; //delimiter
-	  large_temp[large_data_offset+1] = slot;
-	  large_temp[large_data_offset+2] = 13; //13 - Keyboard type speed
-	  large_temp[large_data_offset+3] = temp[0]; 
-      large_data_offset=large_data_offset+4;
-	  }
-	  onlykey_eeget_keyboardlayout(ptr);
-	  if (*ptr != 0) {
-	  large_temp[large_data_offset] = 0xFF; //delimiter
-	  large_temp[large_data_offset+1] = slot;
-	  large_temp[large_data_offset+2] = 14; //14- Keyboard layout 
-	  large_temp[large_data_offset+3] = temp[0]; 
-      large_data_offset=large_data_offset+4;
+	  large_temp[large_data_offset+1] = ctr[0]; //first part of counter
+	  large_temp[large_data_offset+2] = ctr[1]; //second part of counter
+	  large_data_offset=large_data_offset+2;
 	  }
 //Encrypt
     
@@ -4362,21 +4376,21 @@ void backupslots() {
 	while(i <= large_data_offset && i < sizeof(large_temp)) {
 		Keyboard.println();
 		delay(((TYPESPEED[0]*TYPESPEED[0])*10));
-		if ((large_data_offset - i) < 42) {
-			int enclen = base64_encode(large_temp+i, temp, (large_data_offset - i), '/n'); //Equals 56 in base32
+		if ((large_data_offset - i) < 57) {
+			int enclen = base64_encode(large_temp+i, temp, (large_data_offset - i), NULL);
 			for (int z = 0; z <= enclen; z++) {
 			Keyboard.write(temp[z]);
 			delay(((TYPESPEED[0]*TYPESPEED[0])*10));
 			}  
 		}	
 		else {
-			base64_encode(large_temp+i, temp, 42, '/n'); //Equals 56 in base32
-			for (int z = 0; z <= 56; z++) {
+			base64_encode(large_temp+i, temp, 57, NULL); 
+			for (int z = 0; z <= 4*(57/3); z++) {
 			Keyboard.write(temp[z]);
 			delay(((TYPESPEED[0]*TYPESPEED[0])*10));
 			}  
 		}
-		i = i+42;
+		i = i+57;
 		memset(temp, 0, sizeof(temp));
 	}
 	Keyboard.println();
@@ -4413,7 +4427,6 @@ void backupkeys() {
 		Keyboard.write(beginkbackup[z]);
 		delay(((TYPESPEED[0]*TYPESPEED[0])*10));
 	} 
-	Keyboard.println();
 	
   //Copy RSA keys to buffer  
   for (int slot=1; slot<=4; slot++)
@@ -4425,7 +4438,7 @@ void backupkeys() {
    #endif
     memset(temp, 0, MAX_RSA_KEY_SIZE); //Wipe all data from temp buffer
     ptr = temp;
-	type = onlykey_flashget_RSA(slot);
+	onlykey_flashget_RSA(slot);
 	if(type != 0x00)
       {
 		large_temp[large_data_offset] = 0xFF; //delimiter
@@ -4449,7 +4462,7 @@ void backupkeys() {
    #endif
     memset(temp, 0, 256); //Wipe all data from temp buffer
     ptr = temp;
-	type = onlykey_flashget_ECC(slot);
+	onlykey_flashget_ECC(slot);
 	if(type != 0x00)
       {
 		large_temp[large_data_offset] = 0xFF; //delimiter
@@ -4465,16 +4478,31 @@ void backupkeys() {
   }
   
 //Copy U2F key/Cert to buffer
+	onlykey_eeget_U2Fcertlen(length);
+	int length2 = length[0] << 8 | length[1];
+	if (length2 != 0) {
 	large_temp[large_data_offset] = 0xF1; //delimiter
 	memcpy(large_temp+large_data_offset+1, attestation_priv, 32);
     large_data_offset=large_data_offset+32+1;
-	
-	onlykey_eeget_U2Fcertlen(length);
-    int length2 = length[0] << 8 | length[1];
-	large_temp[large_data_offset] = 0xF2; //delimiter
-	memcpy(large_temp+large_data_offset+1, attestation_der, length2);
-    large_data_offset=large_data_offset+length2+1;
-
+	int u2fcounter = getCounter();
+	large_temp[large_data_offset] = 
+	large_data_offset++;
+	large_temp[large_data_offset] =
+	large_data_offset++;
+	large_temp[large_data_offset] = length[0];
+	large_data_offset++;
+	large_temp[large_data_offset] = length[1];
+	large_data_offset++;
+	memcpy(large_temp+large_data_offset, attestation_der, length2);
+    large_data_offset=large_data_offset+length2;
+	#ifdef DEBUG
+	Serial.print("Found U2F Certificate to backup");
+	#endif
+	} else {		
+	#ifdef DEBUG
+	Serial.print("No U2F Certificate to backup");
+	#endif
+	}
 //Encrypt
     
     #ifdef DEBUG
@@ -4487,21 +4515,21 @@ void backupkeys() {
 	while(i <= large_data_offset && i < sizeof(large_temp)) {
 		Keyboard.println();
 		delay(((TYPESPEED[0]*TYPESPEED[0])*10));
-		if ((large_data_offset - i) < 42) {
-			int enclen = base64_encode(large_temp+i, temp, (large_data_offset - i), '/n'); //Equals 56 in base32
+		if ((large_data_offset - i) < 57) {
+			int enclen = base64_encode(large_temp+i, temp, (large_data_offset - i), NULL); 
 			for (int z = 0; z <= enclen; z++) {
 			Keyboard.write(temp[z]);
 			delay(((TYPESPEED[0]*TYPESPEED[0])*10));
 			}  
 		}	
 		else {
-			base64_encode(large_temp+i, temp, 42, '/n'); //Equals 56 in base32
-			for (int z = 0; z <= 56; z++) {
+			base64_encode(large_temp+i, temp, 57, NULL); 
+			for (int z = 0; z <= 4*(57/3); z++) {
 			Keyboard.write(temp[z]);
 			delay(((TYPESPEED[0]*TYPESPEED[0])*10));
 			}  
 		}
-		i = i+42;
+		i = i+57;
 		memset(temp, 0, sizeof(temp));
 	}
 	Keyboard.println();
@@ -4524,7 +4552,8 @@ memset(large_temp, 0 , sizeof(large_temp));
 
 void RESTORE(uint8_t *buffer) {
   uint8_t temp[64];
-  static uint8_t large_temp [7028];
+  static uint8_t large_temp [7032];
+  static int offset = 0;
   static bool finishedslots;
   int urllength;
   int usernamelength;
@@ -4535,25 +4564,33 @@ void RESTORE(uint8_t *buffer) {
   //Slot restore
   if (buffer[5]==0xFF && !finishedslots) //Not last packet
 	{
-	if (large_data_offset <= (sizeof(large_temp) - 57)) {
-			base64_decode(large_temp+large_data_offset, buffer+6, 56); //Equals 56 in base32
-			large_data_offset = large_data_offset + 42;
+	if (offset <= (sizeof(large_temp) - 57)) {
+			memcpy(large_temp+offset, buffer+6, 57);
+#ifdef DEBUG
+			Serial.print("Restore from backup =");
+			byteprint(large_temp+offset, 57);
+#endif 
+			offset = offset + 57;
 		} else {
-			hidprint("Error backup file too large");
+			hidprint("Error slot configuration backup file too large");
 			return;
 		}
 		return;
-	} else if (!finishedslots) { //Last packet
-		if (large_data_offset <= (sizeof(large_temp) - 57) && buffer[5] <= 56) {
-			base64_decode(large_temp+large_data_offset, buffer+6, buffer[5]); //Equals 56 in base32
-			large_data_offset = large_data_offset + buffer[5];
+	} else if (!finishedslots) { //last packet
+		if (offset <= (sizeof(large_temp) - 57) && buffer[5] <= 57) {
+			memcpy(large_temp+offset, buffer+6, buffer[5]);
+#ifdef DEBUG
+		Serial.print("Restore from backup =");
+		byteprint(large_temp+offset, buffer[5]);
+#endif 
+			offset = offset + buffer[5];
 		} else {
-			hidprint("Error backup file too large");
+			hidprint("Error slot configuration backup file too large");
 			return;
 		}
 #ifdef DEBUG 
-		Serial.print("Length of backup file = ");
-        Serial.println(large_data_offset);
+		Serial.print("Length of slot configuration backup file = ");
+        Serial.println(offset);
 #endif 
 		
 	//TODO Decrypt 
@@ -4563,11 +4600,14 @@ void RESTORE(uint8_t *buffer) {
 	//else return;
 	//sha256 hash of priv key and string 
 	//aes_gcm_decrypt2((buffer + 7), (uint8_t*)('t'+ID[34]+slot), phash, length);
-		
+#ifdef DEBUG
+			Serial.print("Backup file received =");
+			byteprint(large_temp, offset);
+#endif 
 		ptr = large_temp;
-		large_temp[sizeof(large_temp)] = 0;
 		while(*ptr) {
-			if (*ptr = 0xFF) {
+			if (*ptr == 0xFF) {
+				memset(temp, 0, 64);
 				temp[0] = 0xFF;
 				temp[1] = 0xFF;
 				temp[2] = 0xFF;
@@ -4578,54 +4618,79 @@ void RESTORE(uint8_t *buffer) {
 				ptr++;
 				temp[6] = *ptr; //Value
 				ptr++;
+				if (temp[6] == 10) { //Yubikey OTP
+				memcpy(temp+7, ptr, (EElen_aeskey+EElen_private+EElen_public));
+				SETSLOT(temp);
+				memset(temp, 0, 64);
+				uint8_t ctr[2];
+				ptr = ptr + EElen_aeskey+EElen_private+EElen_public;
+				ctr[0] = *ptr;
+				ptr++;
+				ctr[1] = *ptr;
+				yubikey_eeset_counter(ctr);
+				ptr++;
+				break;
+				} else if (temp[6] == 9) { //TOTP
+				int len = *ptr;
+				ptr++;
+				memcpy(temp+7, ptr, len);
+				SETSLOT(temp);
+				memset(temp, 0, 64);
+				ptr = ptr + len;
+				break;
+				} else if (temp[6] == 11) { //lockout time
+				temp[7] = *ptr; 
+				SETSLOT(temp);
+				memset(temp, 0, 64);
+				ptr++;
+				break;
+				}
 				temp[7] = *ptr; 
 				int i = 8;
 				ptr++;
-				while (*ptr != 0xFF && *ptr != 0x00) {
+				while (*ptr != 0xFF && *ptr != 0xFE && *ptr != 0xFD && *ptr != 0xFC) {
 					temp[i] = *ptr;
 					ptr++;
 					i++;
 				} 
 				SETSLOT(temp);
 			} else {
-			ptr++;
+				ptr++;
 			}
 		}
 	hidprint("Successfully loaded backup of slot configuration");
 	memset(temp, 0, sizeof(temp)); //Wipe all data from temp
 	memset(large_temp, 0, sizeof(large_temp)); //Wipe all data from largebuffer
-	large_data_offset = 0;
+	offset = 0;
 	finishedslots = true;
 	}
 
   //Key restore
   if (buffer[5]==0xFF && finishedslots) //Not last packet
 	{
-		if (large_data_offset <= (sizeof(large_temp) - 57)) {
-			base64_decode(large_temp+large_data_offset, buffer+6, 56); //Equals 56 in base32
-			large_data_offset = large_data_offset + 42;
+		if (offset <= (sizeof(large_temp) - 57)) {
+			offset = offset + 57;
 		} else {
-			hidprint("Error backup file too large");
+			hidprint("Error key configuration backup file too large");
 			return;
 		}
 		return;
 	} else if (finishedslots) { //Last packet
-		if (large_data_offset <= (sizeof(large_temp) - 57) && buffer[5] <= 56) {
-			base64_decode(large_temp+large_data_offset, buffer+6, buffer[5]); //Equals 56 in base32
-			large_data_offset = large_data_offset + buffer[5];
+		if (offset <= (sizeof(large_temp) - 57) && buffer[5] <= 57) {
+			offset = offset + buffer[5];
 		} else {
-			hidprint("Error backup file too large");
+			hidprint("Error key configuration backup file too largee");
 			return;
 		}
 #ifdef DEBUG 
-		Serial.print("Length of backup file = ");
-        Serial.println(large_data_offset);
+		Serial.print("Length of key configuration backup file = ");
+        Serial.println(offset);
 #endif 
 		
 	//TODO Decrypt  
-	large_temp[sizeof(large_temp)] = 0;
 	
 	//Import Keys
+	ptr = large_temp;
 	while (*ptr == 0xFF) {
 		memset(temp, 0, sizeof(temp));
 		temp[0] = 0xBA;
@@ -4637,67 +4702,91 @@ void RESTORE(uint8_t *buffer) {
 		temp[5] = *ptr; //Slot
 		ptr++;
 		temp[6] = *ptr; //Key type
-		if (temp[5] > 100) {
-			ptr++;
-			memcpy(temp+7, ptr, 32);
+		if (temp[5] > 100) { //We know its an ECC key
+			ptr++; //Start of Key
+			memcpy(temp+7, ptr, 32); //Size of ECC key 32
 			SETPRIV(temp);
 			ptr = ptr + 32;
-			large_data_offset = large_data_offset - 35;
+			offset = offset - 35;
 		} 
-		else if (*ptr == 1) {
+		else if (temp[6] == 1) { //We know its an RSA 1024 Key
 			ptr++;
 			memcpy(temp+7, ptr, 128);
 			SETPRIV(temp);
 			ptr = ptr + 128;
-			large_data_offset = large_data_offset - 131;
+			offset = offset - 131;
 		}
-		else if (*ptr == 2) {
+		else if (temp[6] == 2) { //We know its an RSA 2048 Key
 			ptr++;
 			memcpy(temp+7, ptr, 256);
 			SETPRIV(temp);
 			ptr = ptr + 256;
-			large_data_offset = large_data_offset - 259;
+			offset = offset - 259;
+		}
+		else if (temp[6] == 3) { //We know its an RSA 2048 Key
+			ptr++;
+			memcpy(temp+7, ptr, 384);
+			SETPRIV(temp);
+			ptr = ptr + 384;
+			offset = offset - 387;
+		}
+		else if (temp[6] == 4) { //We know its an RSA 2048 Key
+			ptr++;
+			memcpy(temp+7, ptr, 512);
+			SETPRIV(temp);
+			ptr = ptr + 512;
+			offset = offset - 515;
 		} else {
-			hidprint("Error backup file format incorrect");
+			hidprint("Error key configuration backup file format incorrect");
 		}
 
 	}
 
 		//Import U2F Priv
 	if (*ptr == 0xF1) {
+		int temp2;
 		memset(temp, 0, sizeof(temp));
 		temp[0] = 0xBA;
 		temp[1] = 0xFF;
 		temp[2] = 0xFF;
 		temp[3] = 0xFF;
 		temp[4] = OKSETU2FPRIV;
+		ptr++;
+		offset--;
 		memcpy(temp+5, ptr, 32);
 		SETU2FPRIV(temp);
 		ptr = ptr + 32;
-		large_data_offset = large_data_offset - 34;
+		offset = offset - 32;
+		memcpy(temp, ptr, 2);
+		temp2 = temp[0] << 8 | temp[1];
+		setCounter(temp2);
+		offset = offset - 2;
+		ptr=ptr+2;
+		memcpy(temp, ptr, 2);
+        temp2 = temp[0] << 8 | temp[1];
+		//Set U2F Certificate size
+		onlykey_eeset_U2Fcertlen(temp); 
+		offset = offset - 2;
+		ptr=ptr+2;
+		large_temp[0] = 0xBA;
+		large_temp[1] = 0xFF;
+		large_temp[2] = 0xFF;
+		large_temp[3] = 0xFF;
+		large_temp[4] = OKSETU2FCERT;
+		large_temp[5] = 0xBA;
+		if (temp2 < 769) {
+			memcpy(large_temp+6, ptr, temp2);
+		large_data_len=temp2;
+		SETU2FCERT(large_temp);
+		}
 	} else {
-		hidprint("Error backup file format incorrect");
+		hidprint("Error key configuration backup file format incorrect");
 	}
 
-		//Import U2F Cert
-	if (*ptr == 0xF2) {
-		memset(temp, 0, sizeof(temp));
-		temp[0] = 0xBA;
-		temp[1] = 0xFF;
-		temp[2] = 0xFF;
-		temp[3] = 0xFF;
-		temp[4] = OKSETU2FCERT;
-		temp[5] = 0xBA;
-		memcpy(temp+6, ptr, (large_data_offset-3));
-		large_data_len=(large_data_offset-3);
-		SETU2FCERT(temp);
-	} else {
-		hidprint("Error backup file format incorrect");
-	}
-	hidprint("Successfully loaded backup file");
+	hidprint("Successfully key configuration loaded backup file");
 	memset(temp, 0, sizeof(temp)); //Wipe all data from temp
 	memset(large_temp, 0, sizeof(large_temp)); //Wipe all data from largebuffer
-	large_data_offset = 0;
+	offset = 0;
 	delay(2000);
 	hidprint("Remove and Reinsert OnlyKey to complete restore");
 	while (1==1) {

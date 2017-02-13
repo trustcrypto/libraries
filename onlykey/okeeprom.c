@@ -146,17 +146,6 @@ void onlykey_eeset_failedlogins (uint8_t *ptr) {
 /*********************************/
 /*********************************/
 
-int onlykey_eeget_U2Fprivlen (uint8_t *ptr) {
-    onlykey_eeget_common(ptr, EEpos_U2Fprivlen, EElen_U2Fprivlen);
-    return EElen_U2Fprivlen;
-}
-void onlykey_eeset_U2Fprivlen (uint8_t *ptr) {
-    onlykey_eeset_common(ptr, EEpos_U2Fprivlen, EElen_U2Fprivlen);
-}
-
-/*********************************/
-/*********************************/
-
 int onlykey_eeget_U2Fcertlen (uint8_t *ptr) {
     onlykey_eeget_common(ptr, EEpos_U2Fcertlen, EElen_U2Fcertlen);
     return EElen_U2Fcertlen;
@@ -176,43 +165,6 @@ void onlykey_eeset_flashpos (uint8_t *ptr) {
     onlykey_eeset_common(ptr, EEpos_flashpos, EElen_flashpos);
 }
 
-/*********************************/
-/*********************************/
-
-int yubikey_eeget_keylen (uint8_t *ptr) {
-    onlykey_eeget_common(ptr, EEpos_keylen, EElen_keylen);
-    return EElen_keylen;
-}
-void yubikey_eeset_keylen (uint8_t *ptr) {
-    onlykey_eeset_common(ptr, EEpos_keylen, EElen_keylen);
-}
-/*********************************/
-/*********************************/
-int yubikey_eeget_ctrlen (uint8_t *ptr) {
-    onlykey_eeget_common(ptr, EEpos_ctrlen, EElen_ctrlen);
-    return EElen_ctrlen;
-}
-void yubikey_eeset_ctrlen (uint8_t *ptr) {
-    onlykey_eeset_common(ptr, EEpos_ctrlen, EElen_ctrlen);
-}
-/*********************************/
-/*********************************/
-int yubikey_eeget_prvlen (uint8_t *ptr) {
-    onlykey_eeget_common(ptr, EEpos_prvlen, EElen_prvlen);
-    return EElen_prvlen;
-}
-void yubikey_eeset_prvlen (uint8_t *ptr) {
-    onlykey_eeset_common(ptr, EEpos_prvlen, EElen_prvlen);
-}
-/*********************************/
-/*********************************/
-int yubikey_eeget_publen (uint8_t *ptr) {
-    onlykey_eeget_common(ptr, EEpos_publen, EElen_publen);
-    return EElen_publen;
-}
-void yubikey_eeset_publen (uint8_t *ptr) {
-    onlykey_eeset_common(ptr, EEpos_publen, EElen_publen);
-}
 /*********************************/
 /*********************************/
 int onlykey_eeget_passwordlen1 (uint8_t *ptr) {
@@ -1080,62 +1032,38 @@ void onlykey_eeset_totpkeylen24 (uint8_t *ptr) {
 /*********************************/
 /*********************************/
 int onlykey_eeget_aeskey (uint8_t *ptr) {
-    uint8_t length;
-    yubikey_eeget_keylen(&length);
-    int size = (int) length;
-    if (length != EElen_aeskey) return 0;
     onlykey_eeget_common(ptr, EEpos_aeskey, EElen_aeskey);
-    return size;
+    return EElen_aeskey;
 }
-void onlykey_eeset_aeskey (uint8_t *ptr, int size) {
-    if (size > EElen_aeskey) size = EElen_aeskey;
+void onlykey_eeset_aeskey (uint8_t *ptr) {
     onlykey_eeset_common(ptr, EEpos_aeskey, EElen_aeskey);
-    uint8_t length = (uint8_t) size;
-    yubikey_eeset_keylen(&length);
 }
 /*********************************/
 /*********************************/
 int yubikey_eeget_counter (uint8_t *ptr) {
-    uint8_t length;
-    yubikey_eeget_ctrlen(&length);
-    if (length != EElen_counter) return 0;
     onlykey_eeget_common(ptr, EEpos_counter, EElen_counter);
     return EElen_counter;
 }
 void yubikey_eeset_counter (uint8_t *ptr) {
     onlykey_eeset_common(ptr, EEpos_counter, EElen_counter);
-    uint8_t length = EElen_counter;
-    yubikey_eeset_ctrlen(&length);
 }
 /*********************************/
 /*********************************/
 int onlykey_eeget_private (uint8_t *ptr) {
-    uint8_t length;
-    yubikey_eeget_prvlen(&length);
-    if (length != EElen_private) return 0;
     onlykey_eeget_common(ptr, EEpos_private, EElen_private);
     return EElen_private;
 }
 void onlykey_eeset_private (uint8_t *ptr) {
     onlykey_eeset_common(ptr, EEpos_private, EElen_private);
-    uint8_t length = EElen_private;
-    yubikey_eeset_prvlen(&length);
 }
 /*********************************/
 /*********************************/
 int onlykey_eeget_public (uint8_t *ptr) {
-    uint8_t length;
-    yubikey_eeget_publen(&length);
-    int size = (int) length;
-    if (size > EElen_public) size = EElen_public;
     onlykey_eeget_common(ptr, EEpos_public, EElen_public);
-    return size;
+    return EElen_public;
 }
-void onlykey_eeset_public (uint8_t *ptr, int size) {
-    if (size > EElen_public) size = EElen_public;
+void onlykey_eeset_public (uint8_t *ptr) {
     onlykey_eeset_common(ptr, EEpos_public, EElen_public);
-    uint8_t length = (uint8_t) size;
-    yubikey_eeset_publen(&length);
 }
 /*********************************/
 /*********************************/

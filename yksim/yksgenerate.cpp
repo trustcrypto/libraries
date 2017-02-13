@@ -117,24 +117,8 @@ void yubikey_incr_timestamp(
 
 void yubikey_disable_eeprom()
 {
-    uint8_t length = 0;
-    yubikey_eeset_keylen (&length);
-    yubikey_eeset_ctrlen (&length);
-    yubikey_eeset_prvlen (&length);
-    yubikey_eeset_publen (&length);
-    onlykey_eeset_passwordlen1 (&length);
-    onlykey_eeset_passwordlen2 (&length);
-    onlykey_eeset_passwordlen3 (&length);
-    onlykey_eeset_passwordlen4 (&length);
-    onlykey_eeset_passwordlen5 (&length);
-    onlykey_eeset_passwordlen6 (&length);
-    onlykey_eeset_passwordlen7 (&length);
-    onlykey_eeset_passwordlen8 (&length);
-    onlykey_eeset_passwordlen9 (&length);
-    onlykey_eeset_passwordlen10 (&length);
-    onlykey_eeset_passwordlen11 (&length);
-    onlykey_eeset_passwordlen12 (&length);
-	
+    uint8_t length [2] = {0};
+	yubikey_eeset_counter(length);
 }
 
 int yubikey_incr_counter(

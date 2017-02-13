@@ -479,7 +479,7 @@ extern int  onlykey_eeget_sincelastregularlogin (uint8_t *ptr);
 extern void onlykey_eeset_sincelastregularlogin(uint8_t *ptr);
 
 extern int  onlykey_eeget_aeskey (uint8_t *ptr);
-extern void onlykey_eeset_aeskey (uint8_t *ptr, int len);
+extern void onlykey_eeset_aeskey (uint8_t *ptr);
 
 extern int  yubikey_eeget_counter (uint8_t *ptr);
 extern void yubikey_eeset_counter (uint8_t *ptr);
@@ -488,7 +488,7 @@ extern int  onlykey_eeget_private (uint8_t *ptr);
 extern void onlykey_eeset_private (uint8_t *ptr);
 
 extern int  onlykey_eeget_public (uint8_t *ptr);
-extern void onlykey_eeset_public (uint8_t *ptr, int len);
+extern void onlykey_eeset_public (uint8_t *ptr);
 
 extern int  onlykey_eeget_password (uint8_t *ptr, int slot);
 extern void onlykey_eeset_password (uint8_t *ptr, int len, int slot);
@@ -528,18 +528,6 @@ extern void onlykey_eeset_U2Fcertlen (uint8_t *ptr);
 
 extern int  onlykey_eeget_flashpos (uint8_t *ptr);
 extern void onlykey_eeset_flashpos (uint8_t *ptr);
-
-extern int  yubikey_eeget_keylen (uint8_t *ptr);
-extern void yubikey_eeset_keylen (uint8_t *ptr);
-
-extern int  yubikey_eeget_ctrlen (uint8_t *ptr);
-extern void yubikey_eeset_ctrlen (uint8_t *ptr);
-
-extern int  yubikey_eeget_prvlen (uint8_t *ptr);
-extern void yubikey_eeset_prvlen (uint8_t *ptr);
-
-extern int  yubikey_eeget_publen (uint8_t *ptr);
-extern void yubikey_eeset_publen (uint8_t *ptr);
 
 extern int  onlykey_eeget_passwordlen1 (uint8_t *ptr);
 extern void onlykey_eeset_passwordlen1 (uint8_t *ptr);
