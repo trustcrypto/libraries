@@ -911,7 +911,7 @@ void GETSLOTLABELS ()
 {
 #ifdef DEBUG
       	  Serial.println();
-	  Serial.println("OKGETLABELS MESSAGE RECEIVED");
+	  Serial.println("OKGETSLOTLABELS MESSAGE RECEIVED");
 #endif
 	  uint8_t label[EElen_label+3];
 	  uint8_t *ptr;
@@ -920,7 +920,7 @@ void GETSLOTLABELS ()
 	  ptr=label+2;
 	  if (PDmode) offset = 12;
 	  
-	for (uint8_t i = 0x01; i<=0x0C; i++) {
+	for (int i = 1; i<=12; i++) {
 	  onlykey_flashget_label(ptr, (offset + i));
 	  if (i<=9) label[0] = i;
 	  else label[0] = i+6;
@@ -2905,9 +2905,10 @@ void onlykey_flashset_label (uint8_t *ptr, int slot) {
     //Copy current flash contents to buffer
     onlykey_flashget_common(tptr, (unsigned long*)adr, 2048);
     //Add new flash contents to buffer
-    for( int z = 0; z <= EElen_label; z++){
+    for( int z = 0; z < EElen_label; z++){
     temp[z+((EElen_label*slot)-EElen_label)] = ((uint8_t)*(ptr+z));
     }
+	byteprint(temp, sizeof(temp));
     //Erase flash sector
 	if (*ptr!=0x00) { //No need to erase sector if wiping slot
 #ifdef DEBUG 
