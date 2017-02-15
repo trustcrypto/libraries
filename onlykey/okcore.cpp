@@ -1524,6 +1524,10 @@ void factorydefault() {
 #ifdef DEBUG
 	Serial.println("factory reset has been completed");
 #endif 
+	hidprint("factory reset has been completed");
+while(1==1) {
+	blink(3);
+}
 }
 
 void wipeEEPROM() {
