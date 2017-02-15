@@ -179,6 +179,7 @@ extern void increment(Task* me);
 extern void decrement(Task* me);
 extern void typeoutbackup(Task* me);
 extern void fadeoff();
+extern void fadeon();
 extern void backupslots();
 extern void backupkeys();
 extern void SETRSAPRIV (uint8_t *buffer);
