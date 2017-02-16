@@ -1019,7 +1019,7 @@ void SETSLOT (uint8_t *buffer)
             case 2:
             //Encrypt and Set value in EEPROM
 #ifdef DEBUG
-            Serial.println("Writing Username Value to EEPROM...");
+            Serial.println("Writing Username Value to Flash...");
 #endif
             if (!PDmode) {
 #ifdef DEBUG
@@ -1140,7 +1140,7 @@ void SETSLOT (uint8_t *buffer)
             return;
             case 10:
             if (!PDmode) {
-            //Encrypt and Set value in EEPROM
+            //Encrypt and Set value in Flash
 #ifdef DEBUG
             Serial.println("Writing AES Key, Private ID, and Public ID to EEPROM...");
             Serial.println("Unencrypted Public ID");
@@ -2677,7 +2677,6 @@ void onlykey_flashset_username (uint8_t *ptr, int size, int slot) {
     for( int z = 0; z < EElen_username; z++){
     temp[z+((EElen_username*slot)-EElen_username)] = ((uint8_t)*(ptr+z));
     }
-	byteprint(temp, sizeof(temp));
     //Erase flash sector
 #ifdef DEBUG 
     Serial.printf("Erase Sector 0x%X ",adr);
@@ -4541,8 +4540,9 @@ int freeRam () {
 
 void RESTORE(uint8_t *buffer) {
   uint8_t temp[MAX_RSA_KEY_SIZE] = {0};
-  static uint8_t* large_temp = (uint8_t*)malloc(11811); //Max size for slots 7715 max size for keys 3072 + 768 + 32 + headers
+  static uint8_t* large_temp;
   static int offset = 0;
+  if (offset == 0) large_temp  = (uint8_t*)malloc(11811); //Max size for slots 7715 max size for keys 3072 + 768 + 32 + headers
   int urllength;
   int usernamelength;
   int passwordlength;
@@ -4593,6 +4593,7 @@ void RESTORE(uint8_t *buffer) {
 			Serial.print("Slot backup file received =");
 			byteprint(large_temp, offset);
 #endif 
+		large_temp[offset+1] = 0xFC;
 		ptr = large_temp;
 		while(*ptr) {
 			if (*ptr == 0xFF) {
@@ -4638,7 +4639,7 @@ void RESTORE(uint8_t *buffer) {
 				temp[7] = *ptr; 
 				int i = 8;
 				ptr++;
-				while (*ptr != 0xFF && *ptr != 0xFE && *ptr != 0xFD) {
+				while (*ptr != 0xFF && *ptr != 0xFE && *ptr != 0xFD && *ptr != 0xFC) {
 					temp[i] = *ptr;
 					ptr++;
 					i++;
