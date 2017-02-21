@@ -1012,7 +1012,7 @@ void SETSLOT (uint8_t *buffer)
             Serial.println(); //newline
             Serial.print("Writing Delay1 to EEPROM...");
 #endif
-            buffer[7] = (buffer[7] -'0');
+            if (buffer[7] > '0') buffer[7] = (buffer[7] -'0');
             onlykey_eeset_delay1(buffer + 7, slot);
 	    hidprint("Successfully set Delay1");
             return;
@@ -1058,7 +1058,7 @@ void SETSLOT (uint8_t *buffer)
             Serial.println(); //newline
             Serial.print("Writing Delay2 to EEPROM...");
 #endif
-            buffer[7] = (buffer[7] -'0');
+            if (buffer[7] > '0') buffer[7] = (buffer[7] -'0');
             onlykey_eeset_delay2(buffer + 7, slot);
 	    hidprint("Successfully set Delay2");
             return;
@@ -1104,7 +1104,7 @@ void SETSLOT (uint8_t *buffer)
             Serial.println(); //newline
             Serial.print("Writing Delay3 to EEPROM...");
 #endif
-            buffer[7] = (buffer[7] -'0');
+            if (buffer[7] > '0') buffer[7] = (buffer[7] -'0');
             onlykey_eeset_delay3(buffer + 7, slot);
 	    hidprint("Successfully set Delay3");
             return;
@@ -2945,192 +2945,192 @@ int onlykey_flashget_totpkey (uint8_t *ptr, int slot) {
         	case 1:
 			onlykey_eeget_totpkeylen1(&length);
 			size = (int) length;
-			if (size > EElen_label) size = EElen_label;
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
+			if (size > EElen_totpkey) size = EElen_totpkey;
+			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_totpkey);
 			return size;
             
 		case 2:
 			onlykey_eeget_totpkeylen2(&length);
 			size = (int) length;
-			if (size > EElen_label) size = EElen_label;
-			adr=adr+((EElen_label*slot)-EElen_label);
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
+			if (size > EElen_totpkey) size = EElen_totpkey;
+			adr=adr+((EElen_totpkey*slot)-EElen_totpkey);
+			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_totpkey);
 			return size;
             
 		case 3:
 			onlykey_eeget_totpkeylen3(&length);
 			size = (int) length;
-			if (size > EElen_label) size = EElen_label;
-			adr=adr+((EElen_label*slot)-EElen_label);
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
+			if (size > EElen_totpkey) size = EElen_totpkey;
+			adr=adr+((EElen_totpkey*slot)-EElen_totpkey);
+			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_totpkey);
 			return size;
             
 		case 4:
 			onlykey_eeget_totpkeylen4(&length);
 			size = (int) length;
-			if (size > EElen_label) size = EElen_label;
-			adr=adr+((EElen_label*slot)-EElen_label);
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
+			if (size > EElen_totpkey) size = EElen_totpkey;
+			adr=adr+((EElen_totpkey*slot)-EElen_totpkey);
+			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_totpkey);
 			return size;
             
 		case 5:
 			onlykey_eeget_totpkeylen5(&length);
 			size = (int) length;
-			if (size > EElen_label) size = EElen_label;
-			adr=adr+((EElen_label*slot)-EElen_label);
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
+			if (size > EElen_totpkey) size = EElen_totpkey;
+			adr=adr+((EElen_totpkey*slot)-EElen_totpkey);
+			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_totpkey);
 			return size;
             
 		case 6:
 			onlykey_eeget_totpkeylen6(&length);
 			size = (int) length;
-			if (size > EElen_label) size = EElen_label;
-			adr=adr+((EElen_label*slot)-EElen_label);
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
+			if (size > EElen_totpkey) size = EElen_totpkey;
+			adr=adr+((EElen_totpkey*slot)-EElen_totpkey);
+			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_totpkey);
 			return size;
             
 		case 7:
 			onlykey_eeget_totpkeylen7(&length);
 			size = (int) length;
-			if (size > EElen_label) size = EElen_label;
-			adr=adr+((EElen_label*slot)-EElen_label);
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
+			if (size > EElen_totpkey) size = EElen_totpkey;
+			adr=adr+((EElen_totpkey*slot)-EElen_totpkey);
+			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_totpkey);
 			return size;
             
 		case 8:
 			onlykey_eeget_totpkeylen8(&length);
 			size = (int) length;
-			if (size > EElen_label) size = EElen_label;
-			adr=adr+((EElen_label*slot)-EElen_label);
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
+			if (size > EElen_totpkey) size = EElen_totpkey;
+			adr=adr+((EElen_totpkey*slot)-EElen_totpkey);
+			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_totpkey);
 			return size;
             
 		case 9:
 			onlykey_eeget_totpkeylen9(&length);
 			size = (int) length;
-			if (size > EElen_label) size = EElen_label;
-			adr=adr+((EElen_label*slot)-EElen_label);
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
+			if (size > EElen_totpkey) size = EElen_totpkey;
+			adr=adr+((EElen_totpkey*slot)-EElen_totpkey);
+			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_totpkey);
 			return size;
             
 		case 10:
 			onlykey_eeget_totpkeylen10(&length);
 			size = (int) length;
-			if (size > EElen_label) size = EElen_label;
-			adr=adr+((EElen_label*slot)-EElen_label);
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
+			if (size > EElen_totpkey) size = EElen_totpkey;
+			adr=adr+((EElen_totpkey*slot)-EElen_totpkey);
+			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_totpkey);
 			return size;
             
 		case 11:
 			onlykey_eeget_totpkeylen11(&length);
 			size = (int) length;
-			if (size > EElen_label) size = EElen_label;
-			adr=adr+((EElen_label*slot)-EElen_label);
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
+			if (size > EElen_totpkey) size = EElen_totpkey;
+			adr=adr+((EElen_totpkey*slot)-EElen_totpkey);
+			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_totpkey);
 			return size;
             
 		case 12:
 			onlykey_eeget_totpkeylen12(&length);
 			size = (int) length;
-			if (size > EElen_label) size = EElen_label;
-			adr=adr+((EElen_label*slot)-EElen_label);
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
+			if (size > EElen_totpkey) size = EElen_totpkey;
+			adr=adr+((EElen_totpkey*slot)-EElen_totpkey);
+			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_totpkey);
 			return size;
             
 		case 13:
 			onlykey_eeget_totpkeylen13(&length);
 			size = (int) length;
-			if (size > EElen_label) size = EElen_label;
-			adr=adr+((EElen_label*slot)-EElen_label);
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
+			if (size > EElen_totpkey) size = EElen_totpkey;
+			adr=adr+((EElen_totpkey*slot)-EElen_totpkey);
+			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_totpkey);
 			return size;
             
 		case 14:
 			onlykey_eeget_totpkeylen14(&length);
 			size = (int) length;
-			if (size > EElen_label) size = EElen_label;
-			adr=adr+((EElen_label*slot)-EElen_label);
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
+			if (size > EElen_totpkey) size = EElen_totpkey;
+			adr=adr+((EElen_totpkey*slot)-EElen_totpkey);
+			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_totpkey);
 			return size;
             
 		case 15:
 			onlykey_eeget_totpkeylen15(&length);
 			size = (int) length;
-			if (size > EElen_label) size = EElen_label;
-			adr=adr+((EElen_label*slot)-EElen_label);
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
+			if (size > EElen_totpkey) size = EElen_totpkey;
+			adr=adr+((EElen_totpkey*slot)-EElen_totpkey);
+			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_totpkey);
 			return size;
             
 		case 16:
 			onlykey_eeget_totpkeylen16(&length);
 			size = (int) length;
-			if (size > EElen_label) size = EElen_label;
-			adr=adr+((EElen_label*slot)-EElen_label);
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
+			if (size > EElen_totpkey) size = EElen_totpkey;
+			adr=adr+((EElen_totpkey*slot)-EElen_totpkey);
+			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_totpkey);
 			return size;
             
 		case 17:
 			onlykey_eeget_totpkeylen17(&length);
 			size = (int) length;
-			if (size > EElen_label) size = EElen_label;
-			adr=adr+((EElen_label*slot)-EElen_label);
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
+			if (size > EElen_totpkey) size = EElen_totpkey;
+			adr=adr+((EElen_totpkey*slot)-EElen_totpkey);
+			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_totpkey);
 			return size;
             
 		case 18:
 			onlykey_eeget_totpkeylen18(&length);
 			size = (int) length;
-			if (size > EElen_label) size = EElen_label;
-			adr=adr+((EElen_label*slot)-EElen_label);
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
+			if (size > EElen_totpkey) size = EElen_totpkey;
+			adr=adr+((EElen_totpkey*slot)-EElen_totpkey);
+			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_totpkey);
 			return size;
             
 		case 19:
 			onlykey_eeget_totpkeylen19(&length);
 			size = (int) length;
-			if (size > EElen_label) size = EElen_label;
-			adr=adr+((EElen_label*slot)-EElen_label);
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
+			if (size > EElen_totpkey) size = EElen_totpkey;
+			adr=adr+((EElen_totpkey*slot)-EElen_totpkey);
+			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_totpkey);
 			return size;
             
 		case 20:
 			onlykey_eeget_totpkeylen20(&length);
 			size = (int) length;
-			if (size > EElen_label) size = EElen_label;
-			adr=adr+((EElen_label*slot)-EElen_label);
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
+			if (size > EElen_totpkey) size = EElen_totpkey;
+			adr=adr+((EElen_totpkey*slot)-EElen_totpkey);
+			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_totpkey);
 			return size;
             
 		case 21:
 			onlykey_eeget_totpkeylen21(&length);
 			size = (int) length;
-			if (size > EElen_label) size = EElen_label;
-			adr=adr+((EElen_label*slot)-EElen_label);
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
+			if (size > EElen_totpkey) size = EElen_totpkey;
+			adr=adr+((EElen_totpkey*slot)-EElen_totpkey);
+			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_totpkey);
 			return size;
             
 		case 22:
 			onlykey_eeget_totpkeylen22(&length);
 			size = (int) length;
-			if (size > EElen_label) size = EElen_label;
-			adr=adr+((EElen_label*slot)-EElen_label);
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
+			if (size > EElen_totpkey) size = EElen_totpkey;
+			adr=adr+((EElen_totpkey*slot)-EElen_totpkey);
+			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_totpkey);
 			return size;
             
 		case 23:
 			onlykey_eeget_totpkeylen23(&length);
 			size = (int) length;
-			if (size > EElen_label) size = EElen_label;
-			adr=adr+((EElen_label*slot)-EElen_label);
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
+			if (size > EElen_totpkey) size = EElen_totpkey;
+			adr=adr+((EElen_totpkey*slot)-EElen_totpkey);
+			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_totpkey);
 			return size;
             
 		case 24:
 			onlykey_eeget_totpkeylen24(&length);
 			size = (int) length;
-			if (size > EElen_label) size = EElen_label;
-			adr=adr+((EElen_label*slot)-EElen_label);
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
+			if (size > EElen_totpkey) size = EElen_totpkey;
+			adr=adr+((EElen_totpkey*slot)-EElen_totpkey);
+			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_totpkey);
 			return size;
 	
 	}
