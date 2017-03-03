@@ -63,7 +63,16 @@
 #include <RNG.h>
 #include "T3MacLib.h"
 #include "base64.h"
-
+/*************************************/
+//Neopixel color LED
+/*************************************/
+#ifdef OK_Color
+#include "Adafruit_NeoPixel.h"
+#define NEOPIN            10
+#define NUMPIXELS      1
+Adafruit_NeoPixel pixels = Adafruit_NeoPixel(NUMPIXELS, NEOPIN, NEO_GRB + NEO_KHZ800);
+uint8_t NEO_Color;
+#endif
 /*************************************/
 //Firmware Version Selection
 /*************************************/
@@ -360,6 +369,9 @@ void recvmsg() {
 	   {
 		if(!PDmode) {
 		#ifdef US_VERSION
+		#ifdef OK_Color
+		NEO_Color = 213; //Purple
+		#endif
 		SoftTimer.add(&FadeinTask);
 		SIGN(recv_buffer);
 		#endif
@@ -380,6 +392,9 @@ void recvmsg() {
 	   {
 		if(!PDmode) {
 		#ifdef US_VERSION
+		#ifdef OK_Color
+		NEO_Color = 128; //Turquoise
+		#endif
 		SoftTimer.add(&FadeinTask);
 		DECRYPT(recv_buffer);
 		#endif
@@ -434,6 +449,9 @@ void recvmsg() {
       default: 
 		if(!PDmode) {
 		#ifdef US_VERSION
+		#ifdef OK_Color
+		NEO_Color = 170; //Blue
+		#endif
 		SoftTimer.add(&FadeinTask);
 	    	recvu2fmsg(recv_buffer);
 		#endif
@@ -1361,9 +1379,17 @@ void blink(int times){
   
   int i;
   for(i = 0; i < times; i++){
+	#ifdef OK_Color
+	setcolor(NEO_Color);
+	#else
     analogWrite(BLINKPIN, 255);
+    #endif
     delay(100);
+	#ifdef OK_Color
+	setcolor(0);
+	#else
     analogWrite(BLINKPIN, 0);
+    #endif
     delay(100);
   }
 }
@@ -4035,7 +4061,17 @@ void yubikey_incr_time() {
 }
 
 void increment(Task* me) {
+  #ifndef OK_Color
   analogWrite(BLINKPIN, fade);
+  #else
+  if (NEO_Color == 1) pixels.setPixelColor(0, pixels.Color(fade,0,0)); //Red
+  else if (NEO_Color < 44) pixels.setPixelColor(0, pixels.Color((fade/2),(fade/2),0)); //Yellow
+  else if (NEO_Color < 86) pixels.setPixelColor(0, pixels.Color(0,fade,0)); //Green
+  else if (NEO_Color < 129) pixels.setPixelColor(0, pixels.Color(0,(fade/2),(fade/2))); //Turquoise
+  else if (NEO_Color < 171) pixels.setPixelColor(0, pixels.Color(0,0,fade)); //Blue
+  else if (NEO_Color < 214) pixels.setPixelColor(0, pixels.Color((fade/2),0,(fade/2))); //Purple
+  pixels.show(); // This sends the updated pixel color to the hardware.
+  #endif
   fade += 8;
   if(fade == 0) {
     // -- Byte value overflows: 240 + 16 = 0
@@ -4046,7 +4082,14 @@ void increment(Task* me) {
 
 void decrement(Task* me) {
   fade -= 8;
+  #ifndef OK_Color
   analogWrite(BLINKPIN, fade);
+  #else
+  if (NEO_Color < 85) pixels.setPixelColor(0, pixels.Color(fade,0,0));
+  if (NEO_Color < 170) pixels.setPixelColor(0, pixels.Color(0,fade,0));
+  else pixels.setPixelColor(0, pixels.Color(0,0,fade));
+  pixels.show(); // This sends the updated pixel color to the hardware.
+  #endif
   if(fade == 0) {
     // -- Floor reached.
     SoftTimer.remove(&FadeoutTask);
@@ -4064,7 +4107,47 @@ void fadeon() {
   SoftTimer.add(&FadeinTask);
   fade=1;
 }
+
+// Input a value 0 to 255 to get a color value.
+// The colours are a transition r - g - b - back to r.
+uint32_t Wheel(uint8_t WheelPos) {
+  WheelPos = 255 - WheelPos;
+  if(WheelPos < 85) {
+    return pixels.Color(255 - WheelPos * 3, 0, WheelPos * 3);
+  }
+  if(WheelPos < 170) {
+    WheelPos -= 85;
+    return pixels.Color(0, WheelPos * 3, 255 - WheelPos * 3);
+  }
+  WheelPos -= 170;
+  return pixels.Color(WheelPos * 3, 255 - WheelPos * 3, 0);
+}
+
+void rainbowCycle(uint8_t wait, uint8_t cycle) {
+  uint16_t i, j;
+  for(j=0; j<256*cycle; j++) { 
+    for(i=0; i< pixels.numPixels(); i++) {
+      pixels.setPixelColor(i, Wheel(((i * 256 / pixels.numPixels()) + j) & 255));
+    }
+    pixels.show();
+    delay(wait);
+  }
+}
+
+void initColor() {
+  pixels.begin(); // This initializes the NeoPixel library.
+  pixels.show();
+}
 		
+void setcolor (uint8_t Color) {
+	  if (Color == 0) pixels.setPixelColor(0, pixels.Color(0,0,0));
+	  else {
+		  pixels.setPixelColor(0, Wheel(Color));
+		  NEO_Color = Color;
+	  }
+      pixels.show(); // This sends the updated pixel color to the hardware.
+	  delay(1);
+}
 		  
 void backupslots() {
   unsigned char *pos;
@@ -4749,6 +4832,9 @@ void RESTORE(uint8_t *buffer) {
 	delay(2000);
 	hidprint("Remove and Reinsert OnlyKey to complete restore");
 	fadeoff();
+	#ifdef OK_Color
+    NEO_Color = 85; //Green
+    #endif
 	while (1==1) {
 	blink(3);
 	}
