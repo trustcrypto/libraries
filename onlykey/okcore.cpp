@@ -834,7 +834,7 @@ void SETTIME (uint8_t *buffer)
 #ifdef DEBUG
 		Serial.print("CONFIG_MODE");
 #endif
-		hidprint("CONFIG_MODE");
+		hidprint("UNLOCKEDv0.2-beta.3");
 	   }
 	   else if (initialized==true && unlocked==true ) 
 	   {

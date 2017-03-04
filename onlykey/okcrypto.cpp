@@ -169,31 +169,31 @@ void GETRSAPUBKEY (uint8_t *buffer)
 #endif
 	memcpy(resp_buffer, rsa_publicN, 64);
     RawHID.send(resp_buffer, 0);
-	delay(10);
+	delay(100);
 	memcpy(resp_buffer, rsa_publicN+64, 64);
     RawHID.send(resp_buffer, 0);
-	delay(10);
+	delay(100);
 	if (type>=2) {
 	memcpy(resp_buffer, rsa_publicN+128, 64);
     RawHID.send(resp_buffer, 0);
-	delay(10);
+	delay(100);
 	memcpy(resp_buffer, rsa_publicN+192, 64);
     RawHID.send(resp_buffer, 0);
-	delay(10);
+	delay(100);
 	} if (type>=3) {
 	memcpy(resp_buffer, rsa_publicN+256, 64);
     RawHID.send(resp_buffer, 0);
-	delay(10);
+	delay(100);
 	memcpy(resp_buffer, rsa_publicN+320, 64);
     RawHID.send(resp_buffer, 0);
-	delay(10);
+	delay(100);
 	} if (type==4) {
 	memcpy(resp_buffer, rsa_publicN+384, 64);
     RawHID.send(resp_buffer, 0);
-	delay(10);
+	delay(100);
 	memcpy(resp_buffer, rsa_publicN+448, 64);
     RawHID.send(resp_buffer, 0);
-	delay(10);
+	delay(100);
 	}
 	blink(3);
 }
@@ -428,7 +428,8 @@ void ECDH(uint8_t *buffer)
 {
 	extern int large_data_offset;
 	extern uint8_t large_buffer[sizeof(large_buffer)];
-	uint8_t secret[64];
+    uint8_t ephemeral_pub[32];
+	uint8_t secret[32];
 #ifdef DEBUG
     Serial.println();
     Serial.println("OKECDH MESSAGE RECEIVED"); 
@@ -440,20 +441,17 @@ void ECDH(uint8_t *buffer)
     int num_curves = 0;
     curves[num_curves++] = uECC_secp256r1();
     curves[num_curves++] = uECC_secp256k1();
-	//We need the hash alg large_buffer[0] and the public key large_buffer+1
+	memcpy (ephemeral_pub, large_buffer, 32);
 	switch (type) {
 	case 1:
-	    memcpy (secret, large_buffer+1, 32);
-		Curve25519::dh2(secret, ecc_private_key);
-		type = 32;
+		Curve25519::dh2(ephemeral_pub, ecc_private_key);
+		memcpy (secret, ephemeral_pub, 32);
 	break;		
 	case 2:
-		uECC_shared_secret(large_buffer+1, ecc_private_key, secret, curves[1]);
-		type = 32;
+		uECC_shared_secret(ephemeral_pub, ecc_private_key, secret, curves[1]);
 	break;
 	case 3:
-		uECC_shared_secret(large_buffer+1, ecc_private_key, secret, curves[2]);
-		type = 32;
+		uECC_shared_secret(ephemeral_pub, ecc_private_key, secret, curves[2]);
 	break;
 	default:
 		hidprint("Error ECC type incorrect");
@@ -463,8 +461,8 @@ void ECDH(uint8_t *buffer)
 #ifdef DEBUG
     Serial.println();
     Serial.print("Public key to generate shared secret for"); 
-	for (int i = 0; i< type; i++) {
-		Serial.print(large_buffer[i+1],HEX);
+	for (int i = 0; i< 32; i++) {
+		Serial.print(large_buffer[i],HEX);
 		}
     Serial.println();
     Serial.print("ECDH Secret is "); 
@@ -472,44 +470,65 @@ void ECDH(uint8_t *buffer)
 		Serial.print(secret[i],HEX);
 		}
 #endif
-    // Reference - GPG requires entire message to generate KEK
+	RawHID.send(secret, 0);
+	//delay(100);
+    // Reference - https://www.ietf.org/mail-archive/web/openpgp/current/msg00637.html
 	// https://fossies.org/linux/misc/gnupg-2.1.17.tar.gz/gnupg-2.1.17/g10/ecdh.c
 	// gcry_md_write(h, "\x00\x00\x00\x01", 4);      /* counter = 1 */
     // gcry_md_write(h, secret_x, secret_x_size);    /* x of the point X */
     // gcry_md_write(h, message, message_size);      /* KDF parameters */
 	// This is a limitation as we have to be able to fit the entire message to decrypt
 	// In this way RSA seems to have an advantage?
-	// Our packet format will be -
+	// /* Build kdf_params.  */
+    //{
+    //IOBUF obuf;
+    //
+    //obuf = iobuf_temp();
+    ///* variable-length field 1, curve name OID */
+    //err = gpg_mpi_write_nohdr (obuf, pkey[0]);
+    ///* fixed-length field 2 */
+    //iobuf_put (obuf, PUBKEY_ALGO_ECDH);
+    ///* variable-length field 3, KDF params */
+    //err = (err ? err : gpg_mpi_write_nohdr (obuf, pkey[2]));
+    ///* fixed-length field 4 */
+    //iobuf_write (obuf, "Anonymous Sender    ", 20);
+    ///* fixed-length field 5, recipient fp */
+    //iobuf_write (obuf, pk_fp, 20);
+    //
+    //message_size = iobuf_temp_to_buffer (obuf, message, sizeof message);
+	/*
+
 	uint8_t hash_alg = large_buffer[0];
 	uint8_t *pub_key = large_buffer+1;
-	uint8_t *msg = large_buffer+1+type;
+	uint8_t *msg = large_buffer+1+32;
 	uint8_t counter[] = "\x00\x00\x00\x01";
+	uint8_t hash[64];
     mbedtls_sha512_context sha512;
 	switch (hash_alg) {
 		case 2: //sha256
 		SHA256_CTX context;
 		sha256_init(&context);
 		sha256_update(&context, counter, 4); //add counter
-		sha256_update(&context, secret, type); //add secret
+		sha256_update(&context, secret, sizeof(secret)); //add secret
 		sha256_update(&context, msg, (large_data_offset-1-type)); //add message
-		sha256_final(&context, secret); //store hash as secret
+		sha256_final(&context, hash); 
 		break;
 		case 3: //sha384
 		mbedtls_sha512_init (&sha512);
 		mbedtls_sha512_starts (&sha512, 1); //is 384
 		mbedtls_sha512_update (&sha512, counter, 4); //add counter
-		mbedtls_sha512_update (&sha512, secret, type); //add secret
+		mbedtls_sha512_update (&sha512, secret, sizeof(secret)); //add secret
 		mbedtls_sha512_update (&sha512, msg, (large_data_offset-1-type)); //add message
-		mbedtls_sha512_finish (&sha512, secret); //store hash as secret
+		mbedtls_sha512_finish (&sha512, hash); 
 		mbedtls_sha512_free (&sha512);
 		break;
 		case 5: //sha512
 		mbedtls_sha512_init (&sha512);
 		mbedtls_sha512_starts (&sha512, 0); //is not 384
 		mbedtls_sha512_update (&sha512, counter, 4); //add counter
-		mbedtls_sha512_update (&sha512, secret, type); //add secret
-		mbedtls_sha512_update (&sha512, msg, (large_data_offset-1-type)); //add message
-		mbedtls_sha512_finish (&sha512, secret); //store hash as secret
+		mbedtls_sha512_update (&sha512, secret, sizeof(secret)); //add secret
+		mbedtls_sha512_update (&sha512, msg, (large_data_offset-1-sizeof(secret))); //add message
+		mbedtls_sha512_finish (&sha512, hash); 
 		mbedtls_sha512_free (&sha512);
 		break;
 		default:
@@ -518,14 +537,16 @@ void ECDH(uint8_t *buffer)
 	}
 	//Send the KEK, client app should know the symmetric encryption alg
 	//Depending on the alg the client will drop the uneeded tail of the the key
+    
 #ifdef DEBUG
     Serial.println();
     Serial.print("ECDH KEK is "); 
-	for (int i = 0; i< sizeof(secret); i++) {
-		Serial.print(secret[i],HEX);
+	for (int i = 0; i< sizeof(hash); i++) {
+		Serial.print(hash[i],HEX);
 		}
 #endif
-    RawHID.send(secret, 0);
+    RawHID.send(hash, 0);
+	*/
 	CRYPTO_AUTH = 0;
 	Challenge_button1 = 0;
 	Challenge_button2 = 0;
