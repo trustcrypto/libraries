@@ -79,11 +79,13 @@ extern uint8_t Challenge_button1;
 extern uint8_t Challenge_button2;
 extern uint8_t Challenge_button3;
 extern uint8_t CRYPTO_AUTH;
-extern int rsa_decrypt (int mlen, size_t olen, const uint8_t *in, uint8_t *out);
+extern int rsa_decrypt (size_t olen, const uint8_t *in, uint8_t *out);
 extern int rsa_sign (int mlen, const uint8_t *msg, uint8_t *out);
 extern void rsa_getpub (uint8_t type);
 extern bool is_bit_set(unsigned char byte, int index);
 extern int mbedtls_rand( void *rng_state, unsigned char *output, size_t len);
+extern int rsa_encrypt (int len, const uint8_t *in, uint8_t *out);
+extern int shared_secret (uint8_t *ephemeral_pub, uint8_t *secret);
 
 #ifdef __cplusplus
 }

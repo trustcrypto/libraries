@@ -284,7 +284,7 @@ void RSADECRYPT (uint8_t *buffer)
 	byteprint(large_buffer, large_data_offset);
 #endif
 	// decrypt ciphertext in large_buffer to large_buffer
-    if (rsa_decrypt (large_data_offset, plaintext_len, large_buffer, large_buffer) == 0)
+    if (rsa_decrypt (plaintext_len, large_buffer, large_buffer) == 0)
 	{
 #ifdef DEBUG
 		Serial.println();
@@ -436,28 +436,8 @@ void ECDH(uint8_t *buffer)
 #endif
     if(!CRYPTO_AUTH) process_packets (buffer);
 	else if (CRYPTO_AUTH == 4) {
-
-	const struct uECC_Curve_t * curves[2];
-    int num_curves = 0;
-    curves[num_curves++] = uECC_secp256r1();
-    curves[num_curves++] = uECC_secp256k1();
 	memcpy (ephemeral_pub, large_buffer, 32);
-	switch (type) {
-	case 1:
-		Curve25519::dh2(ephemeral_pub, ecc_private_key);
-		memcpy (secret, ephemeral_pub, 32);
-	break;		
-	case 2:
-		uECC_shared_secret(ephemeral_pub, ecc_private_key, secret, curves[1]);
-	break;
-	case 3:
-		uECC_shared_secret(ephemeral_pub, ecc_private_key, secret, curves[2]);
-	break;
-	default:
-		hidprint("Error ECC type incorrect");
-	return;
-	}
-	
+    shared_secret(ephemeral_pub, secret);
 #ifdef DEBUG
     Serial.println();
     Serial.print("Public key to generate shared secret for"); 
@@ -568,6 +548,29 @@ void ECDH(uint8_t *buffer)
 	}
 }
 
+int shared_secret (uint8_t *ephemeral_pub, uint8_t *secret) {
+
+	const struct uECC_Curve_t * curves[2];
+    int num_curves = 0;
+    curves[num_curves++] = uECC_secp256r1();
+    curves[num_curves++] = uECC_secp256k1();
+	switch (type) {
+	case 1:
+		Curve25519::dh2(ephemeral_pub, ecc_private_key);
+		memcpy (secret, ephemeral_pub, 32);
+	return 1;		
+	case 2:
+		uECC_shared_secret(ephemeral_pub, ecc_private_key, secret, curves[1]);
+	return 1;
+	case 3:
+		uECC_shared_secret(ephemeral_pub, ecc_private_key, secret, curves[2]);
+	return 1;
+	default:
+		hidprint("Error ECC type incorrect");
+		return 0;
+	}
+}
+
 int rsa_sign (int mlen, const uint8_t *msg, uint8_t *out)
 {
 	mbedtls_rsa_self_test(1);
@@ -614,7 +617,7 @@ int rsa_sign (int mlen, const uint8_t *msg, uint8_t *out)
 	  if (mlen > ((type*128)-11)) mlen = ((type*128)-11);
       ret = mbedtls_rsa_rsassa_pkcs1_v15_sign (&rsa, mbedtls_rand, NULL, MBEDTLS_RSA_PRIVATE, MBEDTLS_MD_NONE, mlen, msg, rsa_ciphertext);
       memcpy (out, rsa_ciphertext, (type*128));
-	  int ret2 = mbedtls_rsa_rsassa_pkcs1_v15_verify ( &rsa, NULL, NULL, MBEDTLS_RSA_PUBLIC, MBEDTLS_MD_NONE, mlen, msg, rsa_ciphertext );
+	  int ret2 = mbedtls_rsa_rsassa_pkcs1_v15_verify ( &rsa, mbedtls_rand, NULL, MBEDTLS_RSA_PUBLIC, MBEDTLS_MD_NONE, mlen, msg, rsa_ciphertext );
 	  if( ret2 != 0 ) {
 		  Serial.print("Signature Verification Failed ");
 		  Serial.println(ret2);
@@ -638,7 +641,7 @@ int rsa_sign (int mlen, const uint8_t *msg, uint8_t *out)
     }
 }
 
-int rsa_decrypt (int mlen, size_t olen, const uint8_t *in, uint8_t *out)
+int rsa_decrypt (size_t olen, const uint8_t *in, uint8_t *out)
 {
   mbedtls_mpi P1, Q1, H;
   int ret = 0;
@@ -670,13 +673,18 @@ int rsa_decrypt (int mlen, size_t olen, const uint8_t *in, uint8_t *out)
 	Serial.printf( "\nRSA len = " );
 	Serial.println(rsa.len);
 	#endif
-  if (mbedtls_rsa_check_privkey( &rsa ) != 0 ) Serial.printf("Error Private Key=%d", ret);
+  ret = mbedtls_rsa_check_privkey( &rsa ); 
+	if (ret != 0) {
+	  #ifdef DEBUG
+      Serial.print ("MBEDTLS_ERR_RSA_XXX error code ");
+	  Serial.println (ret);
+	  #endif
+	}
   if (ret == 0)
     {
 	  #ifdef DEBUG
       Serial.print ("RSA decrypt ");
 	  #endif
-	  if (mlen > ((type*128)-11)) mlen = ((type*128)-11);
       ret = mbedtls_rsa_rsaes_pkcs1_v15_decrypt (&rsa, NULL, NULL, MBEDTLS_RSA_PRIVATE, &olen, in, out, BUFFER_SIZE);
     }
   mbedtls_rsa_free (&rsa);
@@ -731,6 +739,70 @@ void rsa_getpub (uint8_t type)
 	}
 }
 
+int rsa_encrypt (int len, const uint8_t *in, uint8_t *out)
+{
+	mbedtls_mpi P1, Q1, H;
+	int ret = 0;
+	static mbedtls_rsa_context rsa;
+	#ifdef DEBUG
+	Serial.printf ("\nRSA encrypt:");
+	Serial.println ((uint32_t)&ret);
+	#endif
+
+	mbedtls_rsa_init (&rsa, MBEDTLS_RSA_PKCS_V15, 0);
+	mbedtls_mpi_init (&P1);  mbedtls_mpi_init (&Q1);  mbedtls_mpi_init (&H);
+	rsa.len = (type*128);
+	MBEDTLS_MPI_CHK( mbedtls_mpi_lset (&rsa.E, 0x10001) );
+	MBEDTLS_MPI_CHK( mbedtls_mpi_read_binary (&rsa.P, &rsa_private_key[0], ((type*128) / 2) ));
+	MBEDTLS_MPI_CHK( mbedtls_mpi_read_binary (&rsa.Q, &rsa_private_key[((type*128) / 2)], ((type*128) / 2) ));
+	MBEDTLS_MPI_CHK( mbedtls_mpi_mul_mpi (&rsa.N, &rsa.P, &rsa.Q) );
+	MBEDTLS_MPI_CHK( mbedtls_mpi_sub_int (&P1, &rsa.P, 1) );
+	MBEDTLS_MPI_CHK( mbedtls_mpi_sub_int (&Q1, &rsa.Q, 1) );
+	MBEDTLS_MPI_CHK( mbedtls_mpi_mul_mpi (&H, &P1, &Q1) );
+	MBEDTLS_MPI_CHK( mbedtls_mpi_inv_mod (&rsa.D , &rsa.E, &H) );
+	MBEDTLS_MPI_CHK( mbedtls_mpi_mod_mpi (&rsa.DP, &rsa.D, &P1) );
+	MBEDTLS_MPI_CHK( mbedtls_mpi_mod_mpi (&rsa.DQ, &rsa.D, &Q1) );
+	MBEDTLS_MPI_CHK( mbedtls_mpi_inv_mod (&rsa.QP, &rsa.Q, &rsa.P) );
+	Serial.println (rsa.len);
+	cleanup:
+	mbedtls_mpi_free (&P1);  mbedtls_mpi_free (&Q1);  mbedtls_mpi_free (&H);
+  
+	#ifdef DEBUG
+	Serial.printf( "\nRSA len = " );
+	Serial.println(rsa.len);
+	#endif
+  ret = mbedtls_rsa_check_pubkey( &rsa ); 
+	if (ret != 0) {
+	  #ifdef DEBUG
+      Serial.print ("MBEDTLS_ERR_RSA_XXX error code ");
+	  Serial.println (ret);
+	  #endif
+	}
+  if (ret == 0)
+    {
+
+	  ret = mbedtls_rsa_rsaes_pkcs1_v15_encrypt	( &rsa, mbedtls_rand, NULL, MBEDTLS_RSA_PUBLIC, len,
+                           in, out );
+    }
+  mbedtls_rsa_free (&rsa);
+  if (ret == 0)
+    {
+	  #ifdef DEBUG
+      Serial.print ("completed successfully");
+	  #endif
+      return 0;
+    }
+  else
+    {
+	  #ifdef DEBUG
+      Serial.print ("MBEDTLS_ERR_RSA_XXX error code ");
+	  Serial.println (ret);
+	  #endif
+      return -1;
+    }
+}
+
+
 bool is_bit_set(unsigned char byte, int index) {
   return (byte >> index) & 1;
 }
@@ -742,5 +814,6 @@ int mbedtls_rand( void *rng_state, unsigned char *output, size_t len )
     RNG2( output, len );
     return( 0 );
 }
+
 
 #endif

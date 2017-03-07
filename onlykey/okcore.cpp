@@ -165,6 +165,7 @@ extern uint8_t ecc_private_key[MAX_ECC_KEY_SIZE];
 //RSA assignments
 /*************************************/
 extern uint8_t rsa_private_key[MAX_RSA_KEY_SIZE];
+extern uint8_t type;
 /*************************************/
 
 void recvmsg() {
@@ -1258,7 +1259,7 @@ void WIPESLOT (uint8_t *buffer)
 	 byteprint(buffer, 64);
      Serial.print("Overwriting slot with 0s");
 #endif 
-	 if (value==13) {
+	 if (value==10) {
 #ifdef DEBUG
             Serial.println(); //newline
             Serial.print("Wiping OnlyKey AES Key, Private ID, and Public ID...");
@@ -1269,7 +1270,7 @@ void WIPESLOT (uint8_t *buffer)
 			yubikey_eeset_counter(buffer + 7);
             hidprint("Successfully wiped AES Key, Private ID, and Public ID");
 			return;
-	 }
+	 } else if (slot >= 1 && slot <=12) {
    	if (PDmode) slot = slot+12;
 #ifdef DEBUG
             Serial.println(); //newline
@@ -1346,6 +1347,7 @@ void WIPESLOT (uint8_t *buffer)
 
       blink(3);
       return;
+	 }
 }
 
 void digitalClockDisplay(){
@@ -1753,12 +1755,12 @@ void aes_gcm_decrypt (uint8_t * state, uint8_t * iv1, const uint8_t * key, int l
 void aes_gcm_encrypt2 (uint8_t * state, uint8_t * iv1, const uint8_t * key, int len) {
 	#ifdef US_VERSION
 	GCM<AES256> gcm; 
-	uint8_t tag[16];
+	//uint8_t tag[16];
 	gcm.clear ();
-	gcm.setKey(key, sizeof(key));
+	gcm.setKey(key, 32);
 	gcm.setIV(iv1, 12);
 	gcm.encrypt(state, state, len);
-	gcm.computeTag(tag, sizeof(tag)); 
+	//gcm.computeTag(tag, sizeof(tag)); 
 	#endif
 }
 
@@ -1767,7 +1769,7 @@ void aes_gcm_decrypt2 (uint8_t * state, uint8_t * iv1, const uint8_t * key, int 
 	GCM<AES256> gcm; 
 	//uint8_t tag[16];
 	gcm.clear ();
-	gcm.setKey(key, sizeof(key));
+	gcm.setKey(key, 32);
 	gcm.setIV(iv1, 12);
 	gcm.decrypt(state, state, len);
 	//if (!gcm.checkTag(tag, sizeof(tag))) {
@@ -3673,11 +3675,11 @@ if (PDmode) return 0;
 		Serial.printf("There is no ECC Private Key set in this slot");
 		hidprint("There is no ECC Private Key set in this slot");
 		return 0;
-	} else if (type==0x01 || type==0x11 || type==0x21 || type==0x41) {
+	}else if (type==0x01 || type==0x11 || type==0x21 || type==0x31 || type==0x41 || type==0x51 || type==0x61 || type==0x71 || type==0x81 || type==0x91 || type==0xA1 || type==0xB1 || type==0xC1 || type==0xD1 || type==0xE1 || type==0xF1) {
 		type=1;
-	}else if (type==0x02 || type==0x12 || type==0x22 || type==0x42) {
+	}else if (type==0x02 || type==0x12 || type==0x22 || type==0x32 || type==0x42 || type==0x52 || type==0x62 || type==0x72 || type==0x82 || type==0x92 || type==0xA2 || type==0xB2 || type==0xC2 || type==0xD2 || type==0xE2 || type==0xF2) {
 		type=2;
-	}else if (type==0x03 || type==0x13 || type==0x23 || type==0x43) {
+	}else if (type==0x03 || type==0x13 || type==0x23 || type==0x33 || type==0x43 || type==0x53 || type==0x63 || type==0x73 || type==0x83 || type==0x93 || type==0xA3 || type==0xB3 || type==0xC3 || type==0xD3 || type==0xE3 || type==0xF3) {
 		type=3;
 	}
 	adr = adr + (((slot-100)*32)-32);
@@ -3793,13 +3795,13 @@ if (PDmode) return 0;
 	Serial.printf("There is no RSA Private Key set in this slot");
 	hidprint("There is no RSA Private Key set in this slot");
 	return 0;
-	} else if (type==0x01 || type==0x11 || type==0x21 || type==0x41) {
+	} else if (type==0x01 || type==0x11 || type==0x21 || type==0x31 || type==0x41 || type==0x51 || type==0x61 || type==0x71 || type==0x81 || type==0x91 || type==0xA1 || type==0xB1 || type==0xC1 || type==0xD1 || type==0xE1 || type==0xF1) {
 		type=1;
-	}else if (type==0x02 || type==0x12 || type==0x22 || type==0x42) {
+	}else if (type==0x02 || type==0x12 || type==0x22 || type==0x32 || type==0x42 || type==0x52 || type==0x62 || type==0x72 || type==0x82 || type==0x92 || type==0xA2 || type==0xB2 || type==0xC2 || type==0xD2 || type==0xE2 || type==0xF2) {
 		type=2;
-	}else if (type==0x03 || type==0x13 || type==0x23 || type==0x43) {
+	}else if (type==0x03 || type==0x13 || type==0x23 || type==0x33 || type==0x43 || type==0x53 || type==0x63 || type==0x73 || type==0x83 || type==0x93 || type==0xA3 || type==0xB3 || type==0xC3 || type==0xD3 || type==0xE3 || type==0xF3) {
 		type=3;
-	}else if (type==0x04 || type==0x14 || type==0x24 || type==0x44) {
+	}else if (type==0x04 || type==0x14 || type==0x24 || type==0x34 || type==0x44 || type==0x54 || type==0x64 || type==0x74 || type==0x84 || type==0x94 || type==0xA4 || type==0xB4 || type==0xC4 || type==0xD4 || type==0xE4 || type==0xF4) {
 		type=4;
 	}
 	#ifdef DEBUG 
@@ -3848,26 +3850,26 @@ if (PDmode) return;
 	Serial.printf("Type = %d ",buffer[6]);
 #endif 
 	}
-	if (buffer[6]==0x01 || buffer[6]==0x11 || buffer[6]==0x21 || buffer[6]==0x41) //Expect 128 Bytes, if buffer[0] != FF we know this is import from backup
+	if (buffer[6]==0x01 || buffer[6]==0x11 || buffer[6]==0x21 || buffer[6]==0x31 || buffer[6]==0x41 || buffer[6]==0x51 || buffer[6]==0x61 || buffer[6]==0x71 || buffer[6]==0x81 || buffer[6]==0x91 || buffer[6]==0xA1 || buffer[6]==0xB1 || buffer[6]==0xC1 || buffer[6]==0xD1 || buffer[6]==0xE1 || buffer[6]==0xF1) //Expect 128 Bytes, if buffer[0] != FF we know this is import from backup
 	{
 		keysize=128;
 		if (buffer[0] != 0xBA && large_data_len <= 114) {
 		memcpy(rsa_private_key+large_data_len, buffer+7, 57);
 		large_data_len = large_data_len + 57;
 		} 
-	} else if (buffer[6]==0x02 || buffer[6]==0x12 || buffer[6]==0x22 || buffer[6]==0x42) { //Expect 256 Bytes
+	} else if (buffer[6]==0x02 || buffer[6]==0x12 || buffer[6]==0x22 || buffer[6]==0x32 || buffer[6]==0x42 || buffer[6]==0x52 || buffer[6]==0x62 || buffer[6]==0x72 || buffer[6]==0x82 || buffer[6]==0x92 || buffer[6]==0xA2 || buffer[6]==0xB2 || buffer[6]==0xC2 || buffer[6]==0xD2 || buffer[6]==0xE2 || buffer[6]==0xF2) { //Expect 256 Bytes
 		keysize=256;
 		if (buffer[0] != 0xBA && large_data_len <= 228) {
 		memcpy(rsa_private_key+large_data_len, buffer+7, 57);
 		large_data_len = large_data_len + 57;
 		}
-	} else if (buffer[6]==0x03 || buffer[6]==0x13 || buffer[6]==0x23 || buffer[6]==0x43) { //Expect 384 Bytes
+	} else if (buffer[6]==0x03 || buffer[6]==0x13 || buffer[6]==0x23 || buffer[6]==0x33 || buffer[6]==0x43 || buffer[6]==0x53 || buffer[6]==0x63 || buffer[6]==0x73 || buffer[6]==0x83 || buffer[6]==0x93 || buffer[6]==0xA3 || buffer[6]==0xB3 || buffer[6]==0xC3 || buffer[6]==0xD3 || buffer[6]==0xE3 || buffer[6]==0xF3) { //Expect 384 Bytes
 		keysize=384;
 		if (buffer[0] != 0xBA && large_data_len <= 342) {
 		memcpy(rsa_private_key+large_data_len, buffer+7, 57);
 		large_data_len = large_data_len + 57;
 		}
-	} else if (buffer[6]==0x04 || buffer[6]==0x14 || buffer[6]==0x24 || buffer[6]==0x44) { //Expect 512 Bytes
+	} else if (buffer[6]==0x04 || buffer[6]==0x14 || buffer[6]==0x24 || buffer[6]==0x34 || buffer[6]==0x44 || buffer[6]==0x54 || buffer[6]==0x64 || buffer[6]==0x74 || buffer[6]==0x84 || buffer[6]==0x94 || buffer[6]==0xA4 || buffer[6]==0xB4 || buffer[6]==0xC4 || buffer[6]==0xD4 || buffer[6]==0xE4 || buffer[6]==0xF4) { //Expect 512 Bytes
 		keysize=512;
 		if (buffer[0] != 0xBA && large_data_len <= 456) {
 		memcpy(rsa_private_key+large_data_len, buffer+7, 57);
@@ -4108,6 +4110,7 @@ void fadeon() {
   fade=1;
 }
 
+#ifdef OK_Color
 // Input a value 0 to 255 to get a color value.
 // The colours are a transition r - g - b - back to r.
 uint32_t Wheel(uint8_t WheelPos) {
@@ -4148,26 +4151,30 @@ void setcolor (uint8_t Color) {
       pixels.show(); // This sends the updated pixel color to the hardware.
 	  delay(1);
 }
+#endif
 		  
-void backupslots() {
+void backup() {
   unsigned char *pos;
-  uint8_t temp[64];
-  uint8_t large_temp[7715];
+  uint8_t temp[MAX_RSA_KEY_SIZE];
+  uint8_t large_temp[12323];
   int urllength;
   int usernamelength;
   int passwordlength;
   int otplength;
   uint8_t *ptr;
-  unsigned char beginsbackup[] = "-----BEGIN ONLYKEY SLOT BACKUP-----";
-  unsigned char endsbackup[] = "-----END ONLYKEY SLOT BACKUP-----";
+  unsigned char beginbackup[] = "-----BEGIN ONLYKEY BACKUP-----";
+  unsigned char endbackup[] = "-----END ONLYKEY BACKUP-----";
   uint8_t ctr[2];
+  uint8_t Large_data_offset[2];
   bool backupyubikey=false;
+  uint8_t slot;
+  uint8_t length[2];
   large_data_offset = 0;
   memset(large_temp, 0, sizeof(large_temp)); //Wipe all data from largebuffer
-  int slot;
+ 
   
-  for (int z = 0; z < sizeof(beginsbackup); z++) {
-        Keyboard.write(beginsbackup[z]);
+  for (int z = 0; z < sizeof(beginbackup); z++) {
+        Keyboard.write(beginbackup[z]);
 		delay(((TYPESPEED[0]*TYPESPEED[0])*10));
 	} 
   
@@ -4177,7 +4184,7 @@ void backupslots() {
     Serial.print("Backing up Label Number ");
     Serial.println(slot);
   #endif
-    memset(temp, 0, 64); //Wipe all data from temp buffer
+    memset(temp, 0, sizeof(temp)); //Wipe all data from temp buffer
     ptr = temp;
 	onlykey_flashget_label(ptr, slot);
 	if(temp[0] != 0xFF && temp[0] != 0x00)
@@ -4195,7 +4202,7 @@ void backupslots() {
     Serial.print("Backing up Slot Number ");
     Serial.println(slot);
     #endif
-	memset(temp, 0, 64); //Wipe all data from temp buffer
+	memset(temp, 0, sizeof(temp)); //Wipe all data from temp buffer
     ptr = temp;
     urllength = onlykey_flashget_url(ptr, slot);
     if(urllength > 0)
@@ -4423,14 +4430,185 @@ void backupslots() {
 	  large_temp[large_data_offset+1] = ctr[1]; //second part of counter
 	  large_data_offset=large_data_offset+2;
 	  }
-//Encrypt
-    
-    #ifdef DEBUG
+	
+	#ifdef DEBUG
 	Serial.println();
-    Serial.println("Unencoded");
+    Serial.println("Unencrypted Slot Backup");
 	byteprint(large_temp, large_data_offset);
     Serial.println();
     #endif
+	
+	
+  //Copy RSA keys to buffer  
+  uint8_t backupslot;
+  onlykey_eeget_backupkey (&backupslot);
+  for (int slot=1; slot<=4; slot++)
+  {
+	if (slot != backupslot) {  
+	#ifdef DEBUG
+    Serial.print("Backing up RSA Key Number ");
+    Serial.println(slot);
+   #endif
+    memset(temp, 0, MAX_RSA_KEY_SIZE); //Wipe all data from temp buffer
+    ptr = temp;
+	uint8_t features = onlykey_flashget_RSA(slot);
+	if(features != 0x00)
+      {
+		large_temp[large_data_offset] = 0xFE; //delimiter
+		large_temp[large_data_offset+1] = slot;
+		large_temp[large_data_offset+2] = features;
+		memcpy(large_temp+large_data_offset+3, rsa_private_key, (type*128));
+        large_data_offset=large_data_offset+(type*128)+3;
+		#ifdef DEBUG
+			byteprint(rsa_private_key, (type*128));
+		#endif
+      } else {
+			#ifdef DEBUG
+			Serial.print("No key set to slot");
+			#endif
+	  }
+	}
+  }
+  
+  //Copy ECC keys to buffer
+  for (int slot=101; slot<=132; slot++)
+  {
+	if (slot != backupslot) {  
+	#ifdef DEBUG
+    Serial.print("Backing up ECC Key Number ");
+    Serial.println(slot);
+   #endif
+    memset(temp, 0, MAX_RSA_KEY_SIZE); //Wipe all data from temp buffer
+    ptr = temp;
+	uint8_t features = onlykey_flashget_ECC(slot);
+	if(features != 0x00)
+      {
+		large_temp[large_data_offset] = 0xFE; //delimiter
+		large_temp[large_data_offset+1] = slot;
+		large_temp[large_data_offset+2] = features;
+		memcpy(large_temp+large_data_offset+3, ecc_private_key, MAX_ECC_KEY_SIZE);
+        large_data_offset=large_data_offset+MAX_ECC_KEY_SIZE+3;
+		#ifdef DEBUG
+			byteprint(ecc_private_key, MAX_ECC_KEY_SIZE);
+		#endif
+      } else {
+			#ifdef DEBUG
+			Serial.print("No key set to slot");
+			#endif
+	  }
+	}
+  }
+  
+//Copy U2F key/Cert to buffer
+	onlykey_eeget_U2Fcertlen(length);
+	int length2 = length[0] << 8 | length[1];
+	if (length2 != 0) {
+	large_temp[large_data_offset] = 0xFD; //delimiter
+	memcpy(large_temp+large_data_offset+1, attestation_priv, 32);
+    large_data_offset=large_data_offset+32+1;
+	int u2fcounter = getCounter();
+	large_temp[large_data_offset] = 
+	large_data_offset++;
+	large_temp[large_data_offset] =
+	large_data_offset++;
+	large_temp[large_data_offset] = length[0];
+	large_data_offset++;
+	large_temp[large_data_offset] = length[1];
+	large_data_offset++;
+	memcpy(large_temp+large_data_offset, attestation_der, length2);
+    large_data_offset=large_data_offset+length2;
+	#ifdef DEBUG
+	Serial.print("Found U2F Certificate to backup");
+	#endif
+	} else {		
+	#ifdef DEBUG
+	Serial.print("No U2F Certificate to backup");
+	#endif
+	}
+
+	#ifdef DEBUG
+	Serial.println();
+    Serial.println("Unencrypted");
+	byteprint(large_temp, large_data_offset);
+    Serial.println();
+    #endif
+	
+	
+	//ENCRYPT 
+	onlykey_eeget_backupkey (&slot);
+	#ifdef DEBUG
+	Serial.println();
+    Serial.print("Backup Key Assigned to Slot # ");
+    Serial.println(slot);
+    Serial.println();
+    #endif
+	ptr = temp;
+	RNG2(ptr, 32); //Fill temp with random data
+	if (slot == 0) {
+		hidprint("Error no backup key set");
+		return;
+	}
+	else if (slot > 100) {
+		uint8_t iv[12];
+		memcpy(iv, temp, 12);
+		onlykey_flashget_ECC (slot);
+		shared_secret (ecc_public_key, temp);
+		SHA256_CTX context;
+		sha256_init(&context);
+		sha256_update(&context, temp, 32); //add secret
+		sha256_update(&context, ecc_public_key, sizeof(ecc_public_key)); 
+		sha256_final(&context, temp); 
+		#ifdef DEBUG
+		Serial.println("AES KEY = ");
+		byteprint(temp, 32);
+		#endif
+		aes_gcm_encrypt2 (large_temp, iv, temp, large_data_offset); 
+		memcpy (large_temp+large_data_offset, iv, 12);
+		#ifdef DEBUG
+		Serial.println("IV = ");
+		byteprint(iv, 12);
+		#endif
+		large_data_offset=large_data_offset+12;
+		large_temp[large_data_offset] = type+100;
+		#ifdef DEBUG
+		Serial.println("Type = ");
+		Serial.println(large_temp[large_data_offset]);
+		#endif
+		large_data_offset++;
+	}
+	else if (slot <= 4) {
+		onlykey_flashget_RSA (slot);
+		uint8_t iv[12] = "BACKUP12345";
+		uint8_t temp2[512];
+		#ifdef DEBUG
+		Serial.println("AES KEY = ");
+		byteprint(temp, 32);
+		#endif
+		aes_gcm_encrypt2 (large_temp, iv, temp, large_data_offset); 
+		//No need for unique IVs when random key used
+		rsa_encrypt(32, temp, temp2);
+		#ifdef DEBUG
+		Serial.println("RSA Encrypted AES KEY = ");
+		byteprint(temp2, (type*128));
+		#endif
+		memcpy (large_temp+large_data_offset, temp2, (type*128));
+		large_data_offset=large_data_offset+(type*128);
+		large_temp[large_data_offset] = type;
+		#ifdef DEBUG
+		Serial.println("Type = ");
+		Serial.println(large_temp[large_data_offset]);
+		#endif
+		large_data_offset++;
+	}
+	   
+    #ifdef DEBUG
+	Serial.println();
+	Serial.println("Encrypted");
+	//byteprint(large_temp,large_data_offset);
+	Serial.println();
+    #endif
+	
+	
 	int i = 0;
 	while(i <= large_data_offset && i < sizeof(large_temp)) {
 		Keyboard.println();
@@ -4461,153 +4639,8 @@ void backupslots() {
     #endif
 	
 	//End backup footer
-    for (int z = 0; z < sizeof(endsbackup); z++) {
-        Keyboard.write(endsbackup[z]);
-		delay(((TYPESPEED[0]*TYPESPEED[0])*10));
-	} 
-	Keyboard.println();
-large_data_offset = 0;
-memset(large_temp, 0 , sizeof(large_temp));
-}
-
-void backupkeys() {
-  uint8_t length[2];
-  uint8_t temp[MAX_RSA_KEY_SIZE];
-  uint8_t large_temp[4096];
-  int type;
-  uint8_t *ptr;
-  unsigned char beginkbackup[] = "-----BEGIN ONLYKEY KEY BACKUP-----";
-  unsigned char endkbackup[] = "-----END ONLYKEY KEY BACKUP-----";
-  large_data_offset = 0;
-  memset(large_temp, 0, sizeof(large_temp)); //Wipe all data from largebuffer
-  
-  //Begin backup header 
-	for (int z = 0; z < sizeof(beginkbackup); z++) {
-		Keyboard.write(beginkbackup[z]);
-		delay(((TYPESPEED[0]*TYPESPEED[0])*10));
-	} 
-	
-  //Copy RSA keys to buffer  
-  for (int slot=1; slot<=4; slot++)
-  {
-	  
-	#ifdef DEBUG
-    Serial.print("Backing up RSA Key Number ");
-    Serial.println(slot);
-   #endif
-    memset(temp, 0, MAX_RSA_KEY_SIZE); //Wipe all data from temp buffer
-    ptr = temp;
-	uint8_t features = onlykey_flashget_RSA(slot);
-	if(features != 0x00)
-      {
-		large_temp[large_data_offset] = 0xFE; //delimiter
-		large_temp[large_data_offset+1] = slot;
-		large_temp[large_data_offset+2] = features;
-		memcpy(large_temp+large_data_offset+3, rsa_private_key, (type*128));
-        large_data_offset=large_data_offset+(type*128)+3;
-		#ifdef DEBUG
-			byteprint(rsa_private_key, (type*128));
-		#endif
-      } else {
-			#ifdef DEBUG
-			Serial.print("No key set to slot");
-			#endif
-	  }
-  }
-  
-  //Copy ECC keys to buffer
-  for (int slot=101; slot<=132; slot++)
-  {
-	#ifdef DEBUG
-    Serial.print("Backing up ECC Key Number ");
-    Serial.println(slot);
-   #endif
-    memset(temp, 0, MAX_RSA_KEY_SIZE); //Wipe all data from temp buffer
-    ptr = temp;
-	uint8_t features = onlykey_flashget_ECC(slot);
-	if(features != 0x00)
-      {
-		large_temp[large_data_offset] = 0xFE; //delimiter
-		large_temp[large_data_offset+1] = slot;
-		large_temp[large_data_offset+2] = features;
-		memcpy(large_temp+large_data_offset+3, ecc_private_key, MAX_ECC_KEY_SIZE);
-        large_data_offset=large_data_offset+MAX_ECC_KEY_SIZE+3;
-		#ifdef DEBUG
-			byteprint(ecc_private_key, MAX_ECC_KEY_SIZE);
-		#endif
-      } else {
-			#ifdef DEBUG
-			Serial.print("No key set to slot");
-			#endif
-	  }
-  }
-  
-//Copy U2F key/Cert to buffer
-	onlykey_eeget_U2Fcertlen(length);
-	int length2 = length[0] << 8 | length[1];
-	if (length2 != 0) {
-	large_temp[large_data_offset] = 0xFD; //delimiter
-	memcpy(large_temp+large_data_offset+1, attestation_priv, 32);
-    large_data_offset=large_data_offset+32+1;
-	int u2fcounter = getCounter();
-	large_temp[large_data_offset] = 
-	large_data_offset++;
-	large_temp[large_data_offset] =
-	large_data_offset++;
-	large_temp[large_data_offset] = length[0];
-	large_data_offset++;
-	large_temp[large_data_offset] = length[1];
-	large_data_offset++;
-	memcpy(large_temp+large_data_offset, attestation_der, length2);
-    large_data_offset=large_data_offset+length2;
-	#ifdef DEBUG
-	Serial.print("Found U2F Certificate to backup");
-	#endif
-	} else {		
-	#ifdef DEBUG
-	Serial.print("No U2F Certificate to backup");
-	#endif
-	}
-//Encrypt
-    
-    #ifdef DEBUG
-	Serial.println();
-	Serial.println("Unencoded");
-	byteprint(large_temp,large_data_offset);
-	Serial.println();
-    #endif
-	int i = 0;
-	while(i <= large_data_offset && i < sizeof(large_temp)) {
-		Keyboard.println();
-		delay(((TYPESPEED[0]*TYPESPEED[0])*10));
-		if ((large_data_offset - i) < 57) {
-			int enclen = base64_encode(large_temp+i, temp, (large_data_offset - i), NULL); 
-			for (int z = 0; z < enclen; z++) {
-			Keyboard.write(temp[z]);
-			delay(((TYPESPEED[0]*TYPESPEED[0])*10));
-			}  
-		}	
-		else {
-			base64_encode(large_temp+i, temp, 57, NULL); 
-			for (int z = 0; z < 4*(57/3); z++) {
-			Keyboard.write(temp[z]);
-			delay(((TYPESPEED[0]*TYPESPEED[0])*10));
-			}  
-		}
-		i = i+57;
-		memset(temp, 0, sizeof(temp));
-	}
-	Keyboard.println();
-	delay(((TYPESPEED[0]*TYPESPEED[0])*10));
-	#ifdef DEBUG
-	Serial.println("Encoded");
-	byteprint(large_temp, large_data_offset);
-	Serial.println();
-    #endif
-	
-//End backup footer
-    for (int z = 0; z < sizeof(endkbackup); z++) {
-        Keyboard.write(endkbackup[z]);
+    for (int z = 0; z < sizeof(endbackup); z++) {
+        Keyboard.write(endbackup[z]);
 		delay(((TYPESPEED[0]*TYPESPEED[0])*10));
 	} 
 	Keyboard.println();
@@ -4622,15 +4655,16 @@ int freeRam () {
 }
 
 void RESTORE(uint8_t *buffer) {
-  uint8_t temp[MAX_RSA_KEY_SIZE] = {0};
+  uint8_t temp[MAX_RSA_KEY_SIZE+7];
   static uint8_t* large_temp;
   static int offset = 0;
-  if (offset == 0) large_temp  = (uint8_t*)malloc(11811); //Max size for slots 7715 max size for keys 3072 + 768 + 32 + headers
+  if (offset == 0) large_temp  = (uint8_t*)malloc(12323); //Max size for slots 7715 max size for keys 3072 + 768 + 32 + headers + Max RSA key size
   int urllength;
   int usernamelength;
   int passwordlength;
   int otplength;
   uint8_t *ptr;
+  uint8_t slot;
   
 
   //Slot restore
@@ -4639,12 +4673,12 @@ void RESTORE(uint8_t *buffer) {
 	if (offset <= (sizeof(large_temp) - 57)) {
 			memcpy(large_temp+offset, buffer+6, 57);
 #ifdef DEBUG
-			Serial.print("Restore slots from backup =");
+			Serial.print("Restore packet received =");
 			byteprint(large_temp+offset, 57);
 #endif 
 			offset = offset + 57;
 		} else {
-			hidprint("Error slot configuration backup file too large");
+			hidprint("Error backup file too large");
 			return;
 		}
 		return;
@@ -4652,28 +4686,88 @@ void RESTORE(uint8_t *buffer) {
 		if (offset <= (sizeof(large_temp) - 57) && buffer[5] <= 57) {
 			memcpy(large_temp+offset, buffer+6, buffer[5]);
 #ifdef DEBUG
-		Serial.print("Restore slots from backup =");
+		Serial.print("Restore packet received =");
 		byteprint(large_temp+offset, buffer[5]);
 #endif 
 			offset = offset + buffer[5];
 		} else {
-			hidprint("Error slot configuration backup file too large");
+			hidprint("Error backup file too large");
 			return;
 		}
 #ifdef DEBUG 
-		Serial.print("Length of slot configuration backup file = ");
+		Serial.print("Length of backup file = ");
         Serial.println(offset);
 #endif 
-		
-	//TODO Decrypt 
-	//onlykey_eeget_backupkey (slot);
-	//if (slot > 100) onlykey_flashget_ECC (slot);
-	//else if (slot < 8) onlykey_flashget_RSA (slot);
-	//else return;
-	//sha256 hash of priv key and string 
-	//aes_gcm_decrypt2((buffer + 7), (uint8_t*)('t'+ID[34]+slot), phash, length);
+
+	
+//DECRYPT
+	onlykey_eeget_backupkey (&slot);
+	offset--;
+	#ifdef DEBUG
+	Serial.print("Type of Backup Key = ");
+	Serial.println(large_temp[offset]);
+	#endif
+	if (slot == 0) {
+		hidprint("Error no backup key set");
+				while (1==1) {
+				blink(3);
+				}
+	}
+	else if (slot > 100) {
+		onlykey_flashget_ECC (slot);
+		if (type != (large_temp[offset]-100)) {
+			hidprint("Error key type used for backup does not match");
+				while (1==1) {
+				blink(3);
+				}
+		} else {
+		uint8_t iv[12];
+		offset=offset-12;
+		memcpy(iv, large_temp+offset, 12);
+		shared_secret (ecc_public_key, temp);
+		SHA256_CTX context;
+		sha256_init(&context);
+		sha256_update(&context, temp, 32); //add secret
+		sha256_update(&context, ecc_public_key, sizeof(ecc_public_key));  
+		sha256_final(&context, temp); 
+		#ifdef DEBUG
+		Serial.println("AES KEY = ");
+		byteprint(temp, 32);
+		#endif
+		aes_gcm_decrypt2 (large_temp, iv, temp, offset); 
+	}
+	}
+	else if (slot <= 4) {
+		uint8_t len;
+		onlykey_flashget_RSA (slot);
+		if (type != large_temp[offset]) {
+			hidprint("Error key type used for backup does not match");
+				while (1==1) {
+				blink(3);
+				}
+		} else {
+		uint8_t temp2[512];
+		offset=offset-(type*128);
+		memcpy(temp, large_temp+offset, (type*128));
+		#ifdef DEBUG
+		Serial.println("RSA Encrypted AES Key = ");
+		byteprint(temp, (type*128));
+		#endif
+		rsa_decrypt(len, temp, temp2);
+		#ifdef DEBUG
+		Serial.println("AES KEY = ");
+		byteprint(temp2, 32);
+		#endif
+		uint8_t iv[12] = "BACKUP12345";
+		aes_gcm_decrypt2 (large_temp, iv, temp2, offset); 
+		//No need for unique IVs when random key used
+	}
+	}
+	
+	   		
+
 #ifdef DEBUG
-			Serial.print("Slot backup file received =");
+			Serial.print("backup file received =");
 			byteprint(large_temp, offset);
 #endif 
 		large_temp[offset+1] = 0xFC;
@@ -4745,40 +4839,58 @@ void RESTORE(uint8_t *buffer) {
 				ptr++;
 				temp[6] = *ptr; //Key type
 				if (temp[5] > 100) { //We know its an ECC key
+					#ifdef DEBUG
+					Serial.print("Restore ECC key");
+					#endif 
 					ptr++; //Start of Key
 					memcpy(temp+7, ptr, MAX_ECC_KEY_SIZE); //Size of ECC key 32
 					SETPRIV(temp);
 					ptr = ptr + MAX_ECC_KEY_SIZE;
 					offset = offset - (MAX_ECC_KEY_SIZE+3);
 				} 
-				else if (temp[6] == 1) { //We know its an RSA 1024 Key
+				else if (temp[6]==0x01 || temp[6]==0x11 || temp[6]==0x21 || temp[6]==0x31 || temp[6]==0x41 || temp[6]==0x51 || temp[6]==0x61 || temp[6]==0x71 || temp[6]==0x81 || temp[6]==0x91 || temp[6]==0xA1 || temp[6]==0xB1 || temp[6]==0xC1 || temp[6]==0xD1 || temp[6]==0xE1 || temp[6]==0xF1) { //We know its an RSA 1024 Key
+					#ifdef DEBUG
+					Serial.print("Restore RSA 1024 key");
+					#endif 
 					ptr++;
 					memcpy(temp+7, ptr, 128);
 					SETPRIV(temp);
 					ptr = ptr + 128;
 					offset = offset - 131;
 				}
-				else if (temp[6] == 2) { //We know its an RSA 2048 Key
+				else if (temp[6]==0x02 || temp[6]==0x12 || temp[6]==0x22 || temp[6]==0x32 || temp[6]==0x42 || temp[6]==0x52 || temp[6]==0x62 || temp[6]==0x72 || temp[6]==0x82 || temp[6]==0x92 || temp[6]==0xA2 || temp[6]==0xB2 || temp[6]==0xC2 || temp[6]==0xD2 || temp[6]==0xE2 || temp[6]==0xF2) { //We know its an RSA 2048 Key
+					#ifdef DEBUG
+					Serial.print("Restore RSA 2048 key");
+					#endif 
 					ptr++;
 					memcpy(temp+7, ptr, 256);
 					SETPRIV(temp);
 					ptr = ptr + 256;
 					offset = offset - 259;
 				}
-				else if (temp[6] == 3) { //We know its an RSA 3072 Key
+				else if (temp[6]==0x03 || temp[6]==0x13 || temp[6]==0x23 || temp[6]==0x33 || temp[6]==0x43 || temp[6]==0x53 || temp[6]==0x63 || temp[6]==0x73 || temp[6]==0x83 || temp[6]==0x93 || temp[6]==0xA3 || temp[6]==0xB3 || temp[6]==0xC3 || temp[6]==0xD3 || temp[6]==0xE3 || temp[6]==0xF3) { //We know its an RSA 3072 Key
+					#ifdef DEBUG
+					Serial.print("Restore RSA 3072 key");
+					#endif 
 					ptr++;
 					memcpy(temp+7, ptr, 384);
 					SETPRIV(temp);
 					ptr = ptr + 384;
 					offset = offset - 387;
 				}
-				else if (temp[6] == 4) { //We know its an RSA 4096 Key
+				else if (temp[6]==0x04 || temp[6]==0x14 || temp[6]==0x24 || temp[6]==0x34 || temp[6]==0x44 || temp[6]==0x54 || temp[6]==0x64 || temp[6]==0x74 || temp[6]==0x84 || temp[6]==0x94 || temp[6]==0xA4 || temp[6]==0xB4 || temp[6]==0xC4 || temp[6]==0xD4 || temp[6]==0xE4 || temp[6]==0xF4) { //We know its an RSA 4096 Key
+					#ifdef DEBUG
+					Serial.print("Restore RSA 4096 key");
+					#endif 
 					ptr++;
 					memcpy(temp+7, ptr, 512);
 					SETPRIV(temp);
 					ptr = ptr + 512;
 					offset = offset - 515;
 				} else {
+					#ifdef DEBUG
+					Serial.print("Error key configuration backup file format incorrect");
+					#endif 
 					hidprint("Error key configuration backup file format incorrect");
 				}
 			} else if (*ptr == 0xFD) { 
@@ -4829,7 +4941,7 @@ void RESTORE(uint8_t *buffer) {
 	memset(large_temp, 0, sizeof(large_temp)); //Wipe all data from largebuffer
 	offset = 0;
 	free(large_temp);
-	delay(2000);
+	delay(1000);
 	hidprint("Remove and Reinsert OnlyKey to complete restore");
 	fadeoff();
 	#ifdef OK_Color
