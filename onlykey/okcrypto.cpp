@@ -78,7 +78,7 @@ uint8_t rsa_private_key[MAX_RSA_KEY_SIZE];
 /*************************************/
 //ECC Authentication assignments
 /*************************************/
-uint8_t ecc_public_key[MAX_ECC_KEY_SIZE];
+uint8_t ecc_public_key[MAX_ECC_KEY_SIZE*2];
 uint8_t ecc_private_key[MAX_ECC_KEY_SIZE];
 /*************************************/
 uint8_t Challenge_button1 = 0;
@@ -351,11 +351,11 @@ void GETECCPUBKEY (uint8_t *buffer)
 		onlykey_flashget_ECC (buffer[5]);        
 			#ifdef DEBUG
     	    Serial.println("OKGETECCPUBKEY MESSAGE RECEIVED"); 
-			byteprint(ecc_public_key, 32);
+			byteprint(ecc_public_key, MAX_ECC_KEY_SIZE*2);
 	    #endif
             RawHID.send(ecc_public_key, 0);
-			memset(ecc_public_key, 0, 32); //wipe buffer
-			memset(ecc_private_key, 0, 32); //wipe buffer
+			memset(ecc_public_key, 0, MAX_ECC_KEY_SIZE*2); //wipe buffer
+			memset(ecc_private_key, 0, MAX_ECC_KEY_SIZE); //wipe buffer
             blink(3);
 }
 
@@ -413,8 +413,8 @@ void ECDSA_EDDSA(uint8_t *buffer)
 	Challenge_button2 = 0;
 	Challenge_button3 = 0;
     blink(3);
-	memset(ecc_public_key, 0, 32); //wipe buffer
-	memset(ecc_private_key, 0, 32); //wipe buffer
+	memset(ecc_public_key, 0, sizeof(ecc_public_key)); //wipe buffer
+	memset(ecc_private_key, 0, sizeof(ecc_private_key)); //wipe buffer
     return;
 	} else {
 #ifdef DEBUG
@@ -428,20 +428,20 @@ void ECDH(uint8_t *buffer)
 {
 	extern int large_data_offset;
 	extern uint8_t large_buffer[sizeof(large_buffer)];
-    uint8_t ephemeral_pub[32];
-	uint8_t secret[32];
+    uint8_t ephemeral_pub[MAX_ECC_KEY_SIZE*2];
+	uint8_t secret[MAX_ECC_KEY_SIZE];
 #ifdef DEBUG
     Serial.println();
     Serial.println("OKECDH MESSAGE RECEIVED"); 
 #endif
     if(!CRYPTO_AUTH) process_packets (buffer);
 	else if (CRYPTO_AUTH == 4) {
-	memcpy (ephemeral_pub, large_buffer, 32);
+	memcpy (ephemeral_pub, large_buffer, MAX_ECC_KEY_SIZE*2);
     shared_secret(ephemeral_pub, secret);
 #ifdef DEBUG
     Serial.println();
     Serial.print("Public key to generate shared secret for"); 
-	for (int i = 0; i< 32; i++) {
+	for (int i = 0; i< MAX_ECC_KEY_SIZE*2; i++) {
 		Serial.print(large_buffer[i],HEX);
 		}
     Serial.println();
@@ -549,21 +549,31 @@ void ECDH(uint8_t *buffer)
 }
 
 int shared_secret (uint8_t *ephemeral_pub, uint8_t *secret) {
-
-	const struct uECC_Curve_t * curves[2];
-    int num_curves = 0;
-    curves[num_curves++] = uECC_secp256r1();
-    curves[num_curves++] = uECC_secp256k1();
+	const struct uECC_Curve_t * curve;
+	#ifdef DEBUG 
+	Serial.printf("Shared Secret for type %X ",type);
+	#endif
 	switch (type) {
 	case 1:
 		Curve25519::dh2(ephemeral_pub, ecc_private_key);
 		memcpy (secret, ephemeral_pub, 32);
+	//#ifdef DEBUG 
+	//Serial.println("Finished Shared Secret");
+	//#endif
 	return 1;		
 	case 2:
-		uECC_shared_secret(ephemeral_pub, ecc_private_key, secret, curves[1]);
+		curve = uECC_secp256r1(); 
+		uECC_shared_secret(ephemeral_pub, ecc_private_key, secret, curve);
+	//#ifdef DEBUG 
+	//Serial.println("Finished Shared Secret");
+	//#endif
 	return 1;
 	case 3:
-		uECC_shared_secret(ephemeral_pub, ecc_private_key, secret, curves[2]);
+		curve = uECC_secp256k1(); 
+		uECC_shared_secret(ephemeral_pub, ecc_private_key, secret, curve);
+	//#ifdef DEBUG 
+	//Serial.println("Finished Shared Secret");
+	//#endif
 	return 1;
 	default:
 		hidprint("Error ECC type incorrect");

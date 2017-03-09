@@ -158,7 +158,7 @@ char attestation_der[768];
 /*************************************/
 //ECC assignments
 /*************************************/
-extern uint8_t ecc_public_key[MAX_ECC_KEY_SIZE];
+extern uint8_t ecc_public_key[MAX_ECC_KEY_SIZE*2];
 extern uint8_t ecc_private_key[MAX_ECC_KEY_SIZE];
 /*************************************/
 /*************************************/
@@ -3667,7 +3667,7 @@ if (PDmode) return 0;
 	adr = adr + 12288; //7th flash sector
 	onlykey_eeget_ecckey(&type, slot); //Key Type (1-3) and slot (101-132)
 	#ifdef DEBUG 
-    Serial.print("Type of ECC KEY is ");
+    Serial.print("Type of ECC KEY with features is ");
 	Serial.println(type);
 	#endif
 	features=type;
@@ -3687,17 +3687,21 @@ if (PDmode) return 0;
 	#ifdef DEBUG 
 	Serial.printf("Read ECC Private Key from Sector 0x%X ",adr);
 	#endif
-	const struct uECC_Curve_t * curves[2];
-    int num_curves = 0;
-    curves[num_curves++] = uECC_secp256r1();
-    curves[num_curves++] = uECC_secp256k1();
 	if (type==1) Ed25519::derivePublicKey(ecc_public_key, ecc_private_key);
 	else if (type==2) {
-		uECC_compute_public_key(ecc_private_key, ecc_public_key, curves[1]);
+		const struct uECC_Curve_t * curve = uECC_secp256r1();
+		uECC_compute_public_key(ecc_private_key, ecc_public_key, curve);
 	}
 	else if (type==3) {
-		uECC_compute_public_key(ecc_private_key, ecc_public_key, curves[2]);
+	#ifdef DEBUG 
+	Serial.println("Compute of public key begin");
+	#endif
+		const struct uECC_Curve_t * curve = uECC_secp256k1();
+		uECC_compute_public_key(ecc_private_key, ecc_public_key, curve);
 	}
+	#ifdef DEBUG 
+	Serial.println("Compute of public key complete");
+	#endif
 	return features;
 #endif
 }
@@ -4556,7 +4560,8 @@ void backup() {
 		SHA256_CTX context;
 		sha256_init(&context);
 		sha256_update(&context, temp, 32); //add secret
-		sha256_update(&context, ecc_public_key, sizeof(ecc_public_key)); 
+		sha256_update(&context, ecc_public_key, 32); //Add public key
+		sha256_update(&context, iv, 12); //add AES GCM IV
 		sha256_final(&context, temp); 
 		#ifdef DEBUG
 		Serial.println("AES KEY = ");
@@ -4715,6 +4720,7 @@ void RESTORE(uint8_t *buffer) {
 	}
 	else if (slot > 100) {
 		onlykey_flashget_ECC (slot);
+		Serial.println(type);
 		if (type != (large_temp[offset]-100)) {
 			hidprint("Error key type used for backup does not match");
 				while (1==1) {
@@ -4728,7 +4734,8 @@ void RESTORE(uint8_t *buffer) {
 		SHA256_CTX context;
 		sha256_init(&context);
 		sha256_update(&context, temp, 32); //add secret
-		sha256_update(&context, ecc_public_key, sizeof(ecc_public_key));  
+		sha256_update(&context, ecc_public_key, 32); //add public key
+		sha256_update(&context, iv, 12); //add AES GCM IV
 		sha256_final(&context, temp); 
 		#ifdef DEBUG
 		Serial.println("AES KEY = ");
