@@ -3620,6 +3620,8 @@ if (PDmode) return;
 
 void SETPRIV (uint8_t *buffer)
 {
+	if (PDmode) return;
+	#ifdef US_VERSION
 	if (buffer[6] > 0x80) {//Type is Backup key
 	buffer[6] = buffer[6] - 0x80;
 	onlykey_eeset_backupkey(buffer+5); //Set this key slot as the backup key
@@ -3630,9 +3632,12 @@ void SETPRIV (uint8_t *buffer)
 	} else {
 	SETECCPRIV(buffer);
 	}
+	#endif
 }
 
 void WIPEPRIV (uint8_t *buffer) {
+	if (PDmode) return;
+	#ifdef US_VERSION
 	if (buffer[5] < 101) {
 	WIPERSAPRIV(buffer);
 	} else {
@@ -3641,6 +3646,7 @@ void WIPEPRIV (uint8_t *buffer) {
 		}
 	SETECCPRIV(buffer);
 	}
+	#endif
 }
 
 int onlykey_flashget_ECC (int slot)
@@ -3969,6 +3975,7 @@ if (PDmode) return;
 //Initialize Yubico OTP
 /*************************************/
 void yubikeyinit() {
+if (PDmode) return;
 #ifdef US_VERSION
   uint32_t seed;
   uint8_t *ptr = (uint8_t *)&seed;
@@ -4056,6 +4063,7 @@ void yubikeyinit() {
 //Generate Yubico OTP
 /*************************************/
 void yubikeysim(char *ptr) {
+	if (PDmode) return;
 	#ifdef US_VERSION
 	yubikey_simulate1(ptr, &ctx);
         yubikey_incr_usage(&ctx);
@@ -4065,6 +4073,7 @@ void yubikeysim(char *ptr) {
 //Increment Yubico timestamp
 /*************************************/
 void yubikey_incr_time() {
+	if (PDmode) return;
 	#ifdef US_VERSION
 	yubikey_incr_timestamp(&ctx);
 	#endif
@@ -4162,6 +4171,8 @@ void setcolor (uint8_t Color) {
 #endif
 		  
 void backup() {
+  if (PDmode) return;
+  #ifdef US_VERSION
   uint8_t temp[MAX_RSA_KEY_SIZE];
   uint8_t large_temp[12323];
   int urllength;
@@ -4659,6 +4670,7 @@ void backup() {
 	Keyboard.println();
 large_data_offset = 0;
 memset(large_temp, 0 , sizeof(large_temp));
+#endif
 }
 
 int freeRam () {
@@ -4668,6 +4680,8 @@ int freeRam () {
 }
 
 void RESTORE(uint8_t *buffer) {
+  if (PDmode) return;
+  #ifdef US_VERSION
   uint8_t temp[MAX_RSA_KEY_SIZE+7];
   static uint8_t* large_temp;
   static unsigned int offset = 0;
@@ -4964,10 +4978,12 @@ void RESTORE(uint8_t *buffer) {
 	blink(3);
 	}
     }
-	
+	#endif
 }
 
 void process_packets (uint8_t *buffer) {
+	if (PDmode) return;
+    #ifdef US_VERSION
 	uint8_t temp[32];
     if (buffer[6]==0xFF) //Not last packet
     {
@@ -5013,4 +5029,5 @@ void process_packets (uint8_t *buffer) {
 			return;
         }
 	}
+	#endif
 }
