@@ -1997,7 +1997,9 @@ int mbedtls_ecp_self_test( int verbose )
 #endif
 
     if( verbose != 0 )
+		#ifdef DEBUG
         mbedtls_printf( "  ECP test #1 (constant op_count, base point G): " );
+		#endif
 
     /* Do a dummy multiplication first to trigger precomputation */
     MBEDTLS_MPI_CHK( mbedtls_mpi_lset( &m, 2 ) );
@@ -2026,7 +2028,9 @@ int mbedtls_ecp_self_test( int verbose )
             mul_count != mul_c_prev )
         {
             if( verbose != 0 )
+				#ifdef DEBUG
                 mbedtls_printf( "failed (%u)\n", (unsigned int) i );
+				#endif
 
             ret = 1;
             goto cleanup;
@@ -2034,10 +2038,14 @@ int mbedtls_ecp_self_test( int verbose )
     }
 
     if( verbose != 0 )
+		#ifdef DEBUG
         mbedtls_printf( "passed\n" );
+		#endif
 
     if( verbose != 0 )
+		#ifdef DEBUG
         mbedtls_printf( "  ECP test #2 (constant op_count, other point): " );
+		#endif
     /* We computed P = 2G last time, use it */
 
     add_count = 0;
@@ -2063,7 +2071,9 @@ int mbedtls_ecp_self_test( int verbose )
             mul_count != mul_c_prev )
         {
             if( verbose != 0 )
+				#ifdef DEBUG
                 mbedtls_printf( "failed (%u)\n", (unsigned int) i );
+				#endif
 
             ret = 1;
             goto cleanup;
@@ -2071,12 +2081,16 @@ int mbedtls_ecp_self_test( int verbose )
     }
 
     if( verbose != 0 )
+		#ifdef DEBUG
         mbedtls_printf( "passed\n" );
+		#endif
 
 cleanup:
 
     if( ret < 0 && verbose != 0 )
+		#ifdef DEBUG
         mbedtls_printf( "Unexpected error, return code = %08X\n", ret );
+		#endif
 
     mbedtls_ecp_group_free( &grp );
     mbedtls_ecp_point_free( &R );
@@ -2084,7 +2098,9 @@ cleanup:
     mbedtls_mpi_free( &m );
 
     if( verbose != 0 )
+		#ifdef DEBUG
         mbedtls_printf( "\n" );
+		#endif
 
     return( ret );
 }
