@@ -101,7 +101,9 @@ void SIGN (uint8_t *buffer) {
 	uint8_t features;
 	if (buffer[5] < 101) { //Slot 101-132 are for ECC, 1-4 are for RSA
 	features = onlykey_flashget_RSA ((int)buffer[5]);
+	#ifdef DEBUG
 	Serial.print(features, BIN);
+	#endif
 	signingkey = is_bit_set(features, 6);
 	if (!signingkey) {
 		Serial.print("Error key not set as signature key");
@@ -111,17 +113,27 @@ void SIGN (uint8_t *buffer) {
 	RSASIGN(buffer);
 	} else {
 	features = onlykey_flashget_ECC ((int)buffer[5]);
+	#ifdef DEBUG
 	Serial.print(features, BIN);
+	#endif
 	signingkey = is_bit_set(features, 6);
+	#ifdef DEBUG
 	Serial.print("before is bit set");
+	#endif
 	if (!signingkey) {
+		#ifdef DEBUG
 		Serial.print("Error key not set as signature key");
+		#endif
 		hidprint("Error key not set as signature key");
 		return;
 	}
+	#ifdef DEBUG
 	Serial.print("after is bit set");
+	#endif
 	ECDSA_EDDSA(buffer);
+	#ifdef DEBUG
 	Serial.print("after ECDSA_EDDSA");
+	#endif
 	}
 }
 
@@ -611,7 +623,9 @@ int rsa_sign (int mlen, const uint8_t *msg, uint8_t *out)
 	
    if( ret != 0 )
     {
-		Serial.printf("Error with key check =%d", ret);
+		#ifdef DEBUG
+	        Serial.printf("Error with key check =%d", ret);
+	        #endif
 		return -1;
 	}
   if (ret == 0)
@@ -625,8 +639,11 @@ int rsa_sign (int mlen, const uint8_t *msg, uint8_t *out)
       memcpy (out, rsa_ciphertext, (type*128));
 	  int ret2 = mbedtls_rsa_rsassa_pkcs1_v15_verify ( &rsa, mbedtls_rand, NULL, MBEDTLS_RSA_PUBLIC, MBEDTLS_MD_NONE, mlen, msg, rsa_ciphertext );
 	  if( ret2 != 0 ) {
+		  #ifdef DEBUG
 		  Serial.print("Signature Verification Failed ");
 		  Serial.println(ret2);
+		  #endif
+		  return -1;
 	  }
     }
   mbedtls_rsa_free (&rsa);
@@ -671,7 +688,9 @@ int rsa_decrypt (size_t olen, const uint8_t *in, uint8_t *out)
   MBEDTLS_MPI_CHK( mbedtls_mpi_mod_mpi (&rsa.DP, &rsa.D, &P1) );
   MBEDTLS_MPI_CHK( mbedtls_mpi_mod_mpi (&rsa.DQ, &rsa.D, &Q1) );
   MBEDTLS_MPI_CHK( mbedtls_mpi_inv_mod (&rsa.QP, &rsa.Q, &rsa.P) );
+  #ifdef DEBUG
   Serial.println (rsa.len);
+  #endif
   cleanup:
   mbedtls_mpi_free (&P1);  mbedtls_mpi_free (&Q1);  mbedtls_mpi_free (&H);
   
@@ -768,7 +787,9 @@ int rsa_encrypt (int len, const uint8_t *in, uint8_t *out)
 	MBEDTLS_MPI_CHK( mbedtls_mpi_mod_mpi (&rsa.DP, &rsa.D, &P1) );
 	MBEDTLS_MPI_CHK( mbedtls_mpi_mod_mpi (&rsa.DQ, &rsa.D, &Q1) );
 	MBEDTLS_MPI_CHK( mbedtls_mpi_inv_mod (&rsa.QP, &rsa.Q, &rsa.P) );
+	#ifdef DEBUG
 	Serial.println (rsa.len);
+	#endif
 	cleanup:
 	mbedtls_mpi_free (&P1);  mbedtls_mpi_free (&Q1);  mbedtls_mpi_free (&H);
   
