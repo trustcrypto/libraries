@@ -3672,7 +3672,9 @@ if (PDmode) return 0;
 	#endif
 	features=type;
 	if(type==0x00) {
+		#ifdef DEBUG
 		Serial.printf("There is no ECC Private Key set in this slot");
+		#endif
 		hidprint("There is no ECC Private Key set in this slot");
 		return 0;
 	}else if (type==0x01 || type==0x11 || type==0x21 || type==0x31 || type==0x41 || type==0x51 || type==0x61 || type==0x71 || type==0x81 || type==0x91 || type==0xA1 || type==0xB1 || type==0xC1 || type==0xD1 || type==0xE1 || type==0xF1) {
@@ -3796,7 +3798,9 @@ if (PDmode) return 0;
 	onlykey_eeget_rsakey(&type, slot); //Key Type (1-4) and slot (1-4)
 	features=type;
 	if (type==0x00) {	
+	#ifdef DEBUG 
 	Serial.printf("There is no RSA Private Key set in this slot");
+	#endif
 	hidprint("There is no RSA Private Key set in this slot");
 	return 0;
 	} else if (type==0x01 || type==0x11 || type==0x21 || type==0x31 || type==0x41 || type==0x51 || type==0x61 || type==0x71 || type==0x81 || type==0x91 || type==0xA1 || type==0xB1 || type==0xC1 || type==0xD1 || type==0xE1 || type==0xF1) {
@@ -4720,7 +4724,9 @@ void RESTORE(uint8_t *buffer) {
 	}
 	else if (slot > 100) {
 		onlykey_flashget_ECC (slot);
+		#ifdef DEBUG
 		Serial.println(type);
+		#endif
 		if (type != (large_temp[offset]-100)) {
 			hidprint("Error key type used for backup does not match");
 				while (1==1) {
