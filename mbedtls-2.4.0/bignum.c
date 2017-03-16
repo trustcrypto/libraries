@@ -36,27 +36,24 @@
  */
 
 #if !defined(MBEDTLS_CONFIG_FILE)
-#include "mbedtls/config.h"
+#include "config.h"
 #else
 #include MBEDTLS_CONFIG_FILE
 #endif
 
 #if defined(MBEDTLS_BIGNUM_C)
 
-#include "mbedtls/bignum.h"
-#include "mbedtls/bn_mul.h"
+#include "bignum.h"
+#include "bn_mul.h"
 
 #include <string.h>
 
-#if defined(MBEDTLS_PLATFORM_C)
-#include "mbedtls/platform.h"
-#else
+
 #include <stdio.h>
 #include <stdlib.h>
-#define mbedtls_printf     printf
 #define mbedtls_calloc    calloc
 #define mbedtls_free       free
-#endif
+
 
 /* Implementation that should never be optimized out by the compiler */
 static void mbedtls_mpi_zeroize( mbedtls_mpi_uint *v, size_t n ) {
@@ -653,7 +650,7 @@ int mbedtls_mpi_write_file( const char *p, const mbedtls_mpi *X, int radix, FILE
             return( MBEDTLS_ERR_MPI_FILE_IO_ERROR );
     }
     else
-        mbedtls_printf( "%s%s", p, s );
+        //Serial.printf( "%s%s", p, s );
 
 cleanup:
 
@@ -2315,20 +2312,20 @@ int mbedtls_mpi_self_test( int verbose )
         "ECF677152EF804370C1A305CAF3B5BF1" \
         "30879B56C61DE584A0F53A2447A51E" ) );
 
-    if( verbose != 0 )
-        mbedtls_printf( "  MPI test #1 (mul_mpi): " );
+    //if( verbose != 0 )
+        //Serial.printf( "  MPI test #1 (mul_mpi): " );
 
     if( mbedtls_mpi_cmp_mpi( &X, &U ) != 0 )
     {
-        if( verbose != 0 )
-            mbedtls_printf( "failed\n" );
+        //if( verbose != 0 )
+            //Serial.printf( "failed\n" );
 
         ret = 1;
         goto cleanup;
     }
 
-    if( verbose != 0 )
-        mbedtls_printf( "passed\n" );
+    //if( verbose != 0 )
+        //Serial.printf( "passed\n" );
 
     MBEDTLS_MPI_CHK( mbedtls_mpi_div_mpi( &X, &Y, &A, &N ) );
 
@@ -2340,21 +2337,21 @@ int mbedtls_mpi_self_test( int verbose )
         "0AC93C701B001B092E4E5B9F73BCD27B" \
         "9EE50D0657C77F374E903CDFA4C642" ) );
 
-    if( verbose != 0 )
-        mbedtls_printf( "  MPI test #2 (div_mpi): " );
+    //if( verbose != 0 )
+        //Serial.printf( "  MPI test #2 (div_mpi): " );
 
     if( mbedtls_mpi_cmp_mpi( &X, &U ) != 0 ||
         mbedtls_mpi_cmp_mpi( &Y, &V ) != 0 )
     {
-        if( verbose != 0 )
-            mbedtls_printf( "failed\n" );
+        //if( verbose != 0 )
+            //Serial.printf( "failed\n" );
 
         ret = 1;
         goto cleanup;
     }
 
-    if( verbose != 0 )
-        mbedtls_printf( "passed\n" );
+    //if( verbose != 0 )
+        //Serial.printf( "passed\n" );
 
     MBEDTLS_MPI_CHK( mbedtls_mpi_exp_mod( &X, &A, &E, &N, NULL ) );
 
@@ -2363,20 +2360,20 @@ int mbedtls_mpi_self_test( int verbose )
         "BD96C37890F65171D948E9BC7CBAA4D9" \
         "325D24D6A3C12710F10A09FA08AB87" ) );
 
-    if( verbose != 0 )
-        mbedtls_printf( "  MPI test #3 (exp_mod): " );
+    //if( verbose != 0 )
+        //Serial.printf( "  MPI test #3 (exp_mod): " );
 
     if( mbedtls_mpi_cmp_mpi( &X, &U ) != 0 )
     {
-        if( verbose != 0 )
-            mbedtls_printf( "failed\n" );
+        //if( verbose != 0 )
+            //Serial.printf( "failed\n" );
 
         ret = 1;
         goto cleanup;
     }
 
-    if( verbose != 0 )
-        mbedtls_printf( "passed\n" );
+    //if( verbose != 0 )
+        //Serial.printf( "passed\n" );
 
     MBEDTLS_MPI_CHK( mbedtls_mpi_inv_mod( &X, &A, &N ) );
 
@@ -2385,23 +2382,23 @@ int mbedtls_mpi_self_test( int verbose )
         "C3DBA76456363A10869622EAC2DD84EC" \
         "C5B8A74DAC4D09E03B5E0BE779F2DF61" ) );
 
-    if( verbose != 0 )
-        mbedtls_printf( "  MPI test #4 (inv_mod): " );
+    //if( verbose != 0 )
+        //Serial.printf( "  MPI test #4 (inv_mod): " );
 
     if( mbedtls_mpi_cmp_mpi( &X, &U ) != 0 )
     {
-        if( verbose != 0 )
-            mbedtls_printf( "failed\n" );
+        //if( verbose != 0 )
+            //Serial.printf( "failed\n" );
 
         ret = 1;
         goto cleanup;
     }
 
-    if( verbose != 0 )
-        mbedtls_printf( "passed\n" );
+    //if( verbose != 0 )
+        //Serial.printf( "passed\n" );
 
-    if( verbose != 0 )
-        mbedtls_printf( "  MPI test #5 (simple gcd): " );
+    //if( verbose != 0 )
+        //Serial.printf( "  MPI test #5 (simple gcd): " );
 
     for( i = 0; i < GCD_PAIR_COUNT; i++ )
     {
@@ -2412,27 +2409,27 @@ int mbedtls_mpi_self_test( int verbose )
 
         if( mbedtls_mpi_cmp_int( &A, gcd_pairs[i][2] ) != 0 )
         {
-            if( verbose != 0 )
-                mbedtls_printf( "failed at %d\n", i );
+            //if( verbose != 0 )
+                //Serial.printf( "failed at %d\n", i );
 
             ret = 1;
             goto cleanup;
         }
     }
 
-    if( verbose != 0 )
-        mbedtls_printf( "passed\n" );
+    //if( verbose != 0 )
+        //Serial.printf( "passed\n" );
 
 cleanup:
 
     if( ret != 0 && verbose != 0 )
-        mbedtls_printf( "Unexpected error, return code = %08X\n", ret );
+        //Serial.printf( "Unexpected error, return code = %08X\n", ret );
 
     mbedtls_mpi_free( &A ); mbedtls_mpi_free( &E ); mbedtls_mpi_free( &N ); mbedtls_mpi_free( &X );
     mbedtls_mpi_free( &Y ); mbedtls_mpi_free( &U ); mbedtls_mpi_free( &V );
 
-    if( verbose != 0 )
-        mbedtls_printf( "\n" );
+    //if( verbose != 0 )
+        //Serial.printf( "\n" );
 
     return( ret );
 }

@@ -62,7 +62,17 @@
 #include "flashkinetis.h"
 #include <RNG.h>
 #include "T3MacLib.h"
-
+#include "base64.h"
+/*************************************/
+//Neopixel color LED
+/*************************************/
+#ifdef OK_Color
+#include "Adafruit_NeoPixel.h"
+#define NEOPIN            10
+#define NUMPIXELS      1
+Adafruit_NeoPixel pixels = Adafruit_NeoPixel(NUMPIXELS, NEOPIN, NEO_GRB + NEO_KHZ800);
+uint8_t NEO_Color;
+#endif
 /*************************************/
 //Firmware Version Selection
 /*************************************/
@@ -80,6 +90,7 @@ int PINSET = 0;
 bool PDmode;
 bool unlocked = false;
 bool initialized = false;
+bool configmode = false;
 uint8_t TIMEOUT[1] = {30}; //Default 30 Min
 uint8_t TYPESPEED[1] = {100}; //Default 100 Ms
 extern uint8_t KeyboardLayout[1];
@@ -137,28 +148,24 @@ size_t length = 48; // First block should wait for the pool to fill up.
 uint8_t expected_next_packet;
 int large_data_len;
 int large_data_offset;
-uint8_t large_buffer[1024];
+uint8_t large_buffer[BUFFER_SIZE];
 uint8_t large_resp_buffer[1024];
 uint8_t recv_buffer[64];
 uint8_t resp_buffer[64];
-extern uint8_t handle[64];
-uint8_t sha256_hash[32];
 char attestation_pub[66];
 char attestation_priv[33];
 char attestation_der[768];
 /*************************************/
-//SSH Authentication assignments
+//ECC assignments
 /*************************************/
-extern uint8_t ssh_signature[64];
-extern uint8_t ssh_public_key[32];
-extern uint8_t ssh_private_key[32];
+extern uint8_t ecc_public_key[MAX_ECC_KEY_SIZE*2];
+extern uint8_t ecc_private_key[MAX_ECC_KEY_SIZE];
 /*************************************/
 /*************************************/
-//GPG assignments
+//RSA assignments
 /*************************************/
-extern uint8_t gpg_signature[64];
-extern uint8_t gpg_public_key[32];
-extern uint8_t gpg_private_key[32];
+extern uint8_t rsa_private_key[MAX_RSA_KEY_SIZE];
+extern uint8_t type;
 /*************************************/
 
 void recvmsg() {
@@ -167,10 +174,7 @@ void recvmsg() {
   if (n > 0) {
 #ifdef DEBUG    
     Serial.print(F("\n\nReceived packet"));
-    for (int z=0; z<64; z++) {
-        Serial.print(recv_buffer[z], HEX);
-    }
-	
+	byteprint(recv_buffer,64);
 #endif    
 	
 	  switch (recv_buffer[4]) {
@@ -181,19 +185,15 @@ void recvmsg() {
       SETPDPIN(recv_buffer);
       }
       return;
-      break;
       case OKSETSDPIN:
       SETSDPIN(recv_buffer);
       return;
-      break;
       case OKSETPDPIN:
       SETPDPIN(recv_buffer);
       return;
-      break;
       case OKSETTIME:
       SETTIME(recv_buffer);
       return;
-      break;
       case OKGETLABELS:
 	   if(initialized==false && unlocked==true) 
 	   {
@@ -201,7 +201,8 @@ void recvmsg() {
 		return;
 	   }else if (initialized==true && unlocked==true) 
 	   {
-		GETLABELS(recv_buffer);
+		if (recv_buffer[5] == 'k') GETKEYLABELS();
+		else GETSLOTLABELS();
 	   }
 	   else
 	   {
@@ -209,7 +210,6 @@ void recvmsg() {
 	   return;
 	   }	
       return;
-      break;
       case OKSETSLOT:
 	   if(initialized==false && unlocked==true) 
 	   {
@@ -229,7 +229,6 @@ void recvmsg() {
 	   return;
 	   }
       return;
-      break;
       case OKWIPESLOT:
 	   if(initialized==false && unlocked==true) 
 	   {
@@ -245,7 +244,6 @@ void recvmsg() {
 	   return;
 	   }	
       return;
-      break;
       case OKSETU2FPRIV:
 	   if(initialized==false && unlocked==true) 
 	   {
@@ -265,7 +263,6 @@ void recvmsg() {
 	   return;
 	   }	
       return;
-      break;
       case OKWIPEU2FPRIV:
 	   if(initialized==false && unlocked==true) 
 	   {
@@ -284,7 +281,7 @@ void recvmsg() {
 	   hidprint("ERROR DEVICE LOCKED");
 	   return;
 	   }	
-      break;
+      return;
       case OKSETU2FCERT:
 	   if(initialized==false && unlocked==true) 
 	   {
@@ -294,7 +291,7 @@ void recvmsg() {
 	   {
 		if(!PDmode) {
 		#ifdef US_VERSION
-		SETU2FCERT(recv_buffer);
+		if (recv_buffer[0] != 0xBA) SETU2FCERT(recv_buffer);
 		#endif
 		}
 	   }
@@ -304,7 +301,6 @@ void recvmsg() {
 	   return;
 	   }	
       return;
-      break;
       case OKWIPEU2FCERT:
 	   if(initialized==false && unlocked==true) 
 	   {
@@ -324,8 +320,29 @@ void recvmsg() {
 	   return;
 	   }	
       return;
-      break;
-	  case OKSETSSHPRIV:
+	  case OKSETPRIV:
+           if(initialized==false && unlocked==true) 
+	   {
+		hidprint("No PIN set, You must set a PIN first");
+		return;
+	   }else if (initialized==true && unlocked==true && configmode==true) 
+	   {
+                if(!PDmode) {
+                #ifdef US_VERSION
+                if (recv_buffer[0] != 0xBA) SETPRIV(recv_buffer);
+                #endif
+                }
+	   }
+	   else if (initialized==true && unlocked==true && configmode==false) { 
+	   hidprint("ERROR NOT IN CONFIG MODE, HOLD BUTTON 6 DOWN FOR 5 SEC");
+	   }
+	   else
+	   {
+	   hidprint("ERROR DEVICE LOCKED");
+	   return;
+	   }	
+      return;
+      case OKWIPEPRIV:
            if(initialized==false && unlocked==true) 
 	   {
 		hidprint("No PIN set, You must set a PIN first");
@@ -334,7 +351,7 @@ void recvmsg() {
 	   {
                 if(!PDmode) {
                 #ifdef US_VERSION
-                SETSSHPRIV(recv_buffer);
+                WIPEPRIV(recv_buffer);
                 #endif
                 }
 	   }
@@ -344,28 +361,7 @@ void recvmsg() {
 	   return;
 	   }	
       return;
-      break;
-      case OKWIPESSHPRIV:
-           if(initialized==false && unlocked==true) 
-	   {
-		hidprint("No PIN set, You must set a PIN first");
-		return;
-	   }else if (initialized==true && unlocked==true) 
-	   {
-                if(!PDmode) {
-                #ifdef US_VERSION
-                WIPESSHPRIV(recv_buffer);
-                #endif
-                }
-	   }
-	   else
-	   {
-	   hidprint("ERROR DEVICE LOCKED");
-	   return;
-	   }	
-      return;
-      break;
-      case OKSIGNSSHCHALLENGE:
+      case OKSIGN:
            if(initialized==false && unlocked==true) 
 	   {
 		hidprint("No PIN set, You must set a PIN first");
@@ -374,8 +370,11 @@ void recvmsg() {
 	   {
 		if(!PDmode) {
 		#ifdef US_VERSION
+		#ifdef OK_Color
+		NEO_Color = 213; //Purple
+		#endif
 		SoftTimer.add(&FadeinTask);
-		SIGNSSHCHALLENGE(recv_buffer);
+		SIGN(recv_buffer);
 		#endif
 		}
 	   }
@@ -385,68 +384,7 @@ void recvmsg() {
 	   return;
 	   }	
       return;
-      break;
-      case OKGETSSHPUBKEY:
-			if(initialized==false && unlocked==true) 
-	   {
-		hidprint("No PIN set, You must set a PIN first");
-		return;
-	   }else if (initialized==true && unlocked==true) 
-	   {
-                if(!PDmode) {
-                #ifdef US_VERSION
-                GETSSHPUBKEY();
-                #endif
-                }
-	   }
-	   else
-	   {
-	   hidprint("ERROR DEVICE LOCKED");
-	   return;
-	   }	
-      return;
-      break;
-	  case OKSETGPGPRIV:
-           if(initialized==false && unlocked==true) 
-	   {
-		hidprint("No PIN set, You must set a PIN first");
-		return;
-	   }else if (initialized==true && unlocked==true) 
-	   {
-                if(!PDmode) {
-                #ifdef US_VERSION
-                SETGPGPRIV(recv_buffer);
-                #endif
-                }
-	   }
-	   else
-	   {
-	   hidprint("ERROR DEVICE LOCKED");
-	   return;
-	   }	
-      return;
-      break;
-      case OKWIPEGPGPRIV:
-           if(initialized==false && unlocked==true) 
-	   {
-		hidprint("No PIN set, You must set a PIN first");
-		return;
-	   }else if (initialized==true && unlocked==true) 
-	   {
-                if(!PDmode) {
-                #ifdef US_VERSION
-                WIPEGPGPRIV(recv_buffer);
-                #endif
-                }
-	   }
-	   else
-	   {
-	   hidprint("ERROR DEVICE LOCKED");
-	   return;
-	   }	
-      return;
-      break;
-	  case OKSIGNGPGCHALLENGE:
+	  case OKDECRYPT:
            if(initialized==false && unlocked==true) 
 	   {
 		hidprint("No PIN set, You must set a PIN first");
@@ -455,8 +393,11 @@ void recvmsg() {
 	   {
 		if(!PDmode) {
 		#ifdef US_VERSION
+		#ifdef OK_Color
+		NEO_Color = 128; //Turquoise
+		#endif
 		SoftTimer.add(&FadeinTask);
-		SIGNGPGCHALLENGE(recv_buffer);
+		DECRYPT(recv_buffer);
 		#endif
 		}
 	   }
@@ -466,8 +407,7 @@ void recvmsg() {
 	   return;
 	   }	
       return;
-      break;
-      case OKGETGPGPUBKEY:
+      case OKGETPUBKEY:
 			if(initialized==false && unlocked==true) 
 	   {
 		hidprint("No PIN set, You must set a PIN first");
@@ -476,7 +416,7 @@ void recvmsg() {
 	   {
                 if(!PDmode) {
                 #ifdef US_VERSION
-                GETGPGPUBKEY();
+                GETPUBKEY(recv_buffer);
                 #endif
                 }
 	   }
@@ -486,15 +426,38 @@ void recvmsg() {
 	   return;
 	   }	
       return;
-      break;
+	  case OKRESTORE:
+			if(initialized==false && unlocked==true) 
+	   {
+		hidprint("No PIN set, You must set a PIN first");
+		return;
+	   }else if (initialized==true && unlocked==true && configmode==true) 
+	   {
+                if(!PDmode) {
+                #ifdef US_VERSION
+                RESTORE(recv_buffer);
+                #endif
+                }
+	   }
+	   else if (initialized==true && unlocked==true && configmode==false) { 
+	   hidprint("ERROR NOT IN CONFIG MODE, HOLD BUTTON 6 DOWN FOR 5 SEC");
+	   }
+	   else {
+	   hidprint("ERROR DEVICE LOCKED");
+	   return;
+	   }	
+      return;
       default: 
 		if(!PDmode) {
 		#ifdef US_VERSION
+		#ifdef OK_Color
+		NEO_Color = 170; //Blue
+		#endif
 		SoftTimer.add(&FadeinTask);
 	    	recvu2fmsg(recv_buffer);
 		#endif
 		}
-      break;
+      return;
     }
   } else {
 	  if(!PDmode) {
@@ -867,7 +830,14 @@ void SETTIME (uint8_t *buffer)
 #endif
 		hidprint("UNINITIALIZED");
 		return;
-	   }else if (initialized==true && unlocked==true) 
+	   } else if (initialized==true && unlocked==true && configmode==true) 
+	   {
+#ifdef DEBUG
+		Serial.print("CONFIG_MODE");
+#endif
+		hidprint("UNLOCKEDv0.2-beta.3");
+	   }
+	   else if (initialized==true && unlocked==true ) 
 	   {
 #ifdef DEBUG
 		Serial.print("UNLOCKED");
@@ -913,26 +883,25 @@ void SETTIME (uint8_t *buffer)
 #endif
 		factorydefault();
 	  }
-      RawHID.send(resp_buffer, 0);
       blink(3);
       return;
 }
 
-void GETLABELS (uint8_t *buffer)
+void GETKEYLABELS ()
 {
 #ifdef DEBUG
-      	  Serial.println();
-	  Serial.println("OKGETLABELS MESSAGE RECEIVED");
+      Serial.println();
+	  Serial.println("OKGETKEYLABELS MESSAGE RECEIVED");
 #endif
 	  uint8_t label[EElen_label+3];
 	  uint8_t *ptr;
 	  char labelchar[EElen_label+3];
 	  int offset  = 0;
 	  ptr=label+2;
-	  if (PDmode) offset = 12;
 	  
-	  onlykey_flashget_label(ptr, (offset + 1));
-	  label[0] = (uint8_t)0x01;
+	for (int i = 25; i<=28; i++) { //4 labels for RSA keys
+	  onlykey_flashget_label(ptr, (offset + i));
+	  label[0] = (uint8_t)i-24; //1-4
 	  label[1] = (uint8_t)0x7C;
 	  ByteToChar(label, labelchar, EElen_label+3);
 #ifdef DEBUG
@@ -940,128 +909,58 @@ void GETLABELS (uint8_t *buffer)
 #endif
 	  hidprint(labelchar);
 	  delay(20);
-	  
-	  onlykey_flashget_label(ptr, (offset   + 2));
-	  label[0] = (uint8_t)0x02;
+	}
+	for (int i = 29; i<=61; i++) { //31 labels for ECC keys
+	  onlykey_flashget_label(ptr, (offset + i));
+	  label[0] = (uint8_t)i+72; //101-132
 	  label[1] = (uint8_t)0x7C;
 	  ByteToChar(label, labelchar, EElen_label+3);
 #ifdef DEBUG
 	  Serial.println(labelchar);
 #endif
-      	  hidprint(labelchar);
-      	  delay(20);
-	  
-	  onlykey_flashget_label(ptr, (offset  + 3));
-	  label[0] = (uint8_t)0x03;
-	  label[1] = (uint8_t)0x7C;
-	  ByteToChar(label, labelchar, EElen_label+3);
-#ifdef DEBUG
-	  Serial.println(labelchar);
-#endif
-          hidprint(labelchar);
-          delay(20);
-	  
-	  onlykey_flashget_label(ptr, (offset  + 4));
-	  label[0] = (uint8_t)0x04;
-	  label[1] = (uint8_t)0x7C;
-	  ByteToChar(label, labelchar, EElen_label+3);
-#ifdef DEBUG
-	  Serial.println(labelchar);
-#endif
-          hidprint(labelchar);
-          delay(20);
-	  
-	  onlykey_flashget_label(ptr, (offset  + 5));
-	  label[0] = (uint8_t)0x05;
-	  label[1] = (uint8_t)0x7C;
-	  ByteToChar(label, labelchar, EElen_label+3);
-#ifdef DEBUG
-	  Serial.println(labelchar);
-#endif
-          hidprint(labelchar);
-          delay(20);
-	  
-	  onlykey_flashget_label(ptr, (offset  + 6));
-	  label[0] = (uint8_t)0x06;
-	  label[1] = (uint8_t)0x7C;
-	  ByteToChar(label, labelchar, EElen_label+3);
-#ifdef DEBUG
-	  Serial.println(labelchar);
-#endif
-          hidprint(labelchar);
-          delay(20);
-	  
-	  onlykey_flashget_label(ptr, (offset  + 7));
-	  label[0] = (uint8_t)0x07;
-	  label[1] = (uint8_t)0x7C;
-	  ByteToChar(label, labelchar, EElen_label+3);
-#ifdef DEBUG
-	  Serial.println(labelchar);
-#endif
-          hidprint(labelchar);
-          delay(20);
-	  
-	  onlykey_flashget_label(ptr, (offset  + 8));
-	  label[0] = (uint8_t)0x08;
-	  label[1] = (uint8_t)0x7C;
-	  ByteToChar(label, labelchar, EElen_label+3);
-#ifdef DEBUG
-	  Serial.println(labelchar);
-#endif
-          hidprint(labelchar);
-          delay(20);
-	  
-	  onlykey_flashget_label(ptr, (offset  + 9));
-	  label[0] = (uint8_t)0x09;
-	  label[1] = (uint8_t)0x7C;
-	  ByteToChar(label, labelchar, EElen_label+3);
-#ifdef DEBUG
-	  Serial.println(labelchar);
-#endif
-          hidprint(labelchar);
-          delay(20);
-	  
-	  onlykey_flashget_label(ptr, (offset  + 10));
-	  label[0] = (uint8_t)0x10;
-	  label[1] = (uint8_t)0x7C;
-	  ByteToChar(label, labelchar, EElen_label+3);
-#ifdef DEBUG
-	  Serial.println(labelchar);
-#endif
-          hidprint(labelchar);
-          delay(20);
-	  
-	  onlykey_flashget_label(ptr, (offset  + 11));
-	  label[0] = (uint8_t)0x11;
-	  label[1] = (uint8_t)0x7C;
-	  ByteToChar(label, labelchar, EElen_label+3);
-#ifdef DEBUG
-	  Serial.println(labelchar);
-#endif
-          hidprint(labelchar);
-          delay(20);
-	  
-	  onlykey_flashget_label(ptr, (offset  + 12));
-	  label[0] = (uint8_t)0x12;
-	  label[1] = (uint8_t)0x7C;
-	  ByteToChar(label, labelchar, EElen_label+3);
-#ifdef DEBUG
-	  Serial.println(labelchar);
-#endif
-          hidprint(labelchar);
-          delay(20);
+	  hidprint(labelchar);
+	  delay(20);
+	}
 	  
       blink(3);
       return;
 }
 
-
+void GETSLOTLABELS ()
+{
+#ifdef DEBUG
+      	  Serial.println();
+	  Serial.println("OKGETSLOTLABELS MESSAGE RECEIVED");
+#endif
+	  uint8_t label[EElen_label+3];
+	  uint8_t *ptr;
+	  char labelchar[EElen_label+3];
+	  int offset = 0;
+	  ptr=label+2;
+	  if (PDmode) offset = 12;
+	  
+	for (int i = 1; i<=12; i++) {
+	  onlykey_flashget_label(ptr, (offset + i));
+	  if (i<=9) label[0] = i;
+	  else label[0] = i+6;
+	  label[1] = (uint8_t)0x7C;
+	  ByteToChar(label, labelchar, EElen_label+3);
+#ifdef DEBUG
+	  Serial.println(labelchar);
+#endif
+	  hidprint(labelchar);
+	  delay(20);
+	}
+	  
+      blink(3);
+      return;
+}
 
 void SETSLOT (uint8_t *buffer)
 {
       int slot = buffer[5];
       int value = buffer[6];
-      int length;
+      int length = 0;
 #ifdef DEBUG
       char cmd = buffer[4]; //cmd or continuation
       Serial.print("OKSETSLOT MESSAGE RECEIVED:");
@@ -1099,9 +998,7 @@ void SETSLOT (uint8_t *buffer)
             if (!PDmode) {
 #ifdef DEBUG
             Serial.println("Unencrypted");
-            for (int z = 0; z < 32; z++) {
-      	    Serial.print(buffer[z + 7], HEX);
-            }
+			byteprint(buffer+7, 32);
             Serial.println();
 #endif 
 #ifdef US_VERSION
@@ -1109,9 +1006,7 @@ void SETSLOT (uint8_t *buffer)
 #endif 
 #ifdef DEBUG
       	    Serial.println("Encrypted");
-            for (int z = 0; z < 32; z++) {
-      	    Serial.print(buffer[z + 7], HEX);
-            }
+			byteprint(buffer+7, 32);
             Serial.println();
 #endif     
             }
@@ -1123,7 +1018,8 @@ void SETSLOT (uint8_t *buffer)
             Serial.println(); //newline
             Serial.print("Writing Additional Character1 to EEPROM...");
 #endif
-            onlykey_eeset_addchar1(buffer + 7, slot);
+            if (buffer[7] == 0x30) buffer[7] = 0; //None 
+			onlykey_eeset_addchar1(buffer + 7, slot);
 #ifdef DEBUG
 			Serial.print(buffer[7]);
 #endif
@@ -1135,21 +1031,19 @@ void SETSLOT (uint8_t *buffer)
             Serial.println(); //newline
             Serial.print("Writing Delay1 to EEPROM...");
 #endif
-            buffer[7] = (buffer[7] -'0');
+            if (buffer[7] > '0') buffer[7] = (buffer[7] -'0');
             onlykey_eeset_delay1(buffer + 7, slot);
 	    hidprint("Successfully set Delay1");
             return;
             case 2:
             //Encrypt and Set value in EEPROM
 #ifdef DEBUG
-            Serial.println("Writing Username Value to EEPROM...");
+            Serial.println("Writing Username Value to Flash...");
 #endif
             if (!PDmode) {
 #ifdef DEBUG
             Serial.println("Unencrypted");
-            for (int z = 0; z < 32; z++) {
-      	    Serial.print(buffer[z + 7], HEX);
-            }
+			byteprint(buffer+7, 32);
             Serial.println();
 #endif 
 #ifdef US_VERSION
@@ -1157,9 +1051,7 @@ void SETSLOT (uint8_t *buffer)
 #endif 
 #ifdef DEBUG
       	    Serial.println("Encrypted");
-            for (int z = 0; z < 32; z++) {
-      	    Serial.print(buffer[z + 7], HEX);
-            }
+			byteprint(buffer+7, 32);
             Serial.println();
 #endif     
             }
@@ -1172,6 +1064,7 @@ void SETSLOT (uint8_t *buffer)
             Serial.println(); //newline
             Serial.print("Writing Additional Character2 to EEPROM...");
 #endif
+			if (buffer[7] == 0x30) buffer[7] = 0; //None 
             onlykey_eeset_addchar2(buffer + 7, slot);
 #ifdef DEBUG
 			Serial.print(buffer[7]);
@@ -1184,7 +1077,7 @@ void SETSLOT (uint8_t *buffer)
             Serial.println(); //newline
             Serial.print("Writing Delay2 to EEPROM...");
 #endif
-            buffer[7] = (buffer[7] -'0');
+            if (buffer[7] > '0') buffer[7] = (buffer[7] -'0');
             onlykey_eeset_delay2(buffer + 7, slot);
 	    hidprint("Successfully set Delay2");
             return;
@@ -1196,9 +1089,7 @@ void SETSLOT (uint8_t *buffer)
             if (!PDmode) {
 #ifdef DEBUG
             Serial.println("Unencrypted");
-            for (int z = 0; z < 32; z++) {
-      	    Serial.print(buffer[z + 7], HEX);
-            }
+			byteprint(buffer+7, 32);
             Serial.println();
 #endif  
 #ifdef US_VERSION
@@ -1206,9 +1097,7 @@ void SETSLOT (uint8_t *buffer)
 #endif 
 #ifdef DEBUG
       	    Serial.println("Encrypted");
-            for (int z = 0; z < 32; z++) {
-      	    Serial.print(buffer[z + 7], HEX);
-            }
+			byteprint(buffer+7, 32);
             Serial.println();
 #endif 
             }
@@ -1221,6 +1110,7 @@ void SETSLOT (uint8_t *buffer)
             Serial.println(); //newline
             Serial.print("Writing Additional Character3 to EEPROM...");
 #endif
+			if (buffer[7] == 0x30) buffer[7] = 0; //None 
             onlykey_eeset_addchar3(buffer + 7, slot);
 #ifdef DEBUG
 			Serial.print(buffer[7]);
@@ -1233,7 +1123,7 @@ void SETSLOT (uint8_t *buffer)
             Serial.println(); //newline
             Serial.print("Writing Delay3 to EEPROM...");
 #endif
-            buffer[7] = (buffer[7] -'0');
+            if (buffer[7] > '0') buffer[7] = (buffer[7] -'0');
             onlykey_eeset_delay3(buffer + 7, slot);
 	    hidprint("Successfully set Delay3");
             return;
@@ -1251,9 +1141,7 @@ void SETSLOT (uint8_t *buffer)
 #ifdef DEBUG
             Serial.println("Writing TOTP Key to Flash...");
             Serial.println("Unencrypted");
-            for (int z = 0; z < 64; z++) {
-      	    Serial.print(buffer[z + 7], HEX);
-            }
+			byteprint(buffer+7, 32);
             Serial.println();
 #endif 
 #ifdef US_VERSION
@@ -1263,9 +1151,7 @@ void SETSLOT (uint8_t *buffer)
 #endif
 #ifdef DEBUG
 	    Serial.println("Encrypted");
-            for (int z = 0; z < 64; z++) {
-      	    Serial.print(buffer[z + 7], HEX);
-            }
+			byteprint(buffer+7, 64);
             Serial.println();
 #endif    
             onlykey_flashset_totpkey(buffer + 7, length, slot);
@@ -1273,21 +1159,15 @@ void SETSLOT (uint8_t *buffer)
             return;
             case 10:
             if (!PDmode) {
-            //Encrypt and Set value in EEPROM
+            //Encrypt and Set value in Flash
 #ifdef DEBUG
             Serial.println("Writing AES Key, Private ID, and Public ID to EEPROM...");
             Serial.println("Unencrypted Public ID");
-            for (int z = 0; z < 6; z++) {
-      	    Serial.print(buffer[z + 7], HEX);
-            }
+			byteprint(buffer+7, 6);
             Serial.println("Unencrypted Private ID");
-            for (int z = 0; z < 6; z++) {
-      	    Serial.print(buffer[z + 7 + 6], HEX);
-            }
+			byteprint(buffer+7 + 6, 6);
             Serial.println("Unencrypted AES Key");
-            for (int z = 0; z < 16; z++) {
-      	    Serial.print(buffer[z + 7 + 12], HEX);
-            }
+			byteprint(buffer+7 + 12, 16);
             Serial.println();
 #endif 
 #ifdef US_VERSION
@@ -1295,33 +1175,19 @@ void SETSLOT (uint8_t *buffer)
 #endif 
 #ifdef DEBUG
       	    Serial.println("Encrypted");
-            for (int z = 0; z < 32; z++) {
-      	    Serial.print(buffer[z + 7], HEX);
-            }
+			byteprint(buffer+7, 32);
             Serial.println();
 #endif
             uint16_t counter  = 0x0000;
             uint8_t *ptr;
   	    ptr = (uint8_t *) &counter;
   	    yubikey_eeset_counter(ptr); 
-            onlykey_eeset_public((buffer + 7), EElen_public);
+            onlykey_eeset_public(buffer + 7);
             onlykey_eeset_private((buffer + 7 + EElen_public));
-            onlykey_eeset_aeskey((buffer + 7 + EElen_public + EElen_private), EElen_aeskey);
+            onlykey_eeset_aeskey(buffer + 7 + EElen_public + EElen_private);
             yubikeyinit();
 	    hidprint("Successfully set AES Key, Private ID, and Public ID");
 	    }
-            return;
-			case 18:
-            //Set value in EEPROM
-#ifdef DEBUG
-            Serial.println(); //newline
-            Serial.print("Writing Additional Character4 to EEPROM...");
-#endif
-            onlykey_eeset_addchar4(buffer + 7, slot);
-#ifdef DEBUG
-			Serial.print(buffer[7]);
-#endif
-	    hidprint("Successfully set Character4");
             return;
             case 11:
 #ifdef DEBUG
@@ -1388,26 +1254,23 @@ void WIPESLOT (uint8_t *buffer)
       Serial.println((int)value, DEC);
 #endif 
 
-      for (int z = 7; z < 64; z++) {
-        buffer[z] = 0x00;
+      memset(buffer, 0, 64);
 #ifdef DEBUG
-        Serial.print(buffer[z], HEX);
-#endif 
-        }
-#ifdef DEBUG
+	 byteprint(buffer, 64);
      Serial.print("Overwriting slot with 0s");
 #endif 
-	 if (value==13) {
+	 if (value==10) {
 #ifdef DEBUG
             Serial.println(); //newline
             Serial.print("Wiping OnlyKey AES Key, Private ID, and Public ID...");
 #endif 
-            onlykey_eeset_aeskey((buffer + 7), 0);
-            onlykey_eeset_private((buffer + 7 + EElen_aeskey));
-            onlykey_eeset_public((buffer + 7 + EElen_aeskey + EElen_private), 0);
+            onlykey_eeset_aeskey(buffer + 7);
+            onlykey_eeset_private(buffer + 7 + EElen_aeskey);
+            onlykey_eeset_public(buffer + 7 + EElen_aeskey + EElen_private);
+			yubikey_eeset_counter(buffer + 7);
             hidprint("Successfully wiped AES Key, Private ID, and Public ID");
 			return;
-	 }
+	 } else if (slot >= 1 && slot <=12) {
    	if (PDmode) slot = slot+12;
 #ifdef DEBUG
             Serial.println(); //newline
@@ -1481,15 +1344,10 @@ void WIPESLOT (uint8_t *buffer)
 #endif 
             onlykey_flashset_totpkey((buffer + 7), 0, slot);
             hidprint("Successfully wiped TOTP Key");
-#ifdef DEBUG
-            Serial.println(); //newline
-            Serial.print("Wiping Additional Character4 Value...");
-#endif 
-            onlykey_eeset_addchar4((buffer + 7), slot);
-            hidprint("Successfully wiped Additional Character 4");
 
       blink(3);
       return;
+	 }
 }
 
 void digitalClockDisplay(){
@@ -1523,9 +1381,17 @@ void blink(int times){
   
   int i;
   for(i = 0; i < times; i++){
+	#ifdef OK_Color
+	setcolor(NEO_Color);
+	#else
     analogWrite(BLINKPIN, 255);
+    #endif
     delay(100);
+	#ifdef OK_Color
+	setcolor(0);
+	#else
     analogWrite(BLINKPIN, 0);
+    #endif
     delay(100);
   }
 }
@@ -1557,10 +1423,12 @@ int RNG2(uint8_t *dest, unsigned size) {
     }
     RNG.rand(dest, size);
     length = 32;
-    //Serial.println("Random number =");
-    //printHex(dest, size);
-    //Serial.println("Size =");
-    //Serial.println(size);
+#ifdef DEBUG
+	Serial.println();
+	Serial.print("Generating random number of size = ");
+	Serial.print(size);
+	byteprint(dest, size);
+#endif
     return 1;
 }
 
@@ -1638,12 +1506,25 @@ void hidprint(char const * chars)
 { 
 int i=0;
 while(*chars) {
-     resp_buffer[i] = (uint8_t)*chars;
+	 if (*chars == 0xFF) resp_buffer[i] = 0x00; //Empty flash sector is 0xFF
+     else resp_buffer[i] = (uint8_t)*chars;
      chars++;
 	 i++;
   }
   RawHID.send(resp_buffer, 0);
   memset(resp_buffer, 0, sizeof(resp_buffer));
+}
+
+void byteprint(uint8_t* bytes, int size) 
+{ 
+#ifdef DEBUG
+Serial.println();
+for (int i = 0; i < size; i++) {
+  Serial.print(bytes[i], HEX);
+  Serial.print(" ");
+  }
+Serial.println();
+#endif
 }
 
 void factorydefault() {
@@ -1671,6 +1552,10 @@ void factorydefault() {
 #ifdef DEBUG
 	Serial.println("factory reset has been completed");
 #endif 
+	hidprint("factory reset has been completed");
+while(1==1) {
+	blink(3);
+}
 }
 
 void wipeEEPROM() {
@@ -1726,7 +1611,7 @@ void wipeflash() {
 #ifdef DEBUG 
 	Serial.printf("successful\r\n");
 #endif 
-	adr=adr+2048; //Next Sector
+	adr=adr+2048; //Next Sector 2048
 #ifdef DEBUG 
 	Serial.printf("Erase Sector 0x%X ",adr);
 #endif 
@@ -1738,7 +1623,7 @@ void wipeflash() {
 #ifdef DEBUG 
 	Serial.printf("successful\r\n");
 #endif 
-	adr=adr+4096; //Next Sector
+	adr=adr+2048; //Next Sector 4096
 #ifdef DEBUG 
 	Serial.printf("Erase Sector 0x%X ",adr);
 #endif 
@@ -1750,7 +1635,7 @@ void wipeflash() {
 #ifdef DEBUG 
 	Serial.printf("successful\r\n");
 #endif 
-	adr=adr+6144; //Next Sector
+	adr=adr+2048; //Next Sector 6144
 #ifdef DEBUG 
 	Serial.printf("Erase Sector 0x%X ",adr);
 #endif 
@@ -1761,7 +1646,8 @@ void wipeflash() {
 	}
 #ifdef DEBUG 
 	Serial.printf("successful\r\n");
-	adr=adr+8192; //Next Sector
+#endif
+	adr=adr+2048; //Next Sector 8192
 #ifdef DEBUG 
 	Serial.printf("Erase Sector 0x%X ",adr);
 #endif 
@@ -1772,8 +1658,43 @@ void wipeflash() {
 	}
 #ifdef DEBUG 
 	Serial.printf("successful\r\n");
+#endif
+	adr=adr+2048; //Next Sector 10240
+#ifdef DEBUG 
+	Serial.printf("Erase Sector 0x%X ",adr);
 #endif 
-	Serial.println("Flash Sectors erased");//TODO remove debug
+	if (flashEraseSector((unsigned long*)adr)) {
+#ifdef DEBUG 
+	Serial.printf("NOT ");
+#endif 
+	}
+#ifdef DEBUG 
+	Serial.printf("successful\r\n");
+	#endif
+	adr=adr+2048; //Next Sector 12288
+#ifdef DEBUG 
+	Serial.printf("Erase Sector 0x%X ",adr);
+#endif 
+	if (flashEraseSector((unsigned long*)adr)) {
+#ifdef DEBUG 
+	Serial.printf("NOT ");
+#endif 
+	}
+#ifdef DEBUG 
+	Serial.printf("successful\r\n");
+	#endif
+	adr=adr+2048; //Next Sector 14336
+#ifdef DEBUG 
+	Serial.printf("Erase Sector 0x%X ",adr);
+#endif 
+	if (flashEraseSector((unsigned long*)adr)) {
+#ifdef DEBUG 
+	Serial.printf("NOT ");
+#endif 
+	}
+#ifdef DEBUG 
+	Serial.printf("successful\r\n");
+	Serial.println("Flash Sectors erased");
 #endif 
 }
 
@@ -1834,12 +1755,12 @@ void aes_gcm_decrypt (uint8_t * state, uint8_t * iv1, const uint8_t * key, int l
 void aes_gcm_encrypt2 (uint8_t * state, uint8_t * iv1, const uint8_t * key, int len) {
 	#ifdef US_VERSION
 	GCM<AES256> gcm; 
-	uint8_t tag[16];
+	//uint8_t tag[16];
 	gcm.clear ();
-	gcm.setKey(key, sizeof(key));
+	gcm.setKey(key, 32);
 	gcm.setIV(iv1, 12);
 	gcm.encrypt(state, state, len);
-	gcm.computeTag(tag, sizeof(tag)); 
+	//gcm.computeTag(tag, sizeof(tag)); 
 	#endif
 }
 
@@ -1848,7 +1769,7 @@ void aes_gcm_decrypt2 (uint8_t * state, uint8_t * iv1, const uint8_t * key, int 
 	GCM<AES256> gcm; 
 	//uint8_t tag[16];
 	gcm.clear ();
-	gcm.setKey(key, sizeof(key));
+	gcm.setKey(key, 32);
 	gcm.setIV(iv1, 12);
 	gcm.decrypt(state, state, len);
 	//if (!gcm.checkTag(tag, sizeof(tag))) {
@@ -2175,7 +2096,6 @@ int onlykey_flashget_url (uint8_t *ptr, int slot) {
 			if (size > EElen_url) size = EElen_url;
 			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_url);
 			return size;
-            break;
 		case 2:
 			onlykey_eeget_urllen2(&length);
 			size = (int) length;
@@ -2183,7 +2103,6 @@ int onlykey_flashget_url (uint8_t *ptr, int slot) {
 			adr=adr+((EElen_url*slot)-EElen_url);
 			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_url);
 			return size;
-            break;
 		case 3:
 			onlykey_eeget_urllen3(&length);
 			size = (int) length;
@@ -2191,7 +2110,6 @@ int onlykey_flashget_url (uint8_t *ptr, int slot) {
 			adr=adr+((EElen_url*slot)-EElen_url);
 			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_url);
 			return size;
-            break;
 		case 4:
 			onlykey_eeget_urllen4(&length);
 			size = (int) length;
@@ -2199,7 +2117,6 @@ int onlykey_flashget_url (uint8_t *ptr, int slot) {
 			adr=adr+((EElen_url*slot)-EElen_url);
 			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_url);
 			return size;
-            break;
 		case 5:
 			onlykey_eeget_urllen5(&length);
 			size = (int) length;
@@ -2207,7 +2124,6 @@ int onlykey_flashget_url (uint8_t *ptr, int slot) {
 			adr=adr+((EElen_url*slot)-EElen_url);
 			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_url);
 			return size;
-            break;
 		case 6:
 			onlykey_eeget_urllen6(&length);
 			size = (int) length;
@@ -2215,7 +2131,6 @@ int onlykey_flashget_url (uint8_t *ptr, int slot) {
 			adr=adr+((EElen_url*slot)-EElen_url);
 			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_url);
 			return size;
-            break;
 		case 7:
 			onlykey_eeget_urllen7(&length);
 			size = (int) length;
@@ -2223,7 +2138,6 @@ int onlykey_flashget_url (uint8_t *ptr, int slot) {
 			adr=adr+((EElen_url*slot)-EElen_url);
 			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_url);
 			return size;
-            break;
 		case 8:
 			onlykey_eeget_urllen8(&length);
 			size = (int) length;
@@ -2231,7 +2145,6 @@ int onlykey_flashget_url (uint8_t *ptr, int slot) {
 			adr=adr+((EElen_url*slot)-EElen_url);
 			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_url);
 			return size;
-            break;
 		case 9:
 			onlykey_eeget_urllen9(&length);
 			size = (int) length;
@@ -2239,7 +2152,6 @@ int onlykey_flashget_url (uint8_t *ptr, int slot) {
 			adr=adr+((EElen_url*slot)-EElen_url);
 			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_url);
 			return size;
-            break;
 		case 10:
 			onlykey_eeget_urllen10(&length);
 			size = (int) length;
@@ -2247,7 +2159,6 @@ int onlykey_flashget_url (uint8_t *ptr, int slot) {
 			adr=adr+((EElen_url*slot)-EElen_url);
 			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_url);
 			return size;
-            break;
 		case 11:
 			onlykey_eeget_urllen11(&length);
 			size = (int) length;
@@ -2255,7 +2166,6 @@ int onlykey_flashget_url (uint8_t *ptr, int slot) {
 			adr=adr+((EElen_url*slot)-EElen_url);
 			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_url);
 			return size;
-            break;
 		case 12:
 			onlykey_eeget_urllen12(&length);
 			size = (int) length;
@@ -2263,7 +2173,6 @@ int onlykey_flashget_url (uint8_t *ptr, int slot) {
 			adr=adr+((EElen_url*slot)-EElen_url);
 			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_url);
 			return size;
-            break;
 		case 13:
 			onlykey_eeget_urllen13(&length);
 			size = (int) length;
@@ -2271,7 +2180,6 @@ int onlykey_flashget_url (uint8_t *ptr, int slot) {
 			adr=adr+((EElen_url*slot)-EElen_url);
 			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_url);
 			return size;
-            break;
 		case 14:
 			onlykey_eeget_urllen14(&length);
 			size = (int) length;
@@ -2279,7 +2187,6 @@ int onlykey_flashget_url (uint8_t *ptr, int slot) {
 			adr=adr+((EElen_url*slot)-EElen_url);
 			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_url);
 			return size;
-            break;
 		case 15:
 			onlykey_eeget_urllen15(&length);
 			size = (int) length;
@@ -2287,7 +2194,6 @@ int onlykey_flashget_url (uint8_t *ptr, int slot) {
 			adr=adr+((EElen_url*slot)-EElen_url);
 			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_url);
 			return size;
-            break;
 		case 16:
 			onlykey_eeget_urllen16(&length);
 			size = (int) length;
@@ -2295,7 +2201,6 @@ int onlykey_flashget_url (uint8_t *ptr, int slot) {
 			adr=adr+((EElen_url*slot)-EElen_url);
 			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_url);
 			return size;
-            break;
 		case 17:
 			onlykey_eeget_urllen17(&length);
 			size = (int) length;
@@ -2303,7 +2208,6 @@ int onlykey_flashget_url (uint8_t *ptr, int slot) {
 			adr=adr+((EElen_url*slot)-EElen_url);
 			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_url);
 			return size;
-            break;
 		case 18:
 			onlykey_eeget_urllen18(&length);
 			size = (int) length;
@@ -2311,7 +2215,6 @@ int onlykey_flashget_url (uint8_t *ptr, int slot) {
 			adr=adr+((EElen_url*slot)-EElen_url);
 			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_url);
 			return size;
-            break;
 		case 19:
 			onlykey_eeget_urllen19(&length);
 			size = (int) length;
@@ -2319,7 +2222,6 @@ int onlykey_flashget_url (uint8_t *ptr, int slot) {
 			adr=adr+((EElen_url*slot)-EElen_url);
 			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_url);
 			return size;
-            break;
 		case 20:
 			onlykey_eeget_urllen20(&length);
 			size = (int) length;
@@ -2327,7 +2229,6 @@ int onlykey_flashget_url (uint8_t *ptr, int slot) {
 			adr=adr+((EElen_url*slot)-EElen_url);
 			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_url);
 			return size;
-            break;
 		case 21:
 			onlykey_eeget_urllen21(&length);
 			size = (int) length;
@@ -2335,7 +2236,6 @@ int onlykey_flashget_url (uint8_t *ptr, int slot) {
 			adr=adr+((EElen_url*slot)-EElen_url);
 			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_url);
 			return size;
-            break;
 		case 22:
 			onlykey_eeget_urllen22(&length);
 			size = (int) length;
@@ -2343,7 +2243,6 @@ int onlykey_flashget_url (uint8_t *ptr, int slot) {
 			adr=adr+((EElen_url*slot)-EElen_url);
 			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_url);
 			return size;
-            break;
 		case 23:
 			onlykey_eeget_urllen23(&length);
 			size = (int) length;
@@ -2351,15 +2250,13 @@ int onlykey_flashget_url (uint8_t *ptr, int slot) {
 			adr=adr+((EElen_url*slot)-EElen_url);
 			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_url);
 			return size;
-            break;
 		case 24:
 			onlykey_eeget_urllen24(&length);
 			size = (int) length;
 			if (size > EElen_url) size = EElen_url;
 			adr=adr+((EElen_url*slot)-EElen_url);
 			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_url);
-			return size;
-            break;	
+			return size;	
 	}
 
 return 0;
@@ -2377,7 +2274,7 @@ void onlykey_flashset_url (uint8_t *ptr, int size, int slot) {
     //Copy current flash contents to buffer
     onlykey_flashget_common(tptr, (unsigned long*)adr, 2048);
     //Add new flash contents to buffer
-    for( int z = 0; z <= EElen_url; z++){
+    for( int z = 0; z < EElen_url; z++){
     temp[z+((EElen_url*slot)-EElen_url)] = ((uint8_t)*(ptr+z));
     }
     //Erase flash sector
@@ -2400,7 +2297,7 @@ void onlykey_flashset_url (uint8_t *ptr, int size, int slot) {
     		onlykey_flashset_common(tptr, (unsigned long*)adr, 2048);
 			length = (uint8_t) size;
 			onlykey_eeset_urllen1(&length);
-            	break;
+            	return;
 		case 2:
 		if (size > EElen_url) size = EElen_url;
 			if (size > EElen_url) size = EElen_url;
@@ -2408,7 +2305,7 @@ void onlykey_flashset_url (uint8_t *ptr, int size, int slot) {
     		onlykey_flashset_common(tptr, (unsigned long*)adr, 2048);
 			length = (uint8_t) size;
 			onlykey_eeset_urllen2(&length);
-            	break;
+            	return;
 		case 3:
 		if (size > EElen_url) size = EElen_url;
 			if (size > EElen_url) size = EElen_url;
@@ -2416,7 +2313,7 @@ void onlykey_flashset_url (uint8_t *ptr, int size, int slot) {
     		onlykey_flashset_common(tptr, (unsigned long*)adr, 2048);
 			length = (uint8_t) size;
 			onlykey_eeset_urllen3(&length);
-            break;
+            return;
 		case 4:
 		if (size > EElen_url) size = EElen_url;
 			if (size > EElen_url) size = EElen_url;
@@ -2424,7 +2321,7 @@ void onlykey_flashset_url (uint8_t *ptr, int size, int slot) {
     		onlykey_flashset_common(tptr, (unsigned long*)adr, 2048);
 			length = (uint8_t) size;
 			onlykey_eeset_urllen4(&length);
-            break;
+            return;
 		case 5:
 		if (size > EElen_url) size = EElen_url;
 			if (size > EElen_url) size = EElen_url;
@@ -2432,7 +2329,7 @@ void onlykey_flashset_url (uint8_t *ptr, int size, int slot) {
     		onlykey_flashset_common(tptr, (unsigned long*)adr, 2048);
 			length = (uint8_t) size;
 			onlykey_eeset_urllen5(&length);
-            break;
+            return;
 		case 6:
 		if (size > EElen_url) size = EElen_url;
 			if (size > EElen_url) size = EElen_url;
@@ -2440,7 +2337,7 @@ void onlykey_flashset_url (uint8_t *ptr, int size, int slot) {
     		onlykey_flashset_common(tptr, (unsigned long*)adr, 2048);
 			length = (uint8_t) size;
 			onlykey_eeset_urllen6(&length);
-            break;
+            return;
 		case 7:
 		if (size > EElen_url) size = EElen_url;
 			if (size > EElen_url) size = EElen_url;
@@ -2448,7 +2345,7 @@ void onlykey_flashset_url (uint8_t *ptr, int size, int slot) {
     		onlykey_flashset_common(tptr, (unsigned long*)adr, 2048);
 			length = (uint8_t) size;
 			onlykey_eeset_urllen7(&length);
-            break;
+            return;
 		case 8:
 		if (size > EElen_url) size = EElen_url;
 			if (size > EElen_url) size = EElen_url;
@@ -2456,7 +2353,7 @@ void onlykey_flashset_url (uint8_t *ptr, int size, int slot) {
     		onlykey_flashset_common(tptr, (unsigned long*)adr, 2048);
 			length = (uint8_t) size;
 			onlykey_eeset_urllen8(&length);
-            break;
+            return;
 		case 9:
 		if (size > EElen_url) size = EElen_url;
 			if (size > EElen_url) size = EElen_url;
@@ -2464,7 +2361,7 @@ void onlykey_flashset_url (uint8_t *ptr, int size, int slot) {
     		onlykey_flashset_common(tptr, (unsigned long*)adr, 2048);
 			length = (uint8_t) size;
 			onlykey_eeset_urllen9(&length);
-            break;
+            return;
 		case 10:
 		if (size > EElen_url) size = EElen_url;
 			if (size > EElen_url) size = EElen_url;
@@ -2472,7 +2369,7 @@ void onlykey_flashset_url (uint8_t *ptr, int size, int slot) {
     		onlykey_flashset_common(tptr, (unsigned long*)adr, 2048);
 			length = (uint8_t) size;
 			onlykey_eeset_urllen10(&length);
-            break;
+            return;
 		case 11:
 		if (size > EElen_url) size = EElen_url;
 			if (size > EElen_url) size = EElen_url;
@@ -2480,7 +2377,7 @@ void onlykey_flashset_url (uint8_t *ptr, int size, int slot) {
     		onlykey_flashset_common(tptr, (unsigned long*)adr, 2048);
 			length = (uint8_t) size;
 			onlykey_eeset_urllen11(&length);
-            break;
+            return;
 		case 12:
 		if (size > EElen_url) size = EElen_url;
 			if (size > EElen_url) size = EElen_url;
@@ -2488,14 +2385,14 @@ void onlykey_flashset_url (uint8_t *ptr, int size, int slot) {
     		onlykey_flashset_common(tptr, (unsigned long*)adr, 2048);
 			length = (uint8_t) size;
 			onlykey_eeset_urllen12(&length);
-            break;
+            return;
             	case 13:
 			if (size > EElen_url) size = EElen_url;
 			//Write buffer to flash
     		onlykey_flashset_common(tptr, (unsigned long*)adr, 2048);
 			length = (uint8_t) size;
 			onlykey_eeset_urllen13(&length);
-            	break;
+            	return;
 		case 14:
 		if (size > EElen_url) size = EElen_url;
 			if (size > EElen_url) size = EElen_url;
@@ -2503,7 +2400,7 @@ void onlykey_flashset_url (uint8_t *ptr, int size, int slot) {
     		onlykey_flashset_common(tptr, (unsigned long*)adr, 2048);
 			length = (uint8_t) size;
 			onlykey_eeset_urllen14(&length);
-            	break;
+            	return;
 		case 15:
 		if (size > EElen_url) size = EElen_url;
 			if (size > EElen_url) size = EElen_url;
@@ -2511,7 +2408,7 @@ void onlykey_flashset_url (uint8_t *ptr, int size, int slot) {
     		onlykey_flashset_common(tptr, (unsigned long*)adr, 2048);
 			length = (uint8_t) size;
 			onlykey_eeset_urllen15(&length);
-            break;
+            return;
 		case 16:
 		if (size > EElen_url) size = EElen_url;
 			if (size > EElen_url) size = EElen_url;
@@ -2519,7 +2416,7 @@ void onlykey_flashset_url (uint8_t *ptr, int size, int slot) {
     		onlykey_flashset_common(tptr, (unsigned long*)adr, 2048);
 			length = (uint8_t) size;
 			onlykey_eeset_urllen16(&length);
-            break;
+            return;
 		case 17:
 		if (size > EElen_url) size = EElen_url;
 			if (size > EElen_url) size = EElen_url;
@@ -2527,7 +2424,7 @@ void onlykey_flashset_url (uint8_t *ptr, int size, int slot) {
     		onlykey_flashset_common(tptr, (unsigned long*)adr, 2048);
 			length = (uint8_t) size;
 			onlykey_eeset_urllen17(&length);
-            break;
+            return;
 		case 18:
 		if (size > EElen_url) size = EElen_url;
 			if (size > EElen_url) size = EElen_url;
@@ -2535,7 +2432,7 @@ void onlykey_flashset_url (uint8_t *ptr, int size, int slot) {
     		onlykey_flashset_common(tptr, (unsigned long*)adr, 2048);
 			length = (uint8_t) size;
 			onlykey_eeset_urllen18(&length);
-            break;
+            return;
 		case 19:
 		if (size > EElen_url) size = EElen_url;
 			if (size > EElen_url) size = EElen_url;
@@ -2543,7 +2440,7 @@ void onlykey_flashset_url (uint8_t *ptr, int size, int slot) {
     		onlykey_flashset_common(tptr, (unsigned long*)adr, 2048);
 			length = (uint8_t) size;
 			onlykey_eeset_urllen19(&length);
-            break;
+            return;
 		case 20:
 		if (size > EElen_url) size = EElen_url;
 			if (size > EElen_url) size = EElen_url;
@@ -2551,7 +2448,7 @@ void onlykey_flashset_url (uint8_t *ptr, int size, int slot) {
     		onlykey_flashset_common(tptr, (unsigned long*)adr, 2048);
 			length = (uint8_t) size;
 			onlykey_eeset_urllen20(&length);
-            break;
+            return;
 		case 21:
 		if (size > EElen_url) size = EElen_url;
 			if (size > EElen_url) size = EElen_url;
@@ -2559,7 +2456,7 @@ void onlykey_flashset_url (uint8_t *ptr, int size, int slot) {
     		onlykey_flashset_common(tptr, (unsigned long*)adr, 2048);
 			length = (uint8_t) size;
 			onlykey_eeset_urllen21(&length);
-            break;
+            return;
 		case 22:
 		if (size > EElen_url) size = EElen_url;
 			if (size > EElen_url) size = EElen_url;
@@ -2567,7 +2464,7 @@ void onlykey_flashset_url (uint8_t *ptr, int size, int slot) {
     		onlykey_flashset_common(tptr, (unsigned long*)adr, 2048);
 			length = (uint8_t) size;
 			onlykey_eeset_urllen22(&length);
-            break;
+            return;
 		case 23:
 		if (size > EElen_url) size = EElen_url;
 			if (size > EElen_url) size = EElen_url;
@@ -2575,7 +2472,7 @@ void onlykey_flashset_url (uint8_t *ptr, int size, int slot) {
     		onlykey_flashset_common(tptr, (unsigned long*)adr, 2048);
 			length = (uint8_t) size;
 			onlykey_eeset_urllen23(&length);
-            break;
+            return;
 		case 24:
 		if (size > EElen_url) size = EElen_url;
 			if (size > EElen_url) size = EElen_url;
@@ -2583,7 +2480,7 @@ void onlykey_flashset_url (uint8_t *ptr, int size, int slot) {
     		onlykey_flashset_common(tptr, (unsigned long*)adr, 2048);
 			length = (uint8_t) size;
 			onlykey_eeset_urllen24(&length);
-            break;
+            return;
 	}
 return;
 }
@@ -2606,7 +2503,6 @@ int onlykey_flashget_username (uint8_t *ptr, int slot) {
 			if (size > EElen_username) size = EElen_username;
 			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_username);
 			return size;
-            break;
 		case 2:
 			onlykey_eeget_usernamelen2(&length);
 			size = (int) length;
@@ -2614,7 +2510,6 @@ int onlykey_flashget_username (uint8_t *ptr, int slot) {
 			adr=adr+((EElen_username*slot)-EElen_username);
 			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_username);
 			return size;
-            break;
 		case 3:
 			onlykey_eeget_usernamelen3(&length);
 			size = (int) length;
@@ -2622,7 +2517,6 @@ int onlykey_flashget_username (uint8_t *ptr, int slot) {
 			adr=adr+((EElen_username*slot)-EElen_username);
 			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_username);
 			return size;
-            break;
 		case 4:
 			onlykey_eeget_usernamelen4(&length);
 			size = (int) length;
@@ -2630,7 +2524,7 @@ int onlykey_flashget_username (uint8_t *ptr, int slot) {
 			adr=adr+((EElen_username*slot)-EElen_username);
 			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_username);
 			return size;
-            break;
+            
 		case 5:
 			onlykey_eeget_usernamelen5(&length);
 			size = (int) length;
@@ -2638,7 +2532,7 @@ int onlykey_flashget_username (uint8_t *ptr, int slot) {
 			adr=adr+((EElen_username*slot)-EElen_username);
 			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_username);
 			return size;
-            break;
+            
 		case 6:
 			onlykey_eeget_usernamelen6(&length);
 			size = (int) length;
@@ -2646,7 +2540,7 @@ int onlykey_flashget_username (uint8_t *ptr, int slot) {
 			adr=adr+((EElen_username*slot)-EElen_username);
 			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_username);
 			return size;
-            break;
+            
 		case 7:
 			onlykey_eeget_usernamelen7(&length);
 			size = (int) length;
@@ -2654,7 +2548,7 @@ int onlykey_flashget_username (uint8_t *ptr, int slot) {
 			adr=adr+((EElen_username*slot)-EElen_username);
 			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_username);
 			return size;
-            break;
+            
 		case 8:
 			onlykey_eeget_usernamelen8(&length);
 			size = (int) length;
@@ -2662,7 +2556,7 @@ int onlykey_flashget_username (uint8_t *ptr, int slot) {
 			adr=adr+((EElen_username*slot)-EElen_username);
 			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_username);
 			return size;
-            break;
+            
 		case 9:
 			onlykey_eeget_usernamelen9(&length);
 			size = (int) length;
@@ -2670,7 +2564,7 @@ int onlykey_flashget_username (uint8_t *ptr, int slot) {
 			adr=adr+((EElen_username*slot)-EElen_username);
 			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_username);
 			return size;
-            break;
+            
 		case 10:
 			onlykey_eeget_usernamelen10(&length);
 			size = (int) length;
@@ -2678,7 +2572,7 @@ int onlykey_flashget_username (uint8_t *ptr, int slot) {
 			adr=adr+((EElen_username*slot)-EElen_username);
 			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_username);
 			return size;
-            break;
+            
 		case 11:
 			onlykey_eeget_usernamelen11(&length);
 			size = (int) length;
@@ -2686,7 +2580,7 @@ int onlykey_flashget_username (uint8_t *ptr, int slot) {
 			adr=adr+((EElen_username*slot)-EElen_username);
 			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_username);
 			return size;
-            break;
+            
 		case 12:
 			onlykey_eeget_usernamelen12(&length);
 			size = (int) length;
@@ -2694,7 +2588,7 @@ int onlykey_flashget_username (uint8_t *ptr, int slot) {
 			adr=adr+((EElen_username*slot)-EElen_username);
 			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_username);
 			return size;
-            break;
+            
 		case 13:
 			onlykey_eeget_usernamelen13(&length);
 			size = (int) length;
@@ -2702,7 +2596,7 @@ int onlykey_flashget_username (uint8_t *ptr, int slot) {
 			adr=adr+((EElen_username*slot)-EElen_username);
 			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_username);
 			return size;
-            break;
+            
 		case 14:
 			onlykey_eeget_usernamelen14(&length);
 			size = (int) length;
@@ -2710,7 +2604,7 @@ int onlykey_flashget_username (uint8_t *ptr, int slot) {
 			adr=adr+((EElen_username*slot)-EElen_username);
 			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_username);
 			return size;
-            break;
+            
 		case 15:
 			onlykey_eeget_usernamelen15(&length);
 			size = (int) length;
@@ -2718,7 +2612,7 @@ int onlykey_flashget_username (uint8_t *ptr, int slot) {
 			adr=adr+((EElen_username*slot)-EElen_username);
 			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_username);
 			return size;
-            break;
+            
 		case 16:
 			onlykey_eeget_usernamelen16(&length);
 			size = (int) length;
@@ -2726,7 +2620,7 @@ int onlykey_flashget_username (uint8_t *ptr, int slot) {
 			adr=adr+((EElen_username*slot)-EElen_username);
 			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_username);
 			return size;
-            break;
+            
 		case 17:
 			onlykey_eeget_usernamelen17(&length);
 			size = (int) length;
@@ -2734,7 +2628,7 @@ int onlykey_flashget_username (uint8_t *ptr, int slot) {
 			adr=adr+((EElen_username*slot)-EElen_username);
 			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_username);
 			return size;
-            break;
+            
 		case 18:
 			onlykey_eeget_usernamelen18(&length);
 			size = (int) length;
@@ -2742,7 +2636,7 @@ int onlykey_flashget_username (uint8_t *ptr, int slot) {
 			adr=adr+((EElen_username*slot)-EElen_username);
 			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_username);
 			return size;
-            break;
+            
 		case 19:
 			onlykey_eeget_usernamelen19(&length);
 			size = (int) length;
@@ -2750,7 +2644,7 @@ int onlykey_flashget_username (uint8_t *ptr, int slot) {
 			adr=adr+((EElen_username*slot)-EElen_username);
 			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_username);
 			return size;
-            break;
+            
 		case 20:
 			onlykey_eeget_usernamelen20(&length);
 			size = (int) length;
@@ -2758,7 +2652,7 @@ int onlykey_flashget_username (uint8_t *ptr, int slot) {
 			adr=adr+((EElen_username*slot)-EElen_username);
 			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_username);
 			return size;
-            break;
+            
 		case 21:
 			onlykey_eeget_usernamelen21(&length);
 			size = (int) length;
@@ -2766,7 +2660,7 @@ int onlykey_flashget_username (uint8_t *ptr, int slot) {
 			adr=adr+((EElen_username*slot)-EElen_username);
 			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_username);
 			return size;
-            break;
+            
 		case 22:
 			onlykey_eeget_usernamelen22(&length);
 			size = (int) length;
@@ -2774,7 +2668,7 @@ int onlykey_flashget_username (uint8_t *ptr, int slot) {
 			adr=adr+((EElen_username*slot)-EElen_username);
 			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_username);
 			return size;
-            break;
+            
 		case 23:
 			onlykey_eeget_usernamelen23(&length);
 			size = (int) length;
@@ -2782,7 +2676,7 @@ int onlykey_flashget_username (uint8_t *ptr, int slot) {
 			adr=adr+((EElen_username*slot)-EElen_username);
 			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_username);
 			return size;
-            break;
+            
 		case 24:
 			onlykey_eeget_usernamelen24(&length);
 			size = (int) length;
@@ -2790,7 +2684,7 @@ int onlykey_flashget_username (uint8_t *ptr, int slot) {
 			adr=adr+((EElen_username*slot)-EElen_username);
 			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_username);
 			return size;
-            break;	
+            	
 	}
 
 return 0;
@@ -2808,7 +2702,7 @@ void onlykey_flashset_username (uint8_t *ptr, int size, int slot) {
     //Copy current flash contents to buffer
     onlykey_flashget_common(tptr, (unsigned long*)adr, 2048);
     //Add new flash contents to buffer
-    for( int z = 0; z <= EElen_username; z++){
+    for( int z = 0; z < EElen_username; z++){
     temp[z+((EElen_username*slot)-EElen_username)] = ((uint8_t)*(ptr+z));
     }
     //Erase flash sector
@@ -2831,7 +2725,7 @@ void onlykey_flashset_username (uint8_t *ptr, int size, int slot) {
     		onlykey_flashset_common(tptr, (unsigned long*)adr, 2048);
 			length = (uint8_t) size;
 			onlykey_eeset_usernamelen1(&length);
-            	break;
+            	return;
 		case 2:
 		if (size > EElen_username) size = EElen_username;
 			if (size > EElen_username) size = EElen_username;
@@ -2839,7 +2733,7 @@ void onlykey_flashset_username (uint8_t *ptr, int size, int slot) {
     		onlykey_flashset_common(tptr, (unsigned long*)adr, 2048);
 			length = (uint8_t) size;
 			onlykey_eeset_usernamelen2(&length);
-            	break;
+            	return;
 		case 3:
 		if (size > EElen_username) size = EElen_username;
 			if (size > EElen_username) size = EElen_username;
@@ -2847,7 +2741,7 @@ void onlykey_flashset_username (uint8_t *ptr, int size, int slot) {
     		onlykey_flashset_common(tptr, (unsigned long*)adr, 2048);
 			length = (uint8_t) size;
 			onlykey_eeset_usernamelen3(&length);
-            break;
+            return;
 		case 4:
 		if (size > EElen_username) size = EElen_username;
 			if (size > EElen_username) size = EElen_username;
@@ -2855,7 +2749,7 @@ void onlykey_flashset_username (uint8_t *ptr, int size, int slot) {
     		onlykey_flashset_common(tptr, (unsigned long*)adr, 2048);
 			length = (uint8_t) size;
 			onlykey_eeset_usernamelen4(&length);
-            break;
+            return;
 		case 5:
 		if (size > EElen_username) size = EElen_username;
 			if (size > EElen_username) size = EElen_username;
@@ -2863,7 +2757,7 @@ void onlykey_flashset_username (uint8_t *ptr, int size, int slot) {
     		onlykey_flashset_common(tptr, (unsigned long*)adr, 2048);
 			length = (uint8_t) size;
 			onlykey_eeset_usernamelen5(&length);
-            break;
+            return;
 		case 6:
 		if (size > EElen_username) size = EElen_username;
 			if (size > EElen_username) size = EElen_username;
@@ -2871,7 +2765,7 @@ void onlykey_flashset_username (uint8_t *ptr, int size, int slot) {
     		onlykey_flashset_common(tptr, (unsigned long*)adr, 2048);
 			length = (uint8_t) size;
 			onlykey_eeset_usernamelen6(&length);
-            break;
+            return;
 		case 7:
 		if (size > EElen_username) size = EElen_username;
 			if (size > EElen_username) size = EElen_username;
@@ -2879,7 +2773,7 @@ void onlykey_flashset_username (uint8_t *ptr, int size, int slot) {
     		onlykey_flashset_common(tptr, (unsigned long*)adr, 2048);
 			length = (uint8_t) size;
 			onlykey_eeset_usernamelen7(&length);
-            break;
+            return;
 		case 8:
 		if (size > EElen_username) size = EElen_username;
 			if (size > EElen_username) size = EElen_username;
@@ -2887,7 +2781,7 @@ void onlykey_flashset_username (uint8_t *ptr, int size, int slot) {
     		onlykey_flashset_common(tptr, (unsigned long*)adr, 2048);
 			length = (uint8_t) size;
 			onlykey_eeset_usernamelen8(&length);
-            break;
+            return;
 		case 9:
 		if (size > EElen_username) size = EElen_username;
 			if (size > EElen_username) size = EElen_username;
@@ -2895,7 +2789,7 @@ void onlykey_flashset_username (uint8_t *ptr, int size, int slot) {
     		onlykey_flashset_common(tptr, (unsigned long*)adr, 2048);
 			length = (uint8_t) size;
 			onlykey_eeset_usernamelen9(&length);
-            break;
+            return;
 		case 10:
 		if (size > EElen_username) size = EElen_username;
 			if (size > EElen_username) size = EElen_username;
@@ -2903,7 +2797,7 @@ void onlykey_flashset_username (uint8_t *ptr, int size, int slot) {
     		onlykey_flashset_common(tptr, (unsigned long*)adr, 2048);
 			length = (uint8_t) size;
 			onlykey_eeset_usernamelen10(&length);
-            break;
+            return;
 		case 11:
 		if (size > EElen_username) size = EElen_username;
 			if (size > EElen_username) size = EElen_username;
@@ -2911,7 +2805,7 @@ void onlykey_flashset_username (uint8_t *ptr, int size, int slot) {
     		onlykey_flashset_common(tptr, (unsigned long*)adr, 2048);
 			length = (uint8_t) size;
 			onlykey_eeset_usernamelen11(&length);
-            break;
+            return;
 		case 12:
 		if (size > EElen_username) size = EElen_username;
 			if (size > EElen_username) size = EElen_username;
@@ -2919,14 +2813,14 @@ void onlykey_flashset_username (uint8_t *ptr, int size, int slot) {
     		onlykey_flashset_common(tptr, (unsigned long*)adr, 2048);
 			length = (uint8_t) size;
 			onlykey_eeset_usernamelen12(&length);
-            break;
+            return;
             	case 13:
 			if (size > EElen_username) size = EElen_username;
 			//Write buffer to flash
     		onlykey_flashset_common(tptr, (unsigned long*)adr, 2048);
 			length = (uint8_t) size;
 			onlykey_eeset_usernamelen13(&length);
-            	break;
+            	return;
 		case 14:
 		if (size > EElen_username) size = EElen_username;
 			if (size > EElen_username) size = EElen_username;
@@ -2934,7 +2828,7 @@ void onlykey_flashset_username (uint8_t *ptr, int size, int slot) {
     		onlykey_flashset_common(tptr, (unsigned long*)adr, 2048);
 			length = (uint8_t) size;
 			onlykey_eeset_usernamelen14(&length);
-            	break;
+            	return;
 		case 15:
 		if (size > EElen_username) size = EElen_username;
 			if (size > EElen_username) size = EElen_username;
@@ -2942,7 +2836,7 @@ void onlykey_flashset_username (uint8_t *ptr, int size, int slot) {
     		onlykey_flashset_common(tptr, (unsigned long*)adr, 2048);
 			length = (uint8_t) size;
 			onlykey_eeset_usernamelen15(&length);
-            break;
+            return;
 		case 16:
 		if (size > EElen_username) size = EElen_username;
 			if (size > EElen_username) size = EElen_username;
@@ -2950,7 +2844,7 @@ void onlykey_flashset_username (uint8_t *ptr, int size, int slot) {
     		onlykey_flashset_common(tptr, (unsigned long*)adr, 2048);
 			length = (uint8_t) size;
 			onlykey_eeset_usernamelen16(&length);
-            break;
+            return;
 		case 17:
 		if (size > EElen_username) size = EElen_username;
 			if (size > EElen_username) size = EElen_username;
@@ -2958,7 +2852,7 @@ void onlykey_flashset_username (uint8_t *ptr, int size, int slot) {
     		onlykey_flashset_common(tptr, (unsigned long*)adr, 2048);
 			length = (uint8_t) size;
 			onlykey_eeset_usernamelen17(&length);
-            break;
+            return;
 		case 18:
 		if (size > EElen_username) size = EElen_username;
 			if (size > EElen_username) size = EElen_username;
@@ -2966,7 +2860,7 @@ void onlykey_flashset_username (uint8_t *ptr, int size, int slot) {
     		onlykey_flashset_common(tptr, (unsigned long*)adr, 2048);
 			length = (uint8_t) size;
 			onlykey_eeset_usernamelen18(&length);
-            break;
+            return;
 		case 19:
 		if (size > EElen_username) size = EElen_username;
 			if (size > EElen_username) size = EElen_username;
@@ -2974,7 +2868,7 @@ void onlykey_flashset_username (uint8_t *ptr, int size, int slot) {
     		onlykey_flashset_common(tptr, (unsigned long*)adr, 2048);
 			length = (uint8_t) size;
 			onlykey_eeset_usernamelen19(&length);
-            break;
+            return;
 		case 20:
 		if (size > EElen_username) size = EElen_username;
 			if (size > EElen_username) size = EElen_username;
@@ -2982,7 +2876,7 @@ void onlykey_flashset_username (uint8_t *ptr, int size, int slot) {
     		onlykey_flashset_common(tptr, (unsigned long*)adr, 2048);
 			length = (uint8_t) size;
 			onlykey_eeset_usernamelen20(&length);
-            break;
+            return;
 		case 21:
 		if (size > EElen_username) size = EElen_username;
 			if (size > EElen_username) size = EElen_username;
@@ -2990,7 +2884,7 @@ void onlykey_flashset_username (uint8_t *ptr, int size, int slot) {
     		onlykey_flashset_common(tptr, (unsigned long*)adr, 2048);
 			length = (uint8_t) size;
 			onlykey_eeset_usernamelen21(&length);
-            break;
+            return;
 		case 22:
 		if (size > EElen_username) size = EElen_username;
 			if (size > EElen_username) size = EElen_username;
@@ -2998,7 +2892,7 @@ void onlykey_flashset_username (uint8_t *ptr, int size, int slot) {
     		onlykey_flashset_common(tptr, (unsigned long*)adr, 2048);
 			length = (uint8_t) size;
 			onlykey_eeset_usernamelen22(&length);
-            break;
+            return;
 		case 23:
 		if (size > EElen_username) size = EElen_username;
 			if (size > EElen_username) size = EElen_username;
@@ -3006,7 +2900,7 @@ void onlykey_flashset_username (uint8_t *ptr, int size, int slot) {
     		onlykey_flashset_common(tptr, (unsigned long*)adr, 2048);
 			length = (uint8_t) size;
 			onlykey_eeset_usernamelen23(&length);
-            break;
+            return;
 		case 24:
 		if (size > EElen_username) size = EElen_username;
 			if (size > EElen_username) size = EElen_username;
@@ -3014,7 +2908,7 @@ void onlykey_flashset_username (uint8_t *ptr, int size, int slot) {
     		onlykey_flashset_common(tptr, (unsigned long*)adr, 2048);
 			length = (uint8_t) size;
 			onlykey_eeset_usernamelen24(&length);
-            break;
+            return;
 	}
 return;
 }
@@ -3023,108 +2917,12 @@ return;
 
 
 void onlykey_flashget_label (uint8_t *ptr, int slot) {
-
     uint8_t flashoffset[1];	
 	onlykey_eeget_flashpos((uint8_t*)flashoffset);
 	uintptr_t adr = (unsigned long)flashoffset[0] * (unsigned long)2048;
 	adr = adr + 6144; //4th free sector
-	switch (slot) {
-        case 1:
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
-            break;
-		case 2:
-			adr=adr+((EElen_label*slot)-EElen_label);
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
-            break;
-		case 3:
-			adr=adr+((EElen_label*slot)-EElen_label);
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
-            break;
-		case 4:
-			adr=adr+((EElen_label*slot)-EElen_label);
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
-            break;
-		case 5:
-			adr=adr+((EElen_label*slot)-EElen_label);
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
-            break;
-		case 6:
-			adr=adr+((EElen_label*slot)-EElen_label);
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
-            break;
-		case 7:
-			adr=adr+((EElen_label*slot)-EElen_label);
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
-            break;
-		case 8:
-			adr=adr+((EElen_label*slot)-EElen_label);
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
-            break;
-		case 9:
-			adr=adr+((EElen_label*slot)-EElen_label);
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
-            break;
-		case 10:
-			adr=adr+((EElen_label*slot)-EElen_label);
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
-            break;
-		case 11:
-			adr=adr+((EElen_label*slot)-EElen_label);
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
-            break;
-		case 12:
-			adr=adr+((EElen_label*slot)-EElen_label);
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
-            break;
-		case 13:
-			adr=adr+((EElen_label*slot)-EElen_label);
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
-            break;
-		case 14:
-			adr=adr+((EElen_label*slot)-EElen_label);
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
-            break;
-		case 15:
-			adr=adr+((EElen_label*slot)-EElen_label);
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
-            break;
-		case 16:
-			adr=adr+((EElen_label*slot)-EElen_label);
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
-            break;
-		case 17:
-			adr=adr+((EElen_label*slot)-EElen_label);
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
-            break;
-		case 18:
-			adr=adr+((EElen_label*slot)-EElen_label);
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
-            break;
-		case 19:
-			adr=adr+((EElen_label*slot)-EElen_label);
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
-            break;
-		case 20:
-			adr=adr+((EElen_label*slot)-EElen_label);
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
-            break;
-		case 21:
-			adr=adr+((EElen_label*slot)-EElen_label);
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
-            break;
-		case 22:
-			adr=adr+((EElen_label*slot)-EElen_label);
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
-            break;
-		case 23:
-			adr=adr+((EElen_label*slot)-EElen_label);
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
-            break;
-		case 24:
-			adr=adr+((EElen_label*slot)-EElen_label);
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
-            break;	
-	}
+	adr=adr+((EElen_label*slot)-EElen_label);
+	onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
 }
 
 void onlykey_flashset_label (uint8_t *ptr, int slot) {
@@ -3139,10 +2937,12 @@ void onlykey_flashset_label (uint8_t *ptr, int slot) {
     //Copy current flash contents to buffer
     onlykey_flashget_common(tptr, (unsigned long*)adr, 2048);
     //Add new flash contents to buffer
-    for( int z = 0; z <= EElen_label; z++){
+    for( int z = 0; z < EElen_label; z++){
     temp[z+((EElen_label*slot)-EElen_label)] = ((uint8_t)*(ptr+z));
     }
+
     //Erase flash sector
+	if (*ptr!=0x00) { //No need to erase sector if wiping slot
 #ifdef DEBUG 
     Serial.printf("Erase Sector 0x%X ",adr);
 #endif 
@@ -3154,6 +2954,7 @@ void onlykey_flashset_label (uint8_t *ptr, int slot) {
 #ifdef DEBUG 
     Serial.printf("successful\r\n");
 #endif 
+	}
     onlykey_flashset_common(tptr, (unsigned long*)adr, 2048);
 return;
 }
@@ -3172,194 +2973,194 @@ int onlykey_flashget_totpkey (uint8_t *ptr, int slot) {
         	case 1:
 			onlykey_eeget_totpkeylen1(&length);
 			size = (int) length;
-			if (size > EElen_label) size = EElen_label;
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
+			if (size > EElen_totpkey) size = EElen_totpkey;
+			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_totpkey);
 			return size;
-            break;
+            
 		case 2:
 			onlykey_eeget_totpkeylen2(&length);
 			size = (int) length;
-			if (size > EElen_label) size = EElen_label;
-			adr=adr+((EElen_label*slot)-EElen_label);
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
+			if (size > EElen_totpkey) size = EElen_totpkey;
+			adr=adr+((EElen_totpkey*slot)-EElen_totpkey);
+			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_totpkey);
 			return size;
-            break;
+            
 		case 3:
 			onlykey_eeget_totpkeylen3(&length);
 			size = (int) length;
-			if (size > EElen_label) size = EElen_label;
-			adr=adr+((EElen_label*slot)-EElen_label);
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
+			if (size > EElen_totpkey) size = EElen_totpkey;
+			adr=adr+((EElen_totpkey*slot)-EElen_totpkey);
+			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_totpkey);
 			return size;
-            break;
+            
 		case 4:
 			onlykey_eeget_totpkeylen4(&length);
 			size = (int) length;
-			if (size > EElen_label) size = EElen_label;
-			adr=adr+((EElen_label*slot)-EElen_label);
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
+			if (size > EElen_totpkey) size = EElen_totpkey;
+			adr=adr+((EElen_totpkey*slot)-EElen_totpkey);
+			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_totpkey);
 			return size;
-            break;
+            
 		case 5:
 			onlykey_eeget_totpkeylen5(&length);
 			size = (int) length;
-			if (size > EElen_label) size = EElen_label;
-			adr=adr+((EElen_label*slot)-EElen_label);
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
+			if (size > EElen_totpkey) size = EElen_totpkey;
+			adr=adr+((EElen_totpkey*slot)-EElen_totpkey);
+			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_totpkey);
 			return size;
-            break;
+            
 		case 6:
 			onlykey_eeget_totpkeylen6(&length);
 			size = (int) length;
-			if (size > EElen_label) size = EElen_label;
-			adr=adr+((EElen_label*slot)-EElen_label);
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
+			if (size > EElen_totpkey) size = EElen_totpkey;
+			adr=adr+((EElen_totpkey*slot)-EElen_totpkey);
+			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_totpkey);
 			return size;
-            break;
+            
 		case 7:
 			onlykey_eeget_totpkeylen7(&length);
 			size = (int) length;
-			if (size > EElen_label) size = EElen_label;
-			adr=adr+((EElen_label*slot)-EElen_label);
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
+			if (size > EElen_totpkey) size = EElen_totpkey;
+			adr=adr+((EElen_totpkey*slot)-EElen_totpkey);
+			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_totpkey);
 			return size;
-            break;
+            
 		case 8:
 			onlykey_eeget_totpkeylen8(&length);
 			size = (int) length;
-			if (size > EElen_label) size = EElen_label;
-			adr=adr+((EElen_label*slot)-EElen_label);
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
+			if (size > EElen_totpkey) size = EElen_totpkey;
+			adr=adr+((EElen_totpkey*slot)-EElen_totpkey);
+			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_totpkey);
 			return size;
-            break;
+            
 		case 9:
 			onlykey_eeget_totpkeylen9(&length);
 			size = (int) length;
-			if (size > EElen_label) size = EElen_label;
-			adr=adr+((EElen_label*slot)-EElen_label);
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
+			if (size > EElen_totpkey) size = EElen_totpkey;
+			adr=adr+((EElen_totpkey*slot)-EElen_totpkey);
+			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_totpkey);
 			return size;
-            break;
+            
 		case 10:
 			onlykey_eeget_totpkeylen10(&length);
 			size = (int) length;
-			if (size > EElen_label) size = EElen_label;
-			adr=adr+((EElen_label*slot)-EElen_label);
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
+			if (size > EElen_totpkey) size = EElen_totpkey;
+			adr=adr+((EElen_totpkey*slot)-EElen_totpkey);
+			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_totpkey);
 			return size;
-            break;
+            
 		case 11:
 			onlykey_eeget_totpkeylen11(&length);
 			size = (int) length;
-			if (size > EElen_label) size = EElen_label;
-			adr=adr+((EElen_label*slot)-EElen_label);
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
+			if (size > EElen_totpkey) size = EElen_totpkey;
+			adr=adr+((EElen_totpkey*slot)-EElen_totpkey);
+			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_totpkey);
 			return size;
-            break;
+            
 		case 12:
 			onlykey_eeget_totpkeylen12(&length);
 			size = (int) length;
-			if (size > EElen_label) size = EElen_label;
-			adr=adr+((EElen_label*slot)-EElen_label);
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
+			if (size > EElen_totpkey) size = EElen_totpkey;
+			adr=adr+((EElen_totpkey*slot)-EElen_totpkey);
+			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_totpkey);
 			return size;
-            break;
+            
 		case 13:
 			onlykey_eeget_totpkeylen13(&length);
 			size = (int) length;
-			if (size > EElen_label) size = EElen_label;
-			adr=adr+((EElen_label*slot)-EElen_label);
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
+			if (size > EElen_totpkey) size = EElen_totpkey;
+			adr=adr+((EElen_totpkey*slot)-EElen_totpkey);
+			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_totpkey);
 			return size;
-            break;
+            
 		case 14:
 			onlykey_eeget_totpkeylen14(&length);
 			size = (int) length;
-			if (size > EElen_label) size = EElen_label;
-			adr=adr+((EElen_label*slot)-EElen_label);
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
+			if (size > EElen_totpkey) size = EElen_totpkey;
+			adr=adr+((EElen_totpkey*slot)-EElen_totpkey);
+			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_totpkey);
 			return size;
-            break;
+            
 		case 15:
 			onlykey_eeget_totpkeylen15(&length);
 			size = (int) length;
-			if (size > EElen_label) size = EElen_label;
-			adr=adr+((EElen_label*slot)-EElen_label);
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
+			if (size > EElen_totpkey) size = EElen_totpkey;
+			adr=adr+((EElen_totpkey*slot)-EElen_totpkey);
+			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_totpkey);
 			return size;
-            break;
+            
 		case 16:
 			onlykey_eeget_totpkeylen16(&length);
 			size = (int) length;
-			if (size > EElen_label) size = EElen_label;
-			adr=adr+((EElen_label*slot)-EElen_label);
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
+			if (size > EElen_totpkey) size = EElen_totpkey;
+			adr=adr+((EElen_totpkey*slot)-EElen_totpkey);
+			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_totpkey);
 			return size;
-            break;
+            
 		case 17:
 			onlykey_eeget_totpkeylen17(&length);
 			size = (int) length;
-			if (size > EElen_label) size = EElen_label;
-			adr=adr+((EElen_label*slot)-EElen_label);
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
+			if (size > EElen_totpkey) size = EElen_totpkey;
+			adr=adr+((EElen_totpkey*slot)-EElen_totpkey);
+			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_totpkey);
 			return size;
-            break;
+            
 		case 18:
 			onlykey_eeget_totpkeylen18(&length);
 			size = (int) length;
-			if (size > EElen_label) size = EElen_label;
-			adr=adr+((EElen_label*slot)-EElen_label);
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
+			if (size > EElen_totpkey) size = EElen_totpkey;
+			adr=adr+((EElen_totpkey*slot)-EElen_totpkey);
+			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_totpkey);
 			return size;
-            break;
+            
 		case 19:
 			onlykey_eeget_totpkeylen19(&length);
 			size = (int) length;
-			if (size > EElen_label) size = EElen_label;
-			adr=adr+((EElen_label*slot)-EElen_label);
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
+			if (size > EElen_totpkey) size = EElen_totpkey;
+			adr=adr+((EElen_totpkey*slot)-EElen_totpkey);
+			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_totpkey);
 			return size;
-            break;
+            
 		case 20:
 			onlykey_eeget_totpkeylen20(&length);
 			size = (int) length;
-			if (size > EElen_label) size = EElen_label;
-			adr=adr+((EElen_label*slot)-EElen_label);
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
+			if (size > EElen_totpkey) size = EElen_totpkey;
+			adr=adr+((EElen_totpkey*slot)-EElen_totpkey);
+			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_totpkey);
 			return size;
-            break;
+            
 		case 21:
 			onlykey_eeget_totpkeylen21(&length);
 			size = (int) length;
-			if (size > EElen_label) size = EElen_label;
-			adr=adr+((EElen_label*slot)-EElen_label);
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
+			if (size > EElen_totpkey) size = EElen_totpkey;
+			adr=adr+((EElen_totpkey*slot)-EElen_totpkey);
+			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_totpkey);
 			return size;
-            break;
+            
 		case 22:
 			onlykey_eeget_totpkeylen22(&length);
 			size = (int) length;
-			if (size > EElen_label) size = EElen_label;
-			adr=adr+((EElen_label*slot)-EElen_label);
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
+			if (size > EElen_totpkey) size = EElen_totpkey;
+			adr=adr+((EElen_totpkey*slot)-EElen_totpkey);
+			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_totpkey);
 			return size;
-            break;
+            
 		case 23:
 			onlykey_eeget_totpkeylen23(&length);
 			size = (int) length;
-			if (size > EElen_label) size = EElen_label;
-			adr=adr+((EElen_label*slot)-EElen_label);
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
+			if (size > EElen_totpkey) size = EElen_totpkey;
+			adr=adr+((EElen_totpkey*slot)-EElen_totpkey);
+			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_totpkey);
 			return size;
-            break;
+            
 		case 24:
 			onlykey_eeget_totpkeylen24(&length);
 			size = (int) length;
-			if (size > EElen_label) size = EElen_label;
-			adr=adr+((EElen_label*slot)-EElen_label);
-			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
+			if (size > EElen_totpkey) size = EElen_totpkey;
+			adr=adr+((EElen_totpkey*slot)-EElen_totpkey);
+			onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_totpkey);
 			return size;
-            break;	
+	
 	}
 
 return 0;
@@ -3377,7 +3178,7 @@ void onlykey_flashset_totpkey (uint8_t *ptr, int size, int slot) {
     //Copy current flash contents to buffer
     onlykey_flashget_common(tptr, (unsigned long*)adr, 2048);
     //Add new flash contents to buffer
-    for( int z = 0; z <= EElen_totpkey; z++){
+    for( int z = 0; z < EElen_totpkey; z++){
     temp[z+((EElen_totpkey*slot)-EElen_totpkey)] = ((uint8_t)*(ptr+z));
     }
     //Erase flash sector
@@ -3400,7 +3201,7 @@ void onlykey_flashset_totpkey (uint8_t *ptr, int size, int slot) {
     		onlykey_flashset_common(tptr, (unsigned long*)adr, 2048);
 			length = (uint8_t) size;
 			onlykey_eeset_totpkeylen1(&length);
-            	break;
+            return;
 		case 2:
 		if (size > EElen_totpkey) size = EElen_totpkey;
 			if (size > EElen_totpkey) size = EElen_totpkey;
@@ -3408,7 +3209,7 @@ void onlykey_flashset_totpkey (uint8_t *ptr, int size, int slot) {
     		onlykey_flashset_common(tptr, (unsigned long*)adr, 2048);
 			length = (uint8_t) size;
 			onlykey_eeset_totpkeylen2(&length);
-            	break;
+            return;
 		case 3:
 		if (size > EElen_totpkey) size = EElen_totpkey;
 			if (size > EElen_totpkey) size = EElen_totpkey;
@@ -3416,7 +3217,7 @@ void onlykey_flashset_totpkey (uint8_t *ptr, int size, int slot) {
     		onlykey_flashset_common(tptr, (unsigned long*)adr, 2048);
 			length = (uint8_t) size;
 			onlykey_eeset_totpkeylen3(&length);
-            break;
+            return;
 		case 4:
 		if (size > EElen_totpkey) size = EElen_totpkey;
 			if (size > EElen_totpkey) size = EElen_totpkey;
@@ -3424,7 +3225,7 @@ void onlykey_flashset_totpkey (uint8_t *ptr, int size, int slot) {
     		onlykey_flashset_common(tptr, (unsigned long*)adr, 2048);
 			length = (uint8_t) size;
 			onlykey_eeset_totpkeylen4(&length);
-            break;
+            return;
 		case 5:
 		if (size > EElen_totpkey) size = EElen_totpkey;
 			if (size > EElen_totpkey) size = EElen_totpkey;
@@ -3432,7 +3233,7 @@ void onlykey_flashset_totpkey (uint8_t *ptr, int size, int slot) {
     		onlykey_flashset_common(tptr, (unsigned long*)adr, 2048);
 			length = (uint8_t) size;
 			onlykey_eeset_totpkeylen5(&length);
-            break;
+            return;
 		case 6:
 		if (size > EElen_totpkey) size = EElen_totpkey;
 			if (size > EElen_totpkey) size = EElen_totpkey;
@@ -3440,7 +3241,7 @@ void onlykey_flashset_totpkey (uint8_t *ptr, int size, int slot) {
     		onlykey_flashset_common(tptr, (unsigned long*)adr, 2048);
 			length = (uint8_t) size;
 			onlykey_eeset_totpkeylen6(&length);
-            break;
+            return;
 		case 7:
 		if (size > EElen_totpkey) size = EElen_totpkey;
 			if (size > EElen_totpkey) size = EElen_totpkey;
@@ -3448,7 +3249,7 @@ void onlykey_flashset_totpkey (uint8_t *ptr, int size, int slot) {
     		onlykey_flashset_common(tptr, (unsigned long*)adr, 2048);
 			length = (uint8_t) size;
 			onlykey_eeset_totpkeylen7(&length);
-            break;
+            return;
 		case 8:
 		if (size > EElen_totpkey) size = EElen_totpkey;
 			if (size > EElen_totpkey) size = EElen_totpkey;
@@ -3456,7 +3257,7 @@ void onlykey_flashset_totpkey (uint8_t *ptr, int size, int slot) {
     		onlykey_flashset_common(tptr, (unsigned long*)adr, 2048);
 			length = (uint8_t) size;
 			onlykey_eeset_totpkeylen8(&length);
-            break;
+            return;
 		case 9:
 		if (size > EElen_totpkey) size = EElen_totpkey;
 			if (size > EElen_totpkey) size = EElen_totpkey;
@@ -3464,7 +3265,7 @@ void onlykey_flashset_totpkey (uint8_t *ptr, int size, int slot) {
     		onlykey_flashset_common(tptr, (unsigned long*)adr, 2048);
 			length = (uint8_t) size;
 			onlykey_eeset_totpkeylen9(&length);
-            break;
+            return;
 		case 10:
 		if (size > EElen_totpkey) size = EElen_totpkey;
 			if (size > EElen_totpkey) size = EElen_totpkey;
@@ -3472,7 +3273,7 @@ void onlykey_flashset_totpkey (uint8_t *ptr, int size, int slot) {
     		onlykey_flashset_common(tptr, (unsigned long*)adr, 2048);
 			length = (uint8_t) size;
 			onlykey_eeset_totpkeylen10(&length);
-            break;
+            return;
 		case 11:
 		if (size > EElen_totpkey) size = EElen_totpkey;
 			if (size > EElen_totpkey) size = EElen_totpkey;
@@ -3480,7 +3281,7 @@ void onlykey_flashset_totpkey (uint8_t *ptr, int size, int slot) {
     		onlykey_flashset_common(tptr, (unsigned long*)adr, 2048);
 			length = (uint8_t) size;
 			onlykey_eeset_totpkeylen11(&length);
-            break;
+            return;
 		case 12:
 		if (size > EElen_totpkey) size = EElen_totpkey;
 			if (size > EElen_totpkey) size = EElen_totpkey;
@@ -3488,14 +3289,14 @@ void onlykey_flashset_totpkey (uint8_t *ptr, int size, int slot) {
     		onlykey_flashset_common(tptr, (unsigned long*)adr, 2048);
 			length = (uint8_t) size;
 			onlykey_eeset_totpkeylen12(&length);
-            break;
+            return;
             	case 13:
 			if (size > EElen_totpkey) size = EElen_totpkey;
 			//Write buffer to flash
     		onlykey_flashset_common(tptr, (unsigned long*)adr, 2048);
 			length = (uint8_t) size;
 			onlykey_eeset_totpkeylen13(&length);
-            	break;
+            return;
 		case 14:
 		if (size > EElen_totpkey) size = EElen_totpkey;
 			if (size > EElen_totpkey) size = EElen_totpkey;
@@ -3503,7 +3304,7 @@ void onlykey_flashset_totpkey (uint8_t *ptr, int size, int slot) {
     		onlykey_flashset_common(tptr, (unsigned long*)adr, 2048);
 			length = (uint8_t) size;
 			onlykey_eeset_totpkeylen14(&length);
-            	break;
+            return;;
 		case 15:
 		if (size > EElen_totpkey) size = EElen_totpkey;
 			if (size > EElen_totpkey) size = EElen_totpkey;
@@ -3511,7 +3312,7 @@ void onlykey_flashset_totpkey (uint8_t *ptr, int size, int slot) {
     		onlykey_flashset_common(tptr, (unsigned long*)adr, 2048);
 			length = (uint8_t) size;
 			onlykey_eeset_totpkeylen15(&length);
-            break;
+            return;
 		case 16:
 		if (size > EElen_totpkey) size = EElen_totpkey;
 			if (size > EElen_totpkey) size = EElen_totpkey;
@@ -3519,7 +3320,7 @@ void onlykey_flashset_totpkey (uint8_t *ptr, int size, int slot) {
     		onlykey_flashset_common(tptr, (unsigned long*)adr, 2048);
 			length = (uint8_t) size;
 			onlykey_eeset_totpkeylen16(&length);
-            break;
+            return;
 		case 17:
 		if (size > EElen_totpkey) size = EElen_totpkey;
 			if (size > EElen_totpkey) size = EElen_totpkey;
@@ -3527,7 +3328,7 @@ void onlykey_flashset_totpkey (uint8_t *ptr, int size, int slot) {
     		onlykey_flashset_common(tptr, (unsigned long*)adr, 2048);
 			length = (uint8_t) size;
 			onlykey_eeset_totpkeylen17(&length);
-            break;
+            return;
 		case 18:
 		if (size > EElen_totpkey) size = EElen_totpkey;
 			if (size > EElen_totpkey) size = EElen_totpkey;
@@ -3535,7 +3336,7 @@ void onlykey_flashset_totpkey (uint8_t *ptr, int size, int slot) {
     		onlykey_flashset_common(tptr, (unsigned long*)adr, 2048);
 			length = (uint8_t) size;
 			onlykey_eeset_totpkeylen18(&length);
-            break;
+            return;
 		case 19:
 		if (size > EElen_totpkey) size = EElen_totpkey;
 			if (size > EElen_totpkey) size = EElen_totpkey;
@@ -3543,7 +3344,7 @@ void onlykey_flashset_totpkey (uint8_t *ptr, int size, int slot) {
     		onlykey_flashset_common(tptr, (unsigned long*)adr, 2048);
 			length = (uint8_t) size;
 			onlykey_eeset_totpkeylen19(&length);
-            break;
+            return;
 		case 20:
 		if (size > EElen_totpkey) size = EElen_totpkey;
 			if (size > EElen_totpkey) size = EElen_totpkey;
@@ -3551,7 +3352,7 @@ void onlykey_flashset_totpkey (uint8_t *ptr, int size, int slot) {
     		onlykey_flashset_common(tptr, (unsigned long*)adr, 2048);
 			length = (uint8_t) size;
 			onlykey_eeset_totpkeylen20(&length);
-            break;
+            return;
 		case 21:
 		if (size > EElen_totpkey) size = EElen_totpkey;
 			if (size > EElen_totpkey) size = EElen_totpkey;
@@ -3559,7 +3360,7 @@ void onlykey_flashset_totpkey (uint8_t *ptr, int size, int slot) {
     		onlykey_flashset_common(tptr, (unsigned long*)adr, 2048);
 			length = (uint8_t) size;
 			onlykey_eeset_totpkeylen21(&length);
-            break;
+            return;
 		case 22:
 		if (size > EElen_totpkey) size = EElen_totpkey;
 			if (size > EElen_totpkey) size = EElen_totpkey;
@@ -3567,7 +3368,7 @@ void onlykey_flashset_totpkey (uint8_t *ptr, int size, int slot) {
     		onlykey_flashset_common(tptr, (unsigned long*)adr, 2048);
 			length = (uint8_t) size;
 			onlykey_eeset_totpkeylen22(&length);
-            break;
+            return;
 		case 23:
 		if (size > EElen_totpkey) size = EElen_totpkey;
 			if (size > EElen_totpkey) size = EElen_totpkey;
@@ -3575,7 +3376,7 @@ void onlykey_flashset_totpkey (uint8_t *ptr, int size, int slot) {
     		onlykey_flashset_common(tptr, (unsigned long*)adr, 2048);
 			length = (uint8_t) size;
 			onlykey_eeset_totpkeylen23(&length);
-            break;
+            return;
 		case 24:
 		if (size > EElen_totpkey) size = EElen_totpkey;
 			if (size > EElen_totpkey) size = EElen_totpkey;
@@ -3583,7 +3384,7 @@ void onlykey_flashset_totpkey (uint8_t *ptr, int size, int slot) {
     		onlykey_flashset_common(tptr, (unsigned long*)adr, 2048);
 			length = (uint8_t) size;
 			onlykey_eeset_totpkeylen24(&length);
-            break;
+            return;
 	}
 return;
 }
@@ -3621,9 +3422,7 @@ if (PDmode) return;
     onlykey_flashget_common((uint8_t*)attestation_der, (unsigned long*)adr, length2); 
 #ifdef DEBUG 
     Serial.print("attestation der =");
-    for (unsigned int i = 0; i< sizeof(attestation_der); i++) {
-    Serial.print(attestation_der[i],HEX);
-    }
+	byteprint((uint8_t*)attestation_der, sizeof(attestation_der));
 #endif 
 #endif
     return;
@@ -3732,28 +3531,30 @@ if (PDmode) return;
 	uint8_t *ptr;
 	if (buffer[5]==0xFF) //Not last packet
 	{
-		if (large_data_offset <= 710) {
-			memcpy(large_buffer+large_data_offset, buffer+6, 58);
-			large_data_offset = large_data_offset + 58;
+		if (large_data_len <= 710) {
+			memcpy(attestation_der+large_data_len, buffer+6, 58);
+			large_data_len = large_data_len + 58;
 		} else {
 			hidprint("Error U2F Cert larger than 768 bytes");
 		}
 		return;
 	} else { //Last packet
-		if (large_data_offset <= 710 && buffer[5] <= 58) {
-			memcpy(large_buffer+large_data_offset, buffer+6, buffer[5]);
-			large_data_offset = large_data_offset + buffer[5];
-		} else {
+		if (large_data_len <= 710 && buffer[5] <= 58) {
+			memcpy(attestation_der+large_data_len, buffer+6, buffer[5]);
+			large_data_len = large_data_len + buffer[5];
+		} else if (large_data_len <= 768 && buffer[0] == 0xBA) { //Import from backup
+			memcpy(attestation_der, buffer+6, large_data_len);
+		} else{
 			hidprint("Error U2F Cert larger than 768 bytes");
 		}
-		length[0] = large_data_offset >> 8  & 0xFF;
-		length[1] = large_data_offset       & 0xFF;
+		length[0] = large_data_len >> 8  & 0xFF;
+		length[1] = large_data_len       & 0xFF;
 		//Set U2F Certificate size
 		onlykey_eeset_U2Fcertlen(length); 
 #ifdef DEBUG 
 
 		Serial.print("Length of U2F certificate = ");
-        Serial.println(large_data_offset);
+        Serial.println(large_data_len);
 		//Erase flash sector
 		Serial.printf("Erase Sector 0x%X ",adr);
 #endif 
@@ -3766,19 +3567,16 @@ if (PDmode) return;
 		Serial.printf("successful\r\n");
 #endif
 		//Write buffer to flash
-		ptr=large_buffer;
-    	onlykey_flashset_common(ptr, (unsigned long*)adr, large_data_offset);
+		ptr=(uint8_t*)attestation_der;
+    	onlykey_flashset_common(ptr, (unsigned long*)adr, large_data_len);
     	       
 
 	}
-    memcpy(attestation_der, large_buffer, 768);
 #ifdef DEBUG 
     Serial.print("U2F Cert value =");
-    for (int i = 0; i<large_data_offset; i++) {
-    Serial.print(attestation_der[i],HEX);
-    }
+	byteprint((uint8_t*)attestation_der,large_data_len);
 #endif
-	large_data_offset = 0;
+	large_data_len = 0;
 	hidprint("Successfully set U2F Certificate");
       blink(3);
 #endif
@@ -3820,220 +3618,343 @@ if (PDmode) return;
 
 }
 
-int onlykey_flashget_SSH ()
+void SETPRIV (uint8_t *buffer)
+{
+	if (buffer[6] > 0x80) {//Type is Backup key
+	buffer[6] = buffer[6] - 0x80;
+	onlykey_eeset_backupkey(buffer+5); //Set this key slot as the backup key
+	} 
+	
+	if (buffer[5] < 101) { 
+	SETRSAPRIV(buffer);
+	} else {
+	SETECCPRIV(buffer);
+	}
+}
+
+void WIPEPRIV (uint8_t *buffer) {
+	if (buffer[5] < 101) {
+	WIPERSAPRIV(buffer);
+	} else {
+		for(int i=6; i<=32; i++) {
+		buffer[i]=0x00;
+		}
+	SETECCPRIV(buffer);
+	}
+}
+
+int onlykey_flashget_ECC (int slot)
 {
 
 if (PDmode) return 0;
 #ifdef US_VERSION
 #ifdef DEBUG 
-    Serial.println("Flashget SSH");
+    Serial.print("Flashget ECC key from slot # ");
+	Serial.println(slot);
+#endif 
+    uint8_t flashoffset[1];	
+    extern uint8_t type;
+	uint8_t features;
+	onlykey_eeget_flashpos((uint8_t*)flashoffset);
+	if (slot<101 || slot>132) {	
+#ifdef DEBUG 
+	Serial.printf("Error invalid ECC slot");
+#endif 
+	hidprint("Error invalid ECC slot");
+	return 0;
+	}
+	uintptr_t adr = (unsigned long)flashoffset[0] * (unsigned long)2048;
+	adr = adr + 12288; //7th flash sector
+	onlykey_eeget_ecckey(&type, slot); //Key Type (1-3) and slot (101-132)
+	#ifdef DEBUG 
+    Serial.print("Type of ECC KEY with features is ");
+	Serial.println(type);
+	#endif
+	features=type;
+	if(type==0x00) {
+		Serial.printf("There is no ECC Private Key set in this slot");
+		hidprint("There is no ECC Private Key set in this slot");
+		return 0;
+	}else if (type==0x01 || type==0x11 || type==0x21 || type==0x31 || type==0x41 || type==0x51 || type==0x61 || type==0x71 || type==0x81 || type==0x91 || type==0xA1 || type==0xB1 || type==0xC1 || type==0xD1 || type==0xE1 || type==0xF1) {
+		type=1;
+	}else if (type==0x02 || type==0x12 || type==0x22 || type==0x32 || type==0x42 || type==0x52 || type==0x62 || type==0x72 || type==0x82 || type==0x92 || type==0xA2 || type==0xB2 || type==0xC2 || type==0xD2 || type==0xE2 || type==0xF2) {
+		type=2;
+	}else if (type==0x03 || type==0x13 || type==0x23 || type==0x33 || type==0x43 || type==0x53 || type==0x63 || type==0x73 || type==0x83 || type==0x93 || type==0xA3 || type==0xB3 || type==0xC3 || type==0xD3 || type==0xE3 || type==0xF3) {
+		type=3;
+	}
+	adr = adr + (((slot-100)*32)-32);
+    onlykey_flashget_common((uint8_t*)ecc_private_key, (unsigned long*)adr, 32); 
+	#ifdef DEBUG 
+	Serial.printf("Read ECC Private Key from Sector 0x%X ",adr);
+	#endif
+	if (type==1) Ed25519::derivePublicKey(ecc_public_key, ecc_private_key);
+	else if (type==2) {
+		const struct uECC_Curve_t * curve = uECC_secp256r1();
+		uECC_compute_public_key(ecc_private_key, ecc_public_key, curve);
+	}
+	else if (type==3) {
+	#ifdef DEBUG 
+	Serial.println("Compute of public key begin");
+	#endif
+		const struct uECC_Curve_t * curve = uECC_secp256k1();
+		uECC_compute_public_key(ecc_private_key, ecc_public_key, curve);
+	}
+	#ifdef DEBUG 
+	Serial.println("Compute of public key complete");
+	#endif
+	return features;
+#endif
+}
+
+
+
+void SETECCPRIV (uint8_t *buffer)
+{
+
+if (PDmode) return;
+#ifdef US_VERSION
+#ifdef DEBUG 
+    Serial.println("OKSETECCPRIV MESSAGE RECEIVED");
 #endif 
     uint8_t flashoffset[1];	
 	onlykey_eeget_flashpos((uint8_t*)flashoffset);
 	uintptr_t adr = (unsigned long)flashoffset[0] * (unsigned long)2048;
-	adr = adr + 12288; //7th flash sector
-    onlykey_flashget_common((uint8_t*)ssh_private_key, (unsigned long*)adr, 32); 
-	
-	if (ssh_private_key[0] == 255 && ssh_private_key[1] == 255 && ssh_private_key[2] == 255) { //ssh not set
-		#ifdef DEBUG 
-		Serial.printf("Read SSH Private Key from Sector 0x%X ",adr);
-		Serial.printf("There is no SSH Private Key set");
-		#endif
-    	return 0;
+	adr = adr + 12288; //7th free flash sector
+	//Write ID to EEPROM
+	if (buffer[5]<101 || buffer[5]>132) {	
+#ifdef DEBUG 
+	Serial.printf("Error invalid ECC slot");
+#endif 
+	hidprint("Error invalid ECC slot");
+	return;
+	} else {
+#ifdef DEBUG 
+	Serial.printf("Slot = %d ",buffer[5]);
+	Serial.printf("Type = %d ",buffer[6]);
+#endif 
+	}
+	onlykey_eeset_ecckey(&buffer[6], (int)buffer[5]); //Key Type (1-4) and slot (101-132)
+	//Write buffer to flash
+    uint8_t temp[2048];
+    uint8_t *tptr;
+    tptr=temp;
+	uint8_t *ptr = buffer+7;
+    //Copy current flash contents to buffer
+    onlykey_flashget_common(tptr, (unsigned long*)adr, 2048);
+    //Add new flash contents to buffer
+    for( int z = 0; z < MAX_ECC_KEY_SIZE; z++){
+    temp[z+(((buffer[5]-100)*MAX_ECC_KEY_SIZE)-MAX_ECC_KEY_SIZE)] = ((uint8_t)*(ptr+z));
     }
-    else {
-		#ifdef DEBUG 
-		Serial.printf("Read SSH Private Key from Sector 0x%X ",adr);
-		Serial.printf("SSH Private Key has been set");
-		#endif
-		return 1;
-    }
-#endif
-}
-
-void SETSSHPRIV (uint8_t *buffer)
-{
-
-if (PDmode) return;
-#ifdef US_VERSION
-#ifdef DEBUG
-    Serial.println();
-    Serial.println("OKSETSSHPRIV MESSAGE RECEIVED");
-#endif
-	uint8_t flashoffset[1];	
-	onlykey_eeget_flashpos((uint8_t*)flashoffset);
-	uintptr_t adr = (unsigned long)flashoffset[0] * (unsigned long)2048;
-	adr = adr + 12288; //7th flash sector
-	uint8_t *ptr;
-	//Erase flash sector
+    //Erase flash sector
 #ifdef DEBUG 
     Serial.printf("Erase Sector 0x%X ",adr);
 #endif 
-    if (flashEraseSector((unsigned long*)adr)) 
-    {
-#ifdef DEBUG   
-	Serial.printf("NOT ");
-#endif 
-    }
-
-#ifdef DEBUG   
-    Serial.printf("successful\r\n"); 
-#endif
-
-	//Write buffer to flash
-	ptr=buffer+5;
-    onlykey_flashset_common(ptr, (unsigned long*)adr, 32);
-#ifdef DEBUG
-    Serial.print("SSH Private Key address =");
-    Serial.println(adr, HEX);
-#endif
-
-	SSHinit();
-    hidprint("Successfully set SSH private key");
-
-    blink(3);
-#endif
-    return;
-
-}
-
-void WIPESSHPRIV (uint8_t *buffer)
-{
-if (PDmode) return;
-#ifdef US_VERSION
-#ifdef DEBUG
-    Serial.println("OKWIPESSHPRIV MESSAGE RECEIVED");
-#endif
-	uint8_t flashoffset[1];	
-	onlykey_eeget_flashpos((uint8_t*)flashoffset);
-	uintptr_t adr = (unsigned long)flashoffset[0] * (unsigned long)2048;
-	adr = adr + 12288; //7th flash sector
-	//Erase flash sector
-#ifdef DEBUG
-		Serial.printf("Erase Sector 0x%X ",adr);
-#endif
-		if (flashEraseSector((unsigned long*)adr)) {
+    if (flashEraseSector((unsigned long*)adr)) {
 #ifdef DEBUG 
 	Serial.printf("NOT ");
 #endif 
 	}
 #ifdef DEBUG 
-		Serial.printf("successful\r\n");
+    Serial.printf("successful\r\n");
 #endif 
-	memset(ssh_public_key, 0, 64); //Wipe all data from buffer 
-	memset(ssh_private_key, 0, 64); //Wipe all data from buffer 
-	SSHinit();
-	hidprint("Successfully wiped SSH Private Key");
-    blink(3);
+	//Write buffer to flash
+    onlykey_flashset_common(tptr, (unsigned long*)adr, 2048);
+
+#ifdef DEBUG 
+    Serial.print("ECC Key value =");
+	byteprint((uint8_t*)buffer+7, 32);
 #endif
-    return;
+	hidprint("Successfully set ECC Key");
+      blink(3);
+#endif
+      return;
 
 }
 
-int onlykey_flashget_GPG ()
+int onlykey_flashget_RSA (int slot)
 {
 
 if (PDmode) return 0;
 #ifdef US_VERSION
 #ifdef DEBUG 
-    Serial.println("Flashget GPG");
+    Serial.print("Flashget RSA key from slot # ");
+	Serial.println(slot);
 #endif 
     uint8_t flashoffset[1];	
+	extern uint8_t type;
+	uint8_t features;
+	if (slot<1 || slot>4) {	
+#ifdef DEBUG
+	Serial.printf("Error invalid RSA slot");
+#endif 
+	hidprint("Error invalid RSA slot");
+	return 0;
+	}
 	onlykey_eeget_flashpos((uint8_t*)flashoffset);
 	uintptr_t adr = (unsigned long)flashoffset[0] * (unsigned long)2048;
 	adr = adr + 14336; //8th free flash sector
-    onlykey_flashget_common((uint8_t*)gpg_private_key, (unsigned long*)adr, 32); 
-	
-	if (gpg_private_key[0] == 255 && gpg_private_key[1] == 255 && gpg_private_key[2] == 255) { //gpg not set
-		#ifdef DEBUG 
-		Serial.printf("Read GPG Private Key from Sector 0x%X ",adr);
-		Serial.printf("There is no GPG Private Key set");
-		#endif
-    	return 0;
-    }
-    else {
-		#ifdef DEBUG 
-		Serial.printf("Read GPG Private Key from Sector 0x%X ",adr);
-		Serial.printf("GPG Private Key has been set");
-		#endif
-		return 1;
-    }
+	onlykey_eeget_rsakey(&type, slot); //Key Type (1-4) and slot (1-4)
+	features=type;
+	if (type==0x00) {	
+	Serial.printf("There is no RSA Private Key set in this slot");
+	hidprint("There is no RSA Private Key set in this slot");
+	return 0;
+	} else if (type==0x01 || type==0x11 || type==0x21 || type==0x31 || type==0x41 || type==0x51 || type==0x61 || type==0x71 || type==0x81 || type==0x91 || type==0xA1 || type==0xB1 || type==0xC1 || type==0xD1 || type==0xE1 || type==0xF1) {
+		type=1;
+	}else if (type==0x02 || type==0x12 || type==0x22 || type==0x32 || type==0x42 || type==0x52 || type==0x62 || type==0x72 || type==0x82 || type==0x92 || type==0xA2 || type==0xB2 || type==0xC2 || type==0xD2 || type==0xE2 || type==0xF2) {
+		type=2;
+	}else if (type==0x03 || type==0x13 || type==0x23 || type==0x33 || type==0x43 || type==0x53 || type==0x63 || type==0x73 || type==0x83 || type==0x93 || type==0xA3 || type==0xB3 || type==0xC3 || type==0xD3 || type==0xE3 || type==0xF3) {
+		type=3;
+	}else if (type==0x04 || type==0x14 || type==0x24 || type==0x34 || type==0x44 || type==0x54 || type==0x64 || type==0x74 || type==0x84 || type==0x94 || type==0xA4 || type==0xB4 || type==0xC4 || type==0xD4 || type==0xE4 || type==0xF4) {
+		type=4;
+	}
+	#ifdef DEBUG 
+    Serial.print("Type of RSA KEY is ");
+	Serial.println(type, HEX);
+	#endif
+	adr = adr + ((slot*MAX_RSA_KEY_SIZE)-MAX_RSA_KEY_SIZE);
+    onlykey_flashget_common((uint8_t*)rsa_private_key, (unsigned long*)adr, (type*128)); 
+	#ifdef DEBUG 
+	Serial.printf("Read RSA Private Key from Sector 0x%X ",adr);
+	byteprint(rsa_private_key, (type*128));
+	#endif
+	rsa_getpub(type);
+	return features;
 #endif
 }
 
-void SETGPGPRIV (uint8_t *buffer)
+
+void SETRSAPRIV (uint8_t *buffer)
 {
 
 if (PDmode) return;
 #ifdef US_VERSION
+#ifdef DEBUG 
+    Serial.println("OKSETRSAPRIV MESSAGE RECEIVED");
+#endif 
+	extern uint8_t rsa_private_key[MAX_RSA_KEY_SIZE];
+    uint8_t flashoffset[1];	
+	int keysize;
+	uint8_t temp[2048];
+    uint8_t *tptr;
+    tptr=temp;
+	uint8_t *ptr=rsa_private_key;
+	onlykey_eeget_flashpos((uint8_t*)flashoffset);
+	uintptr_t adr = (unsigned long)flashoffset[0] * (unsigned long)2048;
+	adr = adr + 14336; //8th free flash sector
+	if (buffer[5]<1 || buffer[5]>4) {
+#ifdef DEBUG 		
+	Serial.printf("Error invalid RSA slot");
+#endif 
+	hidprint("Error invalid RSA slot");
+	return;
+	} else {
+#ifdef DEBUG 
+	Serial.printf("Slot = %d ",buffer[5]);
+	Serial.printf("Type = %d ",buffer[6]);
+#endif 
+	}
+	if (buffer[6]==0x01 || buffer[6]==0x11 || buffer[6]==0x21 || buffer[6]==0x31 || buffer[6]==0x41 || buffer[6]==0x51 || buffer[6]==0x61 || buffer[6]==0x71 || buffer[6]==0x81 || buffer[6]==0x91 || buffer[6]==0xA1 || buffer[6]==0xB1 || buffer[6]==0xC1 || buffer[6]==0xD1 || buffer[6]==0xE1 || buffer[6]==0xF1) //Expect 128 Bytes, if buffer[0] != FF we know this is import from backup
+	{
+		keysize=128;
+		if (buffer[0] != 0xBA && large_data_len <= 114) {
+		memcpy(rsa_private_key+large_data_len, buffer+7, 57);
+		large_data_len = large_data_len + 57;
+		} 
+	} else if (buffer[6]==0x02 || buffer[6]==0x12 || buffer[6]==0x22 || buffer[6]==0x32 || buffer[6]==0x42 || buffer[6]==0x52 || buffer[6]==0x62 || buffer[6]==0x72 || buffer[6]==0x82 || buffer[6]==0x92 || buffer[6]==0xA2 || buffer[6]==0xB2 || buffer[6]==0xC2 || buffer[6]==0xD2 || buffer[6]==0xE2 || buffer[6]==0xF2) { //Expect 256 Bytes
+		keysize=256;
+		if (buffer[0] != 0xBA && large_data_len <= 228) {
+		memcpy(rsa_private_key+large_data_len, buffer+7, 57);
+		large_data_len = large_data_len + 57;
+		}
+	} else if (buffer[6]==0x03 || buffer[6]==0x13 || buffer[6]==0x23 || buffer[6]==0x33 || buffer[6]==0x43 || buffer[6]==0x53 || buffer[6]==0x63 || buffer[6]==0x73 || buffer[6]==0x83 || buffer[6]==0x93 || buffer[6]==0xA3 || buffer[6]==0xB3 || buffer[6]==0xC3 || buffer[6]==0xD3 || buffer[6]==0xE3 || buffer[6]==0xF3) { //Expect 384 Bytes
+		keysize=384;
+		if (buffer[0] != 0xBA && large_data_len <= 342) {
+		memcpy(rsa_private_key+large_data_len, buffer+7, 57);
+		large_data_len = large_data_len + 57;
+		}
+	} else if (buffer[6]==0x04 || buffer[6]==0x14 || buffer[6]==0x24 || buffer[6]==0x34 || buffer[6]==0x44 || buffer[6]==0x54 || buffer[6]==0x64 || buffer[6]==0x74 || buffer[6]==0x84 || buffer[6]==0x94 || buffer[6]==0xA4 || buffer[6]==0xB4 || buffer[6]==0xC4 || buffer[6]==0xD4 || buffer[6]==0xE4 || buffer[6]==0xF4) { //Expect 512 Bytes
+		keysize=512;
+		if (buffer[0] != 0xBA && large_data_len <= 456) {
+		memcpy(rsa_private_key+large_data_len, buffer+7, 57);
+		large_data_len = large_data_len + 57;
+		}
+	} else {
+		hidprint("Error invalid RSA type");
+		return;
+	}
+	//Write ID to EEPROM
+	if (large_data_len >= keysize || buffer[0] == 0xBA) {		//Then we have the complete RSA key
+	if (buffer[0] == 0xBA) ptr = buffer+7;
+	onlykey_eeset_rsakey(&buffer[6], (int)buffer[5]); //Key Type (1-4) and slot (1-4)
+	//Write buffer to flash
+#ifdef DEBUG 
+		Serial.print("Received RSA Key of size ");
+        Serial.print(keysize*8);
+#endif 
+    //Copy current flash contents to buffer
+    onlykey_flashget_common(tptr, (unsigned long*)adr, 2048);
+    //Add new flash contents to buffer
+    for( int z = 0; z < MAX_RSA_KEY_SIZE; z++){
+    temp[z+((buffer[5]*MAX_RSA_KEY_SIZE)-MAX_RSA_KEY_SIZE)] = ((uint8_t)*(ptr+z));
+    }
+    //Erase flash sector
+#ifdef DEBUG 
+    Serial.printf("Erase Sector 0x%X ",adr);
+#endif 
+    if (flashEraseSector((unsigned long*)adr)) {
+#ifdef DEBUG 
+	Serial.printf("NOT ");
+#endif 
+	}
+#ifdef DEBUG 
+    Serial.printf("successful\r\n");
+#endif 
+	//Write buffer to flash
+    onlykey_flashset_common(tptr, (unsigned long*)adr, 2048);
+
+#ifdef DEBUG 
+    Serial.print("RSA Key value =");
+	byteprint((uint8_t*)rsa_private_key, keysize);
+#endif
+	large_data_len = 0;
+	hidprint("Successfully set RSA Key");
+      blink(3);
+#endif
+      return;
+	}
+	return;
+}
+
+
+void WIPERSAPRIV (uint8_t *buffer)
+{
+if (PDmode) return;
+#ifdef US_VERSION
 #ifdef DEBUG
-    Serial.println();
-    Serial.println("OKSETGPGPRIV MESSAGE RECEIVED");
+    Serial.println("OKWIPERSAPRIV MESSAGE RECEIVED");
 #endif
 	uint8_t flashoffset[1];	
 	onlykey_eeget_flashpos((uint8_t*)flashoffset);
 	uintptr_t adr = (unsigned long)flashoffset[0] * (unsigned long)2048;
 	adr = adr + 14336; //8th free flash sector
 	uint8_t *ptr;
-	//Erase flash sector
-#ifdef DEBUG 
-    Serial.printf("Erase Sector 0x%X ",adr);
-#endif 
-    if (flashEraseSector((unsigned long*)adr)) 
-    {
-#ifdef DEBUG   
-	Serial.printf("NOT ");
-#endif 
+	//Wipe ID from EEPROM
+	ptr = buffer+5; 
+	onlykey_eeset_rsakey(0, (int)(ptr)); //Key ID (1-2) and slot (1-4)
+	//Wipe flash
+	uint8_t temp[2048];
+    uint8_t *tptr;
+    tptr=temp;
+    //Copy current flash contents to buffer
+    onlykey_flashget_common(tptr, (unsigned long*)adr, 2048);
+    //Wipe content from buffer
+    for( int z = 0; z < MAX_RSA_KEY_SIZE; z++){
+    temp[z+((buffer[5]*MAX_RSA_KEY_SIZE)-MAX_RSA_KEY_SIZE)] = 0x00;
     }
-
-#ifdef DEBUG   
-    Serial.printf("successful\r\n"); 
-#endif
-
 	//Write buffer to flash
-	ptr=buffer+5;
-    onlykey_flashset_common(ptr, (unsigned long*)adr, 32);
-#ifdef DEBUG
-    Serial.print("GPG Private Key address =");
-    Serial.println(adr, HEX);
-#endif
-
-	GPGinit();
-    hidprint("Successfully set GPG private key");
-
-    blink(3);
-#endif
-    return;
-
-}
-
-void WIPEGPGPRIV (uint8_t *buffer)
-{
-if (PDmode) return;
-#ifdef US_VERSION
-#ifdef DEBUG
-    Serial.println("OKWIPEGPGPRIV MESSAGE RECEIVED");
-#endif
-	uint8_t flashoffset[1];	
-	onlykey_eeget_flashpos((uint8_t*)flashoffset);
-	uintptr_t adr = (unsigned long)flashoffset[0] * (unsigned long)2048;
-	adr = adr + 14336; //8th free flash sector
-	//Erase flash sector
-#ifdef DEBUG
-		Serial.printf("Erase Sector 0x%X ",adr);
-#endif
-		if (flashEraseSector((unsigned long*)adr)) {
-#ifdef DEBUG 
-	Serial.printf("NOT ");
-#endif 
-	}
-#ifdef DEBUG 
-		Serial.printf("successful\r\n");
-#endif 
-	memset(gpg_public_key, 0, 64); //Wipe all data from buffer 
-	memset(gpg_private_key, 0, 64); //Wipe all data from buffer 
-	GPGinit();
-	hidprint("Successfully wiped GPG Private Key");
+    onlykey_flashset_common(ptr, (unsigned long*)adr, 2048);
+	hidprint("Successfully wiped RSA Private Key");
     blink(3);
 #endif
     return;
@@ -4053,12 +3974,13 @@ void yubikeyinit() {
   uint8_t yaeskey[16];
   uint8_t privID[6];
   uint8_t pubID[16];
+  uint8_t ctr[2];
   uint16_t counter;
   char public_id[32+1];
   char private_id[12+1];
 
 #ifdef DEBUG 
-  Serial.println("Initializing onlyKey ...");
+  Serial.println("Initializing YubiKey OTP...");
 #endif
   memset(temp, 0, 32); //Clear temp buffer
   
@@ -4071,7 +3993,7 @@ void yubikeyinit() {
   ptr = (temp+EElen_public+EElen_private);
   onlykey_eeget_aeskey(ptr);
   
-  aes_gcm_decrypt(temp, (uint8_t*)('y'+ID[34]), phash, (EElen_aeskey+EElen_private+EElen_aeskey));
+  aes_gcm_decrypt(temp, (uint8_t*)('y'+ID[34]), phash, (EElen_aeskey+EElen_private+EElen_public));
 #ifdef DEBUG 
   Serial.println("public_id");
 #endif
@@ -4101,9 +4023,9 @@ void yubikeyinit() {
   }
   
   memset(temp, 0, 32); //Clear temp buffer
-  
-  ptr = (uint8_t*) &counter;
-  yubikey_eeget_counter(ptr);
+
+  yubikey_eeget_counter(ctr);
+  counter = ctr[0] << 8 | ctr[1];
 
   yubikey_hex_encode(private_id, (char *)privID, 6);
   yubikey_hex_encode(public_id, (char *)pubID, 6);
@@ -4120,9 +4042,10 @@ void yubikeyinit() {
   yubikey_init1(&ctx, yaeskey, public_id, private_id, counter, time, seed);
  
   yubikey_incr_counter(&ctx);
- 
-  ptr = (uint8_t*) &(ctx.counter);
-  yubikey_eeset_counter(ptr);
+  ctr[0] = ctx.counter >> 8  & 0xFF;
+  ctr[1] = ctx.counter       & 0xFF;
+
+  yubikey_eeset_counter(ctr);
 #endif
 }
 /*************************************/
@@ -4144,7 +4067,17 @@ void yubikey_incr_time() {
 }
 
 void increment(Task* me) {
+  #ifndef OK_Color
   analogWrite(BLINKPIN, fade);
+  #else
+  if (NEO_Color == 1) pixels.setPixelColor(0, pixels.Color(fade,0,0)); //Red
+  else if (NEO_Color < 44) pixels.setPixelColor(0, pixels.Color((fade/2),(fade/2),0)); //Yellow
+  else if (NEO_Color < 86) pixels.setPixelColor(0, pixels.Color(0,fade,0)); //Green
+  else if (NEO_Color < 129) pixels.setPixelColor(0, pixels.Color(0,(fade/2),(fade/2))); //Turquoise
+  else if (NEO_Color < 171) pixels.setPixelColor(0, pixels.Color(0,0,fade)); //Blue
+  else if (NEO_Color < 214) pixels.setPixelColor(0, pixels.Color((fade/2),0,(fade/2))); //Purple
+  pixels.show(); // This sends the updated pixel color to the hardware.
+  #endif
   fade += 8;
   if(fade == 0) {
     // -- Byte value overflows: 240 + 16 = 0
@@ -4155,7 +4088,14 @@ void increment(Task* me) {
 
 void decrement(Task* me) {
   fade -= 8;
+  #ifndef OK_Color
   analogWrite(BLINKPIN, fade);
+  #else
+  if (NEO_Color < 85) pixels.setPixelColor(0, pixels.Color(fade,0,0));
+  if (NEO_Color < 170) pixels.setPixelColor(0, pixels.Color(0,fade,0));
+  else pixels.setPixelColor(0, pixels.Color(0,0,fade));
+  pixels.show(); // This sends the updated pixel color to the hardware.
+  #endif
   if(fade == 0) {
     // -- Floor reached.
     SoftTimer.remove(&FadeoutTask);
@@ -4168,4 +4108,903 @@ void fadeoff() {
   SoftTimer.remove(&FadeoutTask);
   fade=0;
 }
+
+void fadeon() {
+  SoftTimer.add(&FadeinTask);
+  fade=1;
+}
+
+#ifdef OK_Color
+// Input a value 0 to 255 to get a color value.
+// The colours are a transition r - g - b - back to r.
+uint32_t Wheel(uint8_t WheelPos) {
+  WheelPos = 255 - WheelPos;
+  if(WheelPos < 85) {
+    return pixels.Color(255 - WheelPos * 3, 0, WheelPos * 3);
+  }
+  if(WheelPos < 170) {
+    WheelPos -= 85;
+    return pixels.Color(0, WheelPos * 3, 255 - WheelPos * 3);
+  }
+  WheelPos -= 170;
+  return pixels.Color(WheelPos * 3, 255 - WheelPos * 3, 0);
+}
+
+void rainbowCycle(uint8_t wait, uint8_t cycle) {
+  uint16_t i, j;
+  for(j=0; j<256*cycle; j++) { 
+    for(i=0; i< pixels.numPixels(); i++) {
+      pixels.setPixelColor(i, Wheel(((i * 256 / pixels.numPixels()) + j) & 255));
+    }
+    pixels.show();
+    delay(wait);
+  }
+}
+
+void initColor() {
+  pixels.begin(); // This initializes the NeoPixel library.
+  pixels.show();
+}
+		
+void setcolor (uint8_t Color) {
+	  if (Color == 0) pixels.setPixelColor(0, pixels.Color(0,0,0));
+	  else {
+		  pixels.setPixelColor(0, Wheel(Color));
+		  NEO_Color = Color;
+	  }
+      pixels.show(); // This sends the updated pixel color to the hardware.
+	  delay(1);
+}
+#endif
 		  
+void backup() {
+  uint8_t temp[MAX_RSA_KEY_SIZE];
+  uint8_t large_temp[12323];
+  int urllength;
+  int usernamelength;
+  int passwordlength;
+  int otplength;
+  uint8_t *ptr;
+  unsigned char beginbackup[] = "-----BEGIN ONLYKEY BACKUP-----";
+  unsigned char endbackup[] = "-----END ONLYKEY BACKUP-----";
+  uint8_t ctr[2];
+  bool backupyubikey=false;
+  uint8_t slot;
+  uint8_t length[2];
+  large_data_offset = 0;
+  memset(large_temp, 0, sizeof(large_temp)); //Wipe all data from largebuffer
+ 
+  
+  for (uint8_t z = 0; z < sizeof(beginbackup); z++) {
+        Keyboard.write(beginbackup[z]);
+		delay(((TYPESPEED[0]*TYPESPEED[0])*10));
+	} 
+  
+  for (slot=1; slot<=61; slot++)
+  {
+  #ifdef DEBUG
+    Serial.print("Backing up Label Number ");
+    Serial.println(slot);
+  #endif
+    memset(temp, 0, sizeof(temp)); //Wipe all data from temp buffer
+    ptr = temp;
+	onlykey_flashget_label(ptr, slot);
+	if(temp[0] != 0xFF && temp[0] != 0x00)
+      {
+		large_temp[large_data_offset] = 0xFF; //delimiter
+		large_temp[large_data_offset+1] = slot;
+		large_temp[large_data_offset+2] = 1; //1 - Label
+		memcpy(large_temp+large_data_offset+3, temp, EElen_label);
+        large_data_offset=large_data_offset+EElen_label+3;
+      }
+  }
+  for (slot=1; slot<=24; slot++)
+  {
+	#ifdef DEBUG
+    Serial.print("Backing up Slot Number ");
+    Serial.println(slot);
+    #endif
+	memset(temp, 0, sizeof(temp)); //Wipe all data from temp buffer
+    ptr = temp;
+    urllength = onlykey_flashget_url(ptr, slot);
+    if(urllength > 0)
+    {
+	#ifdef DEBUG
+		Serial.println("Reading URL from Flash...");
+        Serial.print("URL Length = ");
+        Serial.println(urllength);
+	#endif
+    
+    #ifdef DEBUG
+        Serial.println("Encrypted");
+		byteprint(temp, urllength);
+        Serial.println();
+    #endif
+    #ifdef US_VERSION
+        aes_gcm_decrypt(temp, (uint8_t*)('r'+ID[34]+slot), phash, urllength);
+    #endif
+    #ifdef DEBUG
+        Serial.println("Unencrypted");
+		byteprint(temp, urllength);
+        Serial.println();
+        #endif
+		large_temp[large_data_offset] = 0xFF; //delimiter
+		large_temp[large_data_offset+1] = slot;
+		large_temp[large_data_offset+2] = 15; //15 - URL
+		memcpy(large_temp+large_data_offset+3, temp, urllength);
+        large_data_offset=large_data_offset+urllength+3;
+      }
+      onlykey_eeget_addchar1(ptr, slot);
+      if(temp[0] > 0)
+      {
+		large_temp[large_data_offset] = 0xFF; //delimiter
+		large_temp[large_data_offset+1] = slot;
+		large_temp[large_data_offset+2] = 16; //16 - Add Char 1
+		large_temp[large_data_offset+3] = temp[0]; 
+        large_data_offset=large_data_offset+4;
+      }
+      onlykey_eeget_delay1(ptr, slot);
+      if(temp[0] > 0)
+      {
+		large_temp[large_data_offset] = 0xFF; //delimiter
+		large_temp[large_data_offset+1] = slot;
+		large_temp[large_data_offset+2] = 17; //17 - Delay 1
+		large_temp[large_data_offset+3] = temp[0]; 
+        large_data_offset=large_data_offset+4;
+      }
+      usernamelength = onlykey_flashget_username(ptr, slot);
+      if(usernamelength > 0)
+      {
+        #ifdef DEBUG
+        Serial.println("Reading Username from Flash...");
+        Serial.print("Username Length = ");
+        Serial.println(usernamelength);
+        #endif
+        if (!PDmode) {
+        #ifdef DEBUG
+        Serial.println("Encrypted");
+		byteprint(temp, usernamelength);
+        Serial.println();
+        #endif
+        #ifdef US_VERSION
+        aes_gcm_decrypt(temp, (uint8_t*)('u'+ID[34]+slot), phash, usernamelength);
+        #endif
+        }
+		#ifdef DEBUG
+        Serial.println("Unencrypted");
+		byteprint(temp, usernamelength);
+        Serial.println();
+        #endif
+		large_temp[large_data_offset] = 0xFF; //delimiter
+		large_temp[large_data_offset+1] = slot;
+		large_temp[large_data_offset+2] = 2; //2 - Username
+		memcpy(large_temp+large_data_offset+3, temp, usernamelength);
+        large_data_offset=large_data_offset+usernamelength+3;
+      }
+      onlykey_eeget_addchar2(ptr, slot);
+      if(temp[0] > 0)
+      {
+        large_temp[large_data_offset] = 0xFF; //delimiter
+		large_temp[large_data_offset+1] = slot;
+		large_temp[large_data_offset+2] = 3; //3 - Add Char 2
+		large_temp[large_data_offset+3] = temp[0]; 
+        large_data_offset=large_data_offset+4;
+      }
+      onlykey_eeget_delay2(ptr, slot);
+      if(temp[0] > 0)
+      {
+       	large_temp[large_data_offset] = 0xFF; //delimiter
+		large_temp[large_data_offset+1] = slot;
+		large_temp[large_data_offset+2] = 4; //4 - Delay 2
+		large_temp[large_data_offset+3] = temp[0]; 
+        large_data_offset=large_data_offset+4;
+      }
+      passwordlength = onlykey_eeget_password(ptr, slot);
+      if(passwordlength > 0)
+      {
+        #ifdef DEBUG
+        Serial.println("Reading Password from EEPROM...");
+        Serial.print("Password Length = ");
+        Serial.println(passwordlength);
+        #endif
+        if (!PDmode) {
+        #ifdef DEBUG
+        Serial.println("Encrypted");
+		byteprint(temp, passwordlength);
+        Serial.println();
+          #endif
+        #ifdef US_VERSION
+        aes_gcm_decrypt(temp, (uint8_t*)('p'+ID[34]+slot), phash, passwordlength);
+        #endif
+        }
+		#ifdef DEBUG
+        Serial.println("Unencrypted");
+		byteprint(temp, passwordlength);
+        Serial.println();
+        #endif
+		large_temp[large_data_offset] = 0xFF; //delimiter
+		large_temp[large_data_offset+1] = slot;
+		large_temp[large_data_offset+2] = 5; //5 - Password
+		memcpy(large_temp+large_data_offset+3, temp, passwordlength);
+        large_data_offset=large_data_offset+passwordlength+3;
+      }  
+      onlykey_eeget_addchar3(ptr, slot);
+      if(temp[0] > 0)
+      {
+        large_temp[large_data_offset] = 0xFF; //delimiter
+		large_temp[large_data_offset+1] = slot;
+		large_temp[large_data_offset+2] = 6; //6 - Add Char 3
+		large_temp[large_data_offset+3] = temp[0]; 
+        large_data_offset=large_data_offset+4;
+      } 
+      onlykey_eeget_delay3(ptr, slot);
+      if(temp[0] > 0)
+      {
+       	large_temp[large_data_offset] = 0xFF; //delimiter
+		large_temp[large_data_offset+1] = slot;
+		large_temp[large_data_offset+2] = 7; //7 - Delay 3
+		large_temp[large_data_offset+3] = temp[0]; 
+        large_data_offset=large_data_offset+4;
+      }
+      otplength = onlykey_eeget_2FAtype(ptr, slot);
+      if(temp[0] > 0)
+      {
+        large_temp[large_data_offset] = 0xFF; //delimiter
+		large_temp[large_data_offset+1] = slot;
+		large_temp[large_data_offset+2] = 8; //8 - 2FA type
+		large_temp[large_data_offset+3] = temp[0]; 
+        large_data_offset=large_data_offset+4;
+	  }
+	  if(temp[0] == 103) { //Google Auth
+      #ifdef DEBUG
+      Serial.println("Reading TOTP Key from Flash...");
+      #endif
+      otplength = onlykey_flashget_totpkey(ptr, slot);
+	  #ifdef DEBUG
+      Serial.println("Encrypted");
+	  byteprint(temp, otplength);
+      Serial.println();
+      Serial.print("TOTP Key Length = ");
+      Serial.println(otplength);
+      #endif
+      #ifdef US_VERSION
+      if (!PDmode) aes_gcm_decrypt(temp, (uint8_t*)('t'+ID[34]+slot), phash, otplength);
+      #endif
+      #ifdef DEBUG
+      Serial.println("Unencrypted");
+	  byteprint(temp, otplength);
+      Serial.println();
+	  #endif
+	  large_temp[large_data_offset] = 0xFF; //delimiter
+	  large_temp[large_data_offset+1] = slot;
+	  large_temp[large_data_offset+2] = 9; //9 - TOTP Key
+	  large_temp[large_data_offset+3] = otplength;
+	  memcpy(large_temp+large_data_offset+4, temp, otplength);
+      large_data_offset=large_data_offset+otplength+4;
+	  }
+	  if(temp[0] == 121) { //Yubikey
+	  backupyubikey=true;
+	  }
+}			  
+      onlykey_eeget_typespeed(ptr);
+	  if (*ptr != 0) {
+	  *ptr=11-*ptr;
+	  large_temp[large_data_offset] = 0xFF; //delimiter
+	  large_temp[large_data_offset+1] = 0; //slot 0
+	  large_temp[large_data_offset+2] = 13; //13 - Keyboard type speed
+	  large_temp[large_data_offset+3] = temp[0]; 
+      large_data_offset=large_data_offset+4;
+	  }
+	  onlykey_eeget_keyboardlayout(ptr);
+	  if (*ptr != 0) {
+	  large_temp[large_data_offset] = 0xFF; //delimiter
+	  large_temp[large_data_offset+1] = 0; //slot 0
+	  large_temp[large_data_offset+2] = 14; //14- Keyboard layout 
+	  large_temp[large_data_offset+3] = temp[0]; 
+      large_data_offset=large_data_offset+4;
+	  }
+	  onlykey_eeget_timeout(ptr);
+	  if (*ptr != 0) {
+	  large_temp[large_data_offset] = 0xFF; //delimiter
+	  large_temp[large_data_offset+1] = 0; //slot 0
+	  large_temp[large_data_offset+2] = 11; //11 - Idle Timeout
+	  large_temp[large_data_offset+3] = temp[0]; 
+      large_data_offset=large_data_offset+4;
+	  }
+	  yubikey_eeget_counter(ctr);
+      if (backupyubikey) {	    
+	  onlykey_eeget_public(ptr);
+
+      ptr = (temp+EElen_public);
+      onlykey_eeget_private(ptr);
+  
+      ptr = (temp+EElen_public+EElen_private);
+      onlykey_eeget_aeskey(ptr);
+  
+      aes_gcm_decrypt(temp, (uint8_t*)('y'+ID[34]), phash, (EElen_aeskey+EElen_private+EElen_public));
+
+	  large_temp[large_data_offset] = 0xFF; //delimiter
+	  large_temp[large_data_offset+1] = 0; //slot 0
+	  large_temp[large_data_offset+2] = 10; //10 - Yubikey
+	  memcpy(large_temp+large_data_offset+3, temp, (EElen_aeskey+EElen_private+EElen_public));
+      large_data_offset=large_data_offset+(EElen_aeskey+EElen_private+EElen_public)+3;
+	  large_temp[large_data_offset] = ctr[0]; //first part of counter
+	  large_temp[large_data_offset+1] = ctr[1]; //second part of counter
+	  large_data_offset=large_data_offset+2;
+	  }
+	
+	#ifdef DEBUG
+	Serial.println();
+    Serial.println("Unencrypted Slot Backup");
+	byteprint(large_temp, large_data_offset);
+    Serial.println();
+    #endif
+	
+	
+  //Copy RSA keys to buffer  
+  uint8_t backupslot;
+  onlykey_eeget_backupkey (&backupslot);
+  for (int slot=1; slot<=4; slot++)
+  {
+	if (slot != backupslot) {  
+	#ifdef DEBUG
+    Serial.print("Backing up RSA Key Number ");
+    Serial.println(slot);
+   #endif
+    memset(temp, 0, MAX_RSA_KEY_SIZE); //Wipe all data from temp buffer
+    ptr = temp;
+	uint8_t features = onlykey_flashget_RSA(slot);
+	if(features != 0x00)
+      {
+		large_temp[large_data_offset] = 0xFE; //delimiter
+		large_temp[large_data_offset+1] = slot;
+		large_temp[large_data_offset+2] = features;
+		memcpy(large_temp+large_data_offset+3, rsa_private_key, (type*128));
+        large_data_offset=large_data_offset+(type*128)+3;
+		#ifdef DEBUG
+			byteprint(rsa_private_key, (type*128));
+		#endif
+      } else {
+			#ifdef DEBUG
+			Serial.print("No key set to slot");
+			#endif
+	  }
+	}
+  }
+  
+  //Copy ECC keys to buffer
+  for (int slot=101; slot<=132; slot++)
+  {
+	if (slot != backupslot) {  
+	#ifdef DEBUG
+    Serial.print("Backing up ECC Key Number ");
+    Serial.println(slot);
+   #endif
+    memset(temp, 0, MAX_RSA_KEY_SIZE); //Wipe all data from temp buffer
+    ptr = temp;
+	uint8_t features = onlykey_flashget_ECC(slot);
+	if(features != 0x00)
+      {
+		large_temp[large_data_offset] = 0xFE; //delimiter
+		large_temp[large_data_offset+1] = slot;
+		large_temp[large_data_offset+2] = features;
+		memcpy(large_temp+large_data_offset+3, ecc_private_key, MAX_ECC_KEY_SIZE);
+        large_data_offset=large_data_offset+MAX_ECC_KEY_SIZE+3;
+		#ifdef DEBUG
+			byteprint(ecc_private_key, MAX_ECC_KEY_SIZE);
+		#endif
+      } else {
+			#ifdef DEBUG
+			Serial.print("No key set to slot");
+			#endif
+	  }
+	}
+  }
+  
+//Copy U2F key/Cert to buffer
+	onlykey_eeget_U2Fcertlen(length);
+	int length2 = length[0] << 8 | length[1];
+	if (length2 != 0) {
+	large_temp[large_data_offset] = 0xFD; //delimiter
+	memcpy(large_temp+large_data_offset+1, attestation_priv, 32);
+    large_data_offset=large_data_offset+32+1;
+	int u2fcounter = getCounter();
+	large_temp[large_data_offset] = u2fcounter >> 8  & 0xFF;
+	large_data_offset++;
+	large_temp[large_data_offset] = u2fcounter       & 0xFF;
+	large_data_offset++;
+	large_temp[large_data_offset] = length[0];
+	large_data_offset++;
+	large_temp[large_data_offset] = length[1];
+	large_data_offset++;
+	memcpy(large_temp+large_data_offset, attestation_der, length2);
+    large_data_offset=large_data_offset+length2;
+	#ifdef DEBUG
+	Serial.print("Found U2F Certificate to backup");
+	#endif
+	} else {		
+	#ifdef DEBUG
+	Serial.print("No U2F Certificate to backup");
+	#endif
+	}
+
+	#ifdef DEBUG
+	Serial.println();
+    Serial.println("Unencrypted");
+	byteprint(large_temp, large_data_offset);
+    Serial.println();
+    #endif
+	
+	
+	//ENCRYPT 
+	onlykey_eeget_backupkey (&slot);
+	#ifdef DEBUG
+	Serial.println();
+    Serial.print("Backup Key Assigned to Slot # ");
+    Serial.println(slot);
+    Serial.println();
+    #endif
+	ptr = temp;
+	RNG2(ptr, 32); //Fill temp with random data
+	if (slot == 0) {
+		hidprint("Error no backup key set");
+		return;
+	}
+	else if (slot > 100) {
+		uint8_t iv[12];
+		memcpy(iv, temp, 12);
+		onlykey_flashget_ECC (slot);
+		if (shared_secret (ecc_public_key, temp)) {
+			hidprint("Error with ECC Shared Secret");
+			return;
+		}
+		SHA256_CTX context;
+		sha256_init(&context);
+		sha256_update(&context, temp, 32); //add secret
+		sha256_update(&context, ecc_public_key, 32); //Add public key
+		sha256_update(&context, iv, 12); //add AES GCM IV
+		sha256_final(&context, temp); 
+		#ifdef DEBUG
+		Serial.println("AES KEY = ");
+		byteprint(temp, 32);
+		#endif
+		aes_gcm_encrypt2 (large_temp, iv, temp, large_data_offset); 
+		memcpy (large_temp+large_data_offset, iv, 12);
+		#ifdef DEBUG
+		Serial.println("IV = ");
+		byteprint(iv, 12);
+		#endif
+		large_data_offset=large_data_offset+12;
+		large_temp[large_data_offset] = type+100;
+		#ifdef DEBUG
+		Serial.println("Type = ");
+		Serial.println(large_temp[large_data_offset]);
+		#endif
+		large_data_offset++;
+	}
+	else if (slot <= 4) {
+		onlykey_flashget_RSA (slot);
+		uint8_t iv[12] = "BACKUP12345";
+		uint8_t temp2[512];
+		#ifdef DEBUG
+		Serial.println("AES KEY = ");
+		byteprint(temp, 32);
+		#endif
+		aes_gcm_encrypt2 (large_temp, iv, temp, large_data_offset); 
+		//No need for unique IVs when random key used
+		if (rsa_encrypt(32, temp, temp2)) {
+			hidprint("Error with RSA Encryption");
+			return;
+		}
+		#ifdef DEBUG
+		Serial.println("RSA Encrypted AES KEY = ");
+		byteprint(temp2, (type*128));
+		#endif
+		memcpy (large_temp+large_data_offset, temp2, (type*128));
+		large_data_offset=large_data_offset+(type*128);
+		large_temp[large_data_offset] = type;
+		#ifdef DEBUG
+		Serial.println("Type = ");
+		Serial.println(large_temp[large_data_offset]);
+		#endif
+		large_data_offset++;
+	}
+	   
+    #ifdef DEBUG
+	Serial.println();
+	Serial.println("Encrypted");
+	//byteprint(large_temp,large_data_offset);
+	Serial.println();
+    #endif
+	
+	
+	int i = 0;
+	while(i <= large_data_offset && i < (int)sizeof(large_temp)) {
+		Keyboard.println();
+		delay(((TYPESPEED[0]*TYPESPEED[0])*10));
+		if ((large_data_offset - i) < 57) {
+			int enclen = base64_encode(large_temp+i, temp, (large_data_offset - i), 0);
+			for (int z = 0; z < enclen; z++) {
+			Keyboard.write(temp[z]);
+			delay(((TYPESPEED[0]*TYPESPEED[0])*10));
+			}  
+		}	
+		else {
+			base64_encode(large_temp+i, temp, 57, 0); 
+			for (int z = 0; z < 4*(57/3); z++) {
+			Keyboard.write(temp[z]);
+			delay(((TYPESPEED[0]*TYPESPEED[0])*10));
+			}  
+		}
+		i = i+57;
+		memset(temp, 0, sizeof(temp));
+	}
+	Keyboard.println();
+	delay(((TYPESPEED[0]*TYPESPEED[0])*10));
+	#ifdef DEBUG
+        Serial.println("Encoded");
+		byteprint(large_temp,large_data_offset);
+        Serial.println();
+    #endif
+	
+	//End backup footer
+    for (uint8_t z = 0; z < sizeof(endbackup); z++) {
+        Keyboard.write(endbackup[z]);
+		delay(((TYPESPEED[0]*TYPESPEED[0])*10));
+	} 
+	Keyboard.println();
+large_data_offset = 0;
+memset(large_temp, 0 , sizeof(large_temp));
+}
+
+int freeRam () {
+    extern int __heap_start, *__brkval;
+    int v;
+    return (int) &v - (__brkval == 0 ? (int) &__heap_start : (int) __brkval);
+}
+
+void RESTORE(uint8_t *buffer) {
+  uint8_t temp[MAX_RSA_KEY_SIZE+7];
+  static uint8_t* large_temp;
+  static unsigned int offset = 0;
+  if (offset == 0) large_temp = (uint8_t*)malloc(12323); //Max size for slots 7715 max size for keys 3072 + 768 + 32 + headers + Max RSA key size
+  uint8_t *ptr;
+  uint8_t slot;
+  
+
+  //Slot restore
+  if (buffer[5]==0xFF) //Not last packet
+	{
+	if (offset <= (sizeof(large_temp) - 57)) {
+			memcpy(large_temp+offset, buffer+6, 57);
+#ifdef DEBUG
+			Serial.print("Restore packet received =");
+			byteprint(large_temp+offset, 57);
+#endif 
+			offset = offset + 57;
+		} else {
+			hidprint("Error backup file too large");
+			return;
+		}
+		return;
+	} else { //last packet
+		if (offset <= (sizeof(large_temp) - 57) && buffer[5] <= 57) {
+			memcpy(large_temp+offset, buffer+6, buffer[5]);
+#ifdef DEBUG
+		Serial.print("Restore packet received =");
+		byteprint(large_temp+offset, buffer[5]);
+#endif 
+			offset = offset + buffer[5];
+		} else {
+			hidprint("Error backup file too large");
+			return;
+		}
+#ifdef DEBUG 
+		Serial.print("Length of backup file = ");
+        Serial.println(offset);
+#endif 
+
+	
+//DECRYPT
+	onlykey_eeget_backupkey (&slot);
+	offset--;
+	#ifdef DEBUG
+	Serial.print("Type of Backup Key = ");
+	Serial.println(large_temp[offset]);
+	#endif
+	if (slot == 0) {
+		hidprint("Error no backup key set");
+				while (1==1) {
+				blink(3);
+				}
+	}
+	else if (slot > 100) {
+		onlykey_flashget_ECC (slot);
+		Serial.println(type);
+		if (type != (large_temp[offset]-100)) {
+			hidprint("Error key type used for backup does not match");
+				while (1==1) {
+				blink(3);
+				}
+		} else {
+		uint8_t iv[12];
+		offset=offset-12;
+		memcpy(iv, large_temp+offset, 12);
+		shared_secret (ecc_public_key, temp);
+		SHA256_CTX context;
+		sha256_init(&context);
+		sha256_update(&context, temp, 32); //add secret
+		sha256_update(&context, ecc_public_key, 32); //add public key
+		sha256_update(&context, iv, 12); //add AES GCM IV
+		sha256_final(&context, temp); 
+		#ifdef DEBUG
+		Serial.println("AES KEY = ");
+		byteprint(temp, 32);
+		#endif
+		aes_gcm_decrypt2 (large_temp, iv, temp, offset); 
+	}
+	}
+	else if (slot <= 4) {
+		uint8_t len = 0;
+		onlykey_flashget_RSA (slot);
+		if (type != large_temp[offset]) {
+			hidprint("Error key type used for backup does not match");
+				while (1==1) {
+				blink(3);
+				}
+		} else {
+		uint8_t temp2[512];
+		offset=offset-(type*128);
+		memcpy(temp, large_temp+offset, (type*128));
+		#ifdef DEBUG
+		Serial.println("RSA Encrypted AES Key = ");
+		byteprint(temp, (type*128));
+		#endif
+		rsa_decrypt(len, temp, temp2);
+		#ifdef DEBUG
+		Serial.println("AES KEY = ");
+		byteprint(temp2, 32);
+		#endif
+		uint8_t iv[12] = "BACKUP12345";
+		aes_gcm_decrypt2 (large_temp, iv, temp2, offset); 
+		//No need for unique IVs when random key used
+	}
+	}
+	
+	   		
+
+#ifdef DEBUG
+			Serial.print("backup file received =");
+			byteprint(large_temp, offset);
+#endif 
+		large_temp[offset+1] = 0xFC;
+		ptr = large_temp;
+		while(*ptr) {
+			if (*ptr == 0xFF) {
+				memset(temp, 0, sizeof(temp));
+				temp[0] = 0xFF;
+				temp[1] = 0xFF;
+				temp[2] = 0xFF;
+				temp[3] = 0xFF;
+				temp[4] = OKSETSLOT;
+				ptr++;
+				temp[5] = *ptr; //Slot
+				ptr++;
+				temp[6] = *ptr; //Value
+				ptr++;
+				if (temp[6] == 10) { //Yubikey OTP
+				memcpy(temp+7, ptr, (EElen_aeskey+EElen_private+EElen_public));
+				SETSLOT(temp);
+				memset(temp, 0, sizeof(temp));
+				uint8_t ctr[2];
+				ptr = ptr + EElen_aeskey+EElen_private+EElen_public;
+				ctr[0] = *ptr;
+				ptr++;
+				ctr[1] = *ptr;
+				yubikey_eeset_counter(ctr);
+				#ifdef DEBUG
+							Serial.print("New Yubikey Counter =");
+							byteprint(ctr, 2);
+				#endif 
+				ptr++;
+				} else if (temp[6] == 9) { //TOTP
+				int len = *ptr;
+				ptr++;
+				memcpy(temp+7, ptr, len);
+				SETSLOT(temp);
+				memset(temp, 0, sizeof(temp));
+				ptr = ptr + len;
+				} else if (temp[6] == 11) { //lockout time
+				temp[7] = *ptr; 
+				SETSLOT(temp);
+				memset(temp, 0, sizeof(temp));
+				ptr++;
+				} else {
+				temp[7] = *ptr; 
+				int i = 8;
+				ptr++;
+				while (*ptr != 0xFF && *ptr != 0xFE && *ptr != 0xFD && *ptr != 0xFC) {
+					temp[i] = *ptr;
+					ptr++;
+					i++;
+				} 
+				SETSLOT(temp);
+				}
+			}  else if (*ptr == 0xFE) { //Finished slot restore, start key restore
+			hidprint("Successfully loaded backup of slot configuration");
+			#ifdef DEBUG
+			Serial.print("Successfully loaded backup of slot configuration");
+			#endif 
+				memset(temp, 0, sizeof(temp));
+				temp[0] = 0xBA;
+				temp[1] = 0xFF;
+				temp[2] = 0xFF;
+				temp[3] = 0xFF;
+				temp[4] = OKSETPRIV;
+				ptr++;
+				temp[5] = *ptr; //Slot
+				ptr++;
+				temp[6] = *ptr; //Key type
+				if (temp[5] > 100) { //We know its an ECC key
+					#ifdef DEBUG
+					Serial.print("Restore ECC key");
+					#endif 
+					ptr++; //Start of Key
+					memcpy(temp+7, ptr, MAX_ECC_KEY_SIZE); //Size of ECC key 32
+					SETPRIV(temp);
+					ptr = ptr + MAX_ECC_KEY_SIZE;
+					offset = offset - (MAX_ECC_KEY_SIZE+3);
+				} 
+				else if (temp[6]==0x01 || temp[6]==0x11 || temp[6]==0x21 || temp[6]==0x31 || temp[6]==0x41 || temp[6]==0x51 || temp[6]==0x61 || temp[6]==0x71 || temp[6]==0x81 || temp[6]==0x91 || temp[6]==0xA1 || temp[6]==0xB1 || temp[6]==0xC1 || temp[6]==0xD1 || temp[6]==0xE1 || temp[6]==0xF1) { //We know its an RSA 1024 Key
+					#ifdef DEBUG
+					Serial.print("Restore RSA 1024 key");
+					#endif 
+					ptr++;
+					memcpy(temp+7, ptr, 128);
+					SETPRIV(temp);
+					ptr = ptr + 128;
+					offset = offset - 131;
+				}
+				else if (temp[6]==0x02 || temp[6]==0x12 || temp[6]==0x22 || temp[6]==0x32 || temp[6]==0x42 || temp[6]==0x52 || temp[6]==0x62 || temp[6]==0x72 || temp[6]==0x82 || temp[6]==0x92 || temp[6]==0xA2 || temp[6]==0xB2 || temp[6]==0xC2 || temp[6]==0xD2 || temp[6]==0xE2 || temp[6]==0xF2) { //We know its an RSA 2048 Key
+					#ifdef DEBUG
+					Serial.print("Restore RSA 2048 key");
+					#endif 
+					ptr++;
+					memcpy(temp+7, ptr, 256);
+					SETPRIV(temp);
+					ptr = ptr + 256;
+					offset = offset - 259;
+				}
+				else if (temp[6]==0x03 || temp[6]==0x13 || temp[6]==0x23 || temp[6]==0x33 || temp[6]==0x43 || temp[6]==0x53 || temp[6]==0x63 || temp[6]==0x73 || temp[6]==0x83 || temp[6]==0x93 || temp[6]==0xA3 || temp[6]==0xB3 || temp[6]==0xC3 || temp[6]==0xD3 || temp[6]==0xE3 || temp[6]==0xF3) { //We know its an RSA 3072 Key
+					#ifdef DEBUG
+					Serial.print("Restore RSA 3072 key");
+					#endif 
+					ptr++;
+					memcpy(temp+7, ptr, 384);
+					SETPRIV(temp);
+					ptr = ptr + 384;
+					offset = offset - 387;
+				}
+				else if (temp[6]==0x04 || temp[6]==0x14 || temp[6]==0x24 || temp[6]==0x34 || temp[6]==0x44 || temp[6]==0x54 || temp[6]==0x64 || temp[6]==0x74 || temp[6]==0x84 || temp[6]==0x94 || temp[6]==0xA4 || temp[6]==0xB4 || temp[6]==0xC4 || temp[6]==0xD4 || temp[6]==0xE4 || temp[6]==0xF4) { //We know its an RSA 4096 Key
+					#ifdef DEBUG
+					Serial.print("Restore RSA 4096 key");
+					#endif 
+					ptr++;
+					memcpy(temp+7, ptr, 512);
+					SETPRIV(temp);
+					ptr = ptr + 512;
+					offset = offset - 515;
+				} else {
+					#ifdef DEBUG
+					Serial.print("Error key configuration backup file format incorrect");
+					#endif 
+					hidprint("Error key configuration backup file format incorrect");
+				}
+			} else if (*ptr == 0xFD) { 
+					int temp2;
+					memset(temp, 0, sizeof(temp));
+					temp[0] = 0xBA;
+					temp[1] = 0xFF;
+					temp[2] = 0xFF;
+					temp[3] = 0xFF;
+					temp[4] = OKSETU2FPRIV;
+					ptr++;
+					offset--;
+					memcpy(temp+5, ptr, 32);
+					SETU2FPRIV(temp);
+					ptr = ptr + 32;
+					offset = offset - 32;
+					memcpy(temp, ptr, 2);
+					temp2 = temp[0] << 8 | temp[1];
+					setCounter(temp2);
+					offset = offset - 2;
+					ptr=ptr+2;
+					memcpy(temp, ptr, 2);
+					temp2 = temp[0] << 8 | temp[1];
+					//Set U2F Certificate size
+					onlykey_eeset_U2Fcertlen(temp); 
+					offset = offset - 2;
+					ptr=ptr+2;
+					large_temp[0] = 0xBA;
+					large_temp[1] = 0xFF;
+					large_temp[2] = 0xFF;
+					large_temp[3] = 0xFF;
+					large_temp[4] = OKSETU2FCERT;
+					large_temp[5] = 0xBA;
+					if (temp2 < 769) {
+						memcpy(large_temp+6, ptr, temp2);
+					large_data_len=temp2;
+					SETU2FCERT(large_temp);
+					}
+			} else {
+			break;
+			}
+	}
+	hidprint("Successfully loaded backup of key configuration");
+	#ifdef DEBUG
+	Serial.print("Successfully loaded backup of key configuration");
+	#endif 
+	memset(temp, 0, sizeof(temp)); //Wipe all data from temp
+	memset(large_temp, 0, 12323); //Wipe all data from largebuffer
+	offset = 0;
+	free(large_temp);
+	delay(1000);
+	hidprint("Remove and Reinsert OnlyKey to complete restore");
+	fadeoff();
+	#ifdef OK_Color
+    NEO_Color = 85; //Green
+    #endif
+	while (1==1) {
+	blink(3);
+	}
+    }
+	
+}
+
+void process_packets (uint8_t *buffer) {
+	uint8_t temp[32];
+    if (buffer[6]==0xFF) //Not last packet
+    {
+        if (large_data_offset <= (int)(sizeof(large_buffer) - 57)) {
+            memcpy(large_buffer+large_data_offset, buffer+7, 57);
+            large_data_offset = large_data_offset + 57;
+			return;
+        } else {
+              hidprint("Error packets received exceeded size limit");
+			  return;
+        }
+        return;
+    } else {
+        if (large_data_offset <= (int)(sizeof(large_buffer) - 57) && buffer[6] <= 57) {
+            memcpy(large_buffer+large_data_offset, buffer+7, buffer[6]);
+            large_data_offset = large_data_offset + buffer[6];
+			CRYPTO_AUTH = 1;
+			SHA256_CTX msg_hash;
+			sha256_init(&msg_hash);
+			sha256_update(&msg_hash, large_buffer, large_data_offset); //add data to sign
+			sha256_final(&msg_hash, temp); //Temporarily store hash
+			if (temp[0] < 6) Challenge_button1 = '1'; //Convert first byte of hash
+			else {
+				Challenge_button1 = temp[0] % 5; //Get the base 5 remainder (0-5)
+				Challenge_button1 = Challenge_button1 + '0' + 1; //Add '0' and 1 so number will be ASCII 1 - 6
+			}
+			if (temp[15] < 6) Challenge_button2 = '1'; //Convert middle byte of hash
+			else {
+				Challenge_button2 = temp[15] % 5; //Get the base 5 remainder (0-5)
+				Challenge_button2 = Challenge_button2 + '0' + 1; //Add '0' and 1 so number will be ASCII 1 - 6
+			}
+			if (temp[31] < 6) Challenge_button3 = '1'; //Convert last byte of hash
+			else {
+				Challenge_button3 = temp[31] % 5; //Get the base 5 remainder (0-5)
+				Challenge_button3 = Challenge_button3 + '0' + 1; //Add '0' and 1 so number will be ASCII 1 - 6
+			}
+#ifdef DEBUG
+    Serial.println();
+    Serial.printf("Enter challenge code %c%c%c", Challenge_button1,Challenge_button2,Challenge_button3); 
+#endif
+        } else {
+            hidprint("Error packets received exceeded size limit");
+			return;
+        }
+	}
+}

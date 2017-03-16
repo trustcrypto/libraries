@@ -90,10 +90,13 @@ extern "C"
 #define EElen_failedlogins	1
 #define EElen_sincelastregularlogin	1
 #define EElen_U2Fcounter	2
+#define EElen_backupkey	1
 #define EElen_timeout	1
 #define EElen_wipemode	1
 #define EElen_typespeed	1
 #define EElen_keyboardlayout	1
+#define EElen_ecckey	1
+#define EElen_rsakey	1
 
 #define EEpos_U2Fcounter	0
 #define EEpos_aeskey	(EEpos_U2Fcounter + EElen_U2Fcounter)
@@ -401,44 +404,61 @@ extern "C"
 #define EEpos_totpkey23len	(EEpos_totpkey22len + EElen_totpkeylen)
 #define EEpos_totpkey24len	(EEpos_totpkey23len + EElen_totpkeylen)
 
-#define EEpos_addchar4_1	(EEpos_totpkey24len + EElen_totpkeylen)
-#define EEpos_addchar4_2	(EEpos_addchar4_1 + EElen_addchar)
-#define EEpos_addchar4_3	(EEpos_addchar4_2 + EElen_addchar)
-#define EEpos_addchar4_4	(EEpos_addchar4_3 + EElen_addchar)
-#define EEpos_addchar4_5	(EEpos_addchar4_4 + EElen_addchar)
-#define EEpos_addchar4_6	(EEpos_addchar4_5 + EElen_addchar)
-#define EEpos_addchar4_7	(EEpos_addchar4_6 + EElen_addchar)
-#define EEpos_addchar4_8	(EEpos_addchar4_7 + EElen_addchar)
-#define EEpos_addchar4_9	(EEpos_addchar4_8 + EElen_addchar)
-#define EEpos_addchar4_10	(EEpos_addchar4_9 + EElen_addchar)
-#define EEpos_addchar4_11	(EEpos_addchar4_10 + EElen_addchar)
-#define EEpos_addchar4_12	(EEpos_addchar4_11 + EElen_addchar)
-#define EEpos_addchar4_13	(EEpos_addchar4_12 + EElen_addchar)
-#define EEpos_addchar4_14	(EEpos_addchar4_13 + EElen_addchar)
-#define EEpos_addchar4_15	(EEpos_addchar4_14 + EElen_addchar)
-#define EEpos_addchar4_16	(EEpos_addchar4_15 + EElen_addchar)
-#define EEpos_addchar4_17	(EEpos_addchar4_16 + EElen_addchar)
-#define EEpos_addchar4_18	(EEpos_addchar4_17 + EElen_addchar)
-#define EEpos_addchar4_19	(EEpos_addchar4_18 + EElen_addchar)
-#define EEpos_addchar4_20	(EEpos_addchar4_19 + EElen_addchar)
-#define EEpos_addchar4_21	(EEpos_addchar4_20 + EElen_addchar)
-#define EEpos_addchar4_22	(EEpos_addchar4_21 + EElen_addchar)
-#define EEpos_addchar4_23	(EEpos_addchar4_22 + EElen_addchar)
-#define EEpos_addchar4_24	(EEpos_addchar4_23 + EElen_addchar)
+#define EEpos_ecckey1	(EEpos_totpkey24len + EElen_totpkeylen)
+#define EEpos_ecckey2	(EEpos_ecckey1 + EElen_ecckey)
+#define EEpos_ecckey3	(EEpos_ecckey2 + EElen_ecckey)
+#define EEpos_ecckey4	(EEpos_ecckey3 + EElen_ecckey)
+#define EEpos_ecckey5	(EEpos_ecckey4 + EElen_ecckey)
+#define EEpos_ecckey6	(EEpos_ecckey5 + EElen_ecckey)
+#define EEpos_ecckey7	(EEpos_ecckey6 + EElen_ecckey)
+#define EEpos_ecckey8	(EEpos_ecckey7 + EElen_ecckey)
+#define EEpos_ecckey9	(EEpos_ecckey8 + EElen_ecckey)
+#define EEpos_ecckey10	(EEpos_ecckey9 + EElen_ecckey)
+#define EEpos_ecckey11	(EEpos_ecckey10 + EElen_ecckey)
+#define EEpos_ecckey12	(EEpos_ecckey11 + EElen_ecckey)
+#define EEpos_ecckey13	(EEpos_ecckey12 + EElen_ecckey)
+#define EEpos_ecckey14	(EEpos_ecckey13 + EElen_ecckey)
+#define EEpos_ecckey15	(EEpos_ecckey14 + EElen_ecckey)
+#define EEpos_ecckey16	(EEpos_ecckey15 + EElen_ecckey)
+#define EEpos_ecckey17	(EEpos_ecckey16 + EElen_ecckey)
+#define EEpos_ecckey18	(EEpos_ecckey17 + EElen_ecckey)
+#define EEpos_ecckey19	(EEpos_ecckey18 + EElen_ecckey)
+#define EEpos_ecckey20	(EEpos_ecckey19 + EElen_ecckey)
+#define EEpos_ecckey21	(EEpos_ecckey20 + EElen_ecckey)
+#define EEpos_ecckey22	(EEpos_ecckey21 + EElen_ecckey)
+#define EEpos_ecckey23	(EEpos_ecckey22 + EElen_ecckey)
+#define EEpos_ecckey24	(EEpos_ecckey23 + EElen_ecckey)
+#define EEpos_ecckey25	(EEpos_ecckey24 + EElen_ecckey)
+#define EEpos_ecckey26	(EEpos_ecckey25 + EElen_ecckey)
+#define EEpos_ecckey27	(EEpos_ecckey26 + EElen_ecckey)
+#define EEpos_ecckey28	(EEpos_ecckey27 + EElen_ecckey)
+#define EEpos_ecckey29	(EEpos_ecckey28 + EElen_ecckey)
+#define EEpos_ecckey30	(EEpos_ecckey29 + EElen_ecckey)
+#define EEpos_ecckey31	(EEpos_ecckey30 + EElen_ecckey)
+#define EEpos_ecckey32	(EEpos_ecckey31 + EElen_ecckey)
 
-#define EEpos_keylen	(EEpos_addchar4_24 + EElen_addchar)
+#define EEpos_rsakey1	(EEpos_ecckey32 + EElen_ecckey)
+#define EEpos_rsakey2	(EEpos_rsakey1 + EElen_rsakey)
+#define EEpos_rsakey3	(EEpos_rsakey2 + EElen_rsakey)
+#define EEpos_rsakey4	(EEpos_rsakey3 + EElen_rsakey)
+
+#define EEpos_keylen	(EEpos_rsakey4 + EElen_rsakey)
 #define EEpos_ctrlen	(EEpos_keylen + EElen_keylen)
 #define EEpos_prvlen	(EEpos_ctrlen + EElen_ctrlen)
 #define EEpos_publen	(EEpos_prvlen + EElen_prvlen)
 #define EEpos_U2Fprivlen	(EEpos_publen + EElen_publen)
 #define EEpos_U2Fcertlen	(EEpos_U2Fprivlen + EElen_U2Fprivlen)
 #define EEpos_flashpos	(EEpos_U2Fcertlen + EElen_U2Fcertlen)
-#define EEpos_timeout	(EEpos_flashpos + EElen_flashpos)
+#define EEpos_backupkey	(EEpos_flashpos + EElen_flashpos)
+#define EEpos_timeout	(EEpos_backupkey + EElen_backupkey)
 #define EEpos_wipemode	(EEpos_timeout + EElen_timeout)
 #define EEpos_typespeed	(EEpos_wipemode + EElen_wipemode)
 #define EEpos_keyboardlayout	(EEpos_typespeed + EElen_typespeed)
 #define EEpos_sincelastregularlogin	(EEpos_keyboardlayout + EElen_keyboardlayout)
 #define EEpos_failedlogins	(EEpos_sincelastregularlogin + EElen_sincelastregularlogin)
+
+extern int  onlykey_eeget_backupkey (uint8_t *ptr);
+extern void onlykey_eeset_backupkey(uint8_t *ptr);
 
 extern int  onlykey_eeget_timeout (uint8_t *ptr);
 extern void onlykey_eeset_timeout(uint8_t *ptr);
@@ -459,7 +479,7 @@ extern int  onlykey_eeget_sincelastregularlogin (uint8_t *ptr);
 extern void onlykey_eeset_sincelastregularlogin(uint8_t *ptr);
 
 extern int  onlykey_eeget_aeskey (uint8_t *ptr);
-extern void onlykey_eeset_aeskey (uint8_t *ptr, int len);
+extern void onlykey_eeset_aeskey (uint8_t *ptr);
 
 extern int  yubikey_eeget_counter (uint8_t *ptr);
 extern void yubikey_eeset_counter (uint8_t *ptr);
@@ -468,7 +488,7 @@ extern int  onlykey_eeget_private (uint8_t *ptr);
 extern void onlykey_eeset_private (uint8_t *ptr);
 
 extern int  onlykey_eeget_public (uint8_t *ptr);
-extern void onlykey_eeset_public (uint8_t *ptr, int len);
+extern void onlykey_eeset_public (uint8_t *ptr);
 
 extern int  onlykey_eeget_password (uint8_t *ptr, int slot);
 extern void onlykey_eeset_password (uint8_t *ptr, int len, int slot);
@@ -485,9 +505,6 @@ extern void onlykey_eeset_addchar2 (uint8_t *ptr, int slot);
 extern int  onlykey_eeget_addchar3 (uint8_t *ptr, int slot);
 extern void onlykey_eeset_addchar3 (uint8_t *ptr, int slot);
 
-extern int  onlykey_eeget_addchar4 (uint8_t *ptr, int slot);
-extern void onlykey_eeset_addchar4 (uint8_t *ptr, int slot);
-
 extern int  onlykey_eeget_delay1 (uint8_t *ptr, int slot);
 extern void onlykey_eeset_delay1 (uint8_t *ptr, int slot);
 
@@ -497,6 +514,12 @@ extern void onlykey_eeset_delay2 (uint8_t *ptr, int slot);
 extern int  onlykey_eeget_delay3 (uint8_t *ptr, int slot);
 extern void onlykey_eeset_delay3 (uint8_t *ptr, int slot);
 
+extern int  onlykey_eeget_ecckey (uint8_t *ptr, int slot);
+extern void onlykey_eeset_ecckey (uint8_t *ptr, int slot);
+
+extern int  onlykey_eeget_rsakey (uint8_t *ptr, int slot);
+extern void onlykey_eeset_rsakey (uint8_t *ptr, int slot);
+
 extern int  onlykey_eeget_U2Fprivlen (uint8_t *ptr);
 extern void onlykey_eeset_U2Fprivlen (uint8_t *ptr);
 
@@ -505,18 +528,6 @@ extern void onlykey_eeset_U2Fcertlen (uint8_t *ptr);
 
 extern int  onlykey_eeget_flashpos (uint8_t *ptr);
 extern void onlykey_eeset_flashpos (uint8_t *ptr);
-
-extern int  yubikey_eeget_keylen (uint8_t *ptr);
-extern void yubikey_eeset_keylen (uint8_t *ptr);
-
-extern int  yubikey_eeget_ctrlen (uint8_t *ptr);
-extern void yubikey_eeset_ctrlen (uint8_t *ptr);
-
-extern int  yubikey_eeget_prvlen (uint8_t *ptr);
-extern void yubikey_eeset_prvlen (uint8_t *ptr);
-
-extern int  yubikey_eeget_publen (uint8_t *ptr);
-extern void yubikey_eeset_publen (uint8_t *ptr);
 
 extern int  onlykey_eeget_passwordlen1 (uint8_t *ptr);
 extern void onlykey_eeset_passwordlen1 (uint8_t *ptr);

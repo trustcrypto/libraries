@@ -88,7 +88,7 @@
 
 
 typedef struct SHA256_HashContext{
-    uECC_HashContext uECC;
+    const uECC_HashContext uECC;
     SHA256_CTX ctx;
 } SHA256_HashContext;
 
@@ -162,11 +162,11 @@ extern "C"
 /*************************************/
 extern void u2fmsgtimeout(uint8_t *buffer);
 extern void recvu2fmsg(uint8_t *buffer);
-extern void init_SHA256(uECC_HashContext *base);
-extern void update_SHA256(uECC_HashContext *base,
+extern void init_SHA256(const uECC_HashContext *base);
+extern void update_SHA256(const uECC_HashContext *base,
                    const uint8_t *message,
                    unsigned message_size);                   
-extern void finish_SHA256(uECC_HashContext *base, uint8_t *hash_result);
+extern void finish_SHA256(const uECC_HashContext *base, uint8_t *hash_result);
 extern void U2Finit();
 
 #ifdef __cplusplus

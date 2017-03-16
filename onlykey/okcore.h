@@ -60,6 +60,7 @@ extern "C"
 #endif
 
 #include <SoftTimer.h>
+#include "base64.h"
 
 #define TYPE_INIT               0x80  // Initial frame identifier
 /*************************************/
@@ -76,15 +77,14 @@ extern "C"
 #define OKWIPEU2FPRIV 		(TYPE_INIT | 0x69)  // 
 #define OKSETU2FCERT 		(TYPE_INIT | 0x6A)  // 
 #define OKWIPEU2FCERT  		(TYPE_INIT | 0x6B)  //
-#define OKGETSSHPUBKEY          (TYPE_INIT | 0x6C)//
-#define OKSIGNSSHCHALLENGE      (TYPE_INIT | 0x6D)//
-#define OKWIPESSHPRIV           (TYPE_INIT | 0x6E)//
-#define OKSETSSHPRIV            (TYPE_INIT | 0x6F)// 
-#define OKGETGPGPUBKEY          (TYPE_INIT | 0x70)//
-#define OKSIGNGPGCHALLENGE      (TYPE_INIT | 0x71)//
-#define OKWIPEGPGPRIV           (TYPE_INIT | 0x72)//
-#define OKSETGPGPRIV            (TYPE_INIT | 0x73)// Last vendor defined command
+#define OKGETPUBKEY          (TYPE_INIT | 0x6C)//
+#define OKSIGN      (TYPE_INIT | 0x6D)//
+#define OKWIPEPRIV           (TYPE_INIT | 0x6E)//
+#define OKSETPRIV            (TYPE_INIT | 0x6F)// 
+#define OKDECRYPT      (TYPE_INIT | 0x70)//
+#define OKRESTORE            (TYPE_INIT | 0x71)// Last vendor defined command
 
+#define BUFFER_SIZE 2048 //Large RAM buffer size
 
 extern int getCounter();
 extern void setCounter(int counter);
@@ -98,7 +98,8 @@ extern void fadein();
 extern void fadeout();
 extern void printDigits(int digits);
 extern void digitalClockDisplay();
-extern void GETLABELS (uint8_t *buffer);
+extern void GETSLOTLABELS ();
+extern void GETKEYLABELS ();
 extern void SETTIME (uint8_t *buffer);
 extern void WIPEU2FCERT (uint8_t *buffer);
 extern void SETU2FCERT (uint8_t *buffer);
@@ -109,6 +110,8 @@ extern void SETSLOT (uint8_t *buffer);
 extern void SETPIN (uint8_t *buffer);
 extern void SETPDPIN (uint8_t *buffer);
 extern void SETSDPIN (uint8_t *buffer);
+extern void SETPRIV (uint8_t *buffer);
+extern void WIPEPRIV (uint8_t *buffer);
 extern void setOtherTimeout();
 extern void processPacket(uint8_t *buffer);
 extern void setCounter(int counter);
@@ -125,14 +128,17 @@ extern void rngloop();
 extern int RNG2(uint8_t *dest, unsigned size);
 extern void printHex(const uint8_t *data, unsigned len);
 extern void hidprint(char const * chars);
+extern void byteprint(uint8_t* bytes, int size);
 extern void factorydefault();
 extern void wipeEEPROM();
 extern void wipeflash();
 extern bool unlocked;
 extern bool initialized;
+extern bool configmode;
 extern bool PDmode;
 extern int PINSET;
 extern int u2f_button;
+extern int large_data_offset;
 extern void aes_gcm_encrypt (uint8_t * state, uint8_t * iv1, const uint8_t * key, int len);
 extern void aes_gcm_decrypt (uint8_t * state, uint8_t * iv1, const uint8_t * key, int len);
 extern void aes_gcm_encrypt2 (uint8_t * state, uint8_t * iv1, const uint8_t * key, int len);
@@ -164,15 +170,25 @@ extern void onlykey_flashset_url (uint8_t *ptr, int size, int slot);
 extern void onlykey_flashget_label (uint8_t *ptr, int slot);
 extern void onlykey_flashset_label (uint8_t *ptr, int slot);
 extern void onlykey_flashget_U2F ();
-extern int onlykey_flashget_SSH ();
-extern int onlykey_flashget_GPG ();
+extern int onlykey_flashget_ECC (int slot);
+extern int onlykey_flashget_RSA (int slot);
 extern void yubikeyinit();
 extern void yubikeysim(char *ptr);
 extern void yubikey_incr_time();
 extern void increment(Task* me);
 extern void decrement(Task* me);
+extern void typeoutbackup(Task* me);
 extern void fadeoff();
-
+extern void fadeon();
+extern void rainbowCycle(uint8_t wait, uint8_t cycle);
+extern void initColor();
+extern void setcolor (uint8_t Color);
+extern void backup();
+extern void SETRSAPRIV (uint8_t *buffer);
+extern void WIPERSAPRIV (uint8_t *buffer);
+extern void SETECCPRIV (uint8_t *buffer);
+extern void RESTORE (uint8_t *buffer);
+extern void process_packets (uint8_t *buffer);
 
 #ifdef __cplusplus
 }

@@ -23,6 +23,8 @@
 #ifndef MBEDTLS_AES_H
 #define MBEDTLS_AES_H
 
+#include <Arduino.h>
+
 #if !defined(MBEDTLS_CONFIG_FILE)
 #include "config.h"
 #else

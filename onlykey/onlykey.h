@@ -55,8 +55,12 @@
 
 #define DEBUG //Enable Serial Monitor 
 #define US_VERSION //Define for US Version Firmare
+//#define OK_Color //Color Version 
 
+#ifndef OKCORE_H
 #include "okcore.h"
+#define OKCORE_H
+#endif
 
 #ifdef __cplusplus
 extern "C"
@@ -65,8 +69,7 @@ extern "C"
 
 #include "okeeprom.h"
 #ifdef US_VERSION
-#include "okssh.h"
-#include "okgpg.h"
+#include "okcrypto.h"
 #include "oku2f.h"
 #endif
 
