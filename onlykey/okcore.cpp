@@ -3938,13 +3938,13 @@ if (PDmode) return;
 	large_data_len = 0;
 	hidprint("Successfully set RSA Key");
       blink(3);
+	}
 #endif
-      return;
+	return;
 }
 
 
-void WIPERSAPRIV (uint8_t *buffer)
-{
+void WIPERSAPRIV (uint8_t *buffer) {
 if (PDmode) return;
 #ifdef US_VERSION
 #ifdef DEBUG
@@ -3974,7 +3974,6 @@ if (PDmode) return;
     blink(3);
 #endif
     return;
-
 }
 
 /*************************************/
