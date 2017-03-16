@@ -2097,11 +2097,11 @@ cleanup:
     mbedtls_ecp_point_free( &P );
     mbedtls_mpi_free( &m );
 
-    if( verbose != 0 )
+    if( verbose != 0 ) {
 		#ifdef DEBUG
         mbedtls_printf( "\n" );
 		#endif
-
+	}
     return( ret );
 }
 
