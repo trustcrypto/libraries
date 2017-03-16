@@ -158,6 +158,7 @@ char attestation_der[768];
 /*************************************/
 //ECC assignments
 /*************************************/
+#ifdef US_VERSION
 extern uint8_t ecc_public_key[MAX_ECC_KEY_SIZE*2];
 extern uint8_t ecc_private_key[MAX_ECC_KEY_SIZE];
 /*************************************/
@@ -166,6 +167,11 @@ extern uint8_t ecc_private_key[MAX_ECC_KEY_SIZE];
 /*************************************/
 extern uint8_t rsa_private_key[MAX_RSA_KEY_SIZE];
 extern uint8_t type;
+#endif
+uint8_t Challenge_button1 = 0;
+uint8_t Challenge_button2 = 0;
+uint8_t Challenge_button3 = 0;
+uint8_t CRYPTO_AUTH = 0;
 /*************************************/
 
 void recvmsg() {
@@ -3712,6 +3718,7 @@ if (PDmode) return 0;
 	#endif
 	return features;
 #endif
+	return 0;
 }
 
 
@@ -3831,6 +3838,7 @@ if (PDmode) return 0;
 	rsa_getpub(type);
 	return features;
 #endif
+return 0;
 }
 
 
@@ -3932,8 +3940,6 @@ if (PDmode) return;
       blink(3);
 #endif
       return;
-	}
-	return;
 }
 
 

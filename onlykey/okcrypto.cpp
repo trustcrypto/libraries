@@ -81,10 +81,10 @@ uint8_t rsa_private_key[MAX_RSA_KEY_SIZE];
 uint8_t ecc_public_key[MAX_ECC_KEY_SIZE*2];
 uint8_t ecc_private_key[MAX_ECC_KEY_SIZE];
 /*************************************/
-uint8_t Challenge_button1 = 0;
-uint8_t Challenge_button2 = 0;
-uint8_t Challenge_button3 = 0;
-uint8_t CRYPTO_AUTH = 0;
+extern uint8_t Challenge_button1;
+extern uint8_t Challenge_button2;
+extern uint8_t Challenge_button3;
+extern uint8_t CRYPTO_AUTH;
 uint8_t type;
 extern uint8_t resp_buffer[64];
 
