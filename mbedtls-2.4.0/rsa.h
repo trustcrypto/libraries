@@ -31,7 +31,7 @@
  *
  */
  
-
+#include "onlykey.h"
  
 #if !defined(MBEDTLS_CONFIG_FILE)
 #include "config.h"
@@ -59,7 +59,9 @@
 //#else
 #include <stdio.h>
 #include "WProgram.h"
+#ifdef DEBUG
 #define mbedtls_printf Serial.printf
+#endif
 //#define mbedtls_calloc calloc
 //#define mbedtls_free   free
 #endif
