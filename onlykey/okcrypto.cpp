@@ -106,7 +106,9 @@ void SIGN (uint8_t *buffer) {
 	#endif
 	signingkey = is_bit_set(features, 6);
 	if (!signingkey) {
+		#ifdef DEBUG
 		Serial.print("Error key not set as signature key");
+		#endif
 		hidprint("Error key not set as signature key");
 		return;
 	}
