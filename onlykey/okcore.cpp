@@ -960,7 +960,7 @@ void SETSLOT (uint8_t *buffer)
 {
       int slot = buffer[5];
       int value = buffer[6];
-      int length;
+      int length = 0;
 #ifdef DEBUG
       char cmd = buffer[4]; //cmd or continuation
       Serial.print("OKSETSLOT MESSAGE RECEIVED:");
@@ -1519,7 +1519,7 @@ void byteprint(uint8_t* bytes, int size)
 { 
 #ifdef DEBUG
 Serial.println();
-for (int i; i < size; i++) {
+for (int i = 0; i < size; i++) {
   Serial.print(bytes[i], HEX);
   Serial.print(" ");
   }
@@ -3812,7 +3812,7 @@ if (PDmode) return 0;
     Serial.print("Type of RSA KEY is ");
 	Serial.println(type, HEX);
 	#endif
-	//adr = adr + ((slot*MAX_RSA_KEY_SIZE)-MAX_RSA_KEY_SIZE);
+	adr = adr + ((slot*MAX_RSA_KEY_SIZE)-MAX_RSA_KEY_SIZE);
     onlykey_flashget_common((uint8_t*)rsa_private_key, (unsigned long*)adr, (type*128)); 
 	#ifdef DEBUG 
 	Serial.printf("Read RSA Private Key from Sector 0x%X ",adr);
@@ -4158,7 +4158,6 @@ void setcolor (uint8_t Color) {
 #endif
 		  
 void backup() {
-  unsigned char *pos;
   uint8_t temp[MAX_RSA_KEY_SIZE];
   uint8_t large_temp[12323];
   int urllength;
@@ -4169,7 +4168,6 @@ void backup() {
   unsigned char beginbackup[] = "-----BEGIN ONLYKEY BACKUP-----";
   unsigned char endbackup[] = "-----END ONLYKEY BACKUP-----";
   uint8_t ctr[2];
-  uint8_t Large_data_offset[2];
   bool backupyubikey=false;
   uint8_t slot;
   uint8_t length[2];
@@ -4177,7 +4175,7 @@ void backup() {
   memset(large_temp, 0, sizeof(large_temp)); //Wipe all data from largebuffer
  
   
-  for (int z = 0; z < sizeof(beginbackup); z++) {
+  for (uint8_t z = 0; z < sizeof(beginbackup); z++) {
         Keyboard.write(beginbackup[z]);
 		delay(((TYPESPEED[0]*TYPESPEED[0])*10));
 	} 
@@ -4511,9 +4509,9 @@ void backup() {
 	memcpy(large_temp+large_data_offset+1, attestation_priv, 32);
     large_data_offset=large_data_offset+32+1;
 	int u2fcounter = getCounter();
-	large_temp[large_data_offset] = 
+	large_temp[large_data_offset] = u2fcounter >> 8  & 0xFF;
 	large_data_offset++;
-	large_temp[large_data_offset] =
+	large_temp[large_data_offset] = u2fcounter       & 0xFF;
 	large_data_offset++;
 	large_temp[large_data_offset] = length[0];
 	large_data_offset++;
@@ -4556,7 +4554,10 @@ void backup() {
 		uint8_t iv[12];
 		memcpy(iv, temp, 12);
 		onlykey_flashget_ECC (slot);
-		shared_secret (ecc_public_key, temp);
+		if (shared_secret (ecc_public_key, temp)) {
+			hidprint("Error with ECC Shared Secret");
+			return;
+		}
 		SHA256_CTX context;
 		sha256_init(&context);
 		sha256_update(&context, temp, 32); //add secret
@@ -4591,7 +4592,10 @@ void backup() {
 		#endif
 		aes_gcm_encrypt2 (large_temp, iv, temp, large_data_offset); 
 		//No need for unique IVs when random key used
-		rsa_encrypt(32, temp, temp2);
+		if (rsa_encrypt(32, temp, temp2)) {
+			hidprint("Error with RSA Encryption");
+			return;
+		}
 		#ifdef DEBUG
 		Serial.println("RSA Encrypted AES KEY = ");
 		byteprint(temp2, (type*128));
@@ -4615,18 +4619,18 @@ void backup() {
 	
 	
 	int i = 0;
-	while(i <= large_data_offset && i < sizeof(large_temp)) {
+	while(i <= large_data_offset && i < (int)sizeof(large_temp)) {
 		Keyboard.println();
 		delay(((TYPESPEED[0]*TYPESPEED[0])*10));
 		if ((large_data_offset - i) < 57) {
-			int enclen = base64_encode(large_temp+i, temp, (large_data_offset - i), NULL);
+			int enclen = base64_encode(large_temp+i, temp, (large_data_offset - i), 0);
 			for (int z = 0; z < enclen; z++) {
 			Keyboard.write(temp[z]);
 			delay(((TYPESPEED[0]*TYPESPEED[0])*10));
 			}  
 		}	
 		else {
-			base64_encode(large_temp+i, temp, 57, NULL); 
+			base64_encode(large_temp+i, temp, 57, 0); 
 			for (int z = 0; z < 4*(57/3); z++) {
 			Keyboard.write(temp[z]);
 			delay(((TYPESPEED[0]*TYPESPEED[0])*10));
@@ -4644,7 +4648,7 @@ void backup() {
     #endif
 	
 	//End backup footer
-    for (int z = 0; z < sizeof(endbackup); z++) {
+    for (uint8_t z = 0; z < sizeof(endbackup); z++) {
         Keyboard.write(endbackup[z]);
 		delay(((TYPESPEED[0]*TYPESPEED[0])*10));
 	} 
@@ -4662,12 +4666,8 @@ int freeRam () {
 void RESTORE(uint8_t *buffer) {
   uint8_t temp[MAX_RSA_KEY_SIZE+7];
   static uint8_t* large_temp;
-  static int offset = 0;
-  if (offset == 0) large_temp  = (uint8_t*)malloc(12323); //Max size for slots 7715 max size for keys 3072 + 768 + 32 + headers + Max RSA key size
-  int urllength;
-  int usernamelength;
-  int passwordlength;
-  int otplength;
+  static unsigned int offset = 0;
+  if (offset == 0) large_temp = (uint8_t*)malloc(12323); //Max size for slots 7715 max size for keys 3072 + 768 + 32 + headers + Max RSA key size
   uint8_t *ptr;
   uint8_t slot;
   
@@ -4745,7 +4745,7 @@ void RESTORE(uint8_t *buffer) {
 	}
 	}
 	else if (slot <= 4) {
-		uint8_t len;
+		uint8_t len = 0;
 		onlykey_flashget_RSA (slot);
 		if (type != large_temp[offset]) {
 			hidprint("Error key type used for backup does not match");
@@ -4945,7 +4945,7 @@ void RESTORE(uint8_t *buffer) {
 	Serial.print("Successfully loaded backup of key configuration");
 	#endif 
 	memset(temp, 0, sizeof(temp)); //Wipe all data from temp
-	memset(large_temp, 0, sizeof(large_temp)); //Wipe all data from largebuffer
+	memset(large_temp, 0, 12323); //Wipe all data from largebuffer
 	offset = 0;
 	free(large_temp);
 	delay(1000);
@@ -4965,7 +4965,7 @@ void process_packets (uint8_t *buffer) {
 	uint8_t temp[32];
     if (buffer[6]==0xFF) //Not last packet
     {
-        if (large_data_offset <= (sizeof(large_buffer) - 57)) {
+        if (large_data_offset <= (int)(sizeof(large_buffer) - 57)) {
             memcpy(large_buffer+large_data_offset, buffer+7, 57);
             large_data_offset = large_data_offset + 57;
 			return;
@@ -4975,7 +4975,7 @@ void process_packets (uint8_t *buffer) {
         }
         return;
     } else {
-        if (large_data_offset <= (sizeof(large_buffer) - 57) && buffer[6] <= 57) {
+        if (large_data_offset <= (int)(sizeof(large_buffer) - 57) && buffer[6] <= 57) {
             memcpy(large_buffer+large_data_offset, buffer+7, buffer[6]);
             large_data_offset = large_data_offset + buffer[6];
 			CRYPTO_AUTH = 1;

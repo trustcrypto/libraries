@@ -273,7 +273,7 @@ void RSADECRYPT (uint8_t *buffer)
 {
 	extern int large_data_offset;
 	extern uint8_t large_buffer[sizeof(large_buffer)];
-	size_t plaintext_len;
+	size_t plaintext_len = 0;
 
     if(!CRYPTO_AUTH) process_packets (buffer);
 	else if (CRYPTO_AUTH == 4) {
@@ -398,7 +398,7 @@ void ECDSA_EDDSA(uint8_t *buffer)
 						curve);
 	}
 #ifdef DEBUG
-	    for (int i = 0; i< sizeof(ecc_signature); i++) {
+	    for (uint8_t i = 0; i< sizeof(ecc_signature); i++) {
     	    Serial.print(ecc_signature[i],HEX);
      	    }
 #endif
@@ -437,16 +437,19 @@ void ECDH(uint8_t *buffer)
     if(!CRYPTO_AUTH) process_packets (buffer);
 	else if (CRYPTO_AUTH == 4) {
 	memcpy (ephemeral_pub, large_buffer, MAX_ECC_KEY_SIZE*2);
-    shared_secret(ephemeral_pub, secret);
+    if (shared_secret(ephemeral_pub, secret)) {
+		hidprint("Error with ECC Shared Secret");
+		return;
+	}
 #ifdef DEBUG
     Serial.println();
     Serial.print("Public key to generate shared secret for"); 
-	for (int i = 0; i< MAX_ECC_KEY_SIZE*2; i++) {
-		Serial.print(large_buffer[i],HEX);
+	for (int i = 0; i<= MAX_ECC_KEY_SIZE*2; i++) {
+		Serial.print(ephemeral_pub[i],HEX);
 		}
     Serial.println();
     Serial.print("ECDH Secret is "); 
-	for (int i = 0; i< sizeof(secret); i++) {
+	for (uint8_t i = 0; i< sizeof(secret); i++) {
 		Serial.print(secret[i],HEX);
 		}
 #endif
@@ -555,29 +558,22 @@ int shared_secret (uint8_t *ephemeral_pub, uint8_t *secret) {
 	#endif
 	switch (type) {
 	case 1:
-		Curve25519::dh2(ephemeral_pub, ecc_private_key);
+		if (Curve25519::dh2(ephemeral_pub, ecc_private_key)) {
 		memcpy (secret, ephemeral_pub, 32);
-	//#ifdef DEBUG 
-	//Serial.println("Finished Shared Secret");
-	//#endif
-	return 1;		
+		return 0;
+		}
+		else return 1;			
 	case 2:
 		curve = uECC_secp256r1(); 
-		uECC_shared_secret(ephemeral_pub, ecc_private_key, secret, curve);
-	//#ifdef DEBUG 
-	//Serial.println("Finished Shared Secret");
-	//#endif
-	return 1;
+		if (uECC_shared_secret(ephemeral_pub, ecc_private_key, secret, curve)) return 0;
+		else return 1;	
 	case 3:
 		curve = uECC_secp256k1(); 
-		uECC_shared_secret(ephemeral_pub, ecc_private_key, secret, curve);
-	//#ifdef DEBUG 
-	//Serial.println("Finished Shared Secret");
-	//#endif
-	return 1;
+		if (uECC_shared_secret(ephemeral_pub, ecc_private_key, secret, curve)) return 0;
+		else return 1;	
 	default:
 		hidprint("Error ECC type incorrect");
-		return 0;
+		return 1;
 	}
 }
 
@@ -720,7 +716,6 @@ void rsa_getpub (uint8_t type)
 {
   mbedtls_mpi P, Q, N;
   int ret = 0;
-  static mbedtls_rsa_context rsa;
   #ifdef DEBUG
   Serial.print ("RSA generate public N:");
   #endif
@@ -787,6 +782,7 @@ int rsa_encrypt (int len, const uint8_t *in, uint8_t *out)
       Serial.print ("MBEDTLS_ERR_RSA_XXX error code ");
 	  Serial.println (ret);
 	  #endif
+	  return ret;
 	}
   if (ret == 0)
     {
@@ -808,7 +804,7 @@ int rsa_encrypt (int len, const uint8_t *in, uint8_t *out)
       Serial.print ("MBEDTLS_ERR_RSA_XXX error code ");
 	  Serial.println (ret);
 	  #endif
-      return -1;
+      return ret;
     }
 }
 
