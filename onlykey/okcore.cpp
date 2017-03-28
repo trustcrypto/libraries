@@ -101,6 +101,7 @@ elapsedMillis idletimer;
 Task FadeinTask(15, increment);
 Task FadeoutTask(10, decrement);
 uint8_t fade = 0;
+uint8_t isfade = 0;
 /*************************************/
 //yubikey
 /*************************************/
@@ -379,7 +380,7 @@ void recvmsg() {
 		#ifdef OK_Color
 		NEO_Color = 213; //Purple
 		#endif
-		SoftTimer.add(&FadeinTask);
+		fadeon();
 		SIGN(recv_buffer);
 		#endif
 		}
@@ -402,7 +403,7 @@ void recvmsg() {
 		#ifdef OK_Color
 		NEO_Color = 128; //Turquoise
 		#endif
-		SoftTimer.add(&FadeinTask);
+		fadeon();
 		DECRYPT(recv_buffer);
 		#endif
 		}
@@ -454,19 +455,19 @@ void recvmsg() {
 	   }	
       return;
       default: 
-		if(!PDmode) {
+		if(!PDmode && initialized==true && unlocked==true) {
 		#ifdef US_VERSION
 		#ifdef OK_Color
 		NEO_Color = 170; //Blue
 		#endif
-		SoftTimer.add(&FadeinTask);
+			fadeon();
 	    	recvu2fmsg(recv_buffer);
 		#endif
 		}
       return;
     }
   } else {
-	  if(!PDmode) {
+	  if(!PDmode && initialized==true && unlocked==true) {
 	  #ifdef US_VERSION
 	  u2fmsgtimeout(recv_buffer);
 	  #endif
@@ -895,6 +896,8 @@ void SETTIME (uint8_t *buffer)
 
 void GETKEYLABELS ()
 {
+	if (PDmode) return;
+	#ifdef US_VERSION
 #ifdef DEBUG
       Serial.println();
 	  Serial.println("OKGETKEYLABELS MESSAGE RECEIVED");
@@ -907,7 +910,7 @@ void GETKEYLABELS ()
 	  
 	for (int i = 25; i<=28; i++) { //4 labels for RSA keys
 	  onlykey_flashget_label(ptr, (offset + i));
-	  label[0] = (uint8_t)i-24; //1-4
+	  label[0] = (uint8_t)i; //1-4
 	  label[1] = (uint8_t)0x7C;
 	  ByteToChar(label, labelchar, EElen_label+3);
 #ifdef DEBUG
@@ -916,9 +919,9 @@ void GETKEYLABELS ()
 	  hidprint(labelchar);
 	  delay(20);
 	}
-	for (int i = 29; i<=61; i++) { //31 labels for ECC keys
+	for (int i = 29; i<=60; i++) { //32 labels for ECC keys
 	  onlykey_flashget_label(ptr, (offset + i));
-	  label[0] = (uint8_t)i+72; //101-132
+	  label[0] = (uint8_t)i; //101-132
 	  label[1] = (uint8_t)0x7C;
 	  ByteToChar(label, labelchar, EElen_label+3);
 #ifdef DEBUG
@@ -929,6 +932,7 @@ void GETKEYLABELS ()
 	}
 	  
       blink(3);
+	  #endif
       return;
 }
 
@@ -3401,35 +3405,35 @@ void onlykey_flashget_U2F ()
 
 if (PDmode) return;
 #ifdef US_VERSION
-#ifdef DEBUG 
+#ifdef DEBUG
     Serial.println("Flashget U2F");
-#endif 
+#endif
 	uint8_t length[2];
-    uint8_t flashoffset[1];	
+    uint8_t flashoffset[1];
 	onlykey_eeget_flashpos((uint8_t*)flashoffset);
 	uintptr_t adr = (unsigned long)flashoffset[0] * (unsigned long)2048;
 	adr = adr + 10240; //6th flash sector
-    onlykey_flashget_common((uint8_t*)attestation_priv, (unsigned long*)adr, 32); 
-#ifdef DEBUG 
+    onlykey_flashget_common((uint8_t*)attestation_priv, (unsigned long*)adr, 32);
+#ifdef DEBUG
     Serial.print("attestation priv =");
-#endif 
+#endif
     for (unsigned int i = 0; i< sizeof(attestation_priv); i++) {
-#ifdef DEBUG 
+#ifdef DEBUG
     Serial.println(attestation_priv[i],HEX);
-#endif 
+#endif
     }
-    adr=adr+64; //6th flash sector
+    adr=adr+32;
     onlykey_eeget_U2Fcertlen(length);
     int length2 = length[0] << 8 | length[1];
-#ifdef DEBUG 
+#ifdef DEBUG
     Serial.print("attestation der length=");
     Serial.println(length2);
-#endif 
-    onlykey_flashget_common((uint8_t*)attestation_der, (unsigned long*)adr, length2); 
-#ifdef DEBUG 
+#endif
+    onlykey_flashget_common((uint8_t*)attestation_der, (unsigned long*)adr, length2);
+#ifdef DEBUG
     Serial.print("attestation der =");
 	byteprint((uint8_t*)attestation_der, sizeof(attestation_der));
-#endif 
+#endif
 #endif
     return;
 
@@ -3441,38 +3445,45 @@ void SETU2FPRIV (uint8_t *buffer)
 
 if (PDmode) return;
 #ifdef US_VERSION
-#ifdef DEBUG 
+#ifdef DEBUG
     Serial.println("OKSETU2FPRIV MESSAGE RECEIVED");
-#endif 
-    uint8_t flashoffset[1];	
+#endif
+    uint8_t flashoffset[1];
 	onlykey_eeget_flashpos((uint8_t*)flashoffset);
 	uintptr_t adr = (unsigned long)flashoffset[0] * (unsigned long)2048;
 	adr = adr + 10240; //6th flash sector
 	uint8_t *ptr;
+  uint8_t temp[2048];
+  uint8_t *tptr;
+  tptr=temp;
+  ptr=buffer+5;
+  //Copy current flash contents to buffer
+  onlykey_flashget_common(tptr, (unsigned long*)adr, 2048);
+  //Add new flash contents to buffer
+  for( int z = 0; z < 32; z++){
+  temp[z] = ((uint8_t)*(ptr+z));
+  }
 	//Erase flash sector
-#ifdef DEBUG 
+#ifdef DEBUG
     Serial.printf("Erase Sector 0x%X ",adr);
-#endif 
-    if (flashEraseSector((unsigned long*)adr)) 
+#endif
+    if (flashEraseSector((unsigned long*)adr))
     {
-#ifdef DEBUG   
+#ifdef DEBUG
 	Serial.printf("NOT ");
-#endif 
+#endif
     }
 
-#ifdef DEBUG   
-    Serial.printf("successful\r\n"); 
+#ifdef DEBUG
+    Serial.printf("successful\r\n");
 #endif
 
 	//Write buffer to flash
-	ptr=buffer+5;
-    onlykey_flashset_common(ptr, (unsigned long*)adr, 32);
+
+    onlykey_flashset_common(tptr, (unsigned long*)adr, 2048);
 #ifdef DEBUG
     Serial.print("U2F Private address =");
     Serial.println(adr, HEX);
-#endif
-    onlykey_flashget_common(ptr, (unsigned long*)adr, 32); 
-#ifdef DEBUG
     Serial.print("U2F Private value =");
 #endif
     for (int i=0; i<32; i++) {
@@ -3488,7 +3499,7 @@ if (PDmode) return;
   return;
 
 }
-    
+
 
 void WIPEU2FPRIV (uint8_t *buffer)
 {
@@ -3498,7 +3509,7 @@ if (PDmode) return;
 #ifdef DEBUG
     Serial.println("OKWIPEU2FPRIV MESSAGE RECEIVED");
 #endif
-	uint8_t flashoffset[1];	
+	uint8_t flashoffset[1];
 	onlykey_eeget_flashpos((uint8_t*)flashoffset);
 	uintptr_t adr = (unsigned long)flashoffset[0] * (unsigned long)2048;
 	adr = adr + 10240; //6th flash sector
@@ -3507,13 +3518,13 @@ if (PDmode) return;
 		Serial.printf("Erase Sector 0x%X ",adr);
 #endif
 		if (flashEraseSector((unsigned long*)adr)) {
-#ifdef DEBUG 
+#ifdef DEBUG
 	Serial.printf("NOT ");
-#endif 
+#endif
 	}
-#ifdef DEBUG 
+#ifdef DEBUG
 		Serial.printf("successful\r\n");
-#endif 
+#endif
 		hidprint("Successfully wiped U2F Private");
     blink(3);
 #endif
@@ -3526,15 +3537,17 @@ void SETU2FCERT (uint8_t *buffer)
 
 if (PDmode) return;
 #ifdef US_VERSION
-#ifdef DEBUG 
+#ifdef DEBUG
     Serial.println("OKSETU2FCERT MESSAGE RECEIVED");
-#endif 
+#endif
 	uint8_t length[2];
-    uint8_t flashoffset[1];	
+    uint8_t flashoffset[1];
 	onlykey_eeget_flashpos((uint8_t*)flashoffset);
 	uintptr_t adr = (unsigned long)flashoffset[0] * (unsigned long)2048;
-	adr = adr + 10304; //6th flash sector
-	uint8_t *ptr;
+	adr = adr + 10240; //6th flash sector
+  uint8_t *ptr;
+  uint8_t temp[2048];
+  uint8_t *tptr;
 	if (buffer[5]==0xFF) //Not last packet
 	{
 		if (large_data_len <= 710) {
@@ -3556,29 +3569,33 @@ if (PDmode) return;
 		length[0] = large_data_len >> 8  & 0xFF;
 		length[1] = large_data_len       & 0xFF;
 		//Set U2F Certificate size
-		onlykey_eeset_U2Fcertlen(length); 
-#ifdef DEBUG 
-
+		onlykey_eeset_U2Fcertlen(length);
+    //Copy current flash contents to buffer
+    tptr=temp;
+    onlykey_flashget_common(tptr, (unsigned long*)adr, 2048);
+    //Add new flash contents to buffer
+    ptr=(uint8_t*)attestation_der;
+    for( int z = 0; z <= large_data_len; z++){
+    temp[z+32] = ((uint8_t)*(ptr+z));
+    }
+#ifdef DEBUG
 		Serial.print("Length of U2F certificate = ");
         Serial.println(large_data_len);
 		//Erase flash sector
 		Serial.printf("Erase Sector 0x%X ",adr);
-#endif 
+#endif
 		if (flashEraseSector((unsigned long*)adr)) {
-#ifdef DEBUG 
+#ifdef DEBUG
 	Serial.printf("NOT ");
-#endif 
+#endif
 	}
-#ifdef DEBUG 
+#ifdef DEBUG
 		Serial.printf("successful\r\n");
 #endif
 		//Write buffer to flash
-		ptr=(uint8_t*)attestation_der;
-    	onlykey_flashset_common(ptr, (unsigned long*)adr, large_data_len);
-    	       
-
+    	onlykey_flashset_common(tptr, (unsigned long*)adr, 2048);
 	}
-#ifdef DEBUG 
+#ifdef DEBUG
     Serial.print("U2F Cert value =");
 	byteprint((uint8_t*)attestation_der,large_data_len);
 #endif
@@ -3595,34 +3612,35 @@ void WIPEU2FCERT (uint8_t *buffer)
 
 if (PDmode) return;
 #ifdef US_VERSION
-#ifdef DEBUG 
+#ifdef DEBUG
     Serial.println("OKWIPEU2FCERT MESSAGE RECEIVED");
 #endif
 	uint8_t length[2] = {0x00,0x00};
-    uint8_t flashoffset[1];	
+    uint8_t flashoffset[1];
 	onlykey_eeget_flashpos((uint8_t*)flashoffset);
 	uintptr_t adr = (unsigned long)flashoffset[0] * (unsigned long)2048;
-	adr = adr + 10304; //6th flash sector
+	adr = adr + 10240; //6th flash sector
 	//Erase flash sector
-#ifdef DEBUG 
+#ifdef DEBUG
 		Serial.printf("Erase Sector 0x%X ",adr);
 #endif
 		if (flashEraseSector((unsigned long*)adr)) {
-#ifdef DEBUG 
+#ifdef DEBUG
 	Serial.printf("NOT ");
-#endif 
-	}
-#ifdef DEBUG 
-		Serial.printf("successful\r\n");
-		
 #endif
-	onlykey_eeset_U2Fcertlen(length); 
+	}
+#ifdef DEBUG
+		Serial.printf("successful\r\n");
+
+#endif
+	onlykey_eeset_U2Fcertlen(length);
 	hidprint("Successfully wiped U2F Certificate");
     blink(3);
 #endif
     return;
 
 }
+
 
 void SETPRIV (uint8_t *buffer)
 {
@@ -4109,9 +4127,12 @@ void decrement(Task* me) {
   #ifndef OK_Color
   analogWrite(BLINKPIN, fade);
   #else
-  if (NEO_Color < 85) pixels.setPixelColor(0, pixels.Color(fade,0,0));
-  if (NEO_Color < 170) pixels.setPixelColor(0, pixels.Color(0,fade,0));
-  else pixels.setPixelColor(0, pixels.Color(0,0,fade));
+ if (NEO_Color == 1) pixels.setPixelColor(0, pixels.Color(fade,0,0)); //Red
+  else if (NEO_Color < 44) pixels.setPixelColor(0, pixels.Color((fade/2),(fade/2),0)); //Yellow
+  else if (NEO_Color < 86) pixels.setPixelColor(0, pixels.Color(0,fade,0)); //Green
+  else if (NEO_Color < 129) pixels.setPixelColor(0, pixels.Color(0,(fade/2),(fade/2))); //Turquoise
+  else if (NEO_Color < 171) pixels.setPixelColor(0, pixels.Color(0,0,fade)); //Blue
+  else if (NEO_Color < 214) pixels.setPixelColor(0, pixels.Color((fade/2),0,(fade/2))); //Purple
   pixels.show(); // This sends the updated pixel color to the hardware.
   #endif
   if(fade == 0) {
@@ -4124,12 +4145,12 @@ void decrement(Task* me) {
 void fadeoff() {
   SoftTimer.remove(&FadeinTask);
   SoftTimer.remove(&FadeoutTask);
-  fade=0;
+  isfade=0;
 }
 
 void fadeon() {
   SoftTimer.add(&FadeinTask);
-  fade=1;
+  isfade=1;
 }
 
 #ifdef OK_Color

@@ -536,6 +536,8 @@ void processMessage(uint8_t *buffer)
       fadeoff();
       sendLargeResponse(buffer, len);
       large_data_offset = 0;
+	  large_data_len = 0;
+	  memset(large_buffer, 0, sizeof(large_buffer));
     }
 
     break;
@@ -698,6 +700,9 @@ void processMessage(uint8_t *buffer)
         fadeoff();
         sendLargeResponse(buffer, len);
         setCounter(counter+1);
+        large_data_offset = 0;
+		large_data_len = 0;
+	    memset(large_buffer, 0, sizeof(large_buffer));
       } else {
 #ifdef DEBUG
         Serial.println("return error");
@@ -709,7 +714,7 @@ void processMessage(uint8_t *buffer)
     {
       if (reqlength!=0) {
 #ifdef DEBUG
-		Serial.println("U2F Error SW_WRONG_LENGTH 636");
+		Serial.println("U2F Error SW_WRONG_LENGTH");
 #endif
         respondErrorPDU(buffer, SW_WRONG_LENGTH);
         return;
@@ -726,11 +731,10 @@ void processMessage(uint8_t *buffer)
   default:
     {
 #ifdef DEBUG
-	  Serial.println("U2F Error SW_INS_NOT_SUPPORTED 651");
+	  Serial.println("U2F Error SW_INS_NOT_SUPPORTED");
 #endif
       respondErrorPDU(buffer, SW_INS_NOT_SUPPORTED);
     }
-    ;
   }
 
 }
