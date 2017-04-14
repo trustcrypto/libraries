@@ -4311,7 +4311,7 @@ void backup() {
         Serial.println();
         #endif
         #ifdef US_VERSION
-        aes_gcm_decrypt(temp, (uint8_t*)('u'+ID[34]+slot), phash, usernamelength);
+        if (slot <= 12) aes_gcm_decrypt(temp, (uint8_t*)('u'+ID[34]+slot), phash, usernamelength);
         #endif
         }
 		#ifdef DEBUG
@@ -4358,7 +4358,7 @@ void backup() {
         Serial.println();
           #endif
         #ifdef US_VERSION
-        aes_gcm_decrypt(temp, (uint8_t*)('p'+ID[34]+slot), phash, passwordlength);
+        if (slot <= 12) aes_gcm_decrypt(temp, (uint8_t*)('p'+ID[34]+slot), phash, passwordlength);
         #endif
         }
 		#ifdef DEBUG
@@ -4411,9 +4411,7 @@ void backup() {
       Serial.print("TOTP Key Length = ");
       Serial.println(otplength);
       #endif
-      #ifdef US_VERSION
-      if (!PDmode) aes_gcm_decrypt(temp, (uint8_t*)('t'+ID[34]+slot), phash, otplength);
-      #endif
+      if (slot <= 12) aes_gcm_decrypt(temp, (uint8_t*)('t'+ID[34]+slot), phash, otplength);
       #ifdef DEBUG
       Serial.println("Unencrypted");
 	  byteprint(temp, otplength);
