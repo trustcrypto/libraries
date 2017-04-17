@@ -842,14 +842,14 @@ void SETTIME (uint8_t *buffer)
 #ifdef DEBUG
 		Serial.print("CONFIG_MODE");
 #endif
-		hidprint("UNLOCKEDv0.2-beta.4");
+		hidprint("UNLOCKEDv0.2-beta.5");
 	   }
 	   else if (initialized==true && unlocked==true ) 
 	   {
 #ifdef DEBUG
 		Serial.print("UNLOCKED");
 #endif
-		hidprint("UNLOCKEDv0.2-beta.4");
+		hidprint("UNLOCKEDv0.2-beta.5");
 	if (timeStatus() == timeNotSet) {  
     int i, j;                
     for(i=0, j=3; i<4; i++, j--){
