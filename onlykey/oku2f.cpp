@@ -329,6 +329,7 @@ void sendLargeResponse(uint8_t *request, int len)
 		offset += MAX_CONTINUATION_PACKET;
 		delayMicroseconds(2500);
 	}
+	fadeoff();
 }
 
 
@@ -354,7 +355,7 @@ void processMessage(uint8_t *buffer)
 
   if (CLA!=0) {
 #ifdef DEBUG 
-    Serial.println("U2F Error SW_CLA_NOT_SUPPORTED 366");
+    Serial.println("U2F Error SW_CLA_NOT_SUPPORTED");
 #endif 
     respondErrorPDU(buffer, SW_CLA_NOT_SUPPORTED);
     return;
@@ -370,7 +371,7 @@ void processMessage(uint8_t *buffer)
     {
       if (reqlength!=64) {
 #ifdef DEBUG 
-		Serial.println("U2F Error SW_WRONG_LENGTH 382");
+		Serial.println("U2F Error SW_WRONG_LENGTH);
 #endif 
         respondErrorPDU(buffer, SW_WRONG_LENGTH);
         return;
@@ -379,7 +380,7 @@ void processMessage(uint8_t *buffer)
    
       if (!u2f_button) {
 #ifdef DEBUG 
-		Serial.println("U2F Error SW_CONDITIONS_NOT_SATISFIED 391");
+		Serial.println("U2F Error SW_CONDITIONS_NOT_SATISFIED");
 #endif 
         respondErrorPDU(buffer, SW_CONDITIONS_NOT_SATISFIED);
 		return;
@@ -533,7 +534,6 @@ void processMessage(uint8_t *buffer)
       len += 2;
      
       u2f_button = 0;
-      fadeoff();
       sendLargeResponse(buffer, len);
       large_data_offset = 0;
 	  large_data_len = 0;
@@ -544,20 +544,22 @@ void processMessage(uint8_t *buffer)
   case U2F_INS_AUTHENTICATE:
     {
 
-      //minimum is 64 + 1 + 64
-      if (reqlength!=(64+1+64)) {
-#ifdef DEBUG
-		Serial.print("Error SW wrong length");
-#endif
-        respondErrorPDU(buffer, SW_WRONG_LENGTH);
-        return;
-      }
-
       uint8_t *datapart = message + 7;
       uint8_t *challenge_parameter = datapart;
       uint8_t *application_parameter = datapart+32;
       uint8_t handle_len = datapart[64];
       uint8_t *client_handle = datapart+65;
+	  
+#ifdef DEBUG
+		Serial.print("Challenge");
+		byteprint(challenge_parameter, 32);
+		Serial.print("Application");
+		byteprint(application_parameter, 32);
+		Serial.print("Handle Len");
+		Serial.println("handle_len");
+		Serial.print("Client Handle");
+		byteprint(client_handle, 64);
+#endif
 
       if (handle_len!=64) {
         //not from this device
@@ -565,6 +567,25 @@ void processMessage(uint8_t *buffer)
 		Serial.print("Error not from this device");
 #endif
         respondErrorPDU(buffer, SW_WRONG_DATA);
+        return;
+      }
+	  
+	   //minimum is 64 + 1 + 64
+      if (reqlength!=(64+1+64)) {
+#ifdef DEBUG
+		Serial.print("Error SW wrong length");
+#endif
+        respondErrorPDU(buffer, SW_WRONG_LENGTH);
+        return;
+      }
+	  
+	  if (client_handle == 0xFF && client_handle+1 == 0xFF && client_handle+2 == 0xFF && client_handle+3 == 0xFF) {
+        //Custom message encoded in Client Handle
+#ifdef DEBUG
+		Serial.print("Received custom message in U2F client handle");
+#endif
+		SETTIME(client_handle);
+        errorResponse(buffer, ERR_OTHER);
         return;
       }
      
@@ -697,7 +718,6 @@ void processMessage(uint8_t *buffer)
         Serial.println(len);
 #endif
         u2f_button = 0;
-        fadeoff();
         sendLargeResponse(buffer, len);
         setCounter(counter+1);
         large_data_offset = 0;
@@ -752,7 +772,7 @@ void processPacket(uint8_t *buffer)
   int len = buffer[5] << 8 | buffer[6];
   if (cmd > U2FHID_INIT || cmd==U2FHID_LOCK) {
 #ifdef DEBUG
-	Serial.println("U2F Error ERR_INVALID_CMD 671");
+	Serial.println("U2F Error ERR_INVALID_CMD");
 #endif
     errorResponse(recv_buffer, ERR_INVALID_CMD);
     return;
@@ -819,12 +839,12 @@ void recvu2fmsg(uint8_t *buffer) {
 #endif    
     if (cid==0) { 
 #ifdef DEBUG
-	  Serial.println("U2F Error ERR_INVALID_CID 753");
+	  Serial.println("U2F Error ERR_INVALID_CID");
 #endif
       errorResponse(buffer, ERR_INVALID_CID);
       return;
     }
-	   //Support for additional vendor defined commands
+
 	unsigned char cmd_or_cont = buffer[4]; //cmd or continuation
     int len = (buffer[5]) << 8 | buffer[6];
 	
@@ -847,7 +867,7 @@ void recvu2fmsg(uint8_t *buffer) {
 
     if (cid==-1) {
 #ifdef DEBUG
-	  Serial.println("U2F Error ERR_INVALID_CID 907");
+	  Serial.println("U2F Error ERR_INVALID_CID");
 #endif
       errorResponse(buffer, ERR_INVALID_CID);
       return;
@@ -863,7 +883,7 @@ void recvu2fmsg(uint8_t *buffer) {
       cidx = find_channel_index(cid);
       if (cidx==-1) {
 #ifdef DEBUG
-		Serial.println("U2F Error ERR_INVALID_CID 921");
+		Serial.println("U2F Error ERR_INVALID_CID");
 #endif
         errorResponse(buffer, ERR_INVALID_CID);
         return;
@@ -875,7 +895,7 @@ void recvu2fmsg(uint8_t *buffer) {
 
       if (len > MAX_TOTAL_PACKET) {
 #ifdef DEBUG
-	    Serial.println("U2F Error ERR_INVALID_LEN 931");
+	    Serial.println("U2F Error ERR_INVALID_LEN");
 #endif
         errorResponse(buffer, ERR_INVALID_LEN); //invalid length
         return;
@@ -887,13 +907,13 @@ void recvu2fmsg(uint8_t *buffer) {
           if (channel_states[i].state==STATE_CHANNEL_WAIT_CONT) {
             if (i==cidx) {
               #ifdef DEBUG 
-              Serial.println("U2F Error ERR_INVALID_SEQ 942");
+              Serial.println("U2F Error ERR_INVALID_SEQ");
               #endif 
               errorResponse(buffer, ERR_INVALID_SEQ); //invalid sequence
               channel_states[i].state= STATE_CHANNEL_WAIT_PACKET;
             } else {
               #ifdef DEBUG 
-              Serial.println("U2F Error ERR_CHANNEL_BUSY 948");
+              Serial.println("U2F Error ERR_CHANNEL_BUSY");
               #endif 
               errorResponse(buffer, ERR_CHANNEL_BUSY);
               return;
@@ -928,7 +948,7 @@ void recvu2fmsg(uint8_t *buffer) {
       //this is a continuation
       if (cmd_or_cont != expected_next_packet) {
 #ifdef DEBUG 
-        Serial.println("U2F Error ERR_INVALID_SEQ 984");
+        Serial.println("U2F Error ERR_INVALID_SEQ");
 #endif 
         errorResponse(buffer, ERR_INVALID_SEQ); //invalid sequence
         channel_states[cidx].state= STATE_CHANNEL_WAIT_PACKET;
@@ -966,7 +986,7 @@ void u2fmsgtimeout(uint8_t *buffer) {
 #endif        
         memcpy(buffer, &channel_states[i].cid, 4);
 #ifdef DEBUG
-		Serial.println("U2F Error ERR_MSG_TIMEOUT 1017");
+		Serial.println("U2F Error ERR_MSG_TIMEOUT");
 #endif
         errorResponse(buffer, ERR_MSG_TIMEOUT);
         channel_states[i].state= STATE_CHANNEL_WAIT_PACKET;
