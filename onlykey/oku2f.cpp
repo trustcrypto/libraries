@@ -104,6 +104,9 @@ extern char attestation_pub[66];
 extern char attestation_priv[33];
 extern char attestation_der[768];
 extern uint8_t nonce[32];
+#ifdef OK_Color
+extern uint8_t NEO_Color;
+#endif
 
 const char stored_pub[] = "\x04\xC3\xC9\x1F\x25\x2E\x20\x10\x7B\x5E\x8D\xEA\xB1\x90\x20\x98\xF7\x28\x70\x71\xE4\x54\x18\xB8\x98\xCE\x5F\xF1\x7C\xA7\x25\xAE\x78\xC3\x3C\xC7\x01\xC0\x74\x60\x11\xCB\xBB\xB5\x8B\x08\xB6\x1D\x20\xC0\x5E\x75\xD5\x01\xA3\xF8\xF7\xA1\x67\x3F\xBE\x32\x63\xAE\xBE";
 
@@ -329,7 +332,6 @@ void sendLargeResponse(uint8_t *request, int len)
 		offset += MAX_CONTINUATION_PACKET;
 		delayMicroseconds(2500);
 	}
-	fadeoff();
 }
 
 
@@ -371,7 +373,7 @@ void processMessage(uint8_t *buffer)
     {
       if (reqlength!=64) {
 #ifdef DEBUG 
-		Serial.println("U2F Error SW_WRONG_LENGTH);
+		Serial.println("U2F Error SW_WRONG_LENGTH");
 #endif 
         respondErrorPDU(buffer, SW_WRONG_LENGTH);
         return;
@@ -534,6 +536,7 @@ void processMessage(uint8_t *buffer)
       len += 2;
      
       u2f_button = 0;
+	  fadeoff();
       sendLargeResponse(buffer, len);
       large_data_offset = 0;
 	  large_data_len = 0;
@@ -543,7 +546,7 @@ void processMessage(uint8_t *buffer)
     break;
   case U2F_INS_AUTHENTICATE:
     {
-
+	  
       uint8_t *datapart = message + 7;
       uint8_t *challenge_parameter = datapart;
       uint8_t *application_parameter = datapart+32;
@@ -556,21 +559,51 @@ void processMessage(uint8_t *buffer)
 		Serial.print("Application");
 		byteprint(application_parameter, 32);
 		Serial.print("Handle Len");
-		Serial.println("handle_len");
+		Serial.println(handle_len);
 		Serial.print("Client Handle");
 		byteprint(client_handle, 64);
 #endif
 
-      if (handle_len!=64) {
-        //not from this device
+	  if (client_handle[0] == 0xFF && client_handle[1] == 0xFF && client_handle[2] == 0xFF && client_handle[3] == 0xFF) {
+        //Custom message encoded in Client Handle
 #ifdef DEBUG
-		Serial.print("Error not from this device");
-#endif
-        respondErrorPDU(buffer, SW_WRONG_DATA);
+		Serial.print("Received custom message in U2F client handle");
+#endif  
+		if (client_handle[4] == OKSETTIME) {
+		SETTIME(client_handle);
+		} else if (client_handle[4] == OKGETPUBKEY) {
+			if(!PDmode) {
+			#ifdef US_VERSION
+			GETPUBKEY(client_handle);
+			#endif
+			}
+	    } else if (client_handle[4] == OKDECRYPT) {
+			if(!PDmode) {
+			#ifdef US_VERSION
+			#ifdef OK_Color
+			NEO_Color = 128; //Turquoise
+			#endif
+			fadeon();
+			DECRYPT(client_handle);
+			#endif
+			}	
+		} else if (client_handle[4] == OKSIGN) {
+			if(!PDmode) {
+			#ifdef US_VERSION
+			#ifdef OK_Color
+			NEO_Color = 213; //Purple
+			#endif
+			fadeon();
+			SIGN(client_handle);
+			#endif
+			}
+		}
+        errorResponse(buffer, ERR_OTHER);
+		fadeoff();
         return;
       }
 	  
-	   //minimum is 64 + 1 + 64
+      //minimum is 64 + 1 + 64
       if (reqlength!=(64+1+64)) {
 #ifdef DEBUG
 		Serial.print("Error SW wrong length");
@@ -579,16 +612,15 @@ void processMessage(uint8_t *buffer)
         return;
       }
 	  
-	  if (client_handle == 0xFF && client_handle+1 == 0xFF && client_handle+2 == 0xFF && client_handle+3 == 0xFF) {
-        //Custom message encoded in Client Handle
+      if (handle_len!=64) {
+        //not from this device
 #ifdef DEBUG
-		Serial.print("Received custom message in U2F client handle");
+		Serial.print("Error not from this device");
 #endif
-		SETTIME(client_handle);
-        errorResponse(buffer, ERR_OTHER);
+        respondErrorPDU(buffer, SW_WRONG_DATA);
         return;
       }
-     
+
       if (!u2f_button) {
 #ifdef DEBUG
 		Serial.print("Error U2F Button Not Pressed");
@@ -718,6 +750,7 @@ void processMessage(uint8_t *buffer)
         Serial.println(len);
 #endif
         u2f_button = 0;
+		fadeoff();
         sendLargeResponse(buffer, len);
         setCounter(counter+1);
         large_data_offset = 0;
