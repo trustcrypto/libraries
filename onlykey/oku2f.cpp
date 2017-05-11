@@ -552,6 +552,7 @@ void processMessage(uint8_t *buffer)
       uint8_t *application_parameter = datapart+32;
       uint8_t handle_len = datapart[64];
       uint8_t *client_handle = datapart+65;
+	  extern int outputU2F; 
 	  
 #ifdef DEBUG
 		Serial.print("Challenge");
@@ -570,11 +571,15 @@ void processMessage(uint8_t *buffer)
 		Serial.print("Received custom message in U2F client handle");
 #endif  
 		if (client_handle[4] == OKSETTIME) {
-		SETTIME(client_handle);
+			SETTIME(client_handle);
 		} else if (client_handle[4] == OKGETPUBKEY) {
 			if(!PDmode) {
 			#ifdef US_VERSION
-			GETPUBKEY(client_handle);
+			memcpy(recv_buffer, client_handle, 64);
+			large_data_offset = 0;
+			GETPUBKEY(recv_buffer);
+			outputU2F = 1;
+			fadeoff();
 			#endif
 			}
 	    } else if (client_handle[4] == OKDECRYPT) {
@@ -584,7 +589,10 @@ void processMessage(uint8_t *buffer)
 			NEO_Color = 128; //Turquoise
 			#endif
 			fadeon();
-			DECRYPT(client_handle);
+			outputU2F = 1;
+			memcpy(recv_buffer, client_handle, 64);
+			large_data_offset = 0;
+			DECRYPT(recv_buffer);
 			#endif
 			}	
 		} else if (client_handle[4] == OKSIGN) {
@@ -594,12 +602,15 @@ void processMessage(uint8_t *buffer)
 			NEO_Color = 213; //Purple
 			#endif
 			fadeon();
-			SIGN(client_handle);
+			outputU2F = 1;
+			memcpy(recv_buffer, client_handle, 64);
+			large_data_offset = 0;
+			SIGN(recv_buffer);
 			#endif
 			}
 		}
-        errorResponse(buffer, ERR_OTHER);
 		fadeoff();
+	    errorResponse(buffer, ERR_OTHER);
         return;
       }
 	  
@@ -740,7 +751,7 @@ void processMessage(uint8_t *buffer)
 				} else {
 				    large_resp_buffer[len++] = 32;  //32 byte
 				}
-        memcpy(large_resp_buffer+len, signature+32, 32); //R value
+        memcpy(large_resp_buffer+len, signature+32, 32); //S value
         len +=32;
         uint8_t *last = large_resp_buffer+len;
         APPEND_SW_NO_ERROR(last);

@@ -149,6 +149,7 @@ size_t length = 48; // First block should wait for the pool to fill up.
 uint8_t expected_next_packet;
 int large_data_len;
 int large_data_offset;
+int packet_buffer_offset;
 uint8_t large_buffer[BUFFER_SIZE];
 uint8_t large_resp_buffer[1024];
 uint8_t recv_buffer[64];
@@ -156,6 +157,7 @@ uint8_t resp_buffer[64];
 char attestation_pub[66];
 char attestation_priv[33];
 char attestation_der[768];
+int outputU2F = 0;
 /*************************************/
 //ECC assignments
 /*************************************/
@@ -5011,9 +5013,9 @@ void process_packets (uint8_t *buffer) {
 	uint8_t temp[32];
     if (buffer[6]==0xFF) //Not last packet
     {
-        if (large_data_offset <= (int)(sizeof(large_buffer) - 57)) {
-            memcpy(large_buffer+large_data_offset, buffer+7, 57);
-            large_data_offset = large_data_offset + 57;
+        if (packet_buffer_offset <= (int)(sizeof(large_buffer) - 57)) {
+            memcpy(large_buffer+packet_buffer_offset, buffer+7, 57);
+            packet_buffer_offset = packet_buffer_offset + 57;
 			return;
         } else {
               hidprint("Error packets received exceeded size limit");
@@ -5021,13 +5023,13 @@ void process_packets (uint8_t *buffer) {
         }
         return;
     } else {
-        if (large_data_offset <= (int)(sizeof(large_buffer) - 57) && buffer[6] <= 57) {
-            memcpy(large_buffer+large_data_offset, buffer+7, buffer[6]);
-            large_data_offset = large_data_offset + buffer[6];
+        if (packet_buffer_offset <= (int)(sizeof(large_buffer) - 57) && buffer[6] <= 57) {
+            memcpy(large_buffer+packet_buffer_offset, buffer+7, buffer[6]);
+            packet_buffer_offset = packet_buffer_offset + buffer[6];
 			CRYPTO_AUTH = 1;
 			SHA256_CTX msg_hash;
 			sha256_init(&msg_hash);
-			sha256_update(&msg_hash, large_buffer, large_data_offset); //add data to sign
+			sha256_update(&msg_hash, large_buffer, packet_buffer_offset); //add data to sign
 			sha256_final(&msg_hash, temp); //Temporarily store hash
 			if (temp[0] < 6) Challenge_button1 = '1'; //Convert first byte of hash
 			else {

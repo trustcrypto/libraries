@@ -85,10 +85,11 @@ extern uint8_t Challenge_button1;
 extern uint8_t Challenge_button2;
 extern uint8_t Challenge_button3;
 extern uint8_t CRYPTO_AUTH;
+extern int outputU2F;
 uint8_t type;
 extern uint8_t resp_buffer[64];
 
-extern int large_data_offset;
+extern int packet_buffer_offset;
 extern uint8_t large_buffer[BUFFER_SIZE];
 
 void SIGN (uint8_t *buffer) {
@@ -181,87 +182,110 @@ void GETRSAPUBKEY (uint8_t *buffer)
 #ifdef DEBUG
 	byteprint(rsa_publicN, (type*128));
 #endif
+    if (!outputU2F){
 	memcpy(resp_buffer, rsa_publicN, 64);
     RawHID.send(resp_buffer, 0);
 	delay(100);
 	memcpy(resp_buffer, rsa_publicN+64, 64);
     RawHID.send(resp_buffer, 0);
 	delay(100);
-	if (type>=2) {
+	}
+	if (type>=2 && !outputU2F) {
 	memcpy(resp_buffer, rsa_publicN+128, 64);
     RawHID.send(resp_buffer, 0);
 	delay(100);
 	memcpy(resp_buffer, rsa_publicN+192, 64);
     RawHID.send(resp_buffer, 0);
 	delay(100);
-	} if (type>=3) {
+	} if (type>=3 && !outputU2F) {
 	memcpy(resp_buffer, rsa_publicN+256, 64);
     RawHID.send(resp_buffer, 0);
 	delay(100);
 	memcpy(resp_buffer, rsa_publicN+320, 64);
     RawHID.send(resp_buffer, 0);
 	delay(100);
-	} if (type==4) {
+	} if (type==4 && !outputU2F) {
 	memcpy(resp_buffer, rsa_publicN+384, 64);
     RawHID.send(resp_buffer, 0);
 	delay(100);
 	memcpy(resp_buffer, rsa_publicN+448, 64);
     RawHID.send(resp_buffer, 0);
 	delay(100);
+	} else if (outputU2F) {
+	memcpy(large_buffer, rsa_publicN, (type*128));
+	uint8_t *ptr = large_buffer+(type*128);
+	APPEND_SW_NO_ERROR(ptr);
+	sendLargeResponse(large_buffer, ((type*128)+2));	
+	memset(large_buffer, 0, 514);
+	outputU2F = 0;
 	}
 	blink(3);
 }
 
 void RSASIGN (uint8_t *buffer)
 {
-	extern int large_data_offset;
+	extern int packet_buffer_offset;
 	extern uint8_t large_buffer[sizeof(large_buffer)];
 	uint8_t rsa_signature[(type*128)];
 
     if(!CRYPTO_AUTH) process_packets (buffer);
-	else if (CRYPTO_AUTH == 4) {
+	else if (packet_buffer_offset != 28 || packet_buffer_offset != 32 || packet_buffer_offset != 48 || packet_buffer_offset != 64) {
+	hidprint("Error with RSA data to sign invalid size");
+	CRYPTO_AUTH=0;
+	fadeoff();
+	return;
+	} else if (CRYPTO_AUTH == 4) {
 
 #ifdef DEBUG
     Serial.println();
-    Serial.printf("RSA data to sign size=%d", large_data_offset);
+    Serial.printf("RSA data to sign size=%d", packet_buffer_offset);
 	Serial.println();
-	byteprint(large_buffer, large_data_offset);
+	byteprint(large_buffer, packet_buffer_offset);
 #endif
 	// sign data in large_buffer 
-    if (rsa_sign (large_data_offset, large_buffer, rsa_signature) == 0)
+    if (rsa_sign (packet_buffer_offset, large_buffer, rsa_signature) == 0)
 	{
 #ifdef DEBUG
 		Serial.print("Signature = ");
 	    byteprint(rsa_signature, sizeof(rsa_signature));
 		Serial.println();
 #endif
+	if (!outputU2F){
 	memcpy(resp_buffer, rsa_signature, 64);
     RawHID.send(resp_buffer, 0);
 	delay(10);
 	memcpy(resp_buffer, rsa_signature+64, 64);
     RawHID.send(resp_buffer, 0);
 	delay(10);
-	if (type>=2) {
+	}
+	if (type>=2 && !outputU2F) {
 	memcpy(resp_buffer, rsa_signature+128, 64);
     RawHID.send(resp_buffer, 0);
 	delay(10);
 	memcpy(resp_buffer, rsa_signature+192, 64);
     RawHID.send(resp_buffer, 0);
 	delay(10);
-	} if (type>=3) {
+	} if (type>=3 && !outputU2F) {
 	memcpy(resp_buffer, rsa_signature+256, 64);
     RawHID.send(resp_buffer, 0);
 	delay(10);
 	memcpy(resp_buffer, rsa_signature+320, 64);
     RawHID.send(resp_buffer, 0);
 	delay(10);
-	} if (type==4) {
+	} if (type==4 && !outputU2F) {
 	memcpy(resp_buffer, rsa_signature+384, 64);
     RawHID.send(resp_buffer, 0);
 	delay(10);
 	memcpy(resp_buffer, rsa_signature+448, 64);
     RawHID.send(resp_buffer, 0);
 	delay(10);
+	} else if (outputU2F) {
+	memcpy(large_buffer, rsa_signature, (type*128));
+	uint8_t *ptr = large_buffer+(type*128);
+	APPEND_SW_NO_ERROR(ptr);
+    sendLargeResponse(large_buffer, ((type*128)+2));
+	memset(large_buffer, 0, 514);
+	outputU2F = 0;
 	}
 	} else {
 		hidprint("Error with RSA signing");
@@ -273,7 +297,7 @@ void RSASIGN (uint8_t *buffer)
 	Challenge_button3 = 0;
     blink(3);
     // Reset the large buffer offset
-    large_data_offset = 0;
+    packet_buffer_offset = 0;
 	memset(large_buffer, 0, sizeof(large_buffer)); //wipe buffer
     return;
 	} else {
@@ -285,17 +309,23 @@ void RSASIGN (uint8_t *buffer)
 
 void RSADECRYPT (uint8_t *buffer)
 {
-	extern int large_data_offset;
+	extern int packet_buffer_offset;
 	extern uint8_t large_buffer[sizeof(large_buffer)];
 	size_t plaintext_len = 0;
 
     if(!CRYPTO_AUTH) process_packets (buffer);
+	if (packet_buffer_offset != (type*128)) {
+	hidprint("Error with RSA data to decrypt invalid size");
+	CRYPTO_AUTH=0;
+	fadeoff();
+	return;
+	}
 	else if (CRYPTO_AUTH == 4) {
 #ifdef DEBUG
     Serial.println();
-    Serial.printf("RSA ciphertext blob size=%d", large_data_offset);
+    Serial.printf("RSA ciphertext blob size=%d", packet_buffer_offset);
 	Serial.println();
-	byteprint(large_buffer, large_data_offset);
+	byteprint(large_buffer, packet_buffer_offset);
 #endif
 	// decrypt ciphertext in large_buffer to large_buffer
     if (rsa_decrypt (plaintext_len, large_buffer, large_buffer) == 0)
@@ -308,37 +338,45 @@ void RSADECRYPT (uint8_t *buffer)
 		byteprint(large_buffer, ((type*128)-11));
 		Serial.println();
 #endif
-    memcpy(resp_buffer, large_buffer, 64);
+    if (!outputU2F){
+	memcpy(resp_buffer, large_buffer, 64);
     RawHID.send(resp_buffer, 0);
 	delay(10);
-	if (plaintext_len > 64) {
+	}
+	if (plaintext_len > 64 && !outputU2F) {
 	memcpy(resp_buffer, large_buffer+64, 64);
     RawHID.send(resp_buffer, 0);
 	delay(10);
-	} if (plaintext_len > 128) {
+	} if (plaintext_len > 128 && !outputU2F) {
 	memcpy(resp_buffer, large_buffer+128, 64);
     RawHID.send(resp_buffer, 0);
 	delay(10);
-	} if (plaintext_len > 192) {
+	} if (plaintext_len > 192 && !outputU2F) {
 	memcpy(resp_buffer, large_buffer+192, 64);
     RawHID.send(resp_buffer, 0);
 	delay(10);
-	} if (plaintext_len > 256) {
+	} if (plaintext_len > 256 && !outputU2F) {
 	memcpy(resp_buffer, large_buffer+256, 64);
     RawHID.send(resp_buffer, 0);
 	delay(10);
-	} if (plaintext_len > 320) {
+	} if (plaintext_len > 320 && !outputU2F) {
 	memcpy(resp_buffer, large_buffer+320, 64);
     RawHID.send(resp_buffer, 0);
 	delay(10);
-	} if (plaintext_len > 384) {
+	} if (plaintext_len > 384 && !outputU2F) {
 	memcpy(resp_buffer, large_buffer+384, 64);
     RawHID.send(resp_buffer, 0);
 	delay(10);
-	} if (plaintext_len > 448) {
+	} if (plaintext_len > 448 && !outputU2F) {
 	memcpy(resp_buffer, large_buffer+448, 64);
     RawHID.send(resp_buffer, 0);
 	delay(10);
+	} else if (outputU2F) {
+	memcpy(large_buffer, ecc_public_key, 64);
+	uint8_t *ptr = large_buffer+64;
+	APPEND_SW_NO_ERROR(ptr);
+    sendLargeResponse(large_buffer, (plaintext_len+2));
+	outputU2F = 0;
 	}
 	} else {
 		hidprint("Error with RSA decryption");
@@ -350,7 +388,7 @@ void RSADECRYPT (uint8_t *buffer)
 	Challenge_button3 = 0;
     blink(3);
     // Reset the large buffer offset
-    large_data_offset = 0;
+    packet_buffer_offset = 0;
 	memset(large_buffer, 0, sizeof(large_buffer)); //wipe buffer
     return;
 	} else {
@@ -367,7 +405,16 @@ void GETECCPUBKEY (uint8_t *buffer)
     	    Serial.println("OKGETECCPUBKEY MESSAGE RECEIVED"); 
 			byteprint(ecc_public_key, MAX_ECC_KEY_SIZE*2);
 	    #endif
-            RawHID.send(ecc_public_key, 0);
+            if (outputU2F) {
+			memcpy(large_buffer, ecc_public_key, 64);
+			uint8_t *ptr = large_buffer+64;
+			APPEND_SW_NO_ERROR(ptr);
+			sendLargeResponse(large_buffer, 64+2);
+			memset(large_buffer, 0, 64+2); //wipe buffer
+			outputU2F = 0;
+			} else {
+			RawHID.send(ecc_public_key, 0);
+			}
 			memset(ecc_public_key, 0, MAX_ECC_KEY_SIZE*2); //wipe buffer
 			memset(ecc_private_key, 0, MAX_ECC_KEY_SIZE); //wipe buffer
             blink(3);
@@ -375,7 +422,7 @@ void GETECCPUBKEY (uint8_t *buffer)
 
 void ECDSA_EDDSA(uint8_t *buffer)
 {
-	extern int large_data_offset;
+	extern int packet_buffer_offset;
 	extern uint8_t large_buffer[sizeof(large_buffer)];
 	uint8_t ecc_signature[64];
 #ifdef DEBUG
@@ -387,17 +434,17 @@ void ECDSA_EDDSA(uint8_t *buffer)
 
 #ifdef DEBUG
     Serial.println();
-    Serial.printf("ECC challenge blob size=%d", large_data_offset);
+    Serial.printf("ECC challenge blob size=%d", packet_buffer_offset);
 #endif
 	uint8_t tmp[32 + 32 + 64];
 	SHA256_HashContext ectx = {{&init_SHA256, &update_SHA256, &finish_SHA256, 64, 32, tmp}};
 	// Sign the blob stored in the buffer
-	if (type==0x01) Ed25519::sign(ecc_signature, ecc_private_key, ecc_public_key, large_buffer, large_data_offset);
+	if (type==0x01) Ed25519::sign(ecc_signature, ecc_private_key, ecc_public_key, large_buffer, packet_buffer_offset);
 	else if (type==0x02) {
 		    const struct uECC_Curve_t * curve = uECC_secp256r1(); //P-256
 			uECC_sign_deterministic(ecc_private_key,
 						large_buffer,
-						large_data_offset,
+						packet_buffer_offset,
 						&ectx.uECC,
 						ecc_signature,
 						curve);
@@ -406,7 +453,7 @@ void ECDSA_EDDSA(uint8_t *buffer)
 			const struct uECC_Curve_t * curve = uECC_secp256k1(); 
 			uECC_sign_deterministic(ecc_private_key,
 						large_buffer,
-						large_data_offset,
+						packet_buffer_offset,
 						&ectx.uECC,
 						ecc_signature,
 						curve);
@@ -416,9 +463,18 @@ void ECDSA_EDDSA(uint8_t *buffer)
     	    Serial.print(ecc_signature[i],HEX);
      	    }
 #endif
-    RawHID.send(ecc_signature, 0);
+	if (outputU2F) {
+	memcpy(large_buffer, ecc_signature, 64);
+	uint8_t *ptr = large_buffer+64;
+	APPEND_SW_NO_ERROR(ptr);
+	sendLargeResponse(large_buffer, 64+2);
+	memset(large_buffer, 0, 64+2);
+	outputU2F = 0;
+	} else{
+	RawHID.send(ecc_signature, 0);
+	}
 	// Reset the large buffer offset
-    large_data_offset = 0;
+    packet_buffer_offset = 0;
 	memset(large_buffer, 0, sizeof(large_buffer)); //wipe buffer
     // Stop the fade in
     fadeoff();
@@ -440,7 +496,7 @@ void ECDSA_EDDSA(uint8_t *buffer)
 
 void ECDH(uint8_t *buffer)
 {
-	extern int large_data_offset;
+	extern int packet_buffer_offset;
 	extern uint8_t large_buffer[sizeof(large_buffer)];
     uint8_t ephemeral_pub[MAX_ECC_KEY_SIZE*2];
 	uint8_t secret[MAX_ECC_KEY_SIZE];
@@ -467,7 +523,16 @@ void ECDH(uint8_t *buffer)
 		Serial.print(secret[i],HEX);
 		}
 #endif
+	if (outputU2F) {
+	memcpy(large_buffer, secret, 32);
+	uint8_t *ptr = large_buffer+32;
+	APPEND_SW_NO_ERROR(ptr);
+	sendLargeResponse(large_buffer, 32+2);
+	memset(large_buffer, 0, 32+2);
+	outputU2F = 0;
+	} else{
 	RawHID.send(secret, 0);
+	}
 	//delay(100);
     // Reference - https://www.ietf.org/mail-archive/web/openpgp/current/msg00637.html
 	// https://fossies.org/linux/misc/gnupg-2.1.17.tar.gz/gnupg-2.1.17/g10/ecdh.c
@@ -507,7 +572,7 @@ void ECDH(uint8_t *buffer)
 		sha256_init(&context);
 		sha256_update(&context, counter, 4); //add counter
 		sha256_update(&context, secret, sizeof(secret)); //add secret
-		sha256_update(&context, msg, (large_data_offset-1-type)); //add message
+		sha256_update(&context, msg, (packet_buffer_offset-1-type)); //add message
 		sha256_final(&context, hash); 
 		break;
 		case 3: //sha384
@@ -515,7 +580,7 @@ void ECDH(uint8_t *buffer)
 		mbedtls_sha512_starts (&sha512, 1); //is 384
 		mbedtls_sha512_update (&sha512, counter, 4); //add counter
 		mbedtls_sha512_update (&sha512, secret, sizeof(secret)); //add secret
-		mbedtls_sha512_update (&sha512, msg, (large_data_offset-1-type)); //add message
+		mbedtls_sha512_update (&sha512, msg, (packet_buffer_offset-1-type)); //add message
 		mbedtls_sha512_finish (&sha512, hash); 
 		mbedtls_sha512_free (&sha512);
 		break;
@@ -524,7 +589,7 @@ void ECDH(uint8_t *buffer)
 		mbedtls_sha512_starts (&sha512, 0); //is not 384
 		mbedtls_sha512_update (&sha512, counter, 4); //add counter
 		mbedtls_sha512_update (&sha512, secret, sizeof(secret)); //add secret
-		mbedtls_sha512_update (&sha512, msg, (large_data_offset-1-sizeof(secret))); //add message
+		mbedtls_sha512_update (&sha512, msg, (packet_buffer_offset-1-sizeof(secret))); //add message
 		mbedtls_sha512_finish (&sha512, hash); 
 		mbedtls_sha512_free (&sha512);
 		break;
@@ -550,7 +615,7 @@ void ECDH(uint8_t *buffer)
 	Challenge_button3 = 0;
     blink(3);
     // Reset the large buffer offset
-    large_data_offset = 0;
+    packet_buffer_offset = 0;
 	// Stop the fade in
     fadeoff();
 	memset(large_buffer, 0, sizeof(large_buffer)); //wipe buffer
