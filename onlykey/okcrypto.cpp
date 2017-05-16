@@ -78,7 +78,7 @@ uint8_t rsa_private_key[MAX_RSA_KEY_SIZE];
 /*************************************/
 //ECC Authentication assignments
 /*************************************/
-uint8_t ecc_public_key[MAX_ECC_KEY_SIZE*2];
+uint8_t ecc_public_key[(MAX_ECC_KEY_SIZE*2)+1];
 uint8_t ecc_private_key[MAX_ECC_KEY_SIZE];
 /*************************************/
 extern uint8_t Challenge_button1;
@@ -87,10 +87,12 @@ extern uint8_t Challenge_button3;
 extern uint8_t CRYPTO_AUTH;
 extern int outputU2F;
 uint8_t type;
-extern uint8_t resp_buffer[64];
-
 extern int packet_buffer_offset;
-extern uint8_t large_buffer[BUFFER_SIZE];
+extern uint8_t resp_buffer[64];
+extern uint8_t large_buffer[1024];
+extern uint8_t packet_buffer[768];
+extern uint8_t recv_buffer[64];
+extern int large_data_len;
 
 void SIGN (uint8_t *buffer) {
 	uECC_set_rng(&RNG2); 
@@ -110,7 +112,7 @@ void SIGN (uint8_t *buffer) {
 		#ifdef DEBUG
 		Serial.print("Error key not set as signature key");
 		#endif
-		hidprint("Error key not set as signature key");
+		if (!outputU2F) hidprint("Error key not set as signature key");
 		return;
 	}
 	RSASIGN(buffer);
@@ -127,7 +129,7 @@ void SIGN (uint8_t *buffer) {
 		#ifdef DEBUG
 		Serial.print("Error key not set as signature key");
 		#endif
-		hidprint("Error key not set as signature key");
+		if (!outputU2F) hidprint("Error key not set as signature key");
 		return;
 	}
 	#ifdef DEBUG
@@ -163,14 +165,14 @@ void DECRYPT (uint8_t *buffer){
 	if (buffer[5] < 101) { //Slot 101-132 are for ECC, 1-4 are for RSA
 	uint8_t features = onlykey_flashget_RSA (buffer[5]);
 	if (!is_bit_set(features, 5)) {
-		hidprint("Error key not set as decryption key");
+		if (!outputU2F) hidprint("Error key not set as decryption key");
 		return;
 	}
 	RSADECRYPT(buffer);
 	} else {
 	uint8_t features = onlykey_flashget_ECC (buffer[5]);	
 	if (!is_bit_set(features, 5)) {
-		hidprint("Error key not set as decryption key");
+		if (!outputU2F) hidprint("Error key not set as decryption key");
 		return;
 	}
 	ECDH(buffer);
@@ -212,28 +214,27 @@ void GETRSAPUBKEY (uint8_t *buffer)
     RawHID.send(resp_buffer, 0);
 	delay(100);
 	} else if (outputU2F) {
-	memcpy(large_buffer, rsa_publicN, (type*128));
-	uint8_t *ptr = large_buffer+(type*128);
-	APPEND_SW_NO_ERROR(ptr);
-	sendLargeResponse(large_buffer, ((type*128)+2));	
-	memset(large_buffer, 0, 514);
-	outputU2F = 0;
+	store_U2F_response(rsa_publicN, (type*128));
 	}
 	blink(3);
 }
 
 void RSASIGN (uint8_t *buffer)
 {
-	extern int packet_buffer_offset;
-	extern uint8_t large_buffer[sizeof(large_buffer)];
 	uint8_t rsa_signature[(type*128)];
 
     if(!CRYPTO_AUTH) process_packets (buffer);
-	else if (packet_buffer_offset != 28 || packet_buffer_offset != 32 || packet_buffer_offset != 48 || packet_buffer_offset != 64) {
-	hidprint("Error with RSA data to sign invalid size");
-	CRYPTO_AUTH=0;
-	fadeoff();
-	return;
+	else if (packet_buffer_offset != 28 && packet_buffer_offset != 32 && packet_buffer_offset != 48 && packet_buffer_offset != 64) {
+		if (!outputU2F) hidprint("Error with RSA data to sign invalid size");
+		fadeoff();
+		CRYPTO_AUTH = 0;
+		Challenge_button1 = 0;
+		Challenge_button2 = 0;
+		Challenge_button3 = 0;
+		// Reset the large buffer offset
+		packet_buffer_offset = 0;
+		memset(large_buffer, 0, sizeof(large_buffer)); //wipe buffer
+		return;
 	} else if (CRYPTO_AUTH == 4) {
 
 #ifdef DEBUG
@@ -280,15 +281,10 @@ void RSASIGN (uint8_t *buffer)
     RawHID.send(resp_buffer, 0);
 	delay(10);
 	} else if (outputU2F) {
-	memcpy(large_buffer, rsa_signature, (type*128));
-	uint8_t *ptr = large_buffer+(type*128);
-	APPEND_SW_NO_ERROR(ptr);
-    sendLargeResponse(large_buffer, ((type*128)+2));
-	memset(large_buffer, 0, 514);
-	outputU2F = 0;
+	store_U2F_response(rsa_signature, (type*128));
 	}
 	} else {
-		hidprint("Error with RSA signing");
+		if (!outputU2F) hidprint("Error with RSA signing");
 	}
 	fadeoff();
 	CRYPTO_AUTH = 0;
@@ -298,6 +294,7 @@ void RSASIGN (uint8_t *buffer)
     blink(3);
     // Reset the large buffer offset
     packet_buffer_offset = 0;
+	memset(packet_buffer, 0, sizeof(packet_buffer));
 	memset(large_buffer, 0, sizeof(large_buffer)); //wipe buffer
     return;
 	} else {
@@ -309,16 +306,20 @@ void RSASIGN (uint8_t *buffer)
 
 void RSADECRYPT (uint8_t *buffer)
 {
-	extern int packet_buffer_offset;
-	extern uint8_t large_buffer[sizeof(large_buffer)];
 	size_t plaintext_len = 0;
 
     if(!CRYPTO_AUTH) process_packets (buffer);
 	if (packet_buffer_offset != (type*128)) {
-	hidprint("Error with RSA data to decrypt invalid size");
-	CRYPTO_AUTH=0;
-	fadeoff();
-	return;
+		if (!outputU2F) hidprint("Error with RSA data to decrypt invalid size");
+		fadeoff();
+		CRYPTO_AUTH = 0;
+		Challenge_button1 = 0;
+		Challenge_button2 = 0;
+		Challenge_button3 = 0;
+		// Reset the large buffer offset
+		packet_buffer_offset = 0;
+		memset(large_buffer, 0, sizeof(large_buffer)); //wipe buffer
+		return;
 	}
 	else if (CRYPTO_AUTH == 4) {
 #ifdef DEBUG
@@ -372,14 +373,10 @@ void RSADECRYPT (uint8_t *buffer)
     RawHID.send(resp_buffer, 0);
 	delay(10);
 	} else if (outputU2F) {
-	memcpy(large_buffer, ecc_public_key, 64);
-	uint8_t *ptr = large_buffer+64;
-	APPEND_SW_NO_ERROR(ptr);
-    sendLargeResponse(large_buffer, (plaintext_len+2));
-	outputU2F = 0;
+	store_U2F_response(large_buffer, plaintext_len);
 	}
 	} else {
-		hidprint("Error with RSA decryption");
+		if (!outputU2F) hidprint("Error with RSA decryption");
 	}
 	fadeoff();
 	CRYPTO_AUTH = 0;
@@ -389,6 +386,7 @@ void RSADECRYPT (uint8_t *buffer)
     blink(3);
     // Reset the large buffer offset
     packet_buffer_offset = 0;
+	memset(packet_buffer, 0, sizeof(packet_buffer));
 	memset(large_buffer, 0, sizeof(large_buffer)); //wipe buffer
     return;
 	} else {
@@ -403,15 +401,10 @@ void GETECCPUBKEY (uint8_t *buffer)
 		onlykey_flashget_ECC (buffer[5]);        
 			#ifdef DEBUG
     	    Serial.println("OKGETECCPUBKEY MESSAGE RECEIVED"); 
-			byteprint(ecc_public_key, MAX_ECC_KEY_SIZE*2);
+			byteprint(ecc_public_key, sizeof(ecc_public_key));
 	    #endif
             if (outputU2F) {
-			memcpy(large_buffer, ecc_public_key, 64);
-			uint8_t *ptr = large_buffer+64;
-			APPEND_SW_NO_ERROR(ptr);
-			sendLargeResponse(large_buffer, 64+2);
-			memset(large_buffer, 0, 64+2); //wipe buffer
-			outputU2F = 0;
+			store_U2F_response(ecc_public_key, sizeof(ecc_public_key)); 
 			} else {
 			RawHID.send(ecc_public_key, 0);
 			}
@@ -422,8 +415,6 @@ void GETECCPUBKEY (uint8_t *buffer)
 
 void ECDSA_EDDSA(uint8_t *buffer)
 {
-	extern int packet_buffer_offset;
-	extern uint8_t large_buffer[sizeof(large_buffer)];
 	uint8_t ecc_signature[64];
 #ifdef DEBUG
     Serial.println();
@@ -464,12 +455,7 @@ void ECDSA_EDDSA(uint8_t *buffer)
      	    }
 #endif
 	if (outputU2F) {
-	memcpy(large_buffer, ecc_signature, 64);
-	uint8_t *ptr = large_buffer+64;
-	APPEND_SW_NO_ERROR(ptr);
-	sendLargeResponse(large_buffer, 64+2);
-	memset(large_buffer, 0, 64+2);
-	outputU2F = 0;
+	store_U2F_response(ecc_signature, MAX_ECC_KEY_SIZE*2); 
 	} else{
 	RawHID.send(ecc_signature, 0);
 	}
@@ -483,6 +469,8 @@ void ECDSA_EDDSA(uint8_t *buffer)
 	Challenge_button2 = 0;
 	Challenge_button3 = 0;
     blink(3);
+	packet_buffer_offset = 0;
+	memset(packet_buffer, 0, sizeof(packet_buffer));
 	memset(ecc_public_key, 0, sizeof(ecc_public_key)); //wipe buffer
 	memset(ecc_private_key, 0, sizeof(ecc_private_key)); //wipe buffer
     return;
@@ -496,8 +484,6 @@ void ECDSA_EDDSA(uint8_t *buffer)
 
 void ECDH(uint8_t *buffer)
 {
-	extern int packet_buffer_offset;
-	extern uint8_t large_buffer[sizeof(large_buffer)];
     uint8_t ephemeral_pub[MAX_ECC_KEY_SIZE*2];
 	uint8_t secret[MAX_ECC_KEY_SIZE];
 #ifdef DEBUG
@@ -508,7 +494,7 @@ void ECDH(uint8_t *buffer)
 	else if (CRYPTO_AUTH == 4) {
 	memcpy (ephemeral_pub, large_buffer, MAX_ECC_KEY_SIZE*2);
     if (shared_secret(ephemeral_pub, secret)) {
-		hidprint("Error with ECC Shared Secret");
+		if (!outputU2F) hidprint("Error with ECC Shared Secret");
 		return;
 	}
 #ifdef DEBUG
@@ -524,12 +510,7 @@ void ECDH(uint8_t *buffer)
 		}
 #endif
 	if (outputU2F) {
-	memcpy(large_buffer, secret, 32);
-	uint8_t *ptr = large_buffer+32;
-	APPEND_SW_NO_ERROR(ptr);
-	sendLargeResponse(large_buffer, 32+2);
-	memset(large_buffer, 0, 32+2);
-	outputU2F = 0;
+	store_U2F_response(secret, MAX_ECC_KEY_SIZE); 
 	} else{
 	RawHID.send(secret, 0);
 	}
@@ -651,7 +632,7 @@ int shared_secret (uint8_t *ephemeral_pub, uint8_t *secret) {
 		if (uECC_shared_secret(ephemeral_pub, ecc_private_key, secret, curve)) return 0;
 		else return 1;	
 	default:
-		hidprint("Error ECC type incorrect");
+		if (!outputU2F) hidprint("Error ECC type incorrect");
 		return 1;
 	}
 }
@@ -777,7 +758,7 @@ int rsa_decrypt (size_t olen, const uint8_t *in, uint8_t *out)
 	  #ifdef DEBUG
       Serial.print ("RSA decrypt ");
 	  #endif
-      ret = mbedtls_rsa_rsaes_pkcs1_v15_decrypt (&rsa, NULL, NULL, MBEDTLS_RSA_PRIVATE, &olen, in, out, BUFFER_SIZE);
+      ret = mbedtls_rsa_rsaes_pkcs1_v15_decrypt (&rsa, NULL, NULL, MBEDTLS_RSA_PRIVATE, &olen, in, out, (type*128));
     }
   mbedtls_rsa_free (&rsa);
   if (ret == 0)
@@ -822,7 +803,7 @@ void rsa_getpub (uint8_t type)
 	  byteprint(rsa_publicN, (type*128));
 	  #endif
     } else {
-	  hidprint("Error generating RSA public N");
+	  if (!outputU2F) hidprint("Error generating RSA public N");
 	  #ifdef DEBUG
       Serial.print ("Error generating RSA public");
 	  byteprint(rsa_publicN, (type*128));
@@ -907,6 +888,35 @@ int mbedtls_rand( void *rng_state, unsigned char *output, size_t len )
         rng_state = NULL;
     RNG2( output, len );
     return( 0 );
+}
+
+void store_U2F_response (uint8_t *data, int len) {
+	int len2 = 0;
+	packet_buffer[len2] = 0;
+	packet_buffer[len2++] = 5;
+	memcpy(packet_buffer + len2, ecc_public_key, 65); //length of public key
+    len2 += 65;
+	packet_buffer[len2++] = 64; 
+	uint8_t rand[64];
+	RNG2((uint8_t*)rand, 64); //Store a random number in key handle
+	memcpy(packet_buffer+len2, rand, 64); //length of key handle
+	len2 += 64;
+	memcpy(packet_buffer+len2, data, len);
+	len2 += len;
+	packet_buffer[len2++] = 0x30;
+	packet_buffer[len2++] = 0x44; //total length (32 + 32 + 2 + 2)
+	packet_buffer[len2++] = 0x02;  //header: integer
+	packet_buffer[len2++] = 32;  //32 byte 
+	memcpy(packet_buffer+len2, rand, 32); //R value
+	len2 +=32;
+	packet_buffer[len2++] = 0x02;  //header: integer
+	packet_buffer[len2++] = 32;  //32 byte
+	memcpy(packet_buffer+len2, rand, 32); //R value
+	len2 +=32;
+	uint8_t *last = packet_buffer+len2;
+	APPEND_SW_NO_ERROR(last);
+	len2 += 2;
+	packet_buffer_offset = len2;
 }
 
 

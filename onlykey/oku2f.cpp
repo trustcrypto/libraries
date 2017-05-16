@@ -95,8 +95,10 @@ struct ch_state {
 extern uint8_t expected_next_packet;
 extern int large_data_len;
 extern int large_data_offset;
-extern uint8_t large_buffer[BUFFER_SIZE];
+extern uint8_t large_buffer[1024];
 extern uint8_t large_resp_buffer[1024];
+extern int packet_buffer_offset;
+extern uint8_t packet_buffer[768];
 extern uint8_t recv_buffer[64];
 extern uint8_t resp_buffer[64];
 uint8_t handle[64];
@@ -104,6 +106,7 @@ extern char attestation_pub[66];
 extern char attestation_priv[33];
 extern char attestation_der[768];
 extern uint8_t nonce[32];
+extern int outputU2F;
 #ifdef OK_Color
 extern uint8_t NEO_Color;
 #endif
@@ -114,6 +117,7 @@ const char stored_priv[] = "\xD3\x0C\x9C\xAC\x7D\xA2\xB4\xA7\xD7\x1B\x00\x2A\x40
 
 const char stored_der[] = "\x30\x82\x01\xB4\x30\x82\x01\x58\xA0\x03\x02\x01\x02\x02\x01\x01\x30\x0C\x06\x08\x2A\x86\x48\xCE\x3D\x04\x03\x02\x05\x00\x30\x61\x31\x0B\x30\x09\x06\x03\x55\x04\x06\x13\x02\x44\x45\x31\x26\x30\x24\x06\x03\x55\x04\x0A\x0C\x1D\x55\x6E\x74\x72\x75\x73\x74\x77\x6F\x72\x74\x68\x79\x20\x43\x41\x20\x4F\x72\x67\x61\x6E\x69\x73\x61\x74\x69\x6F\x6E\x31\x0F\x30\x0D\x06\x03\x55\x04\x08\x0C\x06\x42\x65\x72\x6C\x69\x6E\x31\x19\x30\x17\x06\x03\x55\x04\x03\x0C\x10\x55\x6E\x74\x72\x75\x73\x74\x77\x6F\x72\x74\x68\x79\x20\x43\x41\x30\x22\x18\x0F\x32\x30\x31\x34\x30\x39\x32\x34\x31\x32\x30\x30\x30\x30\x5A\x18\x0F\x32\x31\x31\x34\x30\x39\x32\x34\x31\x32\x30\x30\x30\x30\x5A\x30\x5E\x31\x0B\x30\x09\x06\x03\x55\x04\x06\x13\x02\x44\x45\x31\x21\x30\x1F\x06\x03\x55\x04\x0A\x0C\x18\x76\x69\x72\x74\x75\x61\x6C\x2D\x75\x32\x66\x2D\x6D\x61\x6E\x75\x66\x61\x63\x74\x75\x72\x65\x72\x31\x0F\x30\x0D\x06\x03\x55\x04\x08\x0C\x06\x42\x65\x72\x6C\x69\x6E\x31\x1B\x30\x19\x06\x03\x55\x04\x03\x0C\x12\x76\x69\x72\x74\x75\x61\x6C\x2D\x75\x32\x66\x2D\x76\x30\x2E\x30\x2E\x31\x30\x59\x30\x13\x06\x07\x2A\x86\x48\xCE\x3D\x02\x01\x06\x08\x2A\x86\x48\xCE\x3D\x03\x01\x07\x03\x42\x00\x04\xC3\xC9\x1F\x25\x2E\x20\x10\x7B\x5E\x8D\xEA\xB1\x90\x20\x98\xF7\x28\x70\x71\xE4\x54\x18\xB8\x98\xCE\x5F\xF1\x7C\xA7\x25\xAE\x78\xC3\x3C\xC7\x01\xC0\x74\x60\x11\xCB\xBB\xB5\x8B\x08\xB6\x1D\x20\xC0\x5E\x75\xD5\x01\xA3\xF8\xF7\xA1\x67\x3F\xBE\x32\x63\xAE\xBE\x30\x0C\x06\x08\x2A\x86\x48\xCE\x3D\x04\x03\x02\x05\x00\x03\x48\x00\x30\x45\x02\x21\x00\x8E\xB9\x20\x57\xA1\xF3\x41\x4F\x1B\x79\x1A\x58\xE6\x07\xAB\xA4\x66\x1C\x93\x61\xFB\xC4\xBA\x89\x65\x5C\x8A\x3B\xEC\x10\x68\xDA\x02\x20\x15\x90\xA8\x76\xF0\x80\x47\xDF\x60\x8E\x23\xB2\x2A\xA0\xAA\xD2\x4B\x0D\x49\xC9\x75\x33\x00\xAF\x32\xB6\x90\x73\xF0\xA1\xA4\xDB";
 
+const char stored_appid[] = "\x23\xCD\xF4\x07\xFD\x90\x4F\xEE\x8B\x96\x40\x08\xB0\x49\xC5\x5E\xA8\x81\x13\x36\xA3\xA5\x17\x1B\x58\xD6\x6A\xEC\xF3\x79\xE7\x4A";
   
 uint8_t handlekey[34] = {0};
 
@@ -262,7 +266,8 @@ int initResponse(uint8_t *buffer)
 
 void errorResponse(uint8_t *buffer, int code)
 {
-        memcpy(resp_buffer, buffer, 4);
+        memset(resp_buffer, 0, 64);
+		memcpy(resp_buffer, buffer, 4);
         resp_buffer[4] = U2FHID_ERROR;
         SET_MSG_LEN(resp_buffer, 1);
         resp_buffer[7] = code & 0xff;
@@ -332,6 +337,8 @@ void sendLargeResponse(uint8_t *request, int len)
 		offset += MAX_CONTINUATION_PACKET;
 		delayMicroseconds(2500);
 	}
+	packet_buffer_offset = 0;
+	memset(packet_buffer, 0, sizeof(packet_buffer));
 }
 
 
@@ -379,8 +386,40 @@ void processMessage(uint8_t *buffer)
         return;
       }
 
-   
-      if (!u2f_button) {
+      uint8_t *datapart = message + 7;
+      uint8_t *challenge_parameter = datapart;
+      uint8_t *application_parameter = datapart+32;
+	  byteprint(challenge_parameter, 32);
+	  
+	  //apps.crp.to 
+	  int appid_match;
+	  appid_match = memcmp (stored_appid, application_parameter, 32);
+	  if (appid_match == 0) {
+        //Custom message encoded in Client Handle
+#ifdef DEBUG
+		Serial.print("Received U2F register request from apps.crp.to");
+#endif  
+
+		//TODO Decrypt using shared secret from settime public
+		if(packet_buffer[0] == 5 && packet_buffer[packet_buffer_offset-1] == 0 && packet_buffer[packet_buffer_offset-2] == 0x90) {
+#ifdef DEBUG
+		Serial.print("Received U2F request to retrieve stored data on OnlyKey");
+#endif  
+		memcpy(large_resp_buffer, packet_buffer, packet_buffer_offset);
+		sendLargeResponse(buffer, packet_buffer_offset);
+		memset(large_resp_buffer, 0, packet_buffer_offset);
+		memset(packet_buffer, 0, packet_buffer_offset);
+		packet_buffer_offset = 0;
+		fadeoff();
+        return;
+		} else {
+		errorResponse(buffer, ERR_OTHER); //Nothing to send
+		fadeoff();
+        return;
+		}
+      }
+	  
+	  if (!u2f_button) {
 #ifdef DEBUG 
 		Serial.println("U2F Error SW_CONDITIONS_NOT_SATISFIED");
 #endif 
@@ -393,9 +432,6 @@ void processMessage(uint8_t *buffer)
 
 #endif
       }
-      uint8_t *datapart = message + 7;
-      uint8_t *challenge_parameter = datapart;
-      uint8_t *application_parameter = datapart+32;
 
       memset(public_k, 0, sizeof(public_k));
       memset(private_k, 0, sizeof(private_k));
@@ -552,6 +588,8 @@ void processMessage(uint8_t *buffer)
       uint8_t *application_parameter = datapart+32;
       uint8_t handle_len = datapart[64];
       uint8_t *client_handle = datapart+65;
+	  extern uint8_t ecc_public_key[(MAX_ECC_KEY_SIZE*2)+1];
+	  extern uint8_t ecc_private_key[MAX_ECC_KEY_SIZE];
 	  extern int outputU2F; 
 	  
 #ifdef DEBUG
@@ -564,55 +602,68 @@ void processMessage(uint8_t *buffer)
 		Serial.print("Client Handle");
 		byteprint(client_handle, 64);
 #endif
-
-	  if (client_handle[0] == 0xFF && client_handle[1] == 0xFF && client_handle[2] == 0xFF && client_handle[3] == 0xFF) {
-        //Custom message encoded in Client Handle
-#ifdef DEBUG
-		Serial.print("Received custom message in U2F client handle");
-#endif  
-		if (client_handle[4] == OKSETTIME) {
-			SETTIME(client_handle);
-		} else if (client_handle[4] == OKGETPUBKEY) {
-			if(!PDmode) {
-			#ifdef US_VERSION
-			memcpy(recv_buffer, client_handle, 64);
-			large_data_offset = 0;
-			GETPUBKEY(recv_buffer);
-			outputU2F = 1;
-			fadeoff();
-			#endif
+      int appid_match;
+	  appid_match = memcmp (stored_appid, application_parameter, 32);
+	  if (appid_match == 0) {
+		  if (client_handle[0] == 0xFF && client_handle[1] == 0xFF && client_handle[2] == 0xFF && client_handle[3] == 0xFF) {
+			//Custom message encoded in Client Handle
+	#ifdef DEBUG
+			Serial.print("Received U2F request to send data to OnlyKey");
+	#endif  
+			//Decrypt message using shared secret
+			//If shared secret fails exit
+			if (client_handle[4] == OKDECRYPT  && !CRYPTO_AUTH) {
+				if(!PDmode) {
+				#ifdef US_VERSION
+				#ifdef OK_Color
+				NEO_Color = 128; //Turquoise
+				#endif
+				fadeon();
+				outputU2F = 1;
+				memcpy(recv_buffer, client_handle, 64);
+				large_data_offset = 0;
+				DECRYPT(recv_buffer);
+				#endif
+				}	
+			} else if (client_handle[4] == OKSIGN && !CRYPTO_AUTH) {
+				if(!PDmode) {
+				#ifdef US_VERSION
+				#ifdef OK_Color
+				NEO_Color = 213; //Purple
+				#endif
+				fadeon();
+				outputU2F = 1;
+				memcpy(recv_buffer, client_handle, 64);
+				large_data_offset = 0;
+				SIGN(recv_buffer);
+				#endif
+				}
+			} else if (client_handle[4] == OKSETTIME && !CRYPTO_AUTH) {
+				if(!PDmode) {
+				#ifdef US_VERSION
+				outputU2F = 1;
+				SETTIME(client_handle);
+				unsigned char version [] = "UNLOCKEDv0.2-beta.5";
+				memset(ecc_public_key, 0 , sizeof(ecc_public_key));
+				Ed25519::generatePrivateKey(ecc_private_key);
+				Ed25519::derivePublicKey(ecc_public_key, ecc_private_key);
+				store_U2F_response(version, sizeof(version));
+				fadeoff();
+				#endif
+				}
+			} else if (client_handle[4] == OKGETPUBKEY && !CRYPTO_AUTH) {
+				if(!PDmode) {
+				#ifdef US_VERSION
+				outputU2F = 1;
+				GETPUBKEY(client_handle);
+				fadeoff();
+				#endif
+				}
 			}
-	    } else if (client_handle[4] == OKDECRYPT) {
-			if(!PDmode) {
-			#ifdef US_VERSION
-			#ifdef OK_Color
-			NEO_Color = 128; //Turquoise
-			#endif
-			fadeon();
-			outputU2F = 1;
-			memcpy(recv_buffer, client_handle, 64);
-			large_data_offset = 0;
-			DECRYPT(recv_buffer);
-			#endif
-			}	
-		} else if (client_handle[4] == OKSIGN) {
-			if(!PDmode) {
-			#ifdef US_VERSION
-			#ifdef OK_Color
-			NEO_Color = 213; //Purple
-			#endif
-			fadeon();
-			outputU2F = 1;
-			memcpy(recv_buffer, client_handle, 64);
-			large_data_offset = 0;
-			SIGN(recv_buffer);
-			#endif
-			}
-		}
-		fadeoff();
-	    errorResponse(buffer, ERR_OTHER);
-        return;
-      }
+			errorResponse(buffer, ERR_OTHER); 
+			return;
+		  }
+	  }
 	  
       //minimum is 64 + 1 + 64
       if (reqlength!=(64+1+64)) {

@@ -84,8 +84,6 @@ extern "C"
 #define OKDECRYPT      (TYPE_INIT | 0x70)//
 #define OKRESTORE            (TYPE_INIT | 0x71)// Last vendor defined command
 
-#define BUFFER_SIZE 2048 //Large RAM buffer size
-
 extern int getCounter();
 extern void setCounter(int counter);
 extern void ByteToChar(uint8_t* bytes, char* chars, unsigned int count);

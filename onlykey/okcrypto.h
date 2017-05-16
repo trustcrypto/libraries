@@ -86,6 +86,7 @@ extern bool is_bit_set(unsigned char byte, int index);
 extern int mbedtls_rand( void *rng_state, unsigned char *output, size_t len);
 extern int rsa_encrypt (int len, const uint8_t *in, uint8_t *out);
 extern int shared_secret (uint8_t *ephemeral_pub, uint8_t *secret);
+extern void store_U2F_response (uint8_t *data, int len);
 
 #ifdef __cplusplus
 }

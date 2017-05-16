@@ -149,9 +149,10 @@ size_t length = 48; // First block should wait for the pool to fill up.
 uint8_t expected_next_packet;
 int large_data_len;
 int large_data_offset;
-int packet_buffer_offset;
-uint8_t large_buffer[BUFFER_SIZE];
+int packet_buffer_offset = 0;
+uint8_t large_buffer[1024];
 uint8_t large_resp_buffer[1024];
+uint8_t packet_buffer[768];
 uint8_t recv_buffer[64];
 uint8_t resp_buffer[64];
 char attestation_pub[66];
@@ -162,7 +163,7 @@ int outputU2F = 0;
 //ECC assignments
 /*************************************/
 #ifdef US_VERSION
-extern uint8_t ecc_public_key[MAX_ECC_KEY_SIZE*2];
+extern uint8_t ecc_public_key[(MAX_ECC_KEY_SIZE*2)+1];
 extern uint8_t ecc_private_key[MAX_ECC_KEY_SIZE];
 /*************************************/
 /*************************************/
@@ -185,7 +186,6 @@ void recvmsg() {
     Serial.print(F("\n\nReceived packet"));
 	byteprint(recv_buffer,64);
 #endif    
-	
 	  switch (recv_buffer[4]) {
       case OKSETPIN:
       if(!PDmode) {
@@ -375,7 +375,7 @@ void recvmsg() {
 	   {
 		hidprint("No PIN set, You must set a PIN first");
 		return;
-	   }else if (initialized==true && unlocked==true) 
+	   }else if (initialized==true && unlocked==true && !CRYPTO_AUTH) 
 	   {
 		if(!PDmode) {
 		#ifdef US_VERSION
@@ -398,7 +398,7 @@ void recvmsg() {
 	   {
 		hidprint("No PIN set, You must set a PIN first");
 		return;
-	   }else if (initialized==true && unlocked==true) 
+	   }else if (initialized==true && unlocked==true && !CRYPTO_AUTH) 
 	   {
 		if(!PDmode) {
 		#ifdef US_VERSION
@@ -837,21 +837,21 @@ void SETTIME (uint8_t *buffer)
 #ifdef DEBUG
 		Serial.print("UNINITIALIZED");
 #endif
-		hidprint("UNINITIALIZED");
+		if (!outputU2F) hidprint("UNINITIALIZED");
 		return;
 	   } else if (initialized==true && unlocked==true && configmode==true) 
 	   {
 #ifdef DEBUG
 		Serial.print("CONFIG_MODE");
 #endif
-		hidprint("UNLOCKEDv0.2-beta.5");
+		if (!outputU2F) hidprint("UNLOCKEDv0.2-beta.5");
 	   }
 	   else if (initialized==true && unlocked==true ) 
 	   {
 #ifdef DEBUG
 		Serial.print("UNLOCKED");
 #endif
-		hidprint("UNLOCKEDv0.2-beta.5");
+		if (!outputU2F) hidprint("UNLOCKEDv0.2-beta.5");
 	if (timeStatus() == timeNotSet) {  
     int i, j;                
     for(i=0, j=3; i<4; i++, j--){
@@ -5011,25 +5011,26 @@ void process_packets (uint8_t *buffer) {
 	if (PDmode) return;
     #ifdef US_VERSION
 	uint8_t temp[32];
+	if (packet_buffer[0] == 0 && packet_buffer[1] == 5 && packet_buffer[2] == 32) return;
     if (buffer[6]==0xFF) //Not last packet
     {
-        if (packet_buffer_offset <= (int)(sizeof(large_buffer) - 57)) {
-            memcpy(large_buffer+packet_buffer_offset, buffer+7, 57);
+        if (packet_buffer_offset <= (int)(sizeof(packet_buffer) - 57)) {
+            memcpy(packet_buffer+packet_buffer_offset, buffer+7, 57);
             packet_buffer_offset = packet_buffer_offset + 57;
 			return;
         } else {
-              hidprint("Error packets received exceeded size limit");
+              if (!outputU2F) hidprint("Error packets received exceeded size limit");
 			  return;
         }
         return;
     } else {
-        if (packet_buffer_offset <= (int)(sizeof(large_buffer) - 57) && buffer[6] <= 57) {
-            memcpy(large_buffer+packet_buffer_offset, buffer+7, buffer[6]);
+        if (packet_buffer_offset <= (int)(sizeof(packet_buffer) - 57) && buffer[6] <= 57) {
+            memcpy(packet_buffer+packet_buffer_offset, buffer+7, buffer[6]);
             packet_buffer_offset = packet_buffer_offset + buffer[6];
 			CRYPTO_AUTH = 1;
 			SHA256_CTX msg_hash;
 			sha256_init(&msg_hash);
-			sha256_update(&msg_hash, large_buffer, packet_buffer_offset); //add data to sign
+			sha256_update(&msg_hash, packet_buffer, packet_buffer_offset); //add data to sign
 			sha256_final(&msg_hash, temp); //Temporarily store hash
 			if (temp[0] < 6) Challenge_button1 = '1'; //Convert first byte of hash
 			else {
@@ -5051,7 +5052,7 @@ void process_packets (uint8_t *buffer) {
     Serial.printf("Enter challenge code %c%c%c", Challenge_button1,Challenge_button2,Challenge_button3); 
 #endif
         } else {
-            hidprint("Error packets received exceeded size limit");
+            if (!outputU2F) hidprint("Error packets received exceeded size limit");
 			return;
         }
 	}
