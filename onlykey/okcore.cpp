@@ -201,6 +201,7 @@ void recvmsg() {
       SETPDPIN(recv_buffer);
       return;
       case OKSETTIME:
+	  outputU2F = 0;
       SETTIME(recv_buffer);
       return;
       case OKGETLABELS:
@@ -383,6 +384,7 @@ void recvmsg() {
 		NEO_Color = 213; //Purple
 		#endif
 		fadeon();
+		outputU2F = 0;
 		SIGN(recv_buffer);
 		#endif
 		}
@@ -406,6 +408,7 @@ void recvmsg() {
 		NEO_Color = 128; //Turquoise
 		#endif
 		fadeon();
+		outputU2F = 0;
 		DECRYPT(recv_buffer);
 		#endif
 		}
@@ -425,6 +428,7 @@ void recvmsg() {
 	   {
                 if(!PDmode) {
                 #ifdef US_VERSION
+				outputU2F = 0;
                 GETPUBKEY(recv_buffer);
                 #endif
                 }
@@ -844,14 +848,14 @@ void SETTIME (uint8_t *buffer)
 #ifdef DEBUG
 		Serial.print("CONFIG_MODE");
 #endif
-		if (!outputU2F) hidprint("UNLOCKEDv0.2-beta.5");
+		if (!outputU2F) hidprint("UNLOCKEDv0.2-beta.6");
 	   }
 	   else if (initialized==true && unlocked==true ) 
 	   {
 #ifdef DEBUG
 		Serial.print("UNLOCKED");
 #endif
-		if (!outputU2F) hidprint("UNLOCKEDv0.2-beta.5");
+		if (!outputU2F) hidprint("UNLOCKEDv0.2-beta.6");
 	if (timeStatus() == timeNotSet) {  
     int i, j;                
     for(i=0, j=3; i<4; i++, j--){
@@ -4792,7 +4796,7 @@ void RESTORE(uint8_t *buffer) {
 	}
 	}
 	else if (slot <= 4) {
-		uint8_t len = 0;
+		unsigned int len = 0;
 		onlykey_flashget_RSA (slot);
 		if (type != large_temp[offset]) {
 			hidprint("Error key type used for backup does not match");
@@ -4807,7 +4811,7 @@ void RESTORE(uint8_t *buffer) {
 		Serial.println("RSA Encrypted AES Key = ");
 		byteprint(temp, (type*128));
 		#endif
-		rsa_decrypt(len, temp, temp2);
+		rsa_decrypt(&len, temp, temp2);
 		#ifdef DEBUG
 		Serial.println("AES KEY = ");
 		byteprint(temp2, 32);
@@ -5011,7 +5015,22 @@ void process_packets (uint8_t *buffer) {
 	if (PDmode) return;
     #ifdef US_VERSION
 	uint8_t temp[32];
-	if (packet_buffer[0] == 0 && packet_buffer[1] == 5 && packet_buffer[2] == 32) return;
+	if (packet_buffer[0] == 5 && packet_buffer[packet_buffer_offset-1] == 0 && packet_buffer[packet_buffer_offset-2] == 0x90) {
+		if (outputU2F == 1) {
+#ifdef DEBUG
+	     Serial.println("Error receiving packets, packet buffer already full");
+		 Serial.println(packet_buffer_offset);
+#endif 
+		return;
+		} else {
+#ifdef DEBUG
+	     Serial.println("Warning, wiping unretrieved data in packet buffer");
+		 Serial.println(packet_buffer_offset);
+#endif 
+		packet_buffer_offset = 0;
+		memset(packet_buffer, 0, sizeof(packet_buffer));
+		}
+	}
     if (buffer[6]==0xFF) //Not last packet
     {
         if (packet_buffer_offset <= (int)(sizeof(packet_buffer) - 57)) {
@@ -5048,7 +5067,8 @@ void process_packets (uint8_t *buffer) {
 				Challenge_button3 = Challenge_button3 + '0' + 1; //Add '0' and 1 so number will be ASCII 1 - 6
 			}
 #ifdef DEBUG
-    Serial.println();
+    Serial.println("Received Message");
+	byteprint(packet_buffer, packet_buffer_offset);
     Serial.printf("Enter challenge code %c%c%c", Challenge_button1,Challenge_button2,Challenge_button3); 
 #endif
         } else {

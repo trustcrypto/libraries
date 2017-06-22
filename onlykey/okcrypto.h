@@ -79,7 +79,7 @@ extern uint8_t Challenge_button1;
 extern uint8_t Challenge_button2;
 extern uint8_t Challenge_button3;
 extern uint8_t CRYPTO_AUTH;
-extern int rsa_decrypt (size_t olen, const uint8_t *in, uint8_t *out);
+extern int rsa_decrypt (unsigned int *olen, const uint8_t *in, uint8_t *out);
 extern int rsa_sign (int mlen, const uint8_t *msg, uint8_t *out);
 extern void rsa_getpub (uint8_t type);
 extern bool is_bit_set(unsigned char byte, int index);

@@ -401,20 +401,22 @@ void processMessage(uint8_t *buffer)
 #endif  
 
 		//TODO Decrypt using shared secret from settime public
-		if(packet_buffer[0] == 5 && packet_buffer[packet_buffer_offset-1] == 0 && packet_buffer[packet_buffer_offset-2] == 0x90) {
+		if(challenge_parameter[0]==0xF4 && challenge_parameter[1]==0x15 && challenge_parameter[2]==0xA5 && challenge_parameter[3]==0x90 && packet_buffer[0] == 5 && packet_buffer[packet_buffer_offset-1] == 0 && packet_buffer[packet_buffer_offset-2] == 0x90) {
 #ifdef DEBUG
 		Serial.print("Received U2F request to retrieve stored data on OnlyKey");
 #endif  
-		memcpy(large_resp_buffer, packet_buffer, packet_buffer_offset);
-		sendLargeResponse(buffer, packet_buffer_offset);
-		memset(large_resp_buffer, 0, packet_buffer_offset);
-		memset(packet_buffer, 0, packet_buffer_offset);
-		packet_buffer_offset = 0;
-		fadeoff();
+			memcpy(large_resp_buffer, packet_buffer, packet_buffer_offset);
+			sendLargeResponse(buffer, packet_buffer_offset);
+			memset(large_resp_buffer, 0, packet_buffer_offset);
+			memset(packet_buffer, 0, packet_buffer_offset);
+			packet_buffer_offset = 0;
+			outputU2F = 0;
+			fadeoff();
         return;
 		} else {
 		errorResponse(buffer, ERR_OTHER); //Nothing to send
-		fadeoff();
+		outputU2F = 0;
+		if (!CRYPTO_AUTH) fadeoff();
         return;
 		}
       }
@@ -643,11 +645,12 @@ void processMessage(uint8_t *buffer)
 				#ifdef US_VERSION
 				outputU2F = 1;
 				SETTIME(client_handle);
-				unsigned char version [] = "UNLOCKEDv0.2-beta.5";
-				memset(ecc_public_key, 0 , sizeof(ecc_public_key));
-				Ed25519::generatePrivateKey(ecc_private_key);
-				Ed25519::derivePublicKey(ecc_public_key, ecc_private_key);
-				store_U2F_response(version, sizeof(version));
+				unsigned char version [] = "UNLOCKEDv0.2-beta.6";
+				memset(ecc_public_key, 0, sizeof(ecc_public_key));
+				Ed25519::generatePrivateKey(handle); //Store session key in handle, overwritten by u2f register/authenticate
+				Ed25519::derivePublicKey(ecc_public_key, handle);
+				memcpy(ecc_public_key+32, version, sizeof(version));
+				store_U2F_response(ecc_public_key, (32+sizeof(version)));
 				fadeoff();
 				#endif
 				}
