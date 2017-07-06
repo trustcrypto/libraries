@@ -138,3 +138,9 @@ Yubico
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
+ 
+ 
+ TOTP
+ "This is a basic Open-Source implementation of a TOTP (compliant with OATH*) code in Arduino."
+ 
+ 
