@@ -2,7 +2,7 @@
 https://github.com/trustcrypto/libraries/blob/master/mbedtls-2.4.0/apache-2.0.txt
 https://www.apache.org/licenses/LICENSE-2.0
 
-## Base64
+## Base64, Sha1, Sha256
 
 https://github.com/B-Con/crypto-algorithms
 This code is released into the public domain free of any restrictions. The author requests acknowledgement if the code is used, but does not require it. This code is provided free of any liability and without any quality claims by the author.
