@@ -1,3 +1,8 @@
+## Base64
+
+https://github.com/B-Con/crypto-algorithms
+This code is released into the public domain free of any restrictions. The author requests acknowledgement if the code is used, but does not require it. This code is provided free of any liability and without any quality claims by the author.
+
 ## Crypto
 
 
