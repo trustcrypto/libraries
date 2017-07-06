@@ -1,4 +1,4 @@
-##Crypto
+## Crypto
 
 /*
  * Copyright (C) 2015 Southern Storm Software, Pty Ltd.
@@ -22,11 +22,11 @@
  * DEALINGS IN THE SOFTWARE.
  */
  
- T3Mac - https://forum.pjrc.com/threads/91-teensy-3-MAC-address/page2
+ ## T3Mac
+ https://forum.pjrc.com/threads/91-teensy-3-MAC-address/page2
  
- aes - Not used to be removed
- 
- flashkinetis - https://github.com/FrankBoesing/Arduino-Teensy3-Flash/
+ ## flashkinetis 
+ https://github.com/FrankBoesing/Arduino-Teensy3-Flash/
  
  /*
 	Arduino - Kinetis ("Teensy") Flashing Library
@@ -38,7 +38,7 @@
 	In every case, keep this header.
 */
 
-onlykey
+## onlykey
 
 /* Tim Steiner
  * Copyright (c) 2016 , CryptoTrust LLC.
@@ -90,7 +90,7 @@ onlykey
  *
  */
  
- password
+ ## password
  
  || @license
 || | This library is free software; you can redistribute it and/or
@@ -140,10 +140,10 @@ Yubico
  */
  
  
- TOTP
+ ## TOTP
  "This is a basic Open-Source implementation of a TOTP (compliant with OATH*) code in Arduino."
  
- SoftTimer
+ ## SoftTimer
  
  * SoftTimer library is a lightweight but effective event based timeshare solution for Arduino.
  *
