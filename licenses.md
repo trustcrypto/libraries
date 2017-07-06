@@ -1,3 +1,7 @@
+## MBED TLS
+https://github.com/trustcrypto/libraries/blob/master/mbedtls-2.4.0/apache-2.0.txt
+https://www.apache.org/licenses/LICENSE-2.0
+
 ## Base64
 
 https://github.com/B-Con/crypto-algorithms
