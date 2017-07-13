@@ -4966,6 +4966,7 @@ void RESTORE(uint8_t *buffer) {
 					offset = offset - 32;
 					memcpy(temp, ptr, 2);
 					temp2 = temp[0] << 8 | temp[1];
+					temp2 = temp2 + 300; //Add 300 to U2F counter
 					setCounter(temp2);
 					offset = offset - 2;
 					ptr=ptr+2;
