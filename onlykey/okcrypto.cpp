@@ -233,7 +233,7 @@ void RSASIGN (uint8_t *buffer)
 		if (packet_buffer_offset != 28 && packet_buffer_offset != 32 && packet_buffer_offset != 48 && packet_buffer_offset != 64) {
 		if (!outputU2F) hidprint("Error with RSA data to sign invalid size");
 #ifdef DEBUG
-    Serial.println("Error with RSA data to decrypt invalid size");
+    Serial.println("Error with RSA data to sign invalid size");
 	Serial.println(packet_buffer_offset);
 #endif
 		fadeoff();
@@ -623,7 +623,7 @@ int shared_secret (uint8_t *ephemeral_pub, uint8_t *secret) {
 
 int rsa_sign (int mlen, const uint8_t *msg, uint8_t *out)
 {
-	mbedtls_rsa_self_test(1);
+	mbedtls_md_type_t md_type = MBEDTLS_MD_NONE;
 	int ret = 0;
 	static mbedtls_rsa_context rsa;
     uint8_t rsa_ciphertext[(type*128)];
@@ -667,9 +667,35 @@ int rsa_sign (int mlen, const uint8_t *msg, uint8_t *out)
 	  Serial.println(mlen);
 	  #endif
 	  if (mlen > ((type*128)-11)) mlen = ((type*128)-11);
-      ret = mbedtls_rsa_rsassa_pkcs1_v15_sign (&rsa, mbedtls_rand, NULL, MBEDTLS_RSA_PRIVATE, MBEDTLS_MD_NONE, mlen, msg, rsa_ciphertext);
+		
+		switch (mlen) {
+		case 64:
+			md_type = MBEDTLS_MD_SHA512;
+		break;
+					
+		case 48:
+			md_type = MBEDTLS_MD_SHA384;
+		break;
+
+		case 32:
+			md_type = MBEDTLS_MD_SHA256;
+		break;
+		
+		case 28:
+			md_type = MBEDTLS_MD_SHA224;
+			
+		case 20:
+			md_type = MBEDTLS_MD_RIPEMD160;
+		break;
+	
+		default:
+		break;
+
+		}
+	  
+      ret = mbedtls_rsa_rsassa_pkcs1_v15_sign (&rsa, mbedtls_rand, NULL, MBEDTLS_RSA_PRIVATE, MBEDTLS_MD_SHA512, mlen, msg, rsa_ciphertext);
       memcpy (out, rsa_ciphertext, (type*128));
-	  int ret2 = mbedtls_rsa_rsassa_pkcs1_v15_verify ( &rsa, mbedtls_rand, NULL, MBEDTLS_RSA_PUBLIC, MBEDTLS_MD_NONE, mlen, msg, rsa_ciphertext );
+	  int ret2 = mbedtls_rsa_rsassa_pkcs1_v15_verify ( &rsa, mbedtls_rand, NULL, MBEDTLS_RSA_PUBLIC, MBEDTLS_MD_SHA512, mlen, msg, rsa_ciphertext );
 	  if( ret2 != 0 ) {
 		  #ifdef DEBUG
 		  Serial.print("Signature Verification Failed ");

@@ -5071,6 +5071,7 @@ void process_packets (uint8_t *buffer) {
     Serial.println("Received Message");
 	byteprint(packet_buffer, packet_buffer_offset);
     Serial.printf("Enter challenge code %c%c%c", Challenge_button1,Challenge_button2,Challenge_button3); 
+	Serial.println();
 #endif
         } else {
             if (!outputU2F) hidprint("Error packets received exceeded size limit");

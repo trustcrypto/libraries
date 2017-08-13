@@ -119,6 +119,10 @@ const char stored_der[] = "\x30\x82\x01\xB4\x30\x82\x01\x58\xA0\x03\x02\x01\x02\
 
 const char stored_appid[] = "\x23\xCD\xF4\x07\xFD\x90\x4F\xEE\x8B\x96\x40\x08\xB0\x49\xC5\x5E\xA8\x81\x13\x36\xA3\xA5\x17\x1B\x58\xD6\x6A\xEC\xF3\x79\xE7\x4A";
   
+const char stored_challenge1[] = "\xF4\x15\xA5\x90\x12\xA6\xD2\x1F\xC4\xA9\x30\x3E\xDD\xE2\x1C\xA7\xA8\x0B\xE7\x16\x78\xCA\x5B\xED\x59\xBE\x8F\xDF\x74\x3D\xC2\xFA";
+
+const char stored_challenge2[] = "\xAB\x4C\x03\x00\xD5\xBD\xBD\x1A\x90\x27\x94\xBC\x7E\x26\xF0\xC3\x1F\xE0\x5B\x4D\x86\xC5\xEB\x1F\x67\xC0\xF5\x94\x4E\x5D\xFB\xF5";
+  
 uint8_t handlekey[34] = {0};
 
 const struct uECC_Curve_t * curve = uECC_secp256r1(); //P-256
@@ -392,16 +396,19 @@ void processMessage(uint8_t *buffer)
 	  byteprint(challenge_parameter, 32);
 	  
 	  //apps.crp.to 
-	  int appid_match;
-	  appid_match = memcmp (stored_appid, application_parameter, 32);
-	  if (appid_match == 0) {
+	  int match1;
+	  int match2;
+	  int match3;
+	  match1 = memcmp (stored_appid, application_parameter, 32);
+	  if (match1 == 0) {
         //Custom message encoded in Client Handle
 #ifdef DEBUG
 		Serial.print("Received U2F register request from apps.crp.to");
 #endif  
-
+		match2 = memcmp (stored_challenge1, challenge_parameter, 32);
+		match3 = memcmp (stored_challenge2, challenge_parameter, 32);
 		//TODO Decrypt using shared secret from settime public
-		if(challenge_parameter[0]==0xF4 && challenge_parameter[1]==0x15 && challenge_parameter[2]==0xA5 && challenge_parameter[3]==0x90 && packet_buffer[0] == 5 && packet_buffer[packet_buffer_offset-1] == 0 && packet_buffer[packet_buffer_offset-2] == 0x90) {
+		if((match2 == 0 || match3 == 0) && packet_buffer[0] == 5 && packet_buffer[packet_buffer_offset-1] == 0 && packet_buffer[packet_buffer_offset-2] == 0x90) {
 #ifdef DEBUG
 		Serial.print("Received U2F request to retrieve stored data on OnlyKey");
 #endif  
@@ -413,7 +420,7 @@ void processMessage(uint8_t *buffer)
 			outputU2F = 0;
 			fadeoff();
         return;
-		} else {
+		} else if (match2 == 0 || match3 == 0) {
 		errorResponse(buffer, ERR_OTHER); //Nothing to send
 		outputU2F = 0;
 		if (!CRYPTO_AUTH) fadeoff();
@@ -881,6 +888,7 @@ void processPacket(uint8_t *buffer)
       Serial.println("Sending ping response");
 #endif      
       RawHID.send(buffer, 100);
+	  if (!CRYPTO_AUTH) fadeoff();
     } else {
       //large packet
       //send first one
