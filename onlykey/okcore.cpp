@@ -56,6 +56,7 @@
 #include <string.h>
 #include <EEPROM.h>
 #include <SoftTimer.h>
+#include <DelayRun.h>
 #include <password.h>
 #include "Time.h"
 #include "onlykey.h"
@@ -100,6 +101,8 @@ elapsedMillis idletimer;
 /*************************************/
 Task FadeinTask(15, increment);
 Task FadeoutTask(10, decrement);
+DelayRun Clearbuffer(3000, wipepacketbuffer); //empty packet buffer
+DelayRun Codetimeout(20000, wipecode); //20 seconds to enter challenge code
 uint8_t fade = 0;
 uint8_t isfade = 0;
 /*************************************/
@@ -835,7 +838,7 @@ void SETTIME (uint8_t *buffer)
 #ifdef DEBUG
       	  Serial.println();
 	  Serial.println("OKSETTIME MESSAGE RECEIVED"); 
-#endif       
+#endif 
 	   if(initialized==false && unlocked==true) 
 	   {
 #ifdef DEBUG
@@ -848,14 +851,14 @@ void SETTIME (uint8_t *buffer)
 #ifdef DEBUG
 		Serial.print("CONFIG_MODE");
 #endif
-		if (!outputU2F) hidprint("UNLOCKEDv0.2-beta.6");
+		if (!outputU2F) hidprint(UNLOCKED);
 	   }
 	   else if (initialized==true && unlocked==true ) 
 	   {
 #ifdef DEBUG
 		Serial.print("UNLOCKED");
 #endif
-		if (!outputU2F) hidprint("UNLOCKEDv0.2-beta.6");
+		if (!outputU2F) hidprint(UNLOCKED);
 	if (timeStatus() == timeNotSet) {  
     int i, j;                
     for(i=0, j=3; i<4; i++, j--){
@@ -3556,24 +3559,24 @@ if (PDmode) return;
   uint8_t *tptr;
 	if (buffer[5]==0xFF) //Not last packet
 	{
-		if (large_data_len <= 710) {
-			memcpy(attestation_der+large_data_len, buffer+6, 58);
-			large_data_len = large_data_len + 58;
+		if (packet_buffer_offset <= 710) {
+			memcpy(attestation_der+packet_buffer_offset, buffer+6, 58);
+			packet_buffer_offset = packet_buffer_offset + 58;
 		} else {
 			hidprint("Error U2F Cert larger than 768 bytes");
 		}
 		return;
 	} else { //Last packet
-		if (large_data_len <= 710 && buffer[5] <= 58) {
-			memcpy(attestation_der+large_data_len, buffer+6, buffer[5]);
-			large_data_len = large_data_len + buffer[5];
-		} else if (large_data_len <= 768 && buffer[0] == 0xBA) { //Import from backup
-			memcpy(attestation_der, buffer+6, large_data_len);
+		if (packet_buffer_offset <= 710 && buffer[5] <= 58) {
+			memcpy(attestation_der+packet_buffer_offset, buffer+6, buffer[5]);
+			packet_buffer_offset = packet_buffer_offset + buffer[5];
+		} else if (packet_buffer_offset <= 768 && buffer[0] == 0xBA) { //Import from backup
+			memcpy(attestation_der, buffer+6, packet_buffer_offset);
 		} else{
 			hidprint("Error U2F Cert larger than 768 bytes");
 		}
-		length[0] = large_data_len >> 8  & 0xFF;
-		length[1] = large_data_len       & 0xFF;
+		length[0] = packet_buffer_offset >> 8  & 0xFF;
+		length[1] = packet_buffer_offset       & 0xFF;
 		//Set U2F Certificate size
 		onlykey_eeset_U2Fcertlen(length);
     //Copy current flash contents to buffer
@@ -3581,12 +3584,12 @@ if (PDmode) return;
     onlykey_flashget_common(tptr, (unsigned long*)adr, 2048);
     //Add new flash contents to buffer
     ptr=(uint8_t*)attestation_der;
-    for( int z = 0; z <= large_data_len; z++){
+    for( int z = 0; z <= packet_buffer_offset; z++){
     temp[z+32] = ((uint8_t)*(ptr+z));
     }
 #ifdef DEBUG
 		Serial.print("Length of U2F certificate = ");
-        Serial.println(large_data_len);
+        Serial.println(packet_buffer_offset);
 		//Erase flash sector
 		Serial.printf("Erase Sector 0x%X ",adr);
 #endif
@@ -3603,9 +3606,9 @@ if (PDmode) return;
 	}
 #ifdef DEBUG
     Serial.print("U2F Cert value =");
-	byteprint((uint8_t*)attestation_der,large_data_len);
+	byteprint((uint8_t*)attestation_der,packet_buffer_offset);
 #endif
-	large_data_len = 0;
+	packet_buffer_offset = 0;
 	hidprint("Successfully set U2F Certificate");
       blink(3);
 #endif
@@ -3899,34 +3902,34 @@ if (PDmode) return;
 	if (buffer[6]==0x01 || buffer[6]==0x11 || buffer[6]==0x21 || buffer[6]==0x31 || buffer[6]==0x41 || buffer[6]==0x51 || buffer[6]==0x61 || buffer[6]==0x71 || buffer[6]==0x81 || buffer[6]==0x91 || buffer[6]==0xA1 || buffer[6]==0xB1 || buffer[6]==0xC1 || buffer[6]==0xD1 || buffer[6]==0xE1 || buffer[6]==0xF1) //Expect 128 Bytes, if buffer[0] != FF we know this is import from backup
 	{
 		keysize=128;
-		if (buffer[0] != 0xBA && large_data_len <= 114) {
-		memcpy(rsa_private_key+large_data_len, buffer+7, 57);
-		large_data_len = large_data_len + 57;
+		if (buffer[0] != 0xBA && packet_buffer_offset <= 114) {
+		memcpy(rsa_private_key+packet_buffer_offset, buffer+7, 57);
+		packet_buffer_offset = packet_buffer_offset + 57;
 		} 
 	} else if (buffer[6]==0x02 || buffer[6]==0x12 || buffer[6]==0x22 || buffer[6]==0x32 || buffer[6]==0x42 || buffer[6]==0x52 || buffer[6]==0x62 || buffer[6]==0x72 || buffer[6]==0x82 || buffer[6]==0x92 || buffer[6]==0xA2 || buffer[6]==0xB2 || buffer[6]==0xC2 || buffer[6]==0xD2 || buffer[6]==0xE2 || buffer[6]==0xF2) { //Expect 256 Bytes
 		keysize=256;
-		if (buffer[0] != 0xBA && large_data_len <= 228) {
-		memcpy(rsa_private_key+large_data_len, buffer+7, 57);
-		large_data_len = large_data_len + 57;
+		if (buffer[0] != 0xBA && packet_buffer_offset <= 228) {
+		memcpy(rsa_private_key+packet_buffer_offset, buffer+7, 57);
+		packet_buffer_offset = packet_buffer_offset + 57;
 		}
 	} else if (buffer[6]==0x03 || buffer[6]==0x13 || buffer[6]==0x23 || buffer[6]==0x33 || buffer[6]==0x43 || buffer[6]==0x53 || buffer[6]==0x63 || buffer[6]==0x73 || buffer[6]==0x83 || buffer[6]==0x93 || buffer[6]==0xA3 || buffer[6]==0xB3 || buffer[6]==0xC3 || buffer[6]==0xD3 || buffer[6]==0xE3 || buffer[6]==0xF3) { //Expect 384 Bytes
 		keysize=384;
-		if (buffer[0] != 0xBA && large_data_len <= 342) {
-		memcpy(rsa_private_key+large_data_len, buffer+7, 57);
-		large_data_len = large_data_len + 57;
+		if (buffer[0] != 0xBA && packet_buffer_offset <= 342) {
+		memcpy(rsa_private_key+packet_buffer_offset, buffer+7, 57);
+		packet_buffer_offset = packet_buffer_offset + 57;
 		}
 	} else if (buffer[6]==0x04 || buffer[6]==0x14 || buffer[6]==0x24 || buffer[6]==0x34 || buffer[6]==0x44 || buffer[6]==0x54 || buffer[6]==0x64 || buffer[6]==0x74 || buffer[6]==0x84 || buffer[6]==0x94 || buffer[6]==0xA4 || buffer[6]==0xB4 || buffer[6]==0xC4 || buffer[6]==0xD4 || buffer[6]==0xE4 || buffer[6]==0xF4) { //Expect 512 Bytes
 		keysize=512;
-		if (buffer[0] != 0xBA && large_data_len <= 456) {
-		memcpy(rsa_private_key+large_data_len, buffer+7, 57);
-		large_data_len = large_data_len + 57;
+		if (buffer[0] != 0xBA && packet_buffer_offset <= 456) {
+		memcpy(rsa_private_key+packet_buffer_offset, buffer+7, 57);
+		packet_buffer_offset = packet_buffer_offset + 57;
 		}
 	} else {
 		hidprint("Error invalid RSA type");
 		return;
 	}
 	//Write ID to EEPROM
-	if (large_data_len >= keysize || buffer[0] == 0xBA) {		//Then we have the complete RSA key
+	if (packet_buffer_offset >= keysize || buffer[0] == 0xBA) {		//Then we have the complete RSA key
 	if (buffer[0] == 0xBA) {
 		ptr = buffer+7;
 		memcpy(rsa_private_key, buffer+7, keysize);
@@ -3962,7 +3965,7 @@ if (PDmode) return;
     Serial.print("RSA Key value =");
 	byteprint((uint8_t*)rsa_private_key, keysize);
 #endif
-	large_data_len = 0;
+	packet_buffer_offset = 0;
 	hidprint("Successfully set RSA Key");
       blink(3);
 	}
@@ -4151,6 +4154,29 @@ void decrement(Task* me) {
   }
 }
 
+bool wipepacketbuffer(Task* me) {
+	if(!CRYPTO_AUTH) {
+	#ifdef DEBUG
+	Serial.println("clear buffer");
+	#endif
+	packet_buffer_offset = 0;
+	memset(packet_buffer, 0, sizeof(packet_buffer));
+	} 
+	return false;
+}
+
+bool wipecode(Task* me) {
+	#ifdef DEBUG
+	Serial.println("clear code");
+	#endif
+	fadeoff();
+	CRYPTO_AUTH = 0;
+	Challenge_button1 = 0;
+	Challenge_button2 = 0;
+	Challenge_button3 = 0;
+	return false;
+}
+
 void fadeoff() {
   SoftTimer.remove(&FadeinTask);
   SoftTimer.remove(&FadeoutTask);
@@ -4160,6 +4186,10 @@ void fadeoff() {
 void fadeon() {
   SoftTimer.add(&FadeinTask);
   isfade=1;
+}
+
+void clearbuffer() {
+  Clearbuffer.startDelayed();
 }
 
 #ifdef OK_Color
@@ -5002,6 +5032,7 @@ void RESTORE(uint8_t *buffer) {
 	delay(1000);
 	hidprint("Remove and Reinsert OnlyKey to complete restore");
 	fadeoff();
+	large_data_len = 0;
 	#ifdef OK_Color
     NEO_Color = 85; //Green
     #endif
@@ -5016,6 +5047,7 @@ void process_packets (uint8_t *buffer) {
 	if (PDmode) return;
     #ifdef US_VERSION
 	uint8_t temp[32];
+	Clearbuffer.startDelayed();
 	if (packet_buffer[0] == 5 && packet_buffer[packet_buffer_offset-1] == 0 && packet_buffer[packet_buffer_offset-2] == 0x90) {
 		if (outputU2F == 1) {
 #ifdef DEBUG
@@ -5048,6 +5080,7 @@ void process_packets (uint8_t *buffer) {
             memcpy(packet_buffer+packet_buffer_offset, buffer+7, buffer[6]);
             packet_buffer_offset = packet_buffer_offset + buffer[6];
 			CRYPTO_AUTH = 1;
+			Codetimeout.startDelayed();
 			SHA256_CTX msg_hash;
 			sha256_init(&msg_hash);
 			sha256_update(&msg_hash, packet_buffer, packet_buffer_offset); //add data to sign

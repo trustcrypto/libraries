@@ -1,5 +1,5 @@
 /**
- * File: SoftTimer.cpp
+ * File: DelayRun.cpp
  * Description:
  * SoftTimer library is a lightweight but effective event based timeshare solution for Arduino.
  *

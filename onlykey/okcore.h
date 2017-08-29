@@ -84,6 +84,8 @@ extern "C"
 #define OKDECRYPT      (TYPE_INIT | 0x70)//
 #define OKRESTORE            (TYPE_INIT | 0x71)// Last vendor defined command
 
+#define UNLOCKED "UNLOCKED" OKversion
+
 extern int getCounter();
 extern void setCounter(int counter);
 extern void ByteToChar(uint8_t* bytes, char* chars, unsigned int count);
@@ -175,7 +177,10 @@ extern void yubikeysim(char *ptr);
 extern void yubikey_incr_time();
 extern void increment(Task* me);
 extern void decrement(Task* me);
+extern bool wipepacketbuffer(Task* me);
+extern bool wipecode(Task* me);
 extern void typeoutbackup(Task* me);
+extern void clearbuffer();
 extern void fadeoff();
 extern void fadeon();
 extern void rainbowCycle(uint8_t wait, uint8_t cycle);

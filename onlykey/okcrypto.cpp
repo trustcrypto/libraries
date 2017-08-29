@@ -623,6 +623,7 @@ int shared_secret (uint8_t *ephemeral_pub, uint8_t *secret) {
 
 int rsa_sign (int mlen, const uint8_t *msg, uint8_t *out)
 {
+	//mbedtls_rsa_self_test(1);
 	mbedtls_md_type_t md_type = MBEDTLS_MD_NONE;
 	int ret = 0;
 	static mbedtls_rsa_context rsa;
@@ -683,26 +684,35 @@ int rsa_sign (int mlen, const uint8_t *msg, uint8_t *out)
 		
 		case 28:
 			md_type = MBEDTLS_MD_SHA224;
-			
-		case 20:
-			md_type = MBEDTLS_MD_RIPEMD160;
 		break;
+			
+		//case 20:
+		//	md_type = MBEDTLS_MD_RIPEMD160;
+		//break;
 	
 		default:
 		break;
 
 		}
 	  
-      ret = mbedtls_rsa_rsassa_pkcs1_v15_sign (&rsa, mbedtls_rand, NULL, MBEDTLS_RSA_PRIVATE, MBEDTLS_MD_SHA512, mlen, msg, rsa_ciphertext);
-      memcpy (out, rsa_ciphertext, (type*128));
-	  int ret2 = mbedtls_rsa_rsassa_pkcs1_v15_verify ( &rsa, mbedtls_rand, NULL, MBEDTLS_RSA_PUBLIC, MBEDTLS_MD_SHA512, mlen, msg, rsa_ciphertext );
+      ret = mbedtls_rsa_rsassa_pkcs1_v15_sign (&rsa, mbedtls_rand, NULL, MBEDTLS_RSA_PRIVATE, md_type, mlen, msg, rsa_ciphertext);
+      #ifdef DEBUG
+      Serial.print("Hash Value = ");
+	  byteprint((uint8_t *)msg, mlen);
+	  #endif
+	  memcpy (out, rsa_ciphertext, (type*128));
+	  /*int ret2 = mbedtls_rsa_rsassa_pkcs1_v15_verify ( &rsa, NULL, NULL, MBEDTLS_RSA_PUBLIC, MBEDTLS_MD_NONE, mlen, msg, rsa_ciphertext );
+	  #ifdef DEBUG
+      Serial.print("Hash Value = ");
+	  byteprint((uint8_t *)msg, mlen);
+	  #endif
 	  if( ret2 != 0 ) {
 		  #ifdef DEBUG
 		  Serial.print("Signature Verification Failed ");
 		  Serial.println(ret2);
 		  #endif
 		  return -1;
-	  }
+	  }*/
     }
   mbedtls_rsa_free (&rsa);
   if (ret == 0)
@@ -933,6 +943,7 @@ void store_U2F_response (uint8_t *data, int len) {
       Serial.print ("Stored U2F Response");
 	  byteprint(packet_buffer, packet_buffer_offset);
 #endif
+	clearbuffer(); //Data will wait 3 seconds to be retrieved
 }
 
 

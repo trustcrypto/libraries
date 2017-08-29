@@ -31,7 +31,6 @@
 
 #include "bignum.h"
 #include "md.h"
-#include "sha512.h"
 
 #if defined(MBEDTLS_THREADING_C)
 #include "threading.h"

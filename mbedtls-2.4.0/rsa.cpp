@@ -1045,7 +1045,7 @@ int mbedtls_rsa_rsassa_pkcs1_v15_sign( mbedtls_rsa_context *ctx,
 
     olen = ctx->len;
     nb_pad = olen - 3;
-#if defined(MBEDTLS_SHA1_C)
+
     if( md_alg != MBEDTLS_MD_NONE )
     {
         const mbedtls_md_info_t *md_info = mbedtls_md_info_from_type( md_alg );
@@ -1059,7 +1059,7 @@ int mbedtls_rsa_rsassa_pkcs1_v15_sign( mbedtls_rsa_context *ctx,
 
         hashlen = mbedtls_md_get_size( md_info );
     }
-#endif
+
     nb_pad -= hashlen;
 
     if( ( nb_pad < 8 ) || ( nb_pad > olen ) )
@@ -1385,7 +1385,7 @@ int mbedtls_rsa_rsassa_pkcs1_v15_verify( mbedtls_rsa_context *ctx,
         else
             return( 1 );
     } else  return( -1 );
-/*
+
     md_info = mbedtls_md_info_from_type( md_alg );
     if( md_info == NULL )
         return( MBEDTLS_ERR_RSA_BAD_INPUT_DATA );
@@ -1439,7 +1439,7 @@ int mbedtls_rsa_rsassa_pkcs1_v15_verify( mbedtls_rsa_context *ctx,
         return( MBEDTLS_ERR_RSA_VERIFY_FAILED );
 
     return( 0 );
-	*/
+	
 }
 #endif /* MBEDTLS_PKCS1_V15 */
 
@@ -1529,7 +1529,7 @@ void mbedtls_rsa_free( mbedtls_rsa_context *ctx )
 
 #if defined(MBEDTLS_SELF_TEST)
 
-#include "sha1.h"
+#include "sha_1.h"
 
 /*
  * Example RSA-1024 keypair, for test purposes
@@ -1701,22 +1701,20 @@ int mbedtls_rsa_self_test( int verbose )
         mbedtls_printf( "passed\n" );
 		#endif
 
-//#if defined(MBEDTLS_SHA1_C)
+#if defined(MBEDTLS_SHA1_C)
     if( verbose != 0 )
 		#ifdef DEBUG
         mbedtls_printf( "  PKCS#1 data sign  : " );
 		#endif
 
-    //mbedtls_sha1( rsa_plaintext, PT_LEN, sha1sum );
-    ret = mbedtls_rsa_pkcs1_sign( &rsa, myrand, NULL, MBEDTLS_RSA_PRIVATE, MBEDTLS_MD_NONE, PT_LEN,
-                        rsa_plaintext, rsa_ciphertext );
-    if(ret != 0 )
+    mbedtls_sha1( rsa_plaintext, PT_LEN, sha1sum );
+	
+    if( mbedtls_rsa_pkcs1_sign( &rsa, myrand, NULL, MBEDTLS_RSA_PRIVATE, MBEDTLS_MD_SHA1, 0,
+                        sha1sum, rsa_ciphertext ) != 0 )
     {
         if( verbose != 0 )
-			#ifdef DEBUG
             mbedtls_printf( "failed\n" );
-			mbedtls_printf( "%d",ret );
-			#endif
+
         return( 1 );
     }
 
@@ -1740,7 +1738,7 @@ int mbedtls_rsa_self_test( int verbose )
 		#ifdef DEBUG
         mbedtls_printf( "passed\n" );
 		#endif
-//#endif  /* MBEDTLS_SHA1_C */
+#endif  /* MBEDTLS_SHA1_C */
 
     if( verbose != 0 )
 		#ifdef DEBUG

@@ -652,12 +652,11 @@ void processMessage(uint8_t *buffer)
 				#ifdef US_VERSION
 				outputU2F = 1;
 				SETTIME(client_handle);
-				unsigned char version [] = "UNLOCKEDv0.2-beta.6";
 				memset(ecc_public_key, 0, sizeof(ecc_public_key));
 				Ed25519::generatePrivateKey(handle); //Store session key in handle, overwritten by u2f register/authenticate
 				Ed25519::derivePublicKey(ecc_public_key, handle);
-				memcpy(ecc_public_key+32, version, sizeof(version));
-				store_U2F_response(ecc_public_key, (32+sizeof(version)));
+				memcpy(ecc_public_key+32, UNLOCKED, sizeof(UNLOCKED));
+				store_U2F_response(ecc_public_key, (32+sizeof(UNLOCKED)));
 				fadeoff();
 				#endif
 				}

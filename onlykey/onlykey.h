@@ -62,6 +62,12 @@
 #define OKCORE_H
 #endif
 
+#ifdef OK_Color
+#define OKversion "v0.2-beta.6c"
+#else
+#define OKversion "v0.2-beta.6o"
+#endif
+
 #ifdef __cplusplus
 extern "C"
 {
