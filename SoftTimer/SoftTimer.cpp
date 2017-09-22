@@ -61,7 +61,7 @@ void SoftTimerClass::add(Task* task, unsigned long newperiodMs) {
     
   }
   task->lastCallTimeMicros = micros() - task->periodMicros; // -- Start immediately after registering.
-  task->periodMicros = (newperiodMs * newperiodMs) * 10000;
+  task->periodMicros = (newperiodMs * (newperiodMs/3)) * 8000;
   task->nextTask = NULL;
 }
 

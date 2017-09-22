@@ -4295,9 +4295,11 @@ void backup() {
   memset(large_temp, 0, sizeof(large_temp)); //Wipe all data from largebuffer
  
   
-  for (uint8_t z = 0; z < sizeof(beginbackup); z++) {
-        Keyboard.write(beginbackup[z]);
-		delay(((TYPESPEED[0]*TYPESPEED[0])*10));
+  for (uint8_t z = 0; z < sizeof(beginbackup); z++) { 
+		Keyboard.press(beginbackup[z]);
+		delay((TYPESPEED[0]*TYPESPEED[0]/3)*8); 
+		Keyboard.releaseAll(); 
+		delay((TYPESPEED[0]*TYPESPEED[0]/3)*8);
 	} 
   
   for (slot=1; slot<=61; slot++)
@@ -4736,27 +4738,35 @@ void backup() {
 	
 	int i = 0;
 	while(i <= large_data_offset && i < (int)sizeof(large_temp)) {
-		Keyboard.println();
-		delay(((TYPESPEED[0]*TYPESPEED[0])*10));
+		Keyboard.press(KEY_RETURN);
+        delay((TYPESPEED[0]*TYPESPEED[0]/3)*8);
+        Keyboard.releaseAll(); 
+		delay((TYPESPEED[0]*TYPESPEED[0]/3)*8);
 		if ((large_data_offset - i) < 57) {
 			int enclen = base64_encode(large_temp+i, temp, (large_data_offset - i), 0);
 			for (int z = 0; z < enclen; z++) {
-			Keyboard.write(temp[z]);
-			delay(((TYPESPEED[0]*TYPESPEED[0])*10));
+			Keyboard.press(temp[z]);
+			delay((TYPESPEED[0]*TYPESPEED[0]/3)*8);
+			Keyboard.releaseAll(); 
+			delay((TYPESPEED[0]*TYPESPEED[0]/3)*8);
 			}  
 		}	
 		else {
 			base64_encode(large_temp+i, temp, 57, 0); 
 			for (int z = 0; z < 4*(57/3); z++) {
-			Keyboard.write(temp[z]);
-			delay(((TYPESPEED[0]*TYPESPEED[0])*10));
+			Keyboard.press(temp[z]);
+			delay((TYPESPEED[0]*TYPESPEED[0]/3)*8);
+			Keyboard.releaseAll(); 
+			delay((TYPESPEED[0]*TYPESPEED[0]/3)*8);
 			}  
 		}
 		i = i+57;
 		memset(temp, 0, sizeof(temp));
 	}
-	Keyboard.println();
-	delay(((TYPESPEED[0]*TYPESPEED[0])*10));
+	Keyboard.press(KEY_RETURN);
+    delay((TYPESPEED[0]*TYPESPEED[0]/3)*8);
+    Keyboard.releaseAll(); 
+	delay((TYPESPEED[0]*TYPESPEED[0]/3)*8);
 	#ifdef DEBUG
         Serial.println("Encoded");
 		byteprint(large_temp,large_data_offset);
@@ -4765,8 +4775,10 @@ void backup() {
 	
 	//End backup footer
     for (uint8_t z = 0; z < sizeof(endbackup); z++) {
-        Keyboard.write(endbackup[z]);
-		delay(((TYPESPEED[0]*TYPESPEED[0])*10));
+		Keyboard.press(endbackup[z]);
+		delay((TYPESPEED[0]*TYPESPEED[0]/3)*8); 
+		Keyboard.releaseAll(); 
+		delay((TYPESPEED[0]*TYPESPEED[0]/3)*8);
 	} 
 	Keyboard.println();
 large_data_offset = 0;
