@@ -103,7 +103,6 @@ void SIGN (uint8_t *buffer) {
 	if (buffer[5] < 101) { //Slot 101-132 are for ECC, 1-4 are for RSA
 	uint8_t features = onlykey_flashget_RSA ((int)buffer[5]);
 	if (type == 0) {
-		fadeoff();
 		return;
 	}
 	#ifdef DEBUG
@@ -121,7 +120,6 @@ void SIGN (uint8_t *buffer) {
 	} else {
 	uint8_t features = onlykey_flashget_ECC ((int)buffer[5]);
 	if (type == 0) {
-		fadeoff();
 		return;
 	}
 	#ifdef DEBUG
@@ -160,7 +158,6 @@ void DECRYPT (uint8_t *buffer){
 	if (buffer[5] < 101) { //Slot 101-132 are for ECC, 1-4 are for RSA
 	uint8_t features = onlykey_flashget_RSA (buffer[5]);
 	if (type == 0) {
-		fadeoff();
 		return;
 	}
 	if (is_bit_set(features, 5)) {
@@ -172,7 +169,6 @@ void DECRYPT (uint8_t *buffer){
 	} else {
 	uint8_t features = onlykey_flashget_ECC (buffer[5]);
     if (type == 0) {
-		fadeoff();
 		return;
 	}	
 	if (is_bit_set(features, 5)) {
@@ -221,7 +217,6 @@ void GETRSAPUBKEY (uint8_t *buffer)
 	} else if (outputU2F) {
 	store_U2F_response(rsa_publicN, (type*128));
 	}
-	blink(3);
 }
 
 void RSASIGN (uint8_t *buffer)
@@ -236,12 +231,7 @@ void RSASIGN (uint8_t *buffer)
     Serial.println("Error with RSA data to sign invalid size");
 	Serial.println(packet_buffer_offset);
 #endif
-		fadeoff();
-		CRYPTO_AUTH = 0;
-		Challenge_button1 = 0;
-		Challenge_button2 = 0;
-		Challenge_button3 = 0;
-		// Reset the large buffer offset
+		fadeoff(1);
 		packet_buffer_offset = 0;
 		memset(packet_buffer, 0, sizeof(packet_buffer)); //wipe buffer
 		return;
@@ -295,12 +285,7 @@ void RSASIGN (uint8_t *buffer)
 	} else {
 		if (!outputU2F) hidprint("Error with RSA signing");
 	}
-	fadeoff();
-	CRYPTO_AUTH = 0;
-	Challenge_button1 = 0;
-	Challenge_button2 = 0;
-	Challenge_button3 = 0;
-    blink(3);
+	fadeoff(85);
 	memset(rsa_signature, 0, sizeof(rsa_signature));
     return;
 	} else {
@@ -322,12 +307,7 @@ void RSADECRYPT (uint8_t *buffer)
     Serial.println("Error with RSA data to decrypt invalid size");
 	Serial.println(packet_buffer_offset);
 #endif
-		fadeoff();
-		CRYPTO_AUTH = 0;
-		Challenge_button1 = 0;
-		Challenge_button2 = 0;
-		Challenge_button3 = 0;
-		// Reset the large buffer offset
+		fadeoff(1);
 		packet_buffer_offset = 0;
 		memset(packet_buffer, 0, sizeof(packet_buffer)); //wipe buffer
 		return;
@@ -372,12 +352,7 @@ void RSADECRYPT (uint8_t *buffer)
 	} else {
 		if (!outputU2F) hidprint("Error with RSA decryption");
 	}
-	fadeoff();
-	CRYPTO_AUTH = 0;
-	Challenge_button1 = 0;
-	Challenge_button2 = 0;
-	Challenge_button3 = 0;
-    blink(3);
+	fadeoff(85);
     // Reset the buffer offset
 	memset(large_buffer, 0, sizeof(large_buffer));
     return;
@@ -402,7 +377,7 @@ void GETECCPUBKEY (uint8_t *buffer)
 			}
 			memset(ecc_public_key, 0, MAX_ECC_KEY_SIZE*2); //wipe buffer
 			memset(ecc_private_key, 0, MAX_ECC_KEY_SIZE); //wipe buffer
-            blink(3);
+         
 }
 
 void ECDSA_EDDSA(uint8_t *buffer)
@@ -452,12 +427,7 @@ void ECDSA_EDDSA(uint8_t *buffer)
 	RawHID.send(ecc_signature, 0);
 	}
     // Stop the fade in
-    fadeoff();
-	CRYPTO_AUTH = 0;
-	Challenge_button1 = 0;
-	Challenge_button2 = 0;
-	Challenge_button3 = 0;
-    blink(3);
+    fadeoff(85);
 	memset(ecc_public_key, 0, sizeof(ecc_public_key)); //wipe buffer
 	memset(ecc_private_key, 0, sizeof(ecc_private_key)); //wipe buffer
     return;
@@ -577,13 +547,7 @@ void ECDH(uint8_t *buffer)
 #endif
     RawHID.send(hash, 0);
 	*/
-	CRYPTO_AUTH = 0;
-	Challenge_button1 = 0;
-	Challenge_button2 = 0;
-	Challenge_button3 = 0;
-    blink(3);
-	// Stop the fade in
-    fadeoff();
+    fadeoff(85);
 	memset(secret, 0, sizeof(secret)); //wipe buffer
 	memset(ecc_public_key, 0, sizeof(ecc_public_key)); //wipe buffer
 	memset(ecc_private_key, 0, sizeof(ecc_private_key)); //wipe buffer

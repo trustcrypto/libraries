@@ -102,7 +102,8 @@ elapsedMillis idletimer;
 Task FadeinTask(15, increment);
 Task FadeoutTask(10, decrement);
 DelayRun Clearbuffer(3000, wipepacketbuffer); //empty packet buffer
-DelayRun Codetimeout(20000, wipecode); //20 seconds to enter challenge code
+DelayRun Codetimeout(20000, wipecode); //20 seconds to enter challenge code 
+DelayRun Endfade(2000, fadeend); //delay to prevent inadvertent button press after challenge PIN
 uint8_t fade = 0;
 uint8_t isfade = 0;
 /*************************************/
@@ -3715,6 +3716,12 @@ if (PDmode) return 0;
 		Serial.printf("There is no ECC Private Key set in this slot");
 		#endif
 		hidprint("There is no ECC Private Key set in this slot");
+		if (outputU2F) {
+			fadeoff(1);
+		} else {
+		NEO_Color = 1;
+		blink(2);
+		}
 		return 0;
 	}else if (type==0x01 || type==0x11 || type==0x21 || type==0x31 || type==0x41 || type==0x51 || type==0x61 || type==0x71 || type==0x81 || type==0x91 || type==0xA1 || type==0xB1 || type==0xC1 || type==0xD1 || type==0xE1 || type==0xF1) {
 		type=1;
@@ -3842,6 +3849,12 @@ if (PDmode) return 0;
 	Serial.printf("There is no RSA Private Key set in this slot");
 	#endif
 	hidprint("There is no RSA Private Key set in this slot");
+	if (outputU2F) {
+		fadeoff(1);
+	} else {
+	NEO_Color = 1;
+	blink(2);
+	}
 	return 0;
 	} else if (type==0x01 || type==0x11 || type==0x21 || type==0x31 || type==0x41 || type==0x51 || type==0x61 || type==0x71 || type==0x81 || type==0x91 || type==0xA1 || type==0xB1 || type==0xC1 || type==0xD1 || type==0xE1 || type==0xF1) {
 		type=1;
@@ -4169,18 +4182,40 @@ bool wipecode(Task* me) {
 	#ifdef DEBUG
 	Serial.println("clear code");
 	#endif
-	fadeoff();
+	if (isfade || CRYPTO_AUTH) fadeoff(1); //Fade Red, failed to enter PIN in 20 Seconds
+	return false;
+}
+
+void fadeoff(uint8_t color) {
+	Endfade.startDelayed(); //run fadeend after 2 seconds (prevent accidental button press)
+	if (!outputU2F) { //wipe everything unless there is U2F response stored
+	packet_buffer_offset = 0;
+	memset(packet_buffer, 0, sizeof(packet_buffer)); //wipe buffer
+	SoftTimer.remove(&Clearbuffer); //remove scheduled Clearbuffer set by process_packets
+	SoftTimer.remove(&Codetimeout);  //remove scheduled Clearbuffer set by process_packet
+	}
+	if (!color) { //No fade out 2 sec
+		SoftTimer.remove(&FadeinTask);
+		SoftTimer.remove(&FadeoutTask);
+	#ifdef OK_Color
+	setcolor(85); //Green
+	#endif
+	} else {
+	#ifdef OK_Color
+	NEO_Color = color;
+	#endif
+	}
 	CRYPTO_AUTH = 0;
 	Challenge_button1 = 0;
 	Challenge_button2 = 0;
 	Challenge_button3 = 0;
-	return false;
 }
 
-void fadeoff() {
+bool fadeend(Task* me) {
   SoftTimer.remove(&FadeinTask);
   SoftTimer.remove(&FadeoutTask);
   isfade=0;
+  return false;
 }
 
 void fadeon() {
@@ -4191,6 +4226,11 @@ void fadeon() {
 void clearbuffer() {
   Clearbuffer.startDelayed();
 }
+
+void fadeoffafter20() {
+  Codetimeout.startDelayed();
+}
+
 
 #ifdef OK_Color
 // Input a value 0 to 255 to get a color value.
@@ -5031,7 +5071,7 @@ void RESTORE(uint8_t *buffer) {
 	free(large_temp);
 	delay(1000);
 	hidprint("Remove and Reinsert OnlyKey to complete restore");
-	fadeoff();
+	fadeoff(0);
 	large_data_len = 0;
 	#ifdef OK_Color
     NEO_Color = 85; //Green
@@ -5048,7 +5088,7 @@ void process_packets (uint8_t *buffer) {
     #ifdef US_VERSION
 	uint8_t temp[32];
 	Clearbuffer.startDelayed();
-	if (packet_buffer[0] == 5 && packet_buffer[packet_buffer_offset-1] == 0 && packet_buffer[packet_buffer_offset-2] == 0x90) {
+	if (CRYPTO_AUTH >= 1 || (packet_buffer[0] == 5 && packet_buffer[packet_buffer_offset-1] == 0 && packet_buffer[packet_buffer_offset-2] == 0x90)) {
 		if (outputU2F == 1) {
 #ifdef DEBUG
 	     Serial.println("Error receiving packets, packet buffer already full");
@@ -5060,6 +5100,10 @@ void process_packets (uint8_t *buffer) {
 	     Serial.println("Warning, wiping unretrieved data in packet buffer");
 		 Serial.println(packet_buffer_offset);
 #endif 
+		CRYPTO_AUTH = 0;
+		Challenge_button1 = 0;
+		Challenge_button2 = 0;
+		Challenge_button3 = 0;
 		packet_buffer_offset = 0;
 		memset(packet_buffer, 0, sizeof(packet_buffer));
 		}
@@ -5069,6 +5113,7 @@ void process_packets (uint8_t *buffer) {
         if (packet_buffer_offset <= (int)(sizeof(packet_buffer) - 57)) {
             memcpy(packet_buffer+packet_buffer_offset, buffer+7, 57);
             packet_buffer_offset = packet_buffer_offset + 57;
+			byteprint(packet_buffer, packet_buffer_offset);
 			return;
         } else {
               if (!outputU2F) hidprint("Error packets received exceeded size limit");
@@ -5079,6 +5124,7 @@ void process_packets (uint8_t *buffer) {
         if (packet_buffer_offset <= (int)(sizeof(packet_buffer) - 57) && buffer[6] <= 57) {
             memcpy(packet_buffer+packet_buffer_offset, buffer+7, buffer[6]);
             packet_buffer_offset = packet_buffer_offset + buffer[6];
+			byteprint(packet_buffer, packet_buffer_offset);
 			CRYPTO_AUTH = 1;
 			Codetimeout.startDelayed();
 			SHA256_CTX msg_hash;

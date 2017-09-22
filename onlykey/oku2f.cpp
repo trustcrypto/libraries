@@ -351,6 +351,7 @@ int u2f_button = 0;
 
 void processMessage(uint8_t *buffer)
 {
+  fadeoffafter20();
   int len = buffer[5] << 8 | buffer[6];
   uint8_t sha256_hash[32];
 #ifdef DEBUG  
@@ -417,13 +418,13 @@ void processMessage(uint8_t *buffer)
 			memset(large_resp_buffer, 0, packet_buffer_offset);
 			memset(packet_buffer, 0, packet_buffer_offset);
 			packet_buffer_offset = 0;
+			fadeoff(0);
 			outputU2F = 0;
-			fadeoff();
         return;
 		} else if (match2 == 0 || match3 == 0) {
 		errorResponse(buffer, ERR_OTHER); //Nothing to send
 		outputU2F = 0;
-		if (!CRYPTO_AUTH) fadeoff();
+		if (!CRYPTO_AUTH) fadeoff(1);
         return;
 		}
       }
@@ -440,6 +441,7 @@ void processMessage(uint8_t *buffer)
           Serial.println("U2F button pressed for register");
 
 #endif
+		fadeoff(0);
       }
 
       memset(public_k, 0, sizeof(public_k));
@@ -581,7 +583,6 @@ void processMessage(uint8_t *buffer)
       len += 2;
      
       u2f_button = 0;
-	  fadeoff();
       sendLargeResponse(buffer, len);
       large_data_offset = 0;
 	  large_data_len = 0;
@@ -657,7 +658,7 @@ void processMessage(uint8_t *buffer)
 				Ed25519::derivePublicKey(ecc_public_key, handle);
 				memcpy(ecc_public_key+32, UNLOCKED, sizeof(UNLOCKED));
 				store_U2F_response(ecc_public_key, (32+sizeof(UNLOCKED)));
-				fadeoff();
+				fadeoff(0);
 				#endif
 				}
 			} else if (client_handle[4] == OKGETPUBKEY && !CRYPTO_AUTH) {
@@ -665,7 +666,7 @@ void processMessage(uint8_t *buffer)
 				#ifdef US_VERSION
 				outputU2F = 1;
 				GETPUBKEY(client_handle);
-				fadeoff();
+				fadeoff(0);
 				#endif
 				}
 			}
@@ -703,6 +704,7 @@ void processMessage(uint8_t *buffer)
 #ifdef DEBUG
         Serial.println("U2F button pressed for authenticate");
 #endif
+		fadeoff(0);
       }
 
       memcpy(handle, client_handle, 64);
@@ -821,7 +823,6 @@ void processMessage(uint8_t *buffer)
         Serial.println(len);
 #endif
         u2f_button = 0;
-		fadeoff();
         sendLargeResponse(buffer, len);
         setCounter(counter+1);
         large_data_offset = 0;
@@ -887,7 +888,7 @@ void processPacket(uint8_t *buffer)
       Serial.println("Sending ping response");
 #endif      
       RawHID.send(buffer, 100);
-	  if (!CRYPTO_AUTH) fadeoff();
+	  if (!CRYPTO_AUTH) fadeoff(0);
     } else {
       //large packet
       //send first one
