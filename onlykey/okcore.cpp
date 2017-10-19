@@ -101,9 +101,9 @@ elapsedMillis idletimer;
 /*************************************/
 Task FadeinTask(15, increment);
 Task FadeoutTask(10, decrement);
-DelayRun Clearbuffer(3000, wipepacketbuffer); //empty packet buffer
-DelayRun Codetimeout(20000, wipecode); //20 seconds to enter challenge code 
-DelayRun Endfade(2000, fadeend); //delay to prevent inadvertent button press after challenge PIN
+DelayRun Wipedata(5000, wipebuffersafter5sec); //5 second delay to wipe data after last message
+DelayRun Usertimeout(20000, fadeoffafter20sec); //20 second delay to wait for user 
+DelayRun Endfade(2500, fadeendafter2sec); //delay to prevent inadvertent button press after challenge PIN
 uint8_t fade = 0;
 uint8_t isfade = 0;
 /*************************************/
@@ -157,6 +157,7 @@ int packet_buffer_offset = 0;
 uint8_t large_buffer[1024];
 uint8_t large_resp_buffer[1024];
 uint8_t packet_buffer[768];
+uint8_t packet_buffer_details[2];
 uint8_t recv_buffer[64];
 uint8_t resp_buffer[64];
 char attestation_pub[66];
@@ -467,10 +468,6 @@ void recvmsg() {
       default: 
 		if(!PDmode && initialized==true && unlocked==true) {
 		#ifdef US_VERSION
-		#ifdef OK_Color
-		NEO_Color = 170; //Blue
-		#endif
-			fadeon();
 	    	recvu2fmsg(recv_buffer);
 		#endif
 		}
@@ -900,13 +897,13 @@ void SETTIME (uint8_t *buffer)
 #endif
 		factorydefault();
 	  }
-      blink(3);
+      if (!outputU2F) blink(3);
       return;
 }
 
-void GETKEYLABELS ()
+uint8_t GETKEYLABELS ()
 {
-	if (PDmode) return;
+	if (PDmode) return 0;
 	#ifdef US_VERSION
 #ifdef DEBUG
       Serial.println();
@@ -916,20 +913,26 @@ void GETKEYLABELS ()
 	  uint8_t *ptr;
 	  char labelchar[EElen_label+3];
 	  int offset  = 0;
+	  int keyid_match;
 	  ptr=label+2;
 	  
-	for (int i = 25; i<=28; i++) { //4 labels for RSA keys
-	  onlykey_flashget_label(ptr, (offset + i));
+	for (uint8_t i = 25; i<=28; i++) { //4 labels for RSA keys
+	  onlykey_flashget_label(ptr+8, (offset + i));
 	  label[0] = (uint8_t)i; //1-4
 	  label[1] = (uint8_t)0x7C;
 	  ByteToChar(label, labelchar, EElen_label+3);
 #ifdef DEBUG
 	  Serial.println(labelchar);
 #endif
+	  if (!outputU2F) { 
 	  hidprint(labelchar);
 	  delay(20);
+	  } else {
+		  keyid_match = memcmp (ptr+8, recv_buffer+6, 8);
+		  if (keyid_match == 0) return i-24;
+	  }
 	}
-	for (int i = 29; i<=60; i++) { //32 labels for ECC keys
+	for (uint8_t i = 29; i<=60; i++) { //32 labels for ECC keys
 	  onlykey_flashget_label(ptr, (offset + i));
 	  label[0] = (uint8_t)i; //101-132
 	  label[1] = (uint8_t)0x7C;
@@ -937,13 +940,17 @@ void GETKEYLABELS ()
 #ifdef DEBUG
 	  Serial.println(labelchar);
 #endif
+	  if (!outputU2F) { 
 	  hidprint(labelchar);
 	  delay(20);
+	  } else {
+		  keyid_match = memcmp (ptr+8, recv_buffer+6, 8);
+		  if (keyid_match == 0) return i+103;
+	  }
 	}
-	  
       blink(3);
 	  #endif
-      return;
+      return 0;
 }
 
 void GETSLOTLABELS ()
@@ -4167,33 +4174,31 @@ void decrement(Task* me) {
   }
 }
 
-bool wipepacketbuffer(Task* me) {
-	if(!CRYPTO_AUTH) {
+bool wipebuffersafter5sec(Task* me) {
 	#ifdef DEBUG
-	Serial.println("clear buffer");
+	Serial.println("wipe buffers after 5 sec");
 	#endif
 	packet_buffer_offset = 0;
 	memset(packet_buffer, 0, sizeof(packet_buffer));
-	} 
+	CRYPTO_AUTH = 0;
+	Challenge_button1 = 0;
+	Challenge_button2 = 0;
+	Challenge_button3 = 0;
+	if (isfade || CRYPTO_AUTH) fadeoff(1); //Fade Red, failed to complete within 5 seconds
 	return false;
 }
 
-bool wipecode(Task* me) {
+bool fadeoffafter20sec(Task* me) {
 	#ifdef DEBUG
-	Serial.println("clear code");
+	Serial.println("wipe buffers after 20 sec");
 	#endif
 	if (isfade || CRYPTO_AUTH) fadeoff(1); //Fade Red, failed to enter PIN in 20 Seconds
 	return false;
 }
 
 void fadeoff(uint8_t color) {
-	Endfade.startDelayed(); //run fadeend after 2 seconds (prevent accidental button press)
-	if (!outputU2F) { //wipe everything unless there is U2F response stored
-	packet_buffer_offset = 0;
-	memset(packet_buffer, 0, sizeof(packet_buffer)); //wipe buffer
-	SoftTimer.remove(&Clearbuffer); //remove scheduled Clearbuffer set by process_packets
-	SoftTimer.remove(&Codetimeout);  //remove scheduled Clearbuffer set by process_packet
-	}
+	Endfade.startDelayed(); //run fadeendafter2sec after 2 seconds (prevent accidental button press)
+	wipedata();
 	if (!color) { //No fade out 2 sec
 		SoftTimer.remove(&FadeinTask);
 		SoftTimer.remove(&FadeoutTask);
@@ -4205,13 +4210,9 @@ void fadeoff(uint8_t color) {
 	NEO_Color = color;
 	#endif
 	}
-	CRYPTO_AUTH = 0;
-	Challenge_button1 = 0;
-	Challenge_button2 = 0;
-	Challenge_button3 = 0;
 }
 
-bool fadeend(Task* me) {
+bool fadeendafter2sec(Task* me) {
   SoftTimer.remove(&FadeinTask);
   SoftTimer.remove(&FadeoutTask);
   isfade=0;
@@ -4223,12 +4224,12 @@ void fadeon() {
   isfade=1;
 }
 
-void clearbuffer() {
-  Clearbuffer.startDelayed();
+void wipedata() {
+  Wipedata.startDelayed();
 }
 
 void fadeoffafter20() {
-  Codetimeout.startDelayed();
+  Usertimeout.startDelayed();
 }
 
 
@@ -5099,8 +5100,8 @@ void process_packets (uint8_t *buffer) {
 	if (PDmode) return;
     #ifdef US_VERSION
 	uint8_t temp[32];
-	Clearbuffer.startDelayed();
-	if (CRYPTO_AUTH >= 1 || (packet_buffer[0] == 5 && packet_buffer[packet_buffer_offset-1] == 0 && packet_buffer[packet_buffer_offset-2] == 0x90)) {
+	 wipedata(); //Wait 5 seconds to receive packets
+	if (CRYPTO_AUTH >= 1 || (packet_buffer[0] == 1 && packet_buffer[packet_buffer_offset-1] == 0 && packet_buffer[packet_buffer_offset-2] == 0x90)) {
 		if (outputU2F == 1) {
 #ifdef DEBUG
 	     Serial.println("Error receiving packets, packet buffer already full");
@@ -5136,9 +5137,12 @@ void process_packets (uint8_t *buffer) {
         if (packet_buffer_offset <= (int)(sizeof(packet_buffer) - 57) && buffer[6] <= 57) {
             memcpy(packet_buffer+packet_buffer_offset, buffer+7, buffer[6]);
             packet_buffer_offset = packet_buffer_offset + buffer[6];
+			packet_buffer_details[0] = buffer[4];
+			packet_buffer_details[1] = buffer[5];
 			byteprint(packet_buffer, packet_buffer_offset);
 			CRYPTO_AUTH = 1;
-			Codetimeout.startDelayed();
+			SoftTimer.remove(&Wipedata); //Cancel this we got all packets
+			fadeoffafter20(); //Wipe and fadeoff after 20 seconds
 			SHA256_CTX msg_hash;
 			sha256_init(&msg_hash);
 			sha256_update(&msg_hash, packet_buffer, packet_buffer_offset); //add data to sign
@@ -5170,4 +5174,42 @@ void process_packets (uint8_t *buffer) {
         }
 	}
 	#endif
+}
+
+void store_U2F_response (uint8_t *data, int len) {
+	CRYPTO_AUTH = 0;
+	int len2 = 0;
+	if ((len+13) >= (int)sizeof(packet_buffer)) return; //Double check buf overflow
+	if (len < 64) {
+		uint8_t tempdata[64];
+		memmove( tempdata, data, len);
+		data = tempdata+len;
+		RNG2(data, 64-len); //Store a random number in key handle empty space
+		data = tempdata;
+		len = 64;
+	}
+	packet_buffer[len2] = 0x01; // user_presence
+	packet_buffer[len2++] = 0; //ctr
+	packet_buffer[len2++] = 0; //ctr
+	packet_buffer[len2++] = 0; //ctr
+	packet_buffer[len2++] = 2; //ctr
+	packet_buffer[len2++] = 0x30; //header: compound structure
+	packet_buffer[len2++] = len+4; //total length 
+    packet_buffer[len2++] = 0x02;  //header: integer
+	packet_buffer[len2++] = len/2; 
+	memmove(packet_buffer+len2, data, len/2); //R value
+	len2 += len/2;
+	packet_buffer[len2++] = 0x02;  //header: integer 
+	packet_buffer[len2++] = len/2; 
+	memmove(packet_buffer+len2, data+(len/2), len/2); //S value
+	len2 += len/2;
+	uint8_t *last = packet_buffer+len2;
+	APPEND_SW_NO_ERROR(last);
+	len2 += 2;
+	packet_buffer_offset = len2;
+#ifdef DEBUG
+      Serial.print ("Stored U2F Response");
+	  byteprint(packet_buffer, packet_buffer_offset);
+#endif
+	 wipedata(); //Data will wait 5 seconds to be retrieved
 }

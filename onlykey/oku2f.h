@@ -168,6 +168,7 @@ extern void update_SHA256(const uECC_HashContext *base,
                    unsigned message_size);                   
 extern void finish_SHA256(const uECC_HashContext *base, uint8_t *hash_result);
 extern void U2Finit();
+extern void send_U2F_response (uint8_t *buffer);
 
 #ifdef __cplusplus
 }

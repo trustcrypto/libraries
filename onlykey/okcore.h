@@ -99,7 +99,7 @@ extern void fadeout();
 extern void printDigits(int digits);
 extern void digitalClockDisplay();
 extern void GETSLOTLABELS ();
-extern void GETKEYLABELS ();
+extern uint8_t GETKEYLABELS ();
 extern void SETTIME (uint8_t *buffer);
 extern void WIPEU2FCERT (uint8_t *buffer);
 extern void SETU2FCERT (uint8_t *buffer);
@@ -177,11 +177,11 @@ extern void yubikeysim(char *ptr);
 extern void yubikey_incr_time();
 extern void increment(Task* me);
 extern void decrement(Task* me);
-extern bool wipepacketbuffer(Task* me);
-extern bool wipecode(Task* me);
-extern bool fadeend(Task* me);
+extern bool wipebuffersafter5sec(Task* me);
+extern bool fadeoffafter20sec(Task* me);
+extern bool fadeendafter2sec(Task* me);
 extern void typeoutbackup(Task* me);
-extern void clearbuffer();
+extern void wipedata();
 extern void fadeoffafter20();
 extern void fadeoff(uint8_t color);
 extern void fadeon();
@@ -194,6 +194,7 @@ extern void WIPERSAPRIV (uint8_t *buffer);
 extern void SETECCPRIV (uint8_t *buffer);
 extern void RESTORE (uint8_t *buffer);
 extern void process_packets (uint8_t *buffer);
+extern void store_U2F_response (uint8_t *data, int len);
 
 #ifdef __cplusplus
 }

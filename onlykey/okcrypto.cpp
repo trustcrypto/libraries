@@ -142,11 +142,16 @@ void GETPUBKEY (uint8_t *buffer) {
 	Serial.println();
 	Serial.println("OKGETPUBKEY MESSAGE RECEIVED"); 
 	#endif
-	if (buffer[5] < 101) { //Slot 101-132 are for ECC, 1-4 are for RSA
-		if (onlykey_flashget_RSA ((int)buffer[5])) GETRSAPUBKEY(buffer);
-	} else {
-		if (onlykey_flashget_ECC ((int)buffer[5])) GETECCPUBKEY(buffer);	
+	if (buffer[6] + buffer[7] + buffer[8] + buffer[9] != 0) {
+		uint8_t slotnum[1];
+		slotnum[0] = GETKEYLABELS();
+		if (slotnum[0] >= 1) store_U2F_response(slotnum, 1);
 	}
+	else if (buffer[5] < 101 && !outputU2F) { //Slot 101-132 are for ECC, 1-4 are for RSA
+		if (onlykey_flashget_RSA ((int)buffer[5])) GETRSAPUBKEY(buffer);
+	} else if (!outputU2F) {
+		if (onlykey_flashget_ECC ((int)buffer[5])) GETECCPUBKEY(buffer);	
+	} 
 }
 
 void DECRYPT (uint8_t *buffer){
@@ -874,41 +879,5 @@ int mbedtls_rand( void *rng_state, unsigned char *output, size_t len )
     RNG2( output, len );
     return( 0 );
 }
-
-void store_U2F_response (uint8_t *data, int len) {
-	int len2 = 0;
-    uint8_t rand[64];
-	RNG2((uint8_t*)rand, 64); //Store a random number in key handle
-	if ((len+1+65+1+64+4+32+2+32+2) >= (int)sizeof(packet_buffer)) return; //Double check buf overflow
-	memmove(packet_buffer+131, data, len);
-	packet_buffer[len2] = 0;
-	packet_buffer[len2++] = 5;
-	memcpy(packet_buffer + len2, rand, 64); //length of public key
-    len2 += 65;
-	packet_buffer[len2++] = 64; 
-	memcpy(packet_buffer+len2, rand, 64); //length of key handle
-	len2 += 64;
-	len2 += len;
-	packet_buffer[len2++] = 0x30;
-	packet_buffer[len2++] = 0x44; //total length (32 + 32 + 2 + 2)
-	packet_buffer[len2++] = 0x02;  //header: integer
-	packet_buffer[len2++] = 32;  //32 byte 
-	memcpy(packet_buffer+len2, rand, 32); //R value
-	len2 +=32;
-	packet_buffer[len2++] = 0x02;  //header: integer
-	packet_buffer[len2++] = 32;  //32 byte
-	memcpy(packet_buffer+len2, rand, 32); //R value
-	len2 +=32;
-	uint8_t *last = packet_buffer+len2;
-	APPEND_SW_NO_ERROR(last);
-	len2 += 2;
-	packet_buffer_offset = len2;
-#ifdef DEBUG
-      Serial.print ("Stored U2F Response");
-	  byteprint(packet_buffer, packet_buffer_offset);
-#endif
-	clearbuffer(); //Data will wait 3 seconds to be retrieved
-}
-
 
 #endif
