@@ -619,27 +619,57 @@ void processMessage(uint8_t *buffer)
 				if(!PDmode) {
 				#ifdef US_VERSION
 				outputU2F = 1;
+				large_data_offset = 0;
 				SETTIME(client_handle);
 				memset(ecc_public_key, 0, sizeof(ecc_public_key));
-				Ed25519::generatePrivateKey(handle); //Store session key in handle, overwritten by u2f register/authenticate
-				Ed25519::derivePublicKey(ecc_public_key, handle);
+				Ed25519::generatePrivateKey(ecc_private_key);
+				Ed25519::derivePublicKey(ecc_public_key, ecc_private_key);
+				#ifdef DEBUG
+					Serial.print("OnlyKey ECDH Public Key: ");
+					byteprint(ecc_public_key, 32);
+				#endif
 				memcpy(ecc_public_key+32, UNLOCKED, sizeof(UNLOCKED));
 				store_U2F_response(ecc_public_key, (32+sizeof(UNLOCKED)));
+				memcpy(ecc_public_key, client_handle+9, 32);
+				#ifdef DEBUG		
+					Serial.print("Application ECDH Public Key: ");
+					byteprint(ecc_public_key, 32);
+				#endif 
 				send_U2F_response(buffer);
+				return;
 				#endif
 				}
 			} else if (client_handle[4] == OKGETPUBKEY && !CRYPTO_AUTH) {
 				if(!PDmode) {
 				#ifdef US_VERSION
 				outputU2F = 1;
+				large_data_offset = 0;
 				GETPUBKEY(client_handle);
 				send_U2F_response(buffer);
+				return;
 				#endif
 				}
-			} else if (client_handle[4] == 0xFF && !CRYPTO_AUTH) {
+			} else if (client_handle[4] == 0xFF && !CRYPTO_AUTH) { //Get stored response
+				if(!PDmode) {
+				#ifdef US_VERSION
+				large_data_offset = 0;
 				send_U2F_response(buffer);
-			}
-			errorResponse(buffer, ERR_OTHER); 
+				return;
+				#endif
+				}
+			} else if (client_handle[4] == 0x00 && !CRYPTO_AUTH) { //Ping Error
+				if(!PDmode) {
+				#ifdef US_VERSION
+				large_data_offset = 0;
+				if (packet_buffer[packet_buffer_offset-1] != 0 && packet_buffer[packet_buffer_offset-2] != 0x90) {
+				errorResponse(buffer, (ERR_OTHER+1)); 
+				}
+				return;
+				#endif
+				}
+			} 
+			large_data_offset = 0;
+			errorResponse(buffer, ERR_OTHER); //ACK for PING, SIGN, DECRYPT
 			return;
 		  }
 	  }
@@ -862,7 +892,6 @@ void processPacket(uint8_t *buffer)
       Serial.println("Sending ping response");
 #endif      
       RawHID.send(buffer, 100);
-	  if (!CRYPTO_AUTH) fadeoff(0);
     } else {
       //large packet
       //send first one
@@ -1118,8 +1147,13 @@ void send_U2F_response(uint8_t *buffer) {
 			#endif
 			return;
 		} else {
+			#ifdef DEBUG
+			Serial.print("Error no data ready to be retrieved");
+			#endif 
+			errorResponse(buffer, ERR_OTHER); 
 			outputU2F = 0;
 			if (!CRYPTO_AUTH) fadeoff(1);
+			return;
 		}
 	}
 }
