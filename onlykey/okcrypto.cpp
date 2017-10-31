@@ -114,7 +114,11 @@ void SIGN (uint8_t *buffer) {
 		#ifdef DEBUG
 		Serial.print("Error key not set as signature key");
 		#endif
-		if (!outputU2F) hidprint("Error key not set as signature key");
+		if (!outputU2F) {
+			hidprint("Error key not set as signature key");
+		} else {
+			errorResponse(buffer, (ERR_OTHER+2));
+		}
 		return;
 	}
 	} else {
@@ -131,7 +135,11 @@ void SIGN (uint8_t *buffer) {
 		#ifdef DEBUG
 		Serial.print("Error key not set as signature key");
 		#endif
-		if (!outputU2F) hidprint("Error key not set as signature key");
+		if (!outputU2F) {
+			hidprint("Error key not set as signature key");
+		} else {
+			errorResponse(buffer, (ERR_OTHER+2));
+		}
 		return;
 	}
 	}
@@ -168,7 +176,14 @@ void DECRYPT (uint8_t *buffer){
 	if (is_bit_set(features, 5)) {
 		RSADECRYPT(buffer);
 	} else {
-		if (!outputU2F) hidprint("Error key not set as decryption key");
+		#ifdef DEBUG
+		Serial.print("Error key not set as decryption key");
+		#endif
+		if (!outputU2F) {
+			hidprint("Error key not set as decryption key");
+		} else {
+			errorResponse(buffer, (ERR_OTHER+2));
+		}
 		return;
 	}
 	} else {
@@ -179,7 +194,14 @@ void DECRYPT (uint8_t *buffer){
 	if (is_bit_set(features, 5)) {
 		ECDH(buffer);
 	} else {
-		if (!outputU2F) hidprint("Error key not set as decryption key");
+		#ifdef DEBUG
+		Serial.print("Error key not set as decryption key");
+		#endif
+		if (!outputU2F) {
+			hidprint("Error key not set as decryption key");
+		} else {
+			errorResponse(buffer, (ERR_OTHER+2));
+		}
 		return;
 	}
 	}

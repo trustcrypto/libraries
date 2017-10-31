@@ -4004,10 +4004,8 @@ if (PDmode) return;
 	onlykey_eeget_flashpos((uint8_t*)flashoffset);
 	uintptr_t adr = (unsigned long)flashoffset[0] * (unsigned long)2048;
 	adr = adr + 14336; //8th free flash sector
-	uint8_t *ptr;
 	//Wipe ID from EEPROM
-	ptr = buffer+5; 
-	onlykey_eeset_rsakey(0, (int)(ptr)); //Key ID (1-2) and slot (1-4)
+	onlykey_eeset_rsakey(0, (int)buffer[5]);
 	//Wipe flash
 	uint8_t temp[2048];
     uint8_t *tptr;
@@ -4019,7 +4017,7 @@ if (PDmode) return;
     temp[z+((buffer[5]*MAX_RSA_KEY_SIZE)-MAX_RSA_KEY_SIZE)] = 0x00;
     }
 	//Write buffer to flash
-    onlykey_flashset_common(ptr, (unsigned long*)adr, 2048);
+    onlykey_flashset_common(tptr, (unsigned long*)adr, 2048);
 	hidprint("Successfully wiped RSA Private Key");
     blink(3);
 #endif
