@@ -103,6 +103,7 @@ void SIGN (uint8_t *buffer) {
 	if (buffer[5] < 101) { //Slot 101-132 are for ECC, 1-4 are for RSA
 	uint8_t features = onlykey_flashget_RSA ((int)buffer[5]);
 	if (type == 0) {
+		if (outputU2F) errorResponse(recv_buffer, (ERR_OTHER+3));
 		return;
 	}
 	#ifdef DEBUG
@@ -117,13 +118,14 @@ void SIGN (uint8_t *buffer) {
 		if (!outputU2F) {
 			hidprint("Error key not set as signature key");
 		} else {
-			errorResponse(buffer, (ERR_OTHER+2));
+			if (outputU2F) errorResponse(recv_buffer, (ERR_OTHER+2));
 		}
 		return;
 	}
 	} else {
 	uint8_t features = onlykey_flashget_ECC ((int)buffer[5]);
 	if (type == 0) {
+		if (outputU2F) errorResponse(recv_buffer, (ERR_OTHER+3));
 		return;
 	}
 	#ifdef DEBUG
@@ -138,7 +140,7 @@ void SIGN (uint8_t *buffer) {
 		if (!outputU2F) {
 			hidprint("Error key not set as signature key");
 		} else {
-			errorResponse(buffer, (ERR_OTHER+2));
+			if (outputU2F) errorResponse(recv_buffer, (ERR_OTHER+2));
 		}
 		return;
 	}
@@ -171,6 +173,7 @@ void DECRYPT (uint8_t *buffer){
 	if (buffer[5] < 101) { //Slot 101-132 are for ECC, 1-4 are for RSA
 	uint8_t features = onlykey_flashget_RSA (buffer[5]);
 	if (type == 0) {
+		errorResponse(recv_buffer, (ERR_OTHER+3));
 		return;
 	}
 	if (is_bit_set(features, 5)) {
@@ -182,7 +185,7 @@ void DECRYPT (uint8_t *buffer){
 		if (!outputU2F) {
 			hidprint("Error key not set as decryption key");
 		} else {
-			errorResponse(buffer, (ERR_OTHER+2));
+			errorResponse(recv_buffer, (ERR_OTHER+2));
 		}
 		return;
 	}
@@ -200,7 +203,7 @@ void DECRYPT (uint8_t *buffer){
 		if (!outputU2F) {
 			hidprint("Error key not set as decryption key");
 		} else {
-			errorResponse(buffer, (ERR_OTHER+2));
+			errorResponse(recv_buffer, (ERR_OTHER+2));
 		}
 		return;
 	}
@@ -650,6 +653,7 @@ int rsa_sign (int mlen, const uint8_t *msg, uint8_t *out)
 		#ifdef DEBUG
 	        Serial.printf("Error with key check =%d", ret);
 	        #endif
+			if (outputU2F) errorResponse(recv_buffer, (ERR_OTHER+5));
 		return -1;
 	}
   if (ret == 0)
@@ -719,6 +723,7 @@ int rsa_sign (int mlen, const uint8_t *msg, uint8_t *out)
 	Serial.print("MBEDTLS_ERR_RSA_XXX error code ");
     Serial.println(ret);
 	#endif
+	if (outputU2F) errorResponse(recv_buffer, (ERR_OTHER+4));
     return -1; 
     }
 }
@@ -763,6 +768,7 @@ int rsa_decrypt (unsigned int *olen, const uint8_t *in, uint8_t *out)
       Serial.print ("MBEDTLS_ERR_RSA_XXX error code ");
 	  Serial.println (ret);
 	  #endif
+	  if (outputU2F) errorResponse(recv_buffer, (ERR_OTHER+5));
 	}
   if (ret == 0)
     {
@@ -786,6 +792,7 @@ int rsa_decrypt (unsigned int *olen, const uint8_t *in, uint8_t *out)
       Serial.print ("MBEDTLS_ERR_RSA_XXX error code ");
 	  Serial.println (ret);
 	  #endif
+	  if (outputU2F) errorResponse(recv_buffer, (ERR_OTHER+4));
       return -1;
     }
 }
