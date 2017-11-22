@@ -80,6 +80,7 @@
 #include <SoftTimer.h>
 #include <okcore.h>
 
+
 #ifdef US_VERSION
 
 struct ch_state {
@@ -413,7 +414,7 @@ void processMessage(uint8_t *buffer)
       memset(public_k, 0, sizeof(public_k));
       memset(private_k, 0, sizeof(private_k));
 
-      uECC_make_key(public_k + 1, private_k, curve); //so we ca insert 0x04
+      uECC_make_key(public_k + 1, private_k, curve); //so we can insert 0x04
 
       public_k[0] = 0x04;
 #ifdef DEBUG
@@ -589,7 +590,7 @@ void processMessage(uint8_t *buffer)
 	#endif  
 			//Decrypt message using shared secret
 			//If shared secret fails exit
-			if (client_handle[4] == OKDECRYPT  && !CRYPTO_AUTH) {
+			if (client_handle[4] == OKDECRYPT && !CRYPTO_AUTH) {
 				if(!PDmode) {
 				#ifdef US_VERSION
 				#ifdef OK_Color
@@ -623,11 +624,7 @@ void processMessage(uint8_t *buffer)
 				SETTIME(client_handle);
 				memset(ecc_public_key, 0, sizeof(ecc_public_key));
 				Ed25519::generatePrivateKey(ecc_private_key);
-				Ed25519::derivePublicKey(ecc_public_key, ecc_private_key);
-				#ifdef DEBUG
-					Serial.print("OnlyKey ECDH Public Key: ");
-					byteprint(ecc_public_key, 32);
-				#endif
+				Ed25519::derivePublicKey(ecc_public_key, ecc_private_key);		
 				memcpy(ecc_public_key+32, UNLOCKED, sizeof(UNLOCKED));
 				store_U2F_response(ecc_public_key, (32+sizeof(UNLOCKED)));
 				memcpy(ecc_public_key, client_handle+9, 32);
@@ -1132,16 +1129,14 @@ void finish_SHA256(const uECC_HashContext *base, uint8_t *hash_result) {
 void send_U2F_response(uint8_t *buffer) {
 	if(!PDmode) {
 		#ifdef DEBUG
-		Serial.print("Received U2F request to retrieve stored data on OnlyKey");
-		Serial.print(packet_buffer[packet_buffer_offset]);
-		Serial.print(packet_buffer[packet_buffer_offset-1]);
-		Serial.print(packet_buffer[packet_buffer_offset-2]);
+		Serial.print("Sending data on OnlyKey via U2F");
 		#endif  
 		if (packet_buffer[packet_buffer_offset-1] == 0 && packet_buffer[packet_buffer_offset-2] == 0x90) {
 			#ifdef US_VERSION
 			memcpy(large_resp_buffer, packet_buffer, packet_buffer_offset);
 			sendLargeResponse(buffer, packet_buffer_offset);
 			memset(large_resp_buffer, 0, packet_buffer_offset);
+			memset(packet_buffer, 0, packet_buffer_offset);
 			fadeoff(0);
 			outputU2F = 0;
 			#endif
@@ -1156,6 +1151,42 @@ void send_U2F_response(uint8_t *buffer) {
 			return;
 		}
 	}
+}
+
+void store_U2F_response (uint8_t *data, int len) {
+	CRYPTO_AUTH = 0;
+	cancelfadeoffafter20();
+	int len2 = 0;
+	if ((len+13) >= (int)sizeof(packet_buffer)) return; //Double check buf overflow
+	if (len < 64) {
+		uint8_t tempdata[64];
+		memmove( tempdata, data, len);
+		data = tempdata+len;
+		RNG2(data, 64-len); //Store a random number in key handle empty space
+		data = tempdata;
+		len = 64;
+	}
+	packet_buffer[0] = 0x01; // user_presence
+	len2 = 5;
+	packet_buffer[len2++] = 0x30; //header: compound structure
+	packet_buffer[len2++] = len+4; //total length 
+    packet_buffer[len2++] = 0x02;  //header: integer
+	packet_buffer[len2++] = len/2; 
+	memmove(packet_buffer+len2, data, len/2); //R value
+	len2 += len/2;
+	packet_buffer[len2++] = 0x02;  //header: integer 
+	packet_buffer[len2++] = len/2; 
+	memmove(packet_buffer+len2, data+(len/2), len/2); //S value
+	len2 += len/2;
+	uint8_t *last = packet_buffer+len2;
+	APPEND_SW_NO_ERROR(last);
+	len2 += 2;
+	packet_buffer_offset = len2;
+#ifdef DEBUG
+      Serial.print ("Stored U2F Response");
+	  byteprint(packet_buffer, packet_buffer_offset);
+#endif
+	 wipedata(); //Data will wait 5 seconds to be retrieved
 }
 
 #endif

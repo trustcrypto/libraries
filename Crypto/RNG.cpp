@@ -638,6 +638,7 @@ void RNGClass::stir(const uint8_t *data, size_t len, unsigned int credit)
             uint8_t *output = ((uint8_t *)block) + 16;
             len -= templen;
             while (templen > 0) {
+				//Serial.println(*data); //Debug to view random data in real-time
                 *output++ ^= *data++;
                 --templen;
             }

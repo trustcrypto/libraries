@@ -183,6 +183,7 @@ extern bool fadeendafter2sec(Task* me);
 extern void typeoutbackup(Task* me);
 extern void wipedata();
 extern void fadeoffafter20();
+extern void cancelfadeoffafter20();
 extern void fadeoff(uint8_t color);
 extern void fadeon();
 extern void rainbowCycle(uint8_t wait, uint8_t cycle);
@@ -194,7 +195,7 @@ extern void WIPERSAPRIV (uint8_t *buffer);
 extern void SETECCPRIV (uint8_t *buffer);
 extern void RESTORE (uint8_t *buffer);
 extern void process_packets (uint8_t *buffer);
-extern void store_U2F_response (uint8_t *data, int len);
+extern void temp_voltage ();
 
 #ifdef __cplusplus
 }

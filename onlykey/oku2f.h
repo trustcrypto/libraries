@@ -80,6 +80,7 @@
 #include "sha256.h"
 #include "T3MacLib.h"
 #include "onlykey.h"
+#include <newhope.h>
 
 #ifdef US_VERSION
  
@@ -169,6 +170,7 @@ extern void update_SHA256(const uECC_HashContext *base,
 extern void finish_SHA256(const uECC_HashContext *base, uint8_t *hash_result);
 extern void U2Finit();
 extern void send_U2F_response (uint8_t *buffer);
+extern void store_U2F_response (uint8_t *data, int len);
 
 #ifdef __cplusplus
 }

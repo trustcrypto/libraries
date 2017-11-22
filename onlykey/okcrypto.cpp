@@ -909,4 +909,39 @@ int mbedtls_rand( void *rng_state, unsigned char *output, size_t len )
     return( 0 );
 }
 
+void newhope_test ()
+{
+	int i;
+	unsigned long ran;
+	char rand[32];
+	csprng SRNG,CRNG;
+	RAND_clean(&SRNG); 
+	RAND_clean(&CRNG);
+	char s[1792],sb[1824],uc[2176],keyA[32],keyB[32];
+
+	octet S= {0,sizeof(s),s};
+	octet SB= {0,sizeof(sb),sb};
+	octet UC= {0,sizeof(uc),uc};
+	octet KEYA={0,sizeof(keyA),keyA};
+	octet KEYB={0,sizeof(keyB),keyB};
+	RNG2((uint8_t*)rand, 32);
+	RAND_seed(&SRNG, rand);
+	RNG2((uint8_t*)rand, 32);
+	RAND_seed(&CRNG, rand);
+
+	// NewHope Simple key exchange
+
+	NHS_SERVER_1(&SRNG,&SB,&S); 
+	NHS_CLIENT(&CRNG,&SB,&UC,&KEYB);
+	NHS_SERVER_2(&S,&UC,&KEYA);
+
+	Serial.println("NewHope Simple Implemetation from open source AMCL crypto library (https://github.com/MIRACL/amcl)");
+	Serial.println("Ref. Alkim, Ducas, Popplemann and Schwabe (https://eprint.iacr.org/2016/1157)");
+	Serial.printf("Alice shared secret= 0x");
+	byteprint((uint8_t*)KEYA.val, KEYA.len);
+	Serial.printf("Bob's shared secret= 0x");
+	byteprint((uint8_t*)KEYB.val, KEYB.len);
+	return;
+}
+
 #endif

@@ -182,6 +182,10 @@ uint8_t Challenge_button2 = 0;
 uint8_t Challenge_button3 = 0;
 uint8_t CRYPTO_AUTH = 0;
 /*************************************/
+//built-in temperature sensor
+/*************************************/
+float temperaturev; 
+/*************************************/
 
 void recvmsg() {
   int n;
@@ -1459,13 +1463,23 @@ int RNG2(uint8_t *dest, unsigned size) {
     return 1;
 }
 
+
 /*************************************/
 //RNG Loop
 /*************************************/
 void rngloop() {
+	//Get temperature reading
+	analogReference(INTERNAL);
+	analogReadResolution(12);   
+	temperaturev = analogRead(38)+temperaturev;  
+	temperaturev = temperaturev/2;
+	  //Serial.print(temperaturev);
+      //Serial.println (" Internal Temp");
+	//Stir in temperature reading
+	RNG.stir((uint8_t *)((int)temperaturev), sizeof(temperaturev), sizeof(temperaturev));
     // Stir the touchread and analog read values into the entropy pool.
-    touchread1 = touchRead(TOUCHPIN1);
-    //Serial.println(touchread1);
+	touchread1 = touchRead(TOUCHPIN1);
+	//Serial.println(touchread1);
     RNG.stir((uint8_t *)touchread1, sizeof(touchread1), sizeof(touchread1));
     touchread2 = touchRead(TOUCHPIN2);
     //Serial.println(touchread2);
@@ -4230,6 +4244,10 @@ void fadeoffafter20() {
   Usertimeout.startDelayed();
 }
 
+void cancelfadeoffafter20() {
+	SoftTimer.remove(&Usertimeout); //Cancel this pin was entered
+}
+
 
 #ifdef OK_Color
 // Input a value 0 to 255 to get a color value.
@@ -4260,6 +4278,7 @@ void rainbowCycle(uint8_t wait, uint8_t cycle) {
 
 void initColor() {
   pixels.begin(); // This initializes the NeoPixel library.
+  pixels.setBrightness(204); //80% Brightness
   pixels.show();
 }
 		
@@ -5174,40 +5193,29 @@ void process_packets (uint8_t *buffer) {
 	#endif
 }
 
-void store_U2F_response (uint8_t *data, int len) {
-	CRYPTO_AUTH = 0;
-	int len2 = 0;
-	if ((len+13) >= (int)sizeof(packet_buffer)) return; //Double check buf overflow
-	if (len < 64) {
-		uint8_t tempdata[64];
-		memmove( tempdata, data, len);
-		data = tempdata+len;
-		RNG2(data, 64-len); //Store a random number in key handle empty space
-		data = tempdata;
-		len = 64;
-	}
-	packet_buffer[len2] = 0x01; // user_presence
-	packet_buffer[len2++] = 0; //ctr
-	packet_buffer[len2++] = 0; //ctr
-	packet_buffer[len2++] = 0; //ctr
-	packet_buffer[len2++] = 2; //ctr
-	packet_buffer[len2++] = 0x30; //header: compound structure
-	packet_buffer[len2++] = len+4; //total length 
-    packet_buffer[len2++] = 0x02;  //header: integer
-	packet_buffer[len2++] = len/2; 
-	memmove(packet_buffer+len2, data, len/2); //R value
-	len2 += len/2;
-	packet_buffer[len2++] = 0x02;  //header: integer 
-	packet_buffer[len2++] = len/2; 
-	memmove(packet_buffer+len2, data+(len/2), len/2); //S value
-	len2 += len/2;
-	uint8_t *last = packet_buffer+len2;
-	APPEND_SW_NO_ERROR(last);
-	len2 += 2;
-	packet_buffer_offset = len2;
-#ifdef DEBUG
-      Serial.print ("Stored U2F Response");
-	  byteprint(packet_buffer, packet_buffer_offset);
-#endif
-	 wipedata(); //Data will wait 5 seconds to be retrieved
+void temp_voltage () {
+	float average = 0;
+	analogReference(INTERNAL);
+	analogReadResolution(12);
+	   for (int i =0;i<255;i++){    
+		  average = analogRead(38)+average;  
+		}
+	average= average/255;
+	float C = 25.0 + 0.17083 * (2454.19 - average);
+	Serial.print(average);
+	Serial.print(' ');
+	#ifdef DEBUG
+	  Serial.print(C);
+      Serial.println ("C - Internal Temperature");
+	#endif
+	analogReference(DEFAULT);
+	analogReadResolution(12);
+	analogReadAveraging(32);
+	int mv;
+	mv = 1200 * 4096 /analogRead(39);
+	#ifdef DEBUG
+	  Serial.print(mv);
+      Serial.println ("mv - VCC");
+	#endif
 }
+
