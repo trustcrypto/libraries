@@ -567,18 +567,12 @@ switch (PINSET) {
 			SHA256_CTX pinhash;
 			sha256_init(&pinhash);
 			sha256_update(&pinhash, temp, strlen(password.guess)); //Add new PIN to hash
-			if (!initialized) {
+			if (!onlykey_flashget_noncehash (ptr, 32)) {
 			RNG2(ptr, 32); //Fill temp with random data
 #ifdef DEBUG
 			Serial.println("Generating NONCE");
 #endif
 			onlykey_flashset_noncehash (ptr); //Store in flash
-			}
-			else {
-#ifdef DEBUG
-			Serial.println("Getting NONCE");
-#endif
-			onlykey_flashget_noncehash (ptr, 32); 
 			}
 			
 			sha256_update(&pinhash, temp, 32); //Add nonce to hash
@@ -784,18 +778,12 @@ void SETPDPIN (uint8_t *buffer)
 			SHA256_CTX pinhash;
 			sha256_init(&pinhash);
 			sha256_update(&pinhash, temp, strlen(password.guess)); //Add new PIN to hash
-			if (!initialized) {
+			if (!onlykey_flashget_noncehash (ptr, 32)) {
 			RNG2(ptr, 32); //Fill temp with random data
 #ifdef DEBUG
 			Serial.println("Generating NONCE");
 #endif
 			onlykey_flashset_noncehash (ptr); //Store in flash
-			}
-			else {
-#ifdef DEBUG
-			Serial.println("Getting NONCE");
-#endif
-			onlykey_flashget_noncehash (ptr, 32); 
 			}
 			
 			sha256_update(&pinhash, temp, 32); //Add nonce to hash
