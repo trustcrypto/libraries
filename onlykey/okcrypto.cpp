@@ -154,7 +154,7 @@ void GETPUBKEY (uint8_t *buffer) {
 	#endif
 	if (buffer[6] + buffer[7] + buffer[8] + buffer[9] != 0) {
 		uint8_t slotnum[1];
-		slotnum[0] = GETKEYLABELS();
+		slotnum[0] = GETKEYLABELS(0);
 		if (slotnum[0] >= 1) store_U2F_response(slotnum, 1);
 	}
 	else if (buffer[5] < 101 && !outputU2F) { //Slot 101-132 are for ECC, 1-4 are for RSA
@@ -208,6 +208,49 @@ void DECRYPT (uint8_t *buffer){
 		return;
 	}
 	}
+}
+
+void GENERATE_KEY (uint8_t *buffer) {
+	uECC_set_rng(&RNG2); 
+	uint8_t backupslot;
+	uint8_t temp[64];
+	#ifdef DEBUG
+	Serial.println();
+	Serial.println("GENERATE KEY MESSAGE RECEIVED"); 
+	#endif
+	onlykey_eeget_backupkey (&backupslot);
+	if (buffer[5] > 100) { //Slot 101-132 are for ECC, 1-4 are for RSA
+		if ((buffer[6] & 0x0F) == 1) {
+			Ed25519::generatePrivateKey(buffer+7);
+			if (backupslot == buffer[5]) { //Backup Key
+				memcpy(temp, buffer+7, 32);
+				RawHID.send(temp, 0);	
+			} else {
+			Ed25519::derivePublicKey(ecc_public_key, buffer+7);
+			RawHID.send(ecc_public_key, 0);	
+			}
+		} else if ((buffer[6] & 0x0F) == 2) {
+			const struct uECC_Curve_t * curve = uECC_secp256r1(); //P-256
+			uECC_make_key(ecc_public_key, buffer+7, curve); 
+			if (backupslot == buffer[5]) { //Backup Key
+				memcpy(temp, buffer+7, 32);
+				RawHID.send(temp, 0);	
+			} else {
+			RawHID.send(ecc_public_key, 0);	
+			}
+		} else if ((buffer[6] & 0x0F) == 3) {
+			const struct uECC_Curve_t * curve = uECC_secp256k1();
+			uECC_make_key(ecc_public_key, buffer+7, curve); 
+			if (backupslot == buffer[5]) { //Backup Key
+				memcpy(temp, buffer+7, 32);
+				RawHID.send(temp, 0);	
+			} else {
+			RawHID.send(ecc_public_key, 0);	
+			}
+		}
+		memset(ecc_public_key, 0, sizeof(ecc_public_key));
+	}
+	return;
 }
 
 void GETRSAPUBKEY (uint8_t *buffer)

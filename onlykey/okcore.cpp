@@ -216,12 +216,12 @@ void recvmsg() {
       case OKGETLABELS:
 	   if(initialized==false && unlocked==true) 
 	   {
-		hidprint("Error No PIN set, You must set a PIN first");
+		hidprint("Error you must set a PIN and remove/reinsert OnlyKey");
 		return;
-	   }else if (initialized==true && unlocked==true) 
+	   }else if (initialized==true && unlocked==true && FTFL_FSEC==0x44) 
 	   {
-		if (recv_buffer[5] == 'k') GETKEYLABELS();
-		else GETSLOTLABELS();
+		if (recv_buffer[5] == 'k') GETKEYLABELS(0);
+		else GETSLOTLABELS(0);
 	   }
 	   else
 	   {
@@ -235,10 +235,10 @@ void recvmsg() {
 		if (recv_buffer[6] == 12) {
 		SETSLOT(recv_buffer);
 		} else {
-		hidprint("Error No PIN set, You must set a PIN first");
+		hidprint("Error you must set a PIN and remove/reinsert OnlyKey");
 		}
 		return;
-	   }else if (initialized==true && unlocked==true) 
+	   }else if (initialized==true && unlocked==true && FTFL_FSEC==0x44) 
 	   {
 		SETSLOT(recv_buffer);
 	   }
@@ -251,9 +251,9 @@ void recvmsg() {
       case OKWIPESLOT:
 	   if(initialized==false && unlocked==true) 
 	   {
-		hidprint("Error No PIN set, You must set a PIN first");
+		hidprint("Error you must set a PIN and remove/reinsert OnlyKey");
 		return;
-	   }else if (initialized==true && unlocked==true) 
+	   }else if (initialized==true && unlocked==true && FTFL_FSEC==0x44) 
 	   {
 		WIPESLOT(recv_buffer);
 	   }
@@ -268,7 +268,7 @@ void recvmsg() {
 	   {
 		hidprint("No PIN set, You must set a PIN first");
 		return;
-	   }else if (initialized==true && unlocked==true) 
+	   }else if (initialized==true && unlocked==true && FTFL_FSEC==0x44) 
 	   {
 		if(!PDmode) {
 		#ifdef US_VERSION
@@ -285,9 +285,9 @@ void recvmsg() {
       case OKWIPEU2FPRIV:
 	   if(initialized==false && unlocked==true) 
 	   {
-		hidprint("Error No PIN set, You must set a PIN first");
+		hidprint("Error you must set a PIN and remove/reinsert OnlyKey");
 		return;
-	   }else if (initialized==true && unlocked==true) 
+	   }else if (initialized==true && unlocked==true && FTFL_FSEC==0x44) 
 	   {
 		if(!PDmode) {
 		#ifdef US_VERSION
@@ -304,9 +304,9 @@ void recvmsg() {
       case OKSETU2FCERT:
 	   if(initialized==false && unlocked==true) 
 	   {
-		hidprint("Error No PIN set, You must set a PIN first");
+		hidprint("Error you must set a PIN and remove/reinsert OnlyKey");
 		return;
-	   }else if (initialized==true && unlocked==true) 
+	   }else if (initialized==true && unlocked==true && FTFL_FSEC==0x44) 
 	   {
 		if(!PDmode) {
 		#ifdef US_VERSION
@@ -323,9 +323,9 @@ void recvmsg() {
       case OKWIPEU2FCERT:
 	   if(initialized==false && unlocked==true) 
 	   {
-		hidprint("Error No PIN set, You must set a PIN first");
+		hidprint("Error you must set a PIN and remove/reinsert OnlyKey");
 		return;
-	   }else if (initialized==true && unlocked==true) 
+	   }else if (initialized==true && unlocked==true && FTFL_FSEC==0x44) 
 	   {
 		if(!PDmode) {
 		#ifdef US_VERSION
@@ -344,7 +344,7 @@ void recvmsg() {
 	   {
 		hidprint("No PIN set, You must set a PIN first");
 		return;
-	   }else if (initialized==true && unlocked==true && configmode==true) 
+	   }else if (initialized==true && unlocked==true && FTFL_FSEC==0x44 && configmode==true) 
 	   {
                 if(!PDmode) {
                 #ifdef US_VERSION
@@ -352,7 +352,7 @@ void recvmsg() {
                 #endif
                 }
 	   }
-	   else if (initialized==true && unlocked==true && configmode==false) { 
+	   else if (initialized==true && unlocked==true && FTFL_FSEC==0x44 && configmode==false) { 
 	   hidprint("ERROR NOT IN CONFIG MODE, HOLD BUTTON 6 DOWN FOR 5 SEC");
 	   }
 	   else
@@ -366,7 +366,7 @@ void recvmsg() {
 	   {
 		hidprint("No PIN set, You must set a PIN first");
 		return;
-	   }else if (initialized==true && unlocked==true) 
+	   }else if (initialized==true && unlocked==true && FTFL_FSEC==0x44) 
 	   {
                 if(!PDmode) {
                 #ifdef US_VERSION
@@ -385,7 +385,7 @@ void recvmsg() {
 	   {
 		hidprint("No PIN set, You must set a PIN first");
 		return;
-	   }else if (initialized==true && unlocked==true && !CRYPTO_AUTH) 
+	   }else if (initialized==true && unlocked==true && FTFL_FSEC==0x44 && !CRYPTO_AUTH) 
 	   {
 		if(!PDmode) {
 		#ifdef US_VERSION
@@ -409,7 +409,7 @@ void recvmsg() {
 	   {
 		hidprint("No PIN set, You must set a PIN first");
 		return;
-	   }else if (initialized==true && unlocked==true && !CRYPTO_AUTH) 
+	   }else if (initialized==true && unlocked==true && FTFL_FSEC==0x44 && !CRYPTO_AUTH) 
 	   {
 		if(!PDmode) {
 		#ifdef US_VERSION
@@ -433,7 +433,7 @@ void recvmsg() {
 	   {
 		hidprint("No PIN set, You must set a PIN first");
 		return;
-	   }else if (initialized==true && unlocked==true) 
+	   }else if (initialized==true && unlocked==true && FTFL_FSEC==0x44) 
 	   {
                 if(!PDmode) {
                 #ifdef US_VERSION
@@ -453,7 +453,7 @@ void recvmsg() {
 	   {
 		hidprint("No PIN set, You must set a PIN first");
 		return;
-	   }else if (initialized==true && unlocked==true && configmode==true) 
+	   }else if (initialized==true && unlocked==true && FTFL_FSEC==0x44 && configmode==true) 
 	   {
                 if(!PDmode) {
                 #ifdef US_VERSION
@@ -461,7 +461,7 @@ void recvmsg() {
                 #endif
                 }
 	   }
-	   else if (initialized==true && unlocked==true && configmode==false) { 
+	   else if (initialized==true && unlocked==true && FTFL_FSEC==0x44 && configmode==false) { 
 	   hidprint("ERROR NOT IN CONFIG MODE, HOLD BUTTON 6 DOWN FOR 5 SEC");
 	   }
 	   else {
@@ -470,7 +470,7 @@ void recvmsg() {
 	   }	
       return;
       default: 
-		if(!PDmode && initialized==true && unlocked==true) {
+		if(!PDmode && initialized==true && unlocked==true && FTFL_FSEC==0x44) {
 		#ifdef US_VERSION
 	    	recvu2fmsg(recv_buffer);
 		#endif
@@ -478,7 +478,7 @@ void recvmsg() {
       return;
     }
   } else {
-	  if(!PDmode && initialized==true && unlocked==true) {
+	  if(!PDmode && initialized==true && unlocked==true && FTFL_FSEC==0x44) {
 	  #ifdef US_VERSION
 	  u2fmsgtimeout(recv_buffer);
 	  #endif
@@ -588,7 +588,6 @@ switch (PINSET) {
 #endif
 			onlykey_flashset_pinhash (ptr);
 
-	  		initialized = true;
 #ifdef DEBUG
 	  		Serial.println();
 			Serial.println("Successfully set PIN, remove and reinsert OnlyKey");
@@ -806,7 +805,6 @@ void SETPDPIN (uint8_t *buffer)
 #endif
 			onlykey_flashset_plausdenyhash (ptr);
 
-	  		initialized = true;
 #ifdef DEBUG
 	  		Serial.println();
 			Serial.println("Successfully set PIN, remove and reinsert OnlyKey");
@@ -905,7 +903,7 @@ void SETTIME (uint8_t *buffer)
       return;
 }
 
-uint8_t GETKEYLABELS ()
+uint8_t GETKEYLABELS (uint8_t output)
 {
 	if (PDmode) return 0;
 	#ifdef US_VERSION
@@ -918,9 +916,15 @@ uint8_t GETKEYLABELS ()
 	  char labelchar[EElen_label+3];
 	  int offset  = 0;
 	  int keyid_match;
+	  char prefix[5];
+	  prefix[4] = 0x20;
 	  ptr=label+2;
 	  
 	for (uint8_t i = 25; i<=28; i++) { //4 labels for RSA keys
+	  prefix[0] = 'R';
+	  prefix[1] = 'S';
+	  prefix[2] = 'A';
+	  prefix[3] = (i+'0');
 	  onlykey_flashget_label(ptr+8, (offset + i));
 	  label[0] = (uint8_t)i; //1-4
 	  label[1] = (uint8_t)0x7C;
@@ -928,7 +932,11 @@ uint8_t GETKEYLABELS ()
 #ifdef DEBUG
 	  Serial.println(labelchar);
 #endif
-	  if (!outputU2F) { 
+	  if (output == 1) {
+			keytype(prefix);
+			keytype(labelchar+2);
+			Keyboard.println();
+		} else if (!outputU2F) { 
 	  hidprint(labelchar);
 	  delay(20);
 	  } else {
@@ -937,6 +945,10 @@ uint8_t GETKEYLABELS ()
 	  }
 	}
 	for (uint8_t i = 29; i<=60; i++) { //32 labels for ECC keys
+	  prefix[0] = 'E';
+	  prefix[1] = 'C';
+	  prefix[2] = 'C';
+	  prefix[3] = (i+'0');
 	  onlykey_flashget_label(ptr, (offset + i));
 	  label[0] = (uint8_t)i; //101-132
 	  label[1] = (uint8_t)0x7C;
@@ -944,20 +956,24 @@ uint8_t GETKEYLABELS ()
 #ifdef DEBUG
 	  Serial.println(labelchar);
 #endif
-	  if (!outputU2F) { 
-	  hidprint(labelchar);
-	  delay(20);
-	  } else {
+		if (output == 1) {
+			keytype(prefix);
+			keytype(labelchar+2);
+			Keyboard.println();
+		} else if (!outputU2F) { 
+		  hidprint(labelchar);
+		  delay(20);
+		} else {
 		  keyid_match = memcmp (ptr+8, recv_buffer+6, 8);
 		  if (keyid_match == 0) return i+103;
-	  }
+		}
 	}
       blink(3);
 	  #endif
       return 0;
 }
 
-void GETSLOTLABELS ()
+void GETSLOTLABELS (uint8_t output)
 {
 #ifdef DEBUG
       	  Serial.println();
@@ -967,6 +983,8 @@ void GETSLOTLABELS ()
 	  uint8_t *ptr;
 	  char labelchar[EElen_label+3];
 	  int offset = 0;
+	  char prefix[3];
+	  prefix[2] = 0x20;
 	  ptr=label+2;
 	  if (PDmode) offset = 12;
 	  
@@ -979,10 +997,22 @@ void GETSLOTLABELS ()
 #ifdef DEBUG
 	  Serial.println(labelchar);
 #endif
-	  hidprint(labelchar);
-	  delay(20);
+	if (output == 1) {
+		if (i <= 6) {
+		prefix[0] = (i+'0');
+		prefix[1] = 'a';
+		} else {
+		prefix[0] = (i-6+'0');
+		prefix[1] = 'b';
+		}
+		keytype(prefix);
+		keytype(labelchar + 2);
+		Keyboard.println();
+	} else {
+		hidprint(labelchar);
+		delay(20);
 	}
-	  
+	}
       blink(3);
       return;
 }
@@ -991,6 +1021,8 @@ void SETSLOT (uint8_t *buffer)
 {
       int slot = buffer[5];
       int value = buffer[6];
+	  uint8_t temp;
+	  uint8_t mask;
       int length = 0;
 #ifdef DEBUG
       char cmd = buffer[4]; //cmd or continuation
@@ -1047,14 +1079,17 @@ void SETSLOT (uint8_t *buffer)
             case 16:
 #ifdef DEBUG
             Serial.println(); //newline
-            Serial.print("Writing Additional Character1 to EEPROM...");
+            Serial.print("Writing after Username Additional Character to EEPROM...");
 #endif
-            if (buffer[7] == 0x30) buffer[7] = 0; //None 
-			onlykey_eeset_addchar1(buffer + 7, slot);
+			if (buffer[7] >= 0x30) buffer[7] = buffer[7] -'0';
+			onlykey_eeget_addchar(&temp, slot);
+			mask = 0b00000011;
+			buffer[7] = (temp & ~mask) | (buffer[7] & mask);
+			onlykey_eeset_addchar(buffer + 7, slot);
 #ifdef DEBUG
 			Serial.print(buffer[7]);
 #endif
-	    hidprint("Successfully set Character1");
+	    hidprint("Successfully set after Username Additonal Character");
             return;
             case 17:
             //Set value in EEPROM
@@ -1065,6 +1100,38 @@ void SETSLOT (uint8_t *buffer)
             if (buffer[7] > '0') buffer[7] = (buffer[7] -'0');
             onlykey_eeset_delay1(buffer + 7, slot);
 	    hidprint("Successfully set Delay1");
+            return;
+            case 18:
+#ifdef DEBUG
+            Serial.println(); //newline
+            Serial.print("Writing before Username Additional Character to EEPROM...");
+#endif
+			if (buffer[7] >= 0x30) buffer[7] = buffer[7] -'0';
+			onlykey_eeget_addchar(&temp, slot);
+			mask = 0b00000100;
+			buffer[7] = buffer[7] << 2;
+			buffer[7] = (temp & ~mask) | (buffer[7] & mask);
+			onlykey_eeset_addchar(buffer + 7, slot);
+#ifdef DEBUG
+			Serial.print(buffer[7]);
+#endif
+	    hidprint("Successfully set before Username Additional Character");
+            return;
+            case 19:
+#ifdef DEBUG
+            Serial.println(); //newline
+            Serial.print("Writing before OTP Additional Character to EEPROM...");
+#endif
+			if (buffer[7] >= 0x30) buffer[7] = buffer[7] -'0';
+			onlykey_eeget_addchar(&temp, slot);
+			mask = 0b00001000;
+			buffer[7] = buffer[7] << 3;
+			buffer[7] = (temp & ~mask) | (buffer[7] & mask);
+			onlykey_eeset_addchar(buffer + 7, slot);
+#ifdef DEBUG
+			Serial.print(buffer[7]);
+#endif
+	    hidprint("Successfully set before OTP Additional Character");
             return;
             case 2:
             //Encrypt and Set value in EEPROM
@@ -1093,14 +1160,18 @@ void SETSLOT (uint8_t *buffer)
             //Set value in EEPROM
 #ifdef DEBUG
             Serial.println(); //newline
-            Serial.print("Writing Additional Character2 to EEPROM...");
+            Serial.print("Writing Additional after password to EEPROM...");
 #endif
-			if (buffer[7] == 0x30) buffer[7] = 0; //None 
-            onlykey_eeset_addchar2(buffer + 7, slot);
+			if (buffer[7] >= 0x30) buffer[7] = buffer[7] -'0';
+			onlykey_eeget_addchar(&temp, slot);
+			mask = 0b00110000;
+			buffer[7] = buffer[7] << 4;
+			buffer[7] = (temp & ~mask) | (buffer[7] & mask);
+			onlykey_eeset_addchar(buffer + 7, slot);
 #ifdef DEBUG
 			Serial.print(buffer[7]);
 #endif
-	    hidprint("Successfully set Character2");
+	    hidprint("Successfully set additonal character after password");
             return;
             case 4:
             //Set value in EEPROM
@@ -1139,14 +1210,19 @@ void SETSLOT (uint8_t *buffer)
             //Set value in EEPROM
 #ifdef DEBUG
             Serial.println(); //newline
-            Serial.print("Writing Additional Character3 to EEPROM...");
+            Serial.print("Writing After OTP Additional Character to EEPROM...");
 #endif
-			if (buffer[7] == 0x30) buffer[7] = 0; //None 
-            onlykey_eeset_addchar3(buffer + 7, slot);
+			if (buffer[7] >= 0x30) buffer[7] = buffer[7] -'0';
+			if (buffer[7] == 2) buffer[7]--; //Return only, no tab needed
+			onlykey_eeget_addchar(&temp, slot);
+			mask = 0b01000000;
+			buffer[7] = buffer[7] << 6;
+			buffer[7] = (temp & ~mask) | (buffer[7] & mask);
+			onlykey_eeset_addchar(buffer + 7, slot);
 #ifdef DEBUG
 			Serial.print(buffer[7]);
 #endif
-	    hidprint("Successfully set Character3");
+	    hidprint("Successfully set after OTP Character");
             return;
             case 7:
             //Set value in EEPROM
@@ -1319,8 +1395,8 @@ void WIPESLOT (uint8_t *buffer)
             Serial.println(); //newline
             Serial.print("Wiping Additional Character1 Value...");
 #endif 
-            onlykey_eeset_addchar1((buffer + 7), slot);
-            hidprint("Successfully wiped Additional Character 1");
+            onlykey_eeset_addchar((buffer + 7), slot);
+            hidprint("Successfully wiped Additional Characters");
 #ifdef DEBUG
             Serial.println(); //newline
             Serial.print("Writing Delay1 to EEPROM...");
@@ -1335,12 +1411,6 @@ void WIPESLOT (uint8_t *buffer)
             hidprint("Successfully wiped Username");
 #ifdef DEBUG
             Serial.println(); //newline
-            Serial.print("Wiping Additional Character2 Value...");
-#endif 
-            onlykey_eeset_addchar2((buffer + 7), slot);
-            hidprint("Successfully wiped Additional Character 2");
-#ifdef DEBUG
-            Serial.println(); //newline
             Serial.print("Writing Delay2 to EEPROM...");
 #endif 
             onlykey_eeset_delay2((buffer + 7), slot);
@@ -1351,12 +1421,6 @@ void WIPESLOT (uint8_t *buffer)
 #endif 
             onlykey_eeset_password((buffer + 7), 0, slot);
             hidprint("Successfully wiped Password");
-#ifdef DEBUG
-            Serial.println(); //newline
-            Serial.print("Wiping Additional Character3 Value...");
-#endif 
-            onlykey_eeset_addchar3((buffer + 7), slot);
-            hidprint("Successfully wiped Additional Character 3");
 #ifdef DEBUG
 	    Serial.println(); //newline
             Serial.print("Wiping Delay3 Value...");
@@ -1554,6 +1618,20 @@ while(*chars) {
   }
   RawHID.send(resp_buffer, 0);
   memset(resp_buffer, 0, sizeof(resp_buffer));
+}
+
+void keytype(char const * chars) 
+{ 
+while(*chars) {
+	 if (*chars == 0xFF) chars++; //Empty flash sector is 0xFF
+	 else {
+		Keyboard.press(*chars);
+		delay((TYPESPEED[0]*TYPESPEED[0]/3)*8);
+		Keyboard.releaseAll(); 
+		delay((TYPESPEED[0]*TYPESPEED[0]/3)*8);
+		chars++;
+	 }
+  }
 }
 
 void byteprint(uint8_t* bytes, int size) 
@@ -3744,12 +3822,8 @@ if (PDmode) return 0;
 		blink(2);
 		}
 		return 0;
-	}else if (type==0x01 || type==0x11 || type==0x21 || type==0x31 || type==0x41 || type==0x51 || type==0x61 || type==0x71 || type==0x81 || type==0x91 || type==0xA1 || type==0xB1 || type==0xC1 || type==0xD1 || type==0xE1 || type==0xF1) {
-		type=1;
-	}else if (type==0x02 || type==0x12 || type==0x22 || type==0x32 || type==0x42 || type==0x52 || type==0x62 || type==0x72 || type==0x82 || type==0x92 || type==0xA2 || type==0xB2 || type==0xC2 || type==0xD2 || type==0xE2 || type==0xF2) {
-		type=2;
-	}else if (type==0x03 || type==0x13 || type==0x23 || type==0x33 || type==0x43 || type==0x53 || type==0x63 || type==0x73 || type==0x83 || type==0x93 || type==0xA3 || type==0xB3 || type==0xC3 || type==0xD3 || type==0xE3 || type==0xF3) {
-		type=3;
+	}else {
+		type = (type & 0x0F);
 	}
 	adr = adr + (((slot-100)*32)-32);
     onlykey_flashget_common((uint8_t*)ecc_private_key, (unsigned long*)adr, 32); 
@@ -3809,6 +3883,10 @@ if (PDmode) return;
     uint8_t *tptr;
     tptr=temp;
 	uint8_t *ptr = buffer+7;
+	int gen_key = *ptr + *(ptr+1)+ *(ptr+2)+ *(ptr+3)+ *(ptr+4);
+	if (gen_key == 0) { //All 0s
+		GENERATE_KEY(buffer);
+	} 
     //Copy current flash contents to buffer
     onlykey_flashget_common(tptr, (unsigned long*)adr, 2048);
     //Add new flash contents to buffer
@@ -3877,14 +3955,8 @@ if (PDmode) return 0;
 	blink(2);
 	}
 	return 0;
-	} else if (type==0x01 || type==0x11 || type==0x21 || type==0x31 || type==0x41 || type==0x51 || type==0x61 || type==0x71 || type==0x81 || type==0x91 || type==0xA1 || type==0xB1 || type==0xC1 || type==0xD1 || type==0xE1 || type==0xF1) {
-		type=1;
-	}else if (type==0x02 || type==0x12 || type==0x22 || type==0x32 || type==0x42 || type==0x52 || type==0x62 || type==0x72 || type==0x82 || type==0x92 || type==0xA2 || type==0xB2 || type==0xC2 || type==0xD2 || type==0xE2 || type==0xF2) {
-		type=2;
-	}else if (type==0x03 || type==0x13 || type==0x23 || type==0x33 || type==0x43 || type==0x53 || type==0x63 || type==0x73 || type==0x83 || type==0x93 || type==0xA3 || type==0xB3 || type==0xC3 || type==0xD3 || type==0xE3 || type==0xF3) {
-		type=3;
-	}else if (type==0x04 || type==0x14 || type==0x24 || type==0x34 || type==0x44 || type==0x54 || type==0x64 || type==0x74 || type==0x84 || type==0x94 || type==0xA4 || type==0xB4 || type==0xC4 || type==0xD4 || type==0xE4 || type==0xF4) {
-		type=4;
+	} else {
+		type = (type & 0x0F);
 	}
 	#ifdef DEBUG 
     Serial.print("Type of RSA KEY is ");
@@ -3933,26 +4005,26 @@ if (PDmode) return;
 	Serial.printf("Type = %d ",buffer[6]);
 #endif 
 	}
-	if (buffer[6]==0x01 || buffer[6]==0x11 || buffer[6]==0x21 || buffer[6]==0x31 || buffer[6]==0x41 || buffer[6]==0x51 || buffer[6]==0x61 || buffer[6]==0x71 || buffer[6]==0x81 || buffer[6]==0x91 || buffer[6]==0xA1 || buffer[6]==0xB1 || buffer[6]==0xC1 || buffer[6]==0xD1 || buffer[6]==0xE1 || buffer[6]==0xF1) //Expect 128 Bytes, if buffer[0] != FF we know this is import from backup
+	if ((buffer[6] & 0x0F) == 1) //Expect 128 Bytes, if buffer[0] != FF we know this is import from backup
 	{
 		keysize=128;
 		if (buffer[0] != 0xBA && packet_buffer_offset <= 114) {
 		memcpy(rsa_private_key+packet_buffer_offset, buffer+7, 57);
 		packet_buffer_offset = packet_buffer_offset + 57;
 		} 
-	} else if (buffer[6]==0x02 || buffer[6]==0x12 || buffer[6]==0x22 || buffer[6]==0x32 || buffer[6]==0x42 || buffer[6]==0x52 || buffer[6]==0x62 || buffer[6]==0x72 || buffer[6]==0x82 || buffer[6]==0x92 || buffer[6]==0xA2 || buffer[6]==0xB2 || buffer[6]==0xC2 || buffer[6]==0xD2 || buffer[6]==0xE2 || buffer[6]==0xF2) { //Expect 256 Bytes
+	} else if ((buffer[6] & 0x0F) == 2) { //Expect 256 Bytes
 		keysize=256;
 		if (buffer[0] != 0xBA && packet_buffer_offset <= 228) {
 		memcpy(rsa_private_key+packet_buffer_offset, buffer+7, 57);
 		packet_buffer_offset = packet_buffer_offset + 57;
 		}
-	} else if (buffer[6]==0x03 || buffer[6]==0x13 || buffer[6]==0x23 || buffer[6]==0x33 || buffer[6]==0x43 || buffer[6]==0x53 || buffer[6]==0x63 || buffer[6]==0x73 || buffer[6]==0x83 || buffer[6]==0x93 || buffer[6]==0xA3 || buffer[6]==0xB3 || buffer[6]==0xC3 || buffer[6]==0xD3 || buffer[6]==0xE3 || buffer[6]==0xF3) { //Expect 384 Bytes
+	} else if ((buffer[6] & 0x0F) == 3) { //Expect 384 Bytes
 		keysize=384;
 		if (buffer[0] != 0xBA && packet_buffer_offset <= 342) {
 		memcpy(rsa_private_key+packet_buffer_offset, buffer+7, 57);
 		packet_buffer_offset = packet_buffer_offset + 57;
 		}
-	} else if (buffer[6]==0x04 || buffer[6]==0x14 || buffer[6]==0x24 || buffer[6]==0x34 || buffer[6]==0x44 || buffer[6]==0x54 || buffer[6]==0x64 || buffer[6]==0x74 || buffer[6]==0x84 || buffer[6]==0x94 || buffer[6]==0xA4 || buffer[6]==0xB4 || buffer[6]==0xC4 || buffer[6]==0xD4 || buffer[6]==0xE4 || buffer[6]==0xF4) { //Expect 512 Bytes
+	} else if ((buffer[6] & 0x0F) == 3) { //Expect 512 Bytes
 		keysize=512;
 		if (buffer[0] != 0xBA && packet_buffer_offset <= 456) {
 		memcpy(rsa_private_key+packet_buffer_offset, buffer+7, 57);
@@ -4374,7 +4446,7 @@ void backup() {
 		memcpy(large_temp+large_data_offset+3, temp, urllength);
         large_data_offset=large_data_offset+urllength+3;
       }
-      onlykey_eeget_addchar1(ptr, slot);
+      onlykey_eeget_addchar(ptr, slot);
       if(temp[0] > 0)
       {
 		large_temp[large_data_offset] = 0xFF; //delimiter
@@ -4421,15 +4493,6 @@ void backup() {
 		memcpy(large_temp+large_data_offset+3, temp, usernamelength);
         large_data_offset=large_data_offset+usernamelength+3;
       }
-      onlykey_eeget_addchar2(ptr, slot);
-      if(temp[0] > 0)
-      {
-        large_temp[large_data_offset] = 0xFF; //delimiter
-		large_temp[large_data_offset+1] = slot;
-		large_temp[large_data_offset+2] = 3; //3 - Add Char 2
-		large_temp[large_data_offset+3] = temp[0]; 
-        large_data_offset=large_data_offset+4;
-      }
       onlykey_eeget_delay2(ptr, slot);
       if(temp[0] > 0)
       {
@@ -4468,15 +4531,6 @@ void backup() {
 		memcpy(large_temp+large_data_offset+3, temp, passwordlength);
         large_data_offset=large_data_offset+passwordlength+3;
       }  
-      onlykey_eeget_addchar3(ptr, slot);
-      if(temp[0] > 0)
-      {
-        large_temp[large_data_offset] = 0xFF; //delimiter
-		large_temp[large_data_offset+1] = slot;
-		large_temp[large_data_offset+2] = 6; //6 - Add Char 3
-		large_temp[large_data_offset+3] = temp[0]; 
-        large_data_offset=large_data_offset+4;
-      } 
       onlykey_eeget_delay3(ptr, slot);
       if(temp[0] > 0)
       {

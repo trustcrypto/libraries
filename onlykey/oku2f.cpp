@@ -1167,6 +1167,10 @@ void store_U2F_response (uint8_t *data, int len) {
 		len = 64;
 	}
 	packet_buffer[0] = 0x01; // user_presence
+	packet_buffer[1] = 0x00;
+	packet_buffer[2] = 0x00;
+	packet_buffer[3] = 0x00;
+	packet_buffer[4] = 0x05;
 	len2 = 5;
 	packet_buffer[len2++] = 0x30; //header: compound structure
 	packet_buffer[len2++] = len+4; //total length 
