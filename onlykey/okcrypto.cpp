@@ -225,28 +225,21 @@ void GENERATE_KEY (uint8_t *buffer) {
 			if (backupslot == buffer[5]) { //Backup Key
 				memcpy(temp, buffer+7, 32);
 				RawHID.send(temp, 0);	
-			} else {
-			Ed25519::derivePublicKey(ecc_public_key, buffer+7);
-			RawHID.send(ecc_public_key, 0);	
-			}
+			} 
 		} else if ((buffer[6] & 0x0F) == 2) {
 			const struct uECC_Curve_t * curve = uECC_secp256r1(); //P-256
 			uECC_make_key(ecc_public_key, buffer+7, curve); 
 			if (backupslot == buffer[5]) { //Backup Key
 				memcpy(temp, buffer+7, 32);
 				RawHID.send(temp, 0);	
-			} else {
-			RawHID.send(ecc_public_key, 0);	
-			}
+			} 
 		} else if ((buffer[6] & 0x0F) == 3) {
 			const struct uECC_Curve_t * curve = uECC_secp256k1();
 			uECC_make_key(ecc_public_key, buffer+7, curve); 
 			if (backupslot == buffer[5]) { //Backup Key
 				memcpy(temp, buffer+7, 32);
 				RawHID.send(temp, 0);	
-			} else {
-			RawHID.send(ecc_public_key, 0);	
-			}
+			} 
 		}
 		memset(ecc_public_key, 0, sizeof(ecc_public_key));
 	}

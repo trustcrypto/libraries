@@ -573,6 +573,10 @@ switch (PINSET) {
 			Serial.println("Generating NONCE");
 #endif
 			onlykey_flashset_noncehash (ptr); //Store in flash
+			recv_buffer[4] = 0xEF;
+			recv_buffer[5] = 0x84;
+			recv_buffer[6] = 0x42;
+			SETPRIV(recv_buffer); //set default ECC key
 			}
 			
 			sha256_update(&pinhash, temp, 32); //Add nonce to hash
@@ -3900,8 +3904,10 @@ if (PDmode) return;
     Serial.print("ECC Key value =");
 	byteprint((uint8_t*)buffer+7, 32);
 #endif
+	if (gen_key != 0){
 	hidprint("Successfully set ECC Key");
       blink(3);
+	}
 #endif
       return;
 
