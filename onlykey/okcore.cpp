@@ -908,15 +908,10 @@ uint8_t GETKEYLABELS (uint8_t output)
 	  char labelchar[EElen_label+3];
 	  int offset  = 0;
 	  int keyid_match;
-	  char prefix[5];
-	  prefix[4] = 0x20;
+	  char labeltype[EElen_label+3+6];
 	  ptr=label+2;
 	  
 	for (uint8_t i = 25; i<=28; i++) { //4 labels for RSA keys
-	  prefix[0] = 'R';
-	  prefix[1] = 'S';
-	  prefix[2] = 'A';
-	  prefix[3] = (i+'0');
 	  onlykey_flashget_label(ptr+8, (offset + i));
 	  label[0] = (uint8_t)i; //1-4
 	  label[1] = (uint8_t)0x7C;
@@ -925,8 +920,13 @@ uint8_t GETKEYLABELS (uint8_t output)
 	  Serial.println(labelchar);
 #endif
 	  if (output == 1) {
-			keytype(prefix);
-			keytype(labelchar+2);
+			labeltype[0] = 'R';
+			labeltype[1] = 'S';
+			labeltype[2] = 'A';
+			labeltype[3] = ((i-24)+'0');
+			labeltype[4] = 0x20;
+			memcpy(labeltype+5, labelchar+2, EElen_label+3);
+			keytype(labeltype);
 			Keyboard.println();
 		} else if (!outputU2F) { 
 	  hidprint(labelchar);
@@ -937,10 +937,6 @@ uint8_t GETKEYLABELS (uint8_t output)
 	  }
 	}
 	for (uint8_t i = 29; i<=60; i++) { //32 labels for ECC keys
-	  prefix[0] = 'E';
-	  prefix[1] = 'C';
-	  prefix[2] = 'C';
-	  prefix[3] = (i+'0');
 	  onlykey_flashget_label(ptr, (offset + i));
 	  label[0] = (uint8_t)i; //101-132
 	  label[1] = (uint8_t)0x7C;
@@ -949,8 +945,30 @@ uint8_t GETKEYLABELS (uint8_t output)
 	  Serial.println(labelchar);
 #endif
 		if (output == 1) {
-			keytype(prefix);
-			keytype(labelchar+2);
+			labeltype[0] = 'E';
+			labeltype[1] = 'C';
+			labeltype[2] = 'C';
+			if ((i-28)<10) {
+			labeltype[3] = ((i-28)+'0');
+			labeltype[4] = 0x20;
+			memcpy(labeltype+5, labelchar+2, EElen_label+3);
+			} else if ((i-28)<20) {
+			labeltype[3] = ('1');
+			labeltype[4] = ((i-28-10)+'0');
+			labeltype[5] = 0x20;
+			memcpy(labeltype+6, labelchar+2, EElen_label+3);
+			} else if ((i-28)<30) {
+			labeltype[3] = ('2');
+			labeltype[4] = ((i-28-20)+'0');
+			labeltype[5] = 0x20;
+			memcpy(labeltype+6, labelchar+2, EElen_label+3);
+			} else {
+			labeltype[3] = ('3');
+			labeltype[4] = ((i-28-30)+'0');
+			labeltype[5] = 0x20;
+			memcpy(labeltype+6, labelchar+2, EElen_label+3);
+			}
+			keytype(labeltype);
 			Keyboard.println();
 		} else if (!outputU2F) { 
 		  hidprint(labelchar);
@@ -975,8 +993,8 @@ void GETSLOTLABELS (uint8_t output)
 	  uint8_t *ptr;
 	  char labelchar[EElen_label+3];
 	  int offset = 0;
-	  char prefix[3];
-	  prefix[2] = 0x20;
+	  char labeltype[EElen_label+3+3];
+	  labeltype[2] = 0x20;
 	  ptr=label+2;
 	  if (PDmode) offset = 12;
 	  
@@ -991,14 +1009,14 @@ void GETSLOTLABELS (uint8_t output)
 #endif
 	if (output == 1) {
 		if (i <= 6) {
-		prefix[0] = (i+'0');
-		prefix[1] = 'a';
+		labeltype[0] = (i+'0');
+		labeltype[1] = 'a';
 		} else {
-		prefix[0] = (i-6+'0');
-		prefix[1] = 'b';
+		labeltype[0] = (i-6+'0');
+		labeltype[1] = 'b';
 		}
-		keytype(prefix);
-		keytype(labelchar + 2);
+		memcpy(labeltype+3, labelchar+2, EElen_label+3);
+		keytype(labeltype);
 		Keyboard.println();
 	} else {
 		hidprint(labelchar);
