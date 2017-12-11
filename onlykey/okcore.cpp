@@ -144,10 +144,6 @@ unsigned int touchread6;
 uint8_t setBuffer[64] = {0};
 uint8_t getBuffer[64] = {0};
 /*************************************/
-//RNG Assignments
-/*************************************/
-size_t length = 48; // First block should wait for the pool to fill up.
-/*************************************/
 //U2F Assignments
 /*************************************/
 uint8_t expected_next_packet;
@@ -1517,24 +1513,6 @@ void fadeout(){
           analogWrite(BLINKPIN, fadeValue);
           delay(9);
           }
-}
-
-int RNG2(uint8_t *dest, unsigned size) {
-	// Generate output whenever 32 bytes of entropy have been accumulated.
-    // The first time through, we wait for 48 bytes for a full entropy pool.
-    while (!RNG.available(length)) {
-      //Serial.println("waiting for random number");
-	  rngloop(); //Gather entropy
-    }
-    RNG.rand(dest, size);
-    length = 32;
-#ifdef DEBUG
-	Serial.println();
-	Serial.print("Generating random number of size = ");
-	Serial.print(size);
-	byteprint(dest, size);
-#endif
-    return 1;
 }
 
 
@@ -5210,12 +5188,10 @@ void process_packets (uint8_t *buffer) {
             memcpy(packet_buffer+packet_buffer_offset, buffer+7, 57);
             packet_buffer_offset = packet_buffer_offset + 57;
 			byteprint(packet_buffer, packet_buffer_offset);
-			return;
         } else {
               if (!outputU2F) hidprint("Error packets received exceeded size limit");
 			  return;
         }
-        return;
     } else {
         if (packet_buffer_offset <= (int)(sizeof(packet_buffer) - 57) && buffer[6] <= 57) {
             memcpy(packet_buffer+packet_buffer_offset, buffer+7, buffer[6]);
@@ -5256,6 +5232,8 @@ void process_packets (uint8_t *buffer) {
 			return;
         }
 	}
+	custom_error(0); //ACK
+	return;
 	#endif
 }
 

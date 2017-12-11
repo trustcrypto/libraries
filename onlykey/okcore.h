@@ -67,22 +67,26 @@ extern "C"
 //Vendor Defined OnlyKey MSG Type assignments
 /*************************************/
 #define OKSETPIN 			(TYPE_INIT | 0x61)  // First vendor defined command
-#define OKSETSDPIN 			(TYPE_INIT | 0x62)  // 
-#define OKSETPDPIN 			(TYPE_INIT | 0x63)  // 
-#define OKSETTIME 			(TYPE_INIT | 0x64)  // 
-#define OKGETLABELS 		(TYPE_INIT | 0x65)  //
-#define OKSETSLOT  			(TYPE_INIT | 0x66)  // 
-#define OKWIPESLOT  		(TYPE_INIT | 0x67)  // 
-#define OKSETU2FPRIV 		(TYPE_INIT | 0x68)  // 
-#define OKWIPEU2FPRIV 		(TYPE_INIT | 0x69)  // 
-#define OKSETU2FCERT 		(TYPE_INIT | 0x6A)  // 
-#define OKWIPEU2FCERT  		(TYPE_INIT | 0x6B)  //
-#define OKGETPUBKEY          (TYPE_INIT | 0x6C)//
-#define OKSIGN      (TYPE_INIT | 0x6D)//
-#define OKWIPEPRIV           (TYPE_INIT | 0x6E)//
-#define OKSETPRIV            (TYPE_INIT | 0x6F)// 
+#define OKSETSDPIN 			(TYPE_INIT | 0x62)  
+#define OKSETPDPIN 			(TYPE_INIT | 0x63)   
+#define OKSETTIME 			(TYPE_INIT | 0x64)  
+#define OKGETLABELS 		(TYPE_INIT | 0x65)  
+#define OKSETSLOT  			(TYPE_INIT | 0x66)   
+#define OKWIPESLOT  		(TYPE_INIT | 0x67)   
+#define OKSETU2FPRIV 		(TYPE_INIT | 0x68)   
+#define OKWIPEU2FPRIV 		(TYPE_INIT | 0x69)   
+#define OKSETU2FCERT 		(TYPE_INIT | 0x6A)   
+#define OKWIPEU2FCERT  		(TYPE_INIT | 0x6B)  
+#define OKGETPUBKEY          (TYPE_INIT | 0x6C)
+#define OKSIGN      (TYPE_INIT | 0x6D)
+#define OKWIPEPRIV           (TYPE_INIT | 0x6E)
+#define OKSETPRIV            (TYPE_INIT | 0x6F)
 #define OKDECRYPT      (TYPE_INIT | 0x70)//
-#define OKRESTORE            (TYPE_INIT | 0x71)// Last vendor defined command
+#define OKRESTORE            (TYPE_INIT | 0x71)
+#define OKGETRESPONSE            (TYPE_INIT | 0x72)
+#define OKPING           (TYPE_INIT | 0x73)
+
+// Last vendor defined command
 
 #define UNLOCKED "UNLOCKED" OKversion
 
@@ -125,7 +129,6 @@ extern int allocate_channel(int channel_id);
 extern int allocate_new_channel();
 extern void cleanup_timeout();
 extern void rngloop();
-extern int RNG2(uint8_t *dest, unsigned size);
 extern void printHex(const uint8_t *data, unsigned len);
 extern void hidprint(char const * chars);
 extern void keytype(char const * chars);

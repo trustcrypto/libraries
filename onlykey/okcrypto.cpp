@@ -55,6 +55,7 @@
 #include "Arduino.h"
 #include "onlykey.h"
 #include <SoftTimer.h>
+#include <RNG.h>
 
 
 #if !defined(MBEDTLS_CONFIG_FILE)
@@ -70,17 +71,21 @@
 #ifdef US_VERSION
 
 /*************************************/
+//RNG Assignments
+/*************************************/
+size_t length = 48; // First block should wait for the pool to fill up.
+/*************************************/
 //RSA assignments
 /*************************************/
 uint8_t rsa_publicN[MAX_RSA_KEY_SIZE];
 uint8_t rsa_private_key[MAX_RSA_KEY_SIZE];
-/*************************************/
 /*************************************/
 //ECC Authentication assignments
 /*************************************/
 uint8_t ecc_public_key[(MAX_ECC_KEY_SIZE*2)+1];
 uint8_t ecc_private_key[MAX_ECC_KEY_SIZE];
 /*************************************/
+
 extern uint8_t Challenge_button1;
 extern uint8_t Challenge_button2;
 extern uint8_t Challenge_button3;
@@ -103,7 +108,9 @@ void SIGN (uint8_t *buffer) {
 	if (buffer[5] < 101) { //Slot 101-132 are for ECC, 1-4 are for RSA
 	uint8_t features = onlykey_flashget_RSA ((int)buffer[5]);
 	if (type == 0) {
-		if (outputU2F) errorResponse(recv_buffer, (ERR_OTHER+3));
+		if (outputU2F) {
+			custom_error(3); //no key set in this slot
+		}
 		return;
 	}
 	#ifdef DEBUG
@@ -118,14 +125,16 @@ void SIGN (uint8_t *buffer) {
 		if (!outputU2F) {
 			hidprint("Error key not set as signature key");
 		} else {
-			if (outputU2F) errorResponse(recv_buffer, (ERR_OTHER+2));
+			custom_error(2); //key type not set as signature/decrypt
 		}
 		return;
 	}
 	} else {
 	uint8_t features = onlykey_flashget_ECC ((int)buffer[5]);
 	if (type == 0) {
-		if (outputU2F) errorResponse(recv_buffer, (ERR_OTHER+3));
+		if (outputU2F) {
+			custom_error(3); //no key set in this slot
+		}
 		return;
 	}
 	#ifdef DEBUG
@@ -140,7 +149,7 @@ void SIGN (uint8_t *buffer) {
 		if (!outputU2F) {
 			hidprint("Error key not set as signature key");
 		} else {
-			if (outputU2F) errorResponse(recv_buffer, (ERR_OTHER+2));
+			custom_error(2); //key type not set as signature/decrypt
 		}
 		return;
 	}
@@ -155,7 +164,7 @@ void GETPUBKEY (uint8_t *buffer) {
 	if (buffer[6] + buffer[7] + buffer[8] + buffer[9] != 0) {
 		uint8_t slotnum[1];
 		slotnum[0] = GETKEYLABELS(0);
-		if (slotnum[0] >= 1) store_U2F_response(slotnum, 1);
+		if (slotnum[0] >= 1) store_U2F_response(slotnum, 1, true);
 	}
 	else if (buffer[5] < 101 && !outputU2F) { //Slot 101-132 are for ECC, 1-4 are for RSA
 		if (onlykey_flashget_RSA ((int)buffer[5])) GETRSAPUBKEY(buffer);
@@ -173,7 +182,9 @@ void DECRYPT (uint8_t *buffer){
 	if (buffer[5] < 101) { //Slot 101-132 are for ECC, 1-4 are for RSA
 	uint8_t features = onlykey_flashget_RSA (buffer[5]);
 	if (type == 0) {
-		errorResponse(recv_buffer, (ERR_OTHER+3));
+		if (outputU2F) {
+			custom_error(3); //no key set in this slot
+		}
 		return;
 	}
 	if (is_bit_set(features, 5)) {
@@ -185,13 +196,16 @@ void DECRYPT (uint8_t *buffer){
 		if (!outputU2F) {
 			hidprint("Error key not set as decryption key");
 		} else {
-			errorResponse(recv_buffer, (ERR_OTHER+2));
+			custom_error(2); //key type not set as signature/decrypt
 		}
 		return;
 	}
 	} else {
 	uint8_t features = onlykey_flashget_ECC (buffer[5]);
     if (type == 0) {
+		if (outputU2F) {
+			custom_error(3); //no key set in this slot
+		}
 		return;
 	}	
 	if (is_bit_set(features, 5)) {
@@ -203,7 +217,7 @@ void DECRYPT (uint8_t *buffer){
 		if (!outputU2F) {
 			hidprint("Error key not set as decryption key");
 		} else {
-			errorResponse(recv_buffer, (ERR_OTHER+2));
+			custom_error(2); //key type not set as signature/decrypt
 		}
 		return;
 	}
@@ -280,9 +294,7 @@ void GETRSAPUBKEY (uint8_t *buffer)
 	memcpy(resp_buffer, rsa_publicN+448, 64);
     RawHID.send(resp_buffer, 0);
 	delay(100);
-	} else if (outputU2F) {
-	store_U2F_response(rsa_publicN, (type*128));
-	}
+	} 
 }
 
 void RSASIGN (uint8_t *buffer)
@@ -346,7 +358,7 @@ void RSASIGN (uint8_t *buffer)
 		delay(100);
 		} 
 	} else if (outputU2F) {
-	store_U2F_response(rsa_signature, (type*128));
+	store_U2F_response(rsa_signature, (type*128), true);
 	}
 	} else {
 		if (!outputU2F) hidprint("Error with RSA signing");
@@ -413,7 +425,7 @@ void RSADECRYPT (uint8_t *buffer)
 		delay(100);
 		}  
 	} else if (outputU2F) {
-	store_U2F_response(large_buffer, plaintext_len);
+	store_U2F_response(large_buffer, plaintext_len, true);
 	}
 	} else {
 		if (!outputU2F) hidprint("Error with RSA decryption");
@@ -436,9 +448,7 @@ void GETECCPUBKEY (uint8_t *buffer)
     	    Serial.println("OKGETECCPUBKEY MESSAGE RECEIVED"); 
 			byteprint(ecc_public_key, sizeof(ecc_public_key));
 	    #endif
-            if (outputU2F) {
-			store_U2F_response(ecc_public_key, sizeof(ecc_public_key)); 
-			} else {
+            if (!outputU2F) {
 			RawHID.send(ecc_public_key, 0);
 			}
 			memset(ecc_public_key, 0, MAX_ECC_KEY_SIZE*2); //wipe buffer
@@ -488,7 +498,7 @@ void ECDSA_EDDSA(uint8_t *buffer)
      	    }
 #endif
 	if (outputU2F) {
-	store_U2F_response(ecc_signature, MAX_ECC_KEY_SIZE*2); 
+	store_U2F_response(ecc_signature, MAX_ECC_KEY_SIZE*2, true); 
 	} else{
 	RawHID.send(ecc_signature, 0);
 	}
@@ -508,7 +518,7 @@ void ECDSA_EDDSA(uint8_t *buffer)
 void ECDH(uint8_t *buffer)
 {
     uint8_t ephemeral_pub[MAX_ECC_KEY_SIZE*2];
-	uint8_t secret[MAX_ECC_KEY_SIZE];
+	uint8_t secret[64] = {0};
 #ifdef DEBUG
     Serial.println();
     Serial.println("OKECDH MESSAGE RECEIVED"); 
@@ -533,9 +543,9 @@ void ECDH(uint8_t *buffer)
 		}
 #endif
 	if (outputU2F) {
-	store_U2F_response(secret, 32); 
+	//store_U2F_response(secret, 32); 
 	} else{
-	RawHID.send(secret, 0);
+	//RawHID.send(secret, 0);
 	}
 	//delay(100);
     // Reference - https://www.ietf.org/mail-archive/web/openpgp/current/msg00637.html
@@ -632,11 +642,8 @@ int shared_secret (uint8_t *ephemeral_pub, uint8_t *secret) {
 	#endif
 	switch (type) {
 	case 1:
-		if (Curve25519::dh2(ephemeral_pub, ecc_private_key)) {
-		memcpy (secret, ephemeral_pub, 32);
-		return 0;
-		}
-		else return 1;			
+		Curve25519::eval(secret, ecc_private_key, ephemeral_pub);
+		return 0;			
 	case 2:
 		curve = uECC_secp256r1(); 
 		if (uECC_shared_secret(ephemeral_pub, ecc_private_key, secret, curve)) return 0;
@@ -648,6 +655,40 @@ int shared_secret (uint8_t *ephemeral_pub, uint8_t *secret) {
 	default:
 		if (!outputU2F) hidprint("Error ECC type incorrect");
 		return 1;
+	}
+}
+
+void NaCl_crypto_box (uint8_t *buffer, uint8_t *counter,  int len, bool open) { //https://nacl.cr.yp.to/box.html
+	unsigned char pk[crypto_box_PUBLICKEYBYTES];
+    unsigned char sk[crypto_box_SECRETKEYBYTES];
+	unsigned char n[crypto_box_NONCEBYTES];
+	unsigned char c[512];
+	unsigned char m[512];
+	uint8_t nonce[32];
+	memcpy(nonce, counter, 4);
+	memcpy(nonce+4, counter, 4);
+	memcpy(nonce+8, counter, 4);
+	memcpy(nonce+12, counter, 4);
+	memcpy(nonce+16, counter, 4);
+	memcpy(nonce+20, counter, 4);
+	memcpy(nonce+24, counter, 4);
+	memcpy(nonce+28, counter, 4);
+	SHA256_CTX context;
+	sha256_init(&context);
+	sha256_update(&context, nonce, 32); 
+	sha256_final(&context, nonce); //Hash of incrementing U2F counter, unique for each message
+	memcpy(n, nonce, crypto_box_NONCEBYTES);
+	memcpy(pk, ecc_public_key, 32);
+	memcpy(sk, ecc_private_key, 32);
+	if (open) {
+		memcpy(c, buffer, len);
+		crypto_box_open(buffer,c,len,n,pk,sk); //Decrypt and verify
+		memcpy(buffer, m, len);
+	}
+	else {
+		memcpy(m, buffer, len);
+		crypto_box(c,buffer,len,n,pk,sk); //Encrypt
+		memcpy(buffer, c, len);
 	}
 }
 
@@ -689,7 +730,9 @@ int rsa_sign (int mlen, const uint8_t *msg, uint8_t *out)
 		#ifdef DEBUG
 	        Serial.printf("Error with key check =%d", ret);
 	        #endif
-			if (outputU2F) errorResponse(recv_buffer, (ERR_OTHER+5));
+			if (outputU2F) {
+				custom_error(4); //invalid key, key check failed
+			}
 		return -1;
 	}
   if (ret == 0)
@@ -759,7 +802,9 @@ int rsa_sign (int mlen, const uint8_t *msg, uint8_t *out)
 	Serial.print("MBEDTLS_ERR_RSA_XXX error code ");
     Serial.println(ret);
 	#endif
-	if (outputU2F) errorResponse(recv_buffer, (ERR_OTHER+4));
+	if (outputU2F) {
+		custom_error(5); //invalid data, or data does not match  key
+	}
     return -1; 
     }
 }
@@ -804,7 +849,9 @@ int rsa_decrypt (unsigned int *olen, const uint8_t *in, uint8_t *out)
       Serial.print ("MBEDTLS_ERR_RSA_XXX error code ");
 	  Serial.println (ret);
 	  #endif
-	  if (outputU2F) errorResponse(recv_buffer, (ERR_OTHER+5));
+	  if (outputU2F) {
+		custom_error(4); //invalid key, key check failed
+	  }
 	}
   if (ret == 0)
     {
@@ -828,7 +875,9 @@ int rsa_decrypt (unsigned int *olen, const uint8_t *in, uint8_t *out)
       Serial.print ("MBEDTLS_ERR_RSA_XXX error code ");
 	  Serial.println (ret);
 	  #endif
-	  if (outputU2F) errorResponse(recv_buffer, (ERR_OTHER+4));
+	  if (outputU2F) {
+		custom_error(5); //invalid data, or data does not match  key
+	  }
       return -1;
     }
 }
@@ -943,6 +992,24 @@ int mbedtls_rand( void *rng_state, unsigned char *output, size_t len )
         rng_state = NULL;
     RNG2( output, len );
     return( 0 );
+}
+
+int RNG2(uint8_t *dest, unsigned size) {
+	// Generate output whenever 32 bytes of entropy have been accumulated.
+    // The first time through, we wait for 48 bytes for a full entropy pool.
+    while (!RNG.available(length)) {
+      //Serial.println("waiting for random number");
+	  rngloop(); //Gather entropy
+    }
+    RNG.rand(dest, size);
+    length = 32;
+#ifdef DEBUG
+	Serial.println();
+	Serial.print("Generating random number of size = ");
+	Serial.print(size);
+	byteprint(dest, size);
+#endif
+    return 1;
 }
 
 void newhope_test ()

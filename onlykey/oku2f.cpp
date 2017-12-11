@@ -108,6 +108,12 @@ extern char attestation_priv[33];
 extern char attestation_der[768];
 extern uint8_t nonce[32];
 extern int outputU2F;
+extern uint8_t ecc_public_key[(MAX_ECC_KEY_SIZE*2)+1];
+extern uint8_t ecc_private_key[MAX_ECC_KEY_SIZE];
+extern uint8_t type;
+uint8_t times = 0;
+int msgcount = 0;
+bool isFirefox;
 #ifdef OK_Color
 extern uint8_t NEO_Color;
 #endif
@@ -565,9 +571,7 @@ void processMessage(uint8_t *buffer)
       uint8_t *application_parameter = datapart+32;
       uint8_t handle_len = datapart[64];
       uint8_t *client_handle = datapart+65;
-	  extern uint8_t ecc_public_key[(MAX_ECC_KEY_SIZE*2)+1];
-	  extern uint8_t ecc_private_key[MAX_ECC_KEY_SIZE];
-	  extern int outputU2F; 
+
 	  
 #ifdef DEBUG
 		Serial.print("Challenge");
@@ -586,10 +590,24 @@ void processMessage(uint8_t *buffer)
 		  if (client_handle[0] == 0xFF && client_handle[1] == 0xFF && client_handle[2] == 0xFF && client_handle[3] == 0xFF) {
 			//Custom message encoded in Client Handle
 	#ifdef DEBUG
-			Serial.print("Received U2F request to send data to OnlyKey");
+			Serial.println("Received U2F request to send data to OnlyKey");
+			Serial.println(times);
 	#endif  
-			//Decrypt message using shared secret
-			//If shared secret fails exit
+
+			if (client_handle[4] < 128) { //Firefox
+				if (times < 1) {
+					respondErrorPDU(buffer, SW_CONDITIONS_NOT_SATISFIED);
+					times++;
+					return;
+				} else {
+				times = 0;
+				}
+				client_handle[4]+=128;
+				isFirefox = true;
+			} else { //Chrome
+				isFirefox = false;				
+			}
+			
 			if (client_handle[4] == OKDECRYPT && !CRYPTO_AUTH) {
 				if(!PDmode) {
 				#ifdef US_VERSION
@@ -598,9 +616,8 @@ void processMessage(uint8_t *buffer)
 				#endif
 				fadeon();
 				outputU2F = 1;
-				memcpy(recv_buffer, client_handle, 64);
 				large_data_offset = 0;
-				DECRYPT(recv_buffer);
+				DECRYPT(client_handle);
 				#endif
 				}	
 			} else if (client_handle[4] == OKSIGN && !CRYPTO_AUTH) {
@@ -611,9 +628,8 @@ void processMessage(uint8_t *buffer)
 				#endif
 				fadeon();
 				outputU2F = 1;
-				memcpy(recv_buffer, client_handle, 64);
 				large_data_offset = 0;
-				SIGN(recv_buffer);
+				SIGN(client_handle);
 				#endif
 				}
 			} else if (client_handle[4] == OKSETTIME && !CRYPTO_AUTH) {
@@ -623,16 +639,35 @@ void processMessage(uint8_t *buffer)
 				large_data_offset = 0;
 				SETTIME(client_handle);
 				memset(ecc_public_key, 0, sizeof(ecc_public_key));
-				Ed25519::generatePrivateKey(ecc_private_key);
-				Ed25519::derivePublicKey(ecc_public_key, ecc_private_key);		
-				memcpy(ecc_public_key+32, UNLOCKED, sizeof(UNLOCKED));
-				store_U2F_response(ecc_public_key, (32+sizeof(UNLOCKED)));
-				memcpy(ecc_public_key, client_handle+9, 32);
-				#ifdef DEBUG		
-					Serial.print("Application ECDH Public Key: ");
-					byteprint(ecc_public_key, 32);
-				#endif 
-				send_U2F_response(buffer);
+				RNG2(ecc_private_key, 32);
+				crypto_box_keypair(ecc_public_key+sizeof(UNLOCKED), ecc_private_key); //Generate keys
+				#ifdef DEBUG
+				Serial.println("OnlyKey public = ");
+				byteprint(ecc_public_key+sizeof(UNLOCKED), 32);
+				#endif
+				memcpy(ecc_public_key, UNLOCKED, sizeof(UNLOCKED));
+				store_U2F_response(ecc_public_key, (32+sizeof(UNLOCKED)), false);
+				memcpy(ecc_public_key, client_handle+9, 32); //Get app public key
+				#ifdef DEBUG
+				Serial.println("App public = ");
+				byteprint(ecc_public_key, 32);
+				#endif
+
+				send_U2F_response(buffer); //Send response with our public key
+				//test encrypt app public key
+				uint8_t test[32];
+				memcpy(test, ecc_public_key, 32);
+				NaCl_crypto_box (test, 0,  32, false);
+				#ifdef DEBUG
+				Serial.println("NaCl CT = ");
+				byteprint(test, 32);
+				#endif
+				NaCl_crypto_box (test, 0,  32, true);
+				#ifdef DEBUG
+				Serial.println("NaCl PT = ");
+				byteprint(test, 32);
+				#endif
+				
 				return;
 				#endif
 				}
@@ -646,7 +681,7 @@ void processMessage(uint8_t *buffer)
 				return;
 				#endif
 				}
-			} else if (client_handle[4] == 0xFF && !CRYPTO_AUTH) { //Get stored response
+			} else if (client_handle[4] == OKGETRESPONSE && !CRYPTO_AUTH) { //Get stored response
 				if(!PDmode) {
 				#ifdef US_VERSION
 				large_data_offset = 0;
@@ -654,19 +689,21 @@ void processMessage(uint8_t *buffer)
 				return;
 				#endif
 				}
-			} else if (client_handle[4] == 0x00 && !CRYPTO_AUTH) { //Ping Error
+			} else if (client_handle[4] == OKPING) { //Ping
 				if(!PDmode) {
 				#ifdef US_VERSION
 				large_data_offset = 0;
-				if (packet_buffer[packet_buffer_offset-1] != 0 && packet_buffer[packet_buffer_offset-2] != 0x90) {
-				errorResponse(buffer, (ERR_OTHER+1)); 
+				if  (CRYPTO_AUTH) {
+					custom_error(0); //ACK
+				}
+				else if (packet_buffer[0] != 0x01 && packet_buffer[packet_buffer_offset-2] != 0x90) {
+					custom_error(1); //incorrect challenge code entered
 				}
 				return;
 				#endif
 				}
 			} 
 			large_data_offset = 0;
-			errorResponse(buffer, ERR_OTHER); //ACK for PING, SIGN, DECRYPT
 			return;
 		  }
 	  }
@@ -1145,7 +1182,7 @@ void send_U2F_response(uint8_t *buffer) {
 			#ifdef DEBUG
 			Serial.print("Error no data ready to be retrieved");
 			#endif 
-			errorResponse(buffer, ERR_OTHER); 
+			errorResponse(buffer, ERR_INVALID_CMD); 
 			outputU2F = 0;
 			if (!CRYPTO_AUTH) fadeoff(1);
 			return;
@@ -1153,10 +1190,25 @@ void send_U2F_response(uint8_t *buffer) {
 	}
 }
 
-void store_U2F_response (uint8_t *data, int len) {
+void store_U2F_response (uint8_t *data, int len, bool encrypt) {
 	CRYPTO_AUTH = 0;
 	cancelfadeoffafter20();
 	int len2 = 0;
+	if (encrypt) {
+		msgcount++;
+		int ctr = ((msgcount>>24)&0xff) | // move byte 3 to byte 0
+		  ((msgcount<<8)&0xff0000) | // move byte 1 to byte 2
+		  ((msgcount>>8)&0xff00) | // move byte 2 to byte 1
+		  ((msgcount<<24)&0xff000000); // byte 0 to byte 3
+
+        memcpy(packet_buffer + 1, &ctr, 4);
+		NaCl_crypto_box (data, packet_buffer + 1,  len, false);
+	} else {
+		packet_buffer[1] = 0x00;
+		packet_buffer[2] = 0x00;
+		packet_buffer[3] = 0x00;
+		packet_buffer[4] = 0x00;
+	}
 	if ((len+13) >= (int)sizeof(packet_buffer)) return; //Double check buf overflow
 	if (len < 64) {
 		uint8_t tempdata[64];
@@ -1167,10 +1219,6 @@ void store_U2F_response (uint8_t *data, int len) {
 		len = 64;
 	}
 	packet_buffer[0] = 0x01; // user_presence
-	packet_buffer[1] = 0x00;
-	packet_buffer[2] = 0x00;
-	packet_buffer[3] = 0x00;
-	packet_buffer[4] = 0x05;
 	len2 = 5;
 	packet_buffer[len2++] = 0x30; //header: compound structure
 	packet_buffer[len2++] = len+4; //total length 
@@ -1192,5 +1240,17 @@ void store_U2F_response (uint8_t *data, int len) {
 #endif
 	 wipedata(); //Data will wait 5 seconds to be retrieved
 }
+
+void custom_error (uint8_t code) {
+	char response[64] = "Error";
+	if (isFirefox) {
+		response[6] = code;
+		store_U2F_response((uint8_t*)response, 64, true);
+		send_U2F_response(recv_buffer);
+	} else {
+		errorResponse(recv_buffer, 127+code); 
+	}
+}
+
 
 #endif

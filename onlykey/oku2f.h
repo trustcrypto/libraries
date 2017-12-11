@@ -81,6 +81,7 @@
 #include "T3MacLib.h"
 #include "onlykey.h"
 #include <newhope.h>
+#include "avrnacl.h"
 
 #ifdef US_VERSION
  
@@ -147,7 +148,12 @@ extern "C"
 #define ERR_CHANNEL_BUSY  6
 #define ERR_LOCK_REQUIRED  10
 #define ERR_INVALID_CID  11
-#define ERR_OTHER  127
+#define ERR_ACK  127
+#define ERR_CODE  128
+#define ERR_KEY_TYPE  129
+#define ERR_KEY_CHECK  130
+#define ERR_DATA  131
+
 
 #define SW_NO_ERROR                       0x9000
 #define SW_CONDITIONS_NOT_SATISFIED       0x6985
@@ -170,7 +176,8 @@ extern void update_SHA256(const uECC_HashContext *base,
 extern void finish_SHA256(const uECC_HashContext *base, uint8_t *hash_result);
 extern void U2Finit();
 extern void send_U2F_response (uint8_t *buffer);
-extern void store_U2F_response (uint8_t *data, int len);
+extern void store_U2F_response (uint8_t *data, int len, bool encrypt);
+extern void custom_error (uint8_t code);
 
 #ifdef __cplusplus
 }
