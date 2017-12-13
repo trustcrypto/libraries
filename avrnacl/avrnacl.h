@@ -9,7 +9,13 @@
 #define AVRNACL_H
 #define AVRNACL_VERSION "2014-07-XXX"
 
-#include "okcore.h"
+#include "okcrypto.h"
+#include <SoftTimer.h>
+#include <cstring>
+#include "Arduino.h"
+#include "onlykey.h"
+#include <SoftTimer.h>
+#include <RNG.h>
 
 typedef char crypto_int8;
 typedef unsigned char crypto_uint8;

@@ -81,7 +81,7 @@
 #include "T3MacLib.h"
 #include "onlykey.h"
 #include <newhope.h>
-#include "avrnacl.h"
+#include "tweetnacl.h"
 
 #ifdef US_VERSION
  
@@ -178,6 +178,7 @@ extern void U2Finit();
 extern void send_U2F_response (uint8_t *buffer);
 extern void store_U2F_response (uint8_t *data, int len, bool encrypt);
 extern void custom_error (uint8_t code);
+extern void handle_firefox_u2f (uint8_t msgid);
 
 #ifdef __cplusplus
 }

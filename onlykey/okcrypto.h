@@ -58,7 +58,7 @@
 #include <Ed25519.h>
 #include <Curve25519.h>
 #include "rsa.h"
-#include "avrnacl.h"
+#include "tweetnacl.h"
 
 #ifdef __cplusplus
 extern "C"
@@ -89,7 +89,7 @@ extern int mbedtls_rand( void *rng_state, unsigned char *output, size_t len);
 extern int RNG2(uint8_t *dest, unsigned size);
 extern int rsa_encrypt (int len, const uint8_t *in, uint8_t *out);
 extern int shared_secret (uint8_t *ephemeral_pub, uint8_t *secret);
-extern void NaCl_crypto_box (uint8_t *buffer, uint8_t *counter,  int len, bool open);
+extern void aes_crypto_box (uint8_t *buffer, int len, bool open);
 
 #ifdef __cplusplus
 }

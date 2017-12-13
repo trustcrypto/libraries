@@ -98,6 +98,7 @@ extern uint8_t large_buffer[1024];
 extern uint8_t packet_buffer[768];
 extern uint8_t recv_buffer[64];
 extern int large_data_len;
+extern int msgcount;
 
 void SIGN (uint8_t *buffer) {
 	uECC_set_rng(&RNG2); 
@@ -642,8 +643,8 @@ int shared_secret (uint8_t *ephemeral_pub, uint8_t *secret) {
 	#endif
 	switch (type) {
 	case 1:
-		Curve25519::eval(secret, ecc_private_key, ephemeral_pub);
-		return 0;			
+		if (crypto_box_beforenm(secret, ephemeral_pub, ecc_private_key)) return 0;
+		else return 1;			
 	case 2:
 		curve = uECC_secp256r1(); 
 		if (uECC_shared_secret(ephemeral_pub, ecc_private_key, secret, curve)) return 0;
@@ -658,37 +659,26 @@ int shared_secret (uint8_t *ephemeral_pub, uint8_t *secret) {
 	}
 }
 
-void NaCl_crypto_box (uint8_t *buffer, uint8_t *counter,  int len, bool open) { //https://nacl.cr.yp.to/box.html
-	unsigned char pk[crypto_box_PUBLICKEYBYTES];
-    unsigned char sk[crypto_box_SECRETKEYBYTES];
-	unsigned char n[crypto_box_NONCEBYTES];
-	unsigned char c[512];
-	unsigned char m[512];
-	uint8_t nonce[32];
-	memcpy(nonce, counter, 4);
-	memcpy(nonce+4, counter, 4);
-	memcpy(nonce+8, counter, 4);
-	memcpy(nonce+12, counter, 4);
-	memcpy(nonce+16, counter, 4);
-	memcpy(nonce+20, counter, 4);
-	memcpy(nonce+24, counter, 4);
-	memcpy(nonce+28, counter, 4);
-	SHA256_CTX context;
-	sha256_init(&context);
-	sha256_update(&context, nonce, 32); 
-	sha256_final(&context, nonce); //Hash of incrementing U2F counter, unique for each message
-	memcpy(n, nonce, crypto_box_NONCEBYTES);
-	memcpy(pk, ecc_public_key, 32);
-	memcpy(sk, ecc_private_key, 32);
+void aes_crypto_box (uint8_t *buffer, int len, bool open) { 
+	uint8_t iv[12];
+	uint8_t temp[32];
+	memset(iv, 0, 12);
+	msgcount++;
+	msgcount = 1;
+	int ctr = ((msgcount>>24)&0xff) | // move byte 3 to byte 0
+	  ((msgcount<<8)&0xff0000) | // move byte 1 to byte 2
+	  ((msgcount>>8)&0xff00) | // move byte 2 to byte 1
+	  ((msgcount<<24)&0xff000000); // byte 0 to byte 3
+	memcpy(iv, &ctr, 4);
+	#ifdef DEBUG
+	Serial.print("IV");
+	byteprint(iv, 12);
+	#endif
 	if (open) {
-		memcpy(c, buffer, len);
-		crypto_box_open(buffer,c,len,n,pk,sk); //Decrypt and verify
-		memcpy(buffer, m, len);
+		aes_gcm_decrypt2 (buffer, iv, ecc_private_key, len); 
 	}
 	else {
-		memcpy(m, buffer, len);
-		crypto_box(c,buffer,len,n,pk,sk); //Encrypt
-		memcpy(buffer, c, len);
+		aes_gcm_encrypt2 (buffer, iv, ecc_private_key, len);
 	}
 }
 

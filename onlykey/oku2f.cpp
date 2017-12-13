@@ -587,124 +587,121 @@ void processMessage(uint8_t *buffer)
  	  int appid_match;
 	  appid_match = memcmp (stored_appid, application_parameter, 32);
 	  if (appid_match == 0) {
-		  if (client_handle[0] == 0xFF && client_handle[1] == 0xFF && client_handle[2] == 0xFF && client_handle[3] == 0xFF) {
-			//Custom message encoded in Client Handle
-	#ifdef DEBUG
-			Serial.println("Received U2F request to send data to OnlyKey");
-			Serial.println(times);
-	#endif  
-
-			if (client_handle[4] < 128) { //Firefox
-				if (times < 1) {
-					respondErrorPDU(buffer, SW_CONDITIONS_NOT_SATISFIED);
-					times++;
+		   if (client_handle[0] == 0xFF && client_handle[1] == 0xFF && client_handle[2] == 0xFF && client_handle[3] == 0xFF) {
+				handle_firefox_u2f (client_handle[4]);
+				if (client_handle[4] == OKSETTIME && !CRYPTO_AUTH) {
+					if(!PDmode) {
+					#ifdef US_VERSION
+					msgcount = 0;
+					outputU2F = 1;
+					large_data_offset = 0;
+					SETTIME(client_handle);
+					memset(ecc_public_key, 0, sizeof(ecc_public_key));
+					crypto_box_keypair(ecc_public_key+sizeof(UNLOCKED), ecc_private_key); //Generate keys
+					#ifdef DEBUG
+					Serial.println("OnlyKey public = ");
+					byteprint(ecc_public_key+sizeof(UNLOCKED), 32);
+					#endif
+					memcpy(ecc_public_key, UNLOCKED, sizeof(UNLOCKED));
+					store_U2F_response(ecc_public_key, (32+sizeof(UNLOCKED)), false);
+					memcpy(ecc_public_key, client_handle+9, 32); //Get app public key
+					#ifdef DEBUG
+					Serial.println("App public = ");
+					byteprint(ecc_public_key, 32);
+					#endif
+					send_U2F_response(buffer); //Send response with our public key
+					uint8_t shared[32];
+					type = 1;
+					shared_secret(ecc_public_key, shared); //Gen shared secret
+					#ifdef DEBUG
+					Serial.println("Shared Secret = ");
+					byteprint(shared, 32);
+					#endif
+					SHA256_CTX context;
+					sha256_init(&context);
+					sha256_update(&context, shared, 32); 
+					sha256_final(&context, ecc_private_key); 
+					#ifdef DEBUG
+					Serial.println("AES Key = ");
+					byteprint(ecc_private_key, 32);
+					#endif
 					return;
-				} else {
-				times = 0;
+					#endif
+					}
 				}
-				client_handle[4]+=128;
-				isFirefox = true;
-			} else { //Chrome
-				isFirefox = false;				
-			}
-			
-			if (client_handle[4] == OKDECRYPT && !CRYPTO_AUTH) {
-				if(!PDmode) {
-				#ifdef US_VERSION
-				#ifdef OK_Color
-				NEO_Color = 128; //Turquoise
-				#endif
-				fadeon();
-				outputU2F = 1;
-				large_data_offset = 0;
-				DECRYPT(client_handle);
-				#endif
-				}	
-			} else if (client_handle[4] == OKSIGN && !CRYPTO_AUTH) {
-				if(!PDmode) {
-				#ifdef US_VERSION
-				#ifdef OK_Color
-				NEO_Color = 213; //Purple
-				#endif
-				fadeon();
-				outputU2F = 1;
-				large_data_offset = 0;
-				SIGN(client_handle);
-				#endif
-				}
-			} else if (client_handle[4] == OKSETTIME && !CRYPTO_AUTH) {
-				if(!PDmode) {
-				#ifdef US_VERSION
-				outputU2F = 1;
-				large_data_offset = 0;
-				SETTIME(client_handle);
-				memset(ecc_public_key, 0, sizeof(ecc_public_key));
-				RNG2(ecc_private_key, 32);
-				crypto_box_keypair(ecc_public_key+sizeof(UNLOCKED), ecc_private_key); //Generate keys
-				#ifdef DEBUG
-				Serial.println("OnlyKey public = ");
-				byteprint(ecc_public_key+sizeof(UNLOCKED), 32);
-				#endif
-				memcpy(ecc_public_key, UNLOCKED, sizeof(UNLOCKED));
-				store_U2F_response(ecc_public_key, (32+sizeof(UNLOCKED)), false);
-				memcpy(ecc_public_key, client_handle+9, 32); //Get app public key
-				#ifdef DEBUG
-				Serial.println("App public = ");
-				byteprint(ecc_public_key, 32);
-				#endif
-
-				send_U2F_response(buffer); //Send response with our public key
-				//test encrypt app public key
-				uint8_t test[32];
-				memcpy(test, ecc_public_key, 32);
-				NaCl_crypto_box (test, 0,  32, false);
-				#ifdef DEBUG
-				Serial.println("NaCl CT = ");
-				byteprint(test, 32);
-				#endif
-				NaCl_crypto_box (test, 0,  32, true);
-				#ifdef DEBUG
-				Serial.println("NaCl PT = ");
-				byteprint(test, 32);
-				#endif
-				
-				return;
-				#endif
-				}
-			} else if (client_handle[4] == OKGETPUBKEY && !CRYPTO_AUTH) {
-				if(!PDmode) {
-				#ifdef US_VERSION
-				outputU2F = 1;
-				large_data_offset = 0;
-				GETPUBKEY(client_handle);
-				send_U2F_response(buffer);
-				return;
-				#endif
-				}
-			} else if (client_handle[4] == OKGETRESPONSE && !CRYPTO_AUTH) { //Get stored response
-				if(!PDmode) {
-				#ifdef US_VERSION
-				large_data_offset = 0;
-				send_U2F_response(buffer);
-				return;
-				#endif
-				}
-			} else if (client_handle[4] == OKPING) { //Ping
-				if(!PDmode) {
-				#ifdef US_VERSION
-				large_data_offset = 0;
-				if  (CRYPTO_AUTH) {
-					custom_error(0); //ACK
-				}
-				else if (packet_buffer[0] != 0x01 && packet_buffer[packet_buffer_offset-2] != 0x90) {
-					custom_error(1); //incorrect challenge code entered
-				}
-				return;
-				#endif
-				}
-			} 
 			large_data_offset = 0;
 			return;
+		   } else {
+			   aes_crypto_box (client_handle, 64, true);
+			   handle_firefox_u2f (client_handle[4]);
+				#ifdef DEBUG
+				Serial.println("Decrypted client handle");
+				byteprint(client_handle, 64);
+				#endif  
+			   if (client_handle[0] == 0xFF && client_handle[1] == 0xFF && client_handle[2] == 0xFF && client_handle[3] == 0xFF) {
+				#ifdef DEBUG
+						Serial.println("Received U2F request to send data to OnlyKey");
+						Serial.println(times);
+				#endif  
+				if (client_handle[4] == OKDECRYPT && !CRYPTO_AUTH) {
+					if(!PDmode) {
+					#ifdef US_VERSION
+					#ifdef OK_Color
+					NEO_Color = 128; //Turquoise
+					#endif
+					fadeon();
+					outputU2F = 1;
+					large_data_offset = 0;
+					DECRYPT(client_handle);
+					#endif
+					}	
+				} else if (client_handle[4] == OKSIGN && !CRYPTO_AUTH) {
+					if(!PDmode) {
+					#ifdef US_VERSION
+					#ifdef OK_Color
+					NEO_Color = 213; //Purple
+					#endif
+					fadeon();
+					outputU2F = 1;
+					large_data_offset = 0;
+					SIGN(client_handle);
+					#endif
+					}
+				} else if (client_handle[4] == OKGETPUBKEY && !CRYPTO_AUTH) {
+					if(!PDmode) {
+					#ifdef US_VERSION
+					outputU2F = 1;
+					large_data_offset = 0;
+					GETPUBKEY(client_handle);
+					send_U2F_response(buffer);
+					return;
+					#endif
+					}
+				} else if (client_handle[4] == OKGETRESPONSE && !CRYPTO_AUTH) { //Get stored response
+					if(!PDmode) {
+					#ifdef US_VERSION
+					large_data_offset = 0;
+					send_U2F_response(buffer);
+					return;
+					#endif
+					}
+				} else if (client_handle[4] == OKPING) { //Ping
+					if(!PDmode) {
+					#ifdef US_VERSION
+					large_data_offset = 0;
+					if  (CRYPTO_AUTH) {
+						custom_error(0); //ACK
+					}
+					else if (packet_buffer[0] != 0x01 && packet_buffer[packet_buffer_offset-2] != 0x90) {
+						custom_error(1); //incorrect challenge code entered
+					}
+					return;
+					#endif
+					}
+				} 
+				large_data_offset = 0;
+				return;
+			  }
 		  }
 	  }
 	  fadeon();
@@ -1194,21 +1191,14 @@ void store_U2F_response (uint8_t *data, int len, bool encrypt) {
 	CRYPTO_AUTH = 0;
 	cancelfadeoffafter20();
 	int len2 = 0;
+	packet_buffer[1] = 0x00;
+	packet_buffer[2] = 0x00;
+	packet_buffer[3] = 0x00;
+	packet_buffer[4] = 0x00;
 	if (encrypt) {
-		msgcount++;
-		int ctr = ((msgcount>>24)&0xff) | // move byte 3 to byte 0
-		  ((msgcount<<8)&0xff0000) | // move byte 1 to byte 2
-		  ((msgcount>>8)&0xff00) | // move byte 2 to byte 1
-		  ((msgcount<<24)&0xff000000); // byte 0 to byte 3
-
-        memcpy(packet_buffer + 1, &ctr, 4);
-		NaCl_crypto_box (data, packet_buffer + 1,  len, false);
-	} else {
-		packet_buffer[1] = 0x00;
-		packet_buffer[2] = 0x00;
-		packet_buffer[3] = 0x00;
-		packet_buffer[4] = 0x00;
-	}
+		aes_crypto_box (data, len, false);
+		packet_buffer[4] = 0x01;
+	} 
 	if ((len+13) >= (int)sizeof(packet_buffer)) return; //Double check buf overflow
 	if (len < 64) {
 		uint8_t tempdata[64];
@@ -1249,6 +1239,22 @@ void custom_error (uint8_t code) {
 		send_U2F_response(recv_buffer);
 	} else {
 		errorResponse(recv_buffer, 127+code); 
+	}
+}
+
+void handle_firefox_u2f (uint8_t msgid) {
+	if (msgid < 128) { //Firefox
+		if (times < 1) {
+			respondErrorPDU(recv_buffer, SW_CONDITIONS_NOT_SATISFIED);
+			times++;
+			return;
+		} else {
+		times = 0;
+		}
+		msgid+=128;
+		isFirefox = true;
+	} else { //Chrome
+		isFirefox = false;				
 	}
 }
 
