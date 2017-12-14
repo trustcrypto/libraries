@@ -701,6 +701,8 @@ void processMessage(uint8_t *buffer)
 				} 
 				large_data_offset = 0;
 				return;
+			  } else {
+				msgcount--;  
 			  }
 		  }
 	  }

@@ -664,7 +664,6 @@ void aes_crypto_box (uint8_t *buffer, int len, bool open) {
 	uint8_t temp[32];
 	memset(iv, 0, 12);
 	msgcount++;
-	msgcount = 1;
 	int ctr = ((msgcount>>24)&0xff) | // move byte 3 to byte 0
 	  ((msgcount<<8)&0xff0000) | // move byte 1 to byte 2
 	  ((msgcount>>8)&0xff00) | // move byte 2 to byte 1
@@ -673,6 +672,14 @@ void aes_crypto_box (uint8_t *buffer, int len, bool open) {
 	#ifdef DEBUG
 	Serial.print("IV");
 	byteprint(iv, 12);
+	#endif
+	#ifdef DEBUG
+	Serial.print("Key");
+	byteprint(ecc_private_key, 32);
+	#endif
+	#ifdef DEBUG
+	Serial.print("buffer");
+	byteprint(buffer, len);
 	#endif
 	if (open) {
 		aes_gcm_decrypt2 (buffer, iv, ecc_private_key, len); 
