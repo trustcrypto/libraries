@@ -84,7 +84,7 @@ extern void yubikey_simulate1(
 	
 
 
-#define MAX_counter	0x7fff
+#define MAX_counter	0xffff
 extern void yubikey_incr_timestamp (yubikey_ctx_t ctx);
 
 extern int  yubikey_incr_counter   (yubikey_ctx_t ctx);

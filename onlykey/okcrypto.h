@@ -70,6 +70,7 @@ extern "C"
 extern void SIGN (uint8_t *buffer);
 extern void GETPUBKEY (uint8_t *buffer);
 extern void GENERATE_KEY (uint8_t *buffer);
+extern void DERIVEKEY (uint8_t type, uint8_t *data);
 extern void GETECCPUBKEY (uint8_t *buffer);
 extern void GETRSAPUBKEY (uint8_t *buffer);
 extern void DECRYPT (uint8_t *buffer);

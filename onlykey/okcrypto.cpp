@@ -158,20 +158,29 @@ void SIGN (uint8_t *buffer) {
 }
 
 void GETPUBKEY (uint8_t *buffer) {
+	uint8_t temp[64] = {0};
 	#ifdef DEBUG
 	Serial.println();
 	Serial.println("OKGETPUBKEY MESSAGE RECEIVED"); 
 	#endif
-	if (buffer[6] + buffer[7] + buffer[8] + buffer[9] != 0) {
-		uint8_t slotnum[1];
-		slotnum[0] = GETKEYLABELS(0);
-		if (slotnum[0] >= 1) store_U2F_response(slotnum, 1, true);
-	}
-	else if (buffer[5] < 101 && !outputU2F) { //Slot 101-132 are for ECC, 1-4 are for RSA
+	if (buffer[5] < 101 && !outputU2F && !buffer[6]) { //Slot 101-132 are for ECC, 1-4 are for RSA
 		if (onlykey_flashget_RSA ((int)buffer[5])) GETRSAPUBKEY(buffer);
-	} else if (!outputU2F) {
+	} else if (!outputU2F && !buffer[6]) {
 		if (onlykey_flashget_ECC ((int)buffer[5])) GETECCPUBKEY(buffer);	
-	} 
+	} else if (buffer[6] <= 3 && !outputU2F) { // Generate key using provided data, return public
+	DERIVEKEY(buffer[6], buffer+7);
+	RawHID.send(ecc_public_key, 0);
+	} else if (buffer[6] == 0xff) { //Search Keylabels for matching key, return slot
+		temp[0] = GETKEYLABELS(0);
+		if (temp[0] >= 1) {
+			if (outputU2F) {
+				store_U2F_response(temp, 1, true);
+				send_U2F_response(buffer); 
+			} else {
+				RawHID.send(temp, 0);
+			}
+		}
+	}
 }
 
 void DECRYPT (uint8_t *buffer){
@@ -236,7 +245,7 @@ void GENERATE_KEY (uint8_t *buffer) {
 	onlykey_eeget_backupkey (&backupslot);
 	if (buffer[5] > 100) { //Slot 101-132 are for ECC, 1-4 are for RSA
 		if ((buffer[6] & 0x0F) == 1) {
-			Ed25519::generatePrivateKey(buffer+7);
+			RNG2(buffer+7, 32);
 			if (backupslot == buffer[5]) { //Backup Key
 				memcpy(temp, buffer+7, 32);
 				RawHID.send(temp, 0);	
@@ -327,7 +336,8 @@ void RSASIGN (uint8_t *buffer)
 #ifdef DEBUG
 		Serial.print("Signature = ");
 	    byteprint(rsa_signature, sizeof(rsa_signature));
-		Serial.println();
+		Serial.print("outputU2F = ");
+		Serial.println(outputU2F);
 #endif
 	if (outputU2F==0){
 	memcpy(resp_buffer, rsa_signature, 64);
@@ -359,7 +369,9 @@ void RSASIGN (uint8_t *buffer)
 		delay(100);
 		} 
 	} else if (outputU2F) {
+	msgcount+=2;
 	store_U2F_response(rsa_signature, (type*128), true);
+	msgcount-=3;
 	}
 	} else {
 		if (!outputU2F) hidprint("Error with RSA signing");
@@ -426,7 +438,9 @@ void RSADECRYPT (uint8_t *buffer)
 		delay(100);
 		}  
 	} else if (outputU2F) {
+	msgcount+=2;
 	store_U2F_response(large_buffer, plaintext_len, true);
+	msgcount-=3;
 	}
 	} else {
 		if (!outputU2F) hidprint("Error with RSA decryption");
@@ -454,12 +468,45 @@ void GETECCPUBKEY (uint8_t *buffer)
 			}
 			memset(ecc_public_key, 0, MAX_ECC_KEY_SIZE*2); //wipe buffer
 			memset(ecc_private_key, 0, MAX_ECC_KEY_SIZE); //wipe buffer
-         
+}
+
+void DERIVEKEY (uint8_t ktype, uint8_t *data)
+{
+  onlykey_flashget_ECC (132); //Default Key stored in ECC slot 32
+  memset(ecc_public_key, 0, sizeof(ecc_public_key));
+  SHA256_CTX ekey;
+  sha256_init(&ekey);
+  sha256_update(&ekey, ecc_private_key, 32); //Add default key to ekey 
+  sha256_update(&ekey, data, 32); //Add provided data to ekey
+  sha256_final(&ekey, ecc_private_key); //Create hash and store
+	if (ktype==1) {
+		Ed25519::derivePublicKey(ecc_public_key, ecc_private_key);
+		return;
+	}
+	else if (ktype==2) {
+		const struct uECC_Curve_t * curve = uECC_secp256r1();
+		uECC_compute_public_key(ecc_private_key, ecc_public_key, curve);
+	}
+	else if (ktype==3) {
+		const struct uECC_Curve_t * curve = uECC_secp256k1();
+		uECC_compute_public_key(ecc_private_key, ecc_public_key, curve);
+	}
+	/*
+	uECC_compress(ecc_public_key, temp, curve);
+	memset(ecc_public_key, 0, sizeof(ecc_public_key));
+	memcpy(ecc_public_key+31, temp, 33);
+	#ifdef DEBUG 
+	Serial.println("Compressed Public key");
+	byteprint(ecc_public_key, sizeof(ecc_public_key));
+	#endif
+	*/
 }
 
 void ECDSA_EDDSA(uint8_t *buffer)
 {
 	uint8_t ecc_signature[64];
+	uint8_t sha256_hash[32];
+	uint8_t len = 0;	
 #ifdef DEBUG
     Serial.println();
     Serial.println("OKECDSA_EDDSACHALLENGE MESSAGE RECEIVED"); 
@@ -470,38 +517,111 @@ void ECDSA_EDDSA(uint8_t *buffer)
 #ifdef DEBUG
     Serial.println();
     Serial.printf("ECC challenge blob size=%d", packet_buffer_offset);
+	Serial.println();
+    byteprint(packet_buffer, packet_buffer_offset);
 #endif
 	uint8_t tmp[32 + 32 + 64];
 	SHA256_HashContext ectx = {{&init_SHA256, &update_SHA256, &finish_SHA256, 64, 32, tmp}};
-	// Sign the blob stored in the buffer
+	if (buffer[5] == 132) { 
+		if (packet_buffer[(packet_buffer_offset - 97)] == 0x04 && packet_buffer[(packet_buffer_offset - 99)] == 0 && packet_buffer[(packet_buffer_offset - 100)] == 0 && packet_buffer[(packet_buffer_offset - 101)] == 0) {
+			DERIVEKEY(2, packet_buffer+(packet_buffer_offset-32)); 
+			type = 2;	
+		} else {
+			DERIVEKEY(1, packet_buffer+(packet_buffer_offset-32)); 
+			type = 1;
+		}
+		if (packet_buffer_offset > 32) packet_buffer_offset = packet_buffer_offset - 32;
+	}
+	SHA256_CTX msghash;
+	sha256_init(&msghash);
+	sha256_update(&msghash, packet_buffer, packet_buffer_offset); 
+	sha256_final(&msghash, sha256_hash); //Create hash and store
+	#ifdef DEBUG
+      Serial.println("Signature Hash ");
+	  byteprint(sha256_hash, 32);
+	  Serial.print("Type");
+	  Serial.println(type);
+
+#endif
 	if (type==0x01) Ed25519::sign(ecc_signature, ecc_private_key, ecc_public_key, packet_buffer, packet_buffer_offset);
 	else if (type==0x02) {
-		    const struct uECC_Curve_t * curve = uECC_secp256r1(); //P-256
-			uECC_sign_deterministic(ecc_private_key,
-						packet_buffer,
-						packet_buffer_offset,
+		const struct uECC_Curve_t * curve = uECC_secp256r1(); //P-256
+		if (!uECC_sign_deterministic(ecc_private_key,
+						sha256_hash,
+						32,
 						&ectx.uECC,
 						ecc_signature,
-						curve);
+						curve)) {  
+#ifdef DEBUG
+      Serial.println("Signature Failed ");
+#endif
+      }					
 	}
 	else if (type==0x03) {
 			const struct uECC_Curve_t * curve = uECC_secp256k1(); 
-			uECC_sign_deterministic(ecc_private_key,
-						packet_buffer,
-						packet_buffer_offset,
+		if (!uECC_sign_deterministic(ecc_private_key,
+						sha256_hash,
+						32,
 						&ectx.uECC,
 						ecc_signature,
-						curve);
-	}
+						curve)) {  
 #ifdef DEBUG
-	    for (uint8_t i = 0; i< sizeof(ecc_signature); i++) {
-    	    Serial.print(ecc_signature[i],HEX);
-     	    }
+      Serial.println("Signature Failed ");
 #endif
+      }					
+	}
+/*
+	if (type==0x03 || type==0x02) {
+	  memset(tmp, 0, sizeof(tmp));
+	  tmp[len] = 0x30; //header: compound structure
+	  uint8_t *total_len = &tmp[len];
+      tmp[len++] = 0x44; //total length (32 + 32 + 2 + 2)
+      tmp[len++] = 0x02;  //header: integer
+
+			if (ecc_signature[0]>0x7f) {
+			   	tmp[len++] = 33;  //33 byte
+				tmp[len++] = 0;
+				(*total_len)++; //update total length
+			}  else {
+				tmp[len++] = 32;  //32 byte      
+		    }
+	  memcpy(tmp+len, ecc_signature, 32); //R value
+      len +=32;
+      tmp[len++] = 0x02;  //header: integer
+
+			if (ecc_signature[32]>0x7f) {
+				tmp[len++] = 33;  //32 byte
+				tmp[len++] = 0;
+				(*total_len)++;	//update total length
+			} else {
+				tmp[len++] = 32;  //32 byte
+			}
+      memcpy(tmp+len, ecc_signature+32, 32); //R value
+      len +=32;
+	}
+	*/
+	#ifdef DEBUG
+	Serial.print("Signature=");
+	byteprint(ecc_signature, 64);
+	#endif
 	if (outputU2F) {
-	store_U2F_response(ecc_signature, MAX_ECC_KEY_SIZE*2, true); 
-	} else{
-	RawHID.send(ecc_signature, 0);
+	store_U2F_response(ecc_signature, len, true); 
+	} else {
+		/*
+		if (type==0x03 || type==0x02) {
+		memcpy(ecc_signature, tmp, 64);
+		RawHID.send(ecc_signature, 0);
+		delay(200);
+		memcpy(ecc_signature, tmp+64, 64);
+		RawHID.send(ecc_signature, 0);
+		} else {
+		*/
+		RawHID.send(ecc_signature, 0);
+			#ifdef DEBUG
+	Serial.print("Signature=");
+	byteprint(ecc_signature, 64);
+	#endif
+		//}
 	}
     // Stop the fade in
     fadeoff(85);
@@ -661,7 +781,6 @@ int shared_secret (uint8_t *ephemeral_pub, uint8_t *secret) {
 
 void aes_crypto_box (uint8_t *buffer, int len, bool open) { 
 	uint8_t iv[12];
-	uint8_t temp[32];
 	memset(iv, 0, 12);
 	msgcount++;
 	int ctr = ((msgcount>>24)&0xff) | // move byte 3 to byte 0
@@ -1034,13 +1153,14 @@ void newhope_test ()
 	NHS_SERVER_1(&SRNG,&SB,&S); 
 	NHS_CLIENT(&CRNG,&SB,&UC,&KEYB);
 	NHS_SERVER_2(&S,&UC,&KEYA);
-
+#ifdef DEBUG
 	Serial.println("NewHope Simple Implemetation from open source AMCL crypto library (https://github.com/MIRACL/amcl)");
 	Serial.println("Ref. Alkim, Ducas, Popplemann and Schwabe (https://eprint.iacr.org/2016/1157)");
 	Serial.printf("Alice shared secret= 0x");
 	byteprint((uint8_t*)KEYA.val, KEYA.len);
 	Serial.printf("Bob's shared secret= 0x");
 	byteprint((uint8_t*)KEYB.val, KEYB.len);
+#endif
 	return;
 }
 

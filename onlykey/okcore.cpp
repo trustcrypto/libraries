@@ -571,7 +571,8 @@ switch (PINSET) {
 			onlykey_flashset_noncehash (ptr); //Store in flash
 			recv_buffer[4] = 0xEF;
 			recv_buffer[5] = 0x84;
-			recv_buffer[6] = 0x42;
+			recv_buffer[6] = 0x61;
+			memset(recv_buffer+7, 0, sizeof(recv_buffer)-7);
 			SETPRIV(recv_buffer); //set default ECC key
 			}
 			
@@ -887,7 +888,6 @@ void SETTIME (uint8_t *buffer)
 #endif
 		factorydefault();
 	  }
-      if (!outputU2F) blink(3);
       return;
 }
 
@@ -974,7 +974,6 @@ uint8_t GETKEYLABELS (uint8_t output)
 		  if (keyid_match == 0) return i+103;
 		}
 	}
-      blink(3);
 	  #endif
       return 0;
 }
@@ -1019,7 +1018,6 @@ void GETSLOTLABELS (uint8_t output)
 		delay(20);
 	}
 	}
-      blink(3);
       return;
 }
 
@@ -1059,7 +1057,7 @@ void SETSLOT (uint8_t *buffer)
 #endif
             onlykey_flashset_label(buffer + 7, slot);
 			hidprint("Successfully set Label");
-            return;
+			break;
 			case 15:
 #ifdef DEBUG
             Serial.println("Writing URL Value to Flash...");
@@ -1081,7 +1079,7 @@ void SETSLOT (uint8_t *buffer)
             }
             onlykey_flashset_url(buffer + 7, length, slot);
 			hidprint("Successfully set URL");
-            return;
+			break;
             case 16:
 #ifdef DEBUG
             Serial.println(); //newline
@@ -1096,7 +1094,7 @@ void SETSLOT (uint8_t *buffer)
 			Serial.print(buffer[7]);
 #endif
 	    hidprint("Successfully set after Username Additonal Character");
-            return;
+			break;
             case 17:
             //Set value in EEPROM
 #ifdef DEBUG
@@ -1106,7 +1104,7 @@ void SETSLOT (uint8_t *buffer)
             if (buffer[7] > '0') buffer[7] = (buffer[7] -'0');
             onlykey_eeset_delay1(buffer + 7, slot);
 	    hidprint("Successfully set Delay1");
-            return;
+	        break;
             case 18:
 #ifdef DEBUG
             Serial.println(); //newline
@@ -1122,7 +1120,7 @@ void SETSLOT (uint8_t *buffer)
 			Serial.print(buffer[7]);
 #endif
 	    hidprint("Successfully set before Username Additional Character");
-            return;
+			break;
             case 19:
 #ifdef DEBUG
             Serial.println(); //newline
@@ -1138,7 +1136,7 @@ void SETSLOT (uint8_t *buffer)
 			Serial.print(buffer[7]);
 #endif
 	    hidprint("Successfully set before OTP Additional Character");
-            return;
+			break;
             case 2:
             //Encrypt and Set value in EEPROM
 #ifdef DEBUG
@@ -1161,7 +1159,7 @@ void SETSLOT (uint8_t *buffer)
             }
             onlykey_flashset_username(buffer + 7, length, slot);
 	    hidprint("Successfully set Username");
-            return;
+			break;
             case 3:
             //Set value in EEPROM
 #ifdef DEBUG
@@ -1178,7 +1176,7 @@ void SETSLOT (uint8_t *buffer)
 			Serial.print(buffer[7]);
 #endif
 	    hidprint("Successfully set additonal character after password");
-            return;
+			break;
             case 4:
             //Set value in EEPROM
 #ifdef DEBUG
@@ -1188,7 +1186,7 @@ void SETSLOT (uint8_t *buffer)
             if (buffer[7] > '0') buffer[7] = (buffer[7] -'0');
             onlykey_eeset_delay2(buffer + 7, slot);
 	    hidprint("Successfully set Delay2");
-            return;
+			break;
             case 5:
             //Encrypt and Set value in EEPROM
 #ifdef DEBUG
@@ -1211,7 +1209,7 @@ void SETSLOT (uint8_t *buffer)
             }
             onlykey_eeset_password(buffer + 7, length, slot);
 	    hidprint("Successfully set Password");
-            return;
+			break;
             case 6:
             //Set value in EEPROM
 #ifdef DEBUG
@@ -1229,7 +1227,7 @@ void SETSLOT (uint8_t *buffer)
 			Serial.print(buffer[7]);
 #endif
 	    hidprint("Successfully set after OTP Character");
-            return;
+			break;
             case 7:
             //Set value in EEPROM
 #ifdef DEBUG
@@ -1239,7 +1237,7 @@ void SETSLOT (uint8_t *buffer)
             if (buffer[7] > '0') buffer[7] = (buffer[7] -'0');
             onlykey_eeset_delay3(buffer + 7, slot);
 	    hidprint("Successfully set Delay3");
-            return;
+			break;
             case 8:
             //Set value in EEPROM
 #ifdef DEBUG
@@ -1248,7 +1246,7 @@ void SETSLOT (uint8_t *buffer)
 #endif
             onlykey_eeset_2FAtype(buffer + 7, slot);
 	    hidprint("Successfully set 2FA Type");
-            return;
+			break;
             case 9:
             //Encrypt and Set value in EEPROM
 #ifdef DEBUG
@@ -1269,7 +1267,7 @@ void SETSLOT (uint8_t *buffer)
 #endif    
             onlykey_flashset_totpkey(buffer + 7, length, slot);
 	    hidprint("Successfully set TOTP Key");
-            return;
+			break;
             case 10:
             if (!PDmode) {
             //Encrypt and Set value in Flash
@@ -1301,7 +1299,7 @@ void SETSLOT (uint8_t *buffer)
             yubikeyinit();
 	    hidprint("Successfully set AES Key, Private ID, and Public ID");
 	    }
-            return;
+			break;
             case 11:
 #ifdef DEBUG
             Serial.println(); //newline
@@ -1310,7 +1308,7 @@ void SETSLOT (uint8_t *buffer)
             onlykey_eeset_timeout(buffer + 7);
             TIMEOUT[0] = buffer[7];
 	        hidprint("Successfully set idle timeout");
-            return;
+			break;
             case 12:
 #ifdef DEBUG
             Serial.println(); //newline
@@ -1322,7 +1320,7 @@ void SETSLOT (uint8_t *buffer)
             } else {
 	        hidprint("Successful");
 			}
-            return;
+			break;
 			case 13:
 #ifdef DEBUG
             Serial.println(); //newline
@@ -1335,7 +1333,7 @@ void SETSLOT (uint8_t *buffer)
 				TYPESPEED[0] = buffer[7];
 			}
 	        hidprint("Successfully set keyboard typespeed");
-            return;
+			break;
             case 14:
 #ifdef DEBUG
             Serial.println(); //newline
@@ -1345,11 +1343,11 @@ void SETSLOT (uint8_t *buffer)
 			onlykey_eeset_keyboardlayout(buffer + 7);
 			update_keyboard_layout();
 	        hidprint("Successfully set keyboard layout");
-            return;
+
             default: 
             return;
           }
-      blink(3);
+      blink(1);
       return;
 }
 
@@ -1382,7 +1380,6 @@ void WIPESLOT (uint8_t *buffer)
             onlykey_eeset_public(buffer + 7 + EElen_aeskey + EElen_private);
 			yubikey_eeset_counter(buffer + 7);
             hidprint("Successfully wiped AES Key, Private ID, and Public ID");
-			return;
 	 } else if (slot >= 1 && slot <=12) {
    	if (PDmode) slot = slot+12;
 #ifdef DEBUG
@@ -1445,10 +1442,9 @@ void WIPESLOT (uint8_t *buffer)
 #endif 
             onlykey_flashset_totpkey((buffer + 7), 0, slot);
             hidprint("Successfully wiped TOTP Key");
-
-      blink(3);
-      return;
 	 }
+	blink(1);
+	return;
 }
 
 void digitalClockDisplay(){
@@ -3591,7 +3587,7 @@ if (PDmode) return;
     }
     hidprint("Successfully set U2F Private");
 
-  blink(3);
+  blink(2);
 #endif
   return;
 
@@ -3623,7 +3619,7 @@ if (PDmode) return;
 		Serial.printf("successful\r\n");
 #endif
 		hidprint("Successfully wiped U2F Private");
-    blink(3);
+    blink(2);
 #endif
     return;
 
@@ -3698,7 +3694,7 @@ if (PDmode) return;
 #endif
 	packet_buffer_offset = 0;
 	hidprint("Successfully set U2F Certificate");
-      blink(3);
+      blink(2);
 #endif
       return;
 
@@ -3732,7 +3728,7 @@ if (PDmode) return;
 #endif
 	onlykey_eeset_U2Fcertlen(length);
 	hidprint("Successfully wiped U2F Certificate");
-    blink(3);
+    blink(2);
 #endif
     return;
 
@@ -3838,8 +3834,6 @@ if (PDmode) return 0;
 	return 0;
 }
 
-
-
 void SETECCPRIV (uint8_t *buffer)
 {
 
@@ -3902,7 +3896,7 @@ if (PDmode) return;
 #endif
 	if (gen_key != 0){
 	hidprint("Successfully set ECC Key");
-      blink(3);
+      blink(2);
 	}
 #endif
       return;
@@ -4014,7 +4008,7 @@ if (PDmode) return;
 		memcpy(rsa_private_key+packet_buffer_offset, buffer+7, 57);
 		packet_buffer_offset = packet_buffer_offset + 57;
 		}
-	} else if ((buffer[6] & 0x0F) == 3) { //Expect 512 Bytes
+	} else if ((buffer[6] & 0x0F) == 4) { //Expect 512 Bytes
 		keysize=512;
 		if (buffer[0] != 0xBA && packet_buffer_offset <= 456) {
 		memcpy(rsa_private_key+packet_buffer_offset, buffer+7, 57);
@@ -4063,7 +4057,7 @@ if (PDmode) return;
 #endif
 	packet_buffer_offset = 0;
 	hidprint("Successfully set RSA Key");
-      blink(3);
+      blink(2);
 	}
 #endif
 	return;
@@ -4095,7 +4089,7 @@ if (PDmode) return;
 	//Write buffer to flash
     onlykey_flashset_common(tptr, (unsigned long*)adr, 2048);
 	hidprint("Successfully wiped RSA Private Key");
-    blink(3);
+    blink(2);
 #endif
     return;
 }
@@ -4252,13 +4246,18 @@ bool wipebuffersafter5sec(Task* me) {
 	#ifdef DEBUG
 	Serial.println("wipe buffers after 5 sec");
 	#endif
+	if (configmode==false) {
 	packet_buffer_offset = 0;
 	memset(packet_buffer, 0, sizeof(packet_buffer));
+	extern int large_resp_buffer_offset;
+	large_resp_buffer_offset = 0;
+	memset(large_resp_buffer, 0, sizeof(large_resp_buffer));
 	CRYPTO_AUTH = 0;
 	Challenge_button1 = 0;
 	Challenge_button2 = 0;
 	Challenge_button3 = 0;
 	if (isfade || CRYPTO_AUTH) fadeoff(1); //Fade Red, failed to complete within 5 seconds
+	}
 	return false;
 }
 
@@ -4441,7 +4440,7 @@ void backup() {
       {
 		large_temp[large_data_offset] = 0xFF; //delimiter
 		large_temp[large_data_offset+1] = slot;
-		large_temp[large_data_offset+2] = 16; //16 - Add Char 1
+		large_temp[large_data_offset+2] = 16; //16 - Add Char 
 		large_temp[large_data_offset+3] = temp[0]; 
         large_data_offset=large_data_offset+4;
       }
@@ -4996,6 +4995,10 @@ void RESTORE(uint8_t *buffer) {
 				ctr[0] = *ptr;
 				ptr++;
 				ctr[1] = *ptr;
+				uint16_t counter = ctr[0] << 8 | ctr[1];
+				counter += 300; //Increment by 300
+				ctr[0] = counter >> 8  & 0xFF;
+				ctr[1] = counter       & 0xFF;
 				yubikey_eeset_counter(ctr);
 				#ifdef DEBUG
 							Serial.print("New Yubikey Counter =");
@@ -5040,7 +5043,7 @@ void RESTORE(uint8_t *buffer) {
 				temp[5] = *ptr; //Slot
 				ptr++;
 				temp[6] = *ptr; //Key type
-				if (temp[6]==0x01 || temp[6]==0x11 || temp[6]==0x21 || temp[6]==0x31 || temp[6]==0x41 || temp[6]==0x51 || temp[6]==0x61 || temp[6]==0x71 || temp[6]==0x81 || temp[6]==0x91 || temp[6]==0xA1 || temp[6]==0xB1 || temp[6]==0xC1 || temp[6]==0xD1 || temp[6]==0xE1 || temp[6]==0xF1) { //We know its an RSA 1024 Key
+				if ((temp[6] & 0x0F) == 1) { //Expect 128 Bytes
 					#ifdef DEBUG
 					Serial.print("Restore RSA 1024 key");
 					#endif 
@@ -5050,7 +5053,7 @@ void RESTORE(uint8_t *buffer) {
 					ptr = ptr + 128;
 					offset = offset - 131;
 				}
-				else if (temp[6]==0x02 || temp[6]==0x12 || temp[6]==0x22 || temp[6]==0x32 || temp[6]==0x42 || temp[6]==0x52 || temp[6]==0x62 || temp[6]==0x72 || temp[6]==0x82 || temp[6]==0x92 || temp[6]==0xA2 || temp[6]==0xB2 || temp[6]==0xC2 || temp[6]==0xD2 || temp[6]==0xE2 || temp[6]==0xF2) { //We know its an RSA 2048 Key
+				else if ((temp[6] & 0x0F) == 2) { //Expect 256 Bytes
 					#ifdef DEBUG
 					Serial.print("Restore RSA 2048 key");
 					#endif 
@@ -5060,7 +5063,7 @@ void RESTORE(uint8_t *buffer) {
 					ptr = ptr + 256;
 					offset = offset - 259;
 				}
-				else if (temp[6]==0x03 || temp[6]==0x13 || temp[6]==0x23 || temp[6]==0x33 || temp[6]==0x43 || temp[6]==0x53 || temp[6]==0x63 || temp[6]==0x73 || temp[6]==0x83 || temp[6]==0x93 || temp[6]==0xA3 || temp[6]==0xB3 || temp[6]==0xC3 || temp[6]==0xD3 || temp[6]==0xE3 || temp[6]==0xF3) { //We know its an RSA 3072 Key
+				else if ((temp[6] & 0x0F) == 3) { //Expect 384 Bytes
 					#ifdef DEBUG
 					Serial.print("Restore RSA 3072 key");
 					#endif 
@@ -5070,7 +5073,7 @@ void RESTORE(uint8_t *buffer) {
 					ptr = ptr + 384;
 					offset = offset - 387;
 				}
-				else if (temp[6]==0x04 || temp[6]==0x14 || temp[6]==0x24 || temp[6]==0x34 || temp[6]==0x44 || temp[6]==0x54 || temp[6]==0x64 || temp[6]==0x74 || temp[6]==0x84 || temp[6]==0x94 || temp[6]==0xA4 || temp[6]==0xB4 || temp[6]==0xC4 || temp[6]==0xD4 || temp[6]==0xE4 || temp[6]==0xF4) { //We know its an RSA 4096 Key
+				else if ((temp[6] & 0x0F) == 4) { //Expect 512 Bytes
 					#ifdef DEBUG
 					Serial.print("Restore RSA 4096 key");
 					#endif 
@@ -5162,14 +5165,8 @@ void process_packets (uint8_t *buffer) {
     #ifdef US_VERSION
 	uint8_t temp[32];
 	 wipedata(); //Wait 5 seconds to receive packets
-	if (CRYPTO_AUTH >= 1 || (packet_buffer[0] == 1 && packet_buffer[packet_buffer_offset-1] == 0 && packet_buffer[packet_buffer_offset-2] == 0x90)) {
+	if (CRYPTO_AUTH >= 1) {
 		if (outputU2F == 1) {
-#ifdef DEBUG
-	     Serial.println("Error receiving packets, packet buffer already full");
-		 Serial.println(packet_buffer_offset);
-#endif 
-		return;
-		} else {
 #ifdef DEBUG
 	     Serial.println("Warning, wiping unretrieved data in packet buffer");
 		 Serial.println(packet_buffer_offset);
@@ -5232,7 +5229,7 @@ void process_packets (uint8_t *buffer) {
 			return;
         }
 	}
-	custom_error(0); //ACK
+	if (outputU2F) custom_error(0); //ACK
 	return;
 	#endif
 }
@@ -5246,12 +5243,12 @@ void temp_voltage () {
 		}
 	average= average/255;
 	float C = 25.0 + 0.17083 * (2454.19 - average);
+#ifdef DEBUG
 	Serial.print(average);
 	Serial.print(' ');
-	#ifdef DEBUG
-	  Serial.print(C);
-      Serial.println ("C - Internal Temperature");
-	#endif
+    Serial.print(C);
+    Serial.println ("C - Internal Temperature");
+#endif
 	analogReference(DEFAULT);
 	analogReadResolution(12);
 	analogReadAveraging(32);
