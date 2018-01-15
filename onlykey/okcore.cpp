@@ -4731,23 +4731,24 @@ void backup() {
 	}
 	else if (slot > 100) {
 		uint8_t iv[12];
+		uint8_t secret[32];
 		memcpy(iv, temp, 12);
 		onlykey_flashget_ECC (slot);
-		if (shared_secret (ecc_public_key, temp)) {
+		if (shared_secret (ecc_public_key, secret)) {
 			hidprint("Error with ECC Shared Secret");
 			return;
 		}
 		SHA256_CTX context;
 		sha256_init(&context);
-		sha256_update(&context, temp, 32); //add secret
+		sha256_update(&context, secret, 32); //add secret
 		sha256_update(&context, ecc_public_key, 32); //Add public key
 		sha256_update(&context, iv, 12); //add AES GCM IV
-		sha256_final(&context, temp); 
+		sha256_final(&context, secret); 
 		#ifdef DEBUG
 		Serial.println("AES KEY = ");
-		byteprint(temp, 32);
+		byteprint(secret, 32);
 		#endif
-		aes_gcm_encrypt2 (large_temp, iv, temp, large_data_offset); 
+		aes_gcm_encrypt2 (large_temp, iv, secret, large_data_offset); 
 		memcpy (large_temp+large_data_offset, iv, 12);
 		#ifdef DEBUG
 		Serial.println("IV = ");
@@ -5164,7 +5165,8 @@ void process_packets (uint8_t *buffer) {
 	if (PDmode) return;
     #ifdef US_VERSION
 	uint8_t temp[32];
-	 wipedata(); //Wait 5 seconds to receive packets
+	isfade=1;
+	wipedata(); //Wait 5 seconds to receive packets
 	if (CRYPTO_AUTH >= 1) {
 		if (outputU2F == 1) {
 #ifdef DEBUG
@@ -5189,7 +5191,7 @@ void process_packets (uint8_t *buffer) {
               if (!outputU2F) hidprint("Error packets received exceeded size limit");
 			  return;
         }
-    } else {
+    } else { //Last packet
         if (packet_buffer_offset <= (int)(sizeof(packet_buffer) - 57) && buffer[6] <= 57) {
             memcpy(packet_buffer+packet_buffer_offset, buffer+7, buffer[6]);
             packet_buffer_offset = packet_buffer_offset + buffer[6];
@@ -5224,6 +5226,7 @@ void process_packets (uint8_t *buffer) {
     Serial.printf("Enter challenge code %c%c%c", Challenge_button1,Challenge_button2,Challenge_button3); 
 	Serial.println();
 #endif
+		fadeon();
         } else {
             if (!outputU2F) hidprint("Error packets received exceeded size limit");
 			return;

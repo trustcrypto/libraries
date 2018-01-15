@@ -608,7 +608,10 @@ void processMessage(uint8_t *buffer)
 					send_U2F_response(buffer); //Send response with our public key
 					uint8_t shared[32];
 					type = 1;
-					shared_secret(ecc_public_key, shared); //Gen shared secret
+					if (shared_secret (ecc_public_key, shared)) {
+						hidprint("Error with ECC Shared Secret");
+						return;
+					}
 					#ifdef DEBUG
 					Serial.println("Shared Secret = ");
 					byteprint(shared, 32);
@@ -645,7 +648,6 @@ void processMessage(uint8_t *buffer)
 					#ifdef OK_Color
 					NEO_Color = 128; //Turquoise
 					#endif
-					fadeon();
 					outputU2F = 1;
 					large_data_offset = 0;
 					DECRYPT(client_handle);
@@ -657,7 +659,6 @@ void processMessage(uint8_t *buffer)
 					#ifdef OK_Color
 					NEO_Color = 213; //Purple
 					#endif
-					fadeon();
 					outputU2F = 1;
 					large_data_offset = 0;
 					SIGN(client_handle);
@@ -1206,6 +1207,10 @@ void store_U2F_response (uint8_t *data, int len, bool encrypt) {
 	large_resp_buffer[len2++] = 0x30; //header: compound structure
 	large_resp_buffer[len2++] = len+4; //total length 
     large_resp_buffer[len2++] = 0x02;  //header: integer
+	#ifdef DEBUG
+      Serial.print ("Len1 ");
+      Serial.print (len/2);
+#endif
 	large_resp_buffer[len2++] = len/2; 
 	memmove(large_resp_buffer+len2, data, len/2); //R value
 	len2 += len/2;

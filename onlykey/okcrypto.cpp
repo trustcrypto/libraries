@@ -756,22 +756,22 @@ void ECDH(uint8_t *buffer)
 	}
 }
 
-int shared_secret (uint8_t *ephemeral_pub, uint8_t *secret) {
+int shared_secret (uint8_t *pub, uint8_t *secret) {
 	const struct uECC_Curve_t * curve;
 	#ifdef DEBUG 
 	Serial.printf("Shared Secret for type %X ",type);
 	#endif
 	switch (type) {
 	case 1:
-		if (crypto_box_beforenm(secret, ephemeral_pub, ecc_private_key)) return 0;
-		else return 1;			
+		if (crypto_box_beforenm(secret, pub, ecc_private_key)) return 1;
+		else return 0;			
 	case 2:
 		curve = uECC_secp256r1(); 
-		if (uECC_shared_secret(ephemeral_pub, ecc_private_key, secret, curve)) return 0;
+		if (uECC_shared_secret(pub, ecc_private_key, secret, curve)) return 0;
 		else return 1;	
 	case 3:
 		curve = uECC_secp256k1(); 
-		if (uECC_shared_secret(ephemeral_pub, ecc_private_key, secret, curve)) return 0;
+		if (uECC_shared_secret(pub, ecc_private_key, secret, curve)) return 0;
 		else return 1;	
 	default:
 		if (!outputU2F) hidprint("Error ECC type incorrect");
