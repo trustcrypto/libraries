@@ -1,8 +1,6 @@
-/* okcore.cpp
-*/
 
 /* Tim Steiner
- * Copyright (c) 2016 , CryptoTrust LLC.
+ * Copyright (c) 2018 , CryptoTrust LLC.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -484,12 +482,12 @@ void recvmsg() {
 
 int getCounter() {
   unsigned int eeAddress = EEpos_U2Fcounter; //EEPROM address to start reading from
-  unsigned int counter;
+  uint32_t counter;
   EEPROM.get( eeAddress, counter );
   return counter;
 }
 
-void setCounter(int counter)
+void setCounter(uint32_t counter)
 {
   unsigned int eeAddress = EEpos_U2Fcounter; //EEPROM address to start reading from
   EEPROM.put( eeAddress, counter );
@@ -871,6 +869,7 @@ void SETTIME (uint8_t *buffer)
       Serial.println(unixTimeStamp, HEX); 
 #endif
       setTime(t2); 
+	  setCounter(unixTimeStamp);
 #ifdef DEBUG
       Serial.println("Current Time Set to: ");
 #endif
@@ -4373,7 +4372,7 @@ void backup() {
   large_data_offset = 0;
   memset(large_temp, 0, sizeof(large_temp)); //Wipe all data from largebuffer
  
-  
+  setcolor(45); //Yellow
   for (uint8_t z = 0; z < sizeof(beginbackup); z++) { 
 		Keyboard.press(beginbackup[z]);
 		delay((TYPESPEED[0]*TYPESPEED[0]/3)*8); 
@@ -4662,7 +4661,7 @@ void backup() {
     memset(temp, 0, MAX_RSA_KEY_SIZE); //Wipe all data from temp buffer
     ptr = temp;
 	uint8_t features = onlykey_flashget_ECC(slot);
-	if (slot == backupslot) slot = slot + 0x80;
+	if (slot == backupslot) features = features + 0x80;
 	if(features != 0x00)
       {
 		large_temp[large_data_offset] = 0xFE; //delimiter
@@ -4687,10 +4686,9 @@ void backup() {
 	large_temp[large_data_offset] = 0xFD; //delimiter
 	memcpy(large_temp+large_data_offset+1, attestation_priv, 32);
     large_data_offset=large_data_offset+32+1;
-	int u2fcounter = getCounter();
-	large_temp[large_data_offset] = u2fcounter >> 8  & 0xFF;
+	large_temp[large_data_offset] = 0; //Backward compatability used to backup U2F counter
 	large_data_offset++;
-	large_temp[large_data_offset] = u2fcounter       & 0xFF;
+	large_temp[large_data_offset] = 0;
 	large_data_offset++;
 	large_temp[large_data_offset] = length[0];
 	large_data_offset++;
@@ -4974,6 +4972,7 @@ void RESTORE(uint8_t *buffer) {
 #endif 
 		large_temp[offset+1] = 0xFC;
 		ptr = large_temp;
+		setcolor(45); //Yellow
 		while(*ptr) {
 			if (*ptr == 0xFF) {
 				memset(temp, 0, sizeof(temp));
@@ -5030,10 +5029,6 @@ void RESTORE(uint8_t *buffer) {
 				SETSLOT(temp);
 				}
 			}  else if (*ptr == 0xFE) { //Finished slot restore, start key restore
-			hidprint("Successfully loaded backup of slot configuration");
-			#ifdef DEBUG
-			Serial.print("Successfully loaded backup of slot configuration");
-			#endif 
 				memset(temp, 0, sizeof(temp));
 				temp[0] = 0xBA;
 				temp[1] = 0xFF;
@@ -5044,7 +5039,20 @@ void RESTORE(uint8_t *buffer) {
 				temp[5] = *ptr; //Slot
 				ptr++;
 				temp[6] = *ptr; //Key type
-				if ((temp[6] & 0x0F) == 1) { //Expect 128 Bytes
+				if (temp[5] > 100) { //We know its an ECC key
+					#ifdef DEBUG
+					Serial.print("Restore ECC key");
+					Serial.print("Type");
+					Serial.print(temp[6]);
+					Serial.print("slot");
+					Serial.print(temp[5]);
+					#endif 
+					ptr++; //Start of Key
+					memcpy(temp+7, ptr, MAX_ECC_KEY_SIZE); //Size of ECC key 32
+					SETPRIV(temp);
+					ptr = ptr + MAX_ECC_KEY_SIZE;
+					offset = offset - (MAX_ECC_KEY_SIZE+3);
+				} else if ((temp[6] & 0x0F) == 1) { //Expect 128 Bytes
 					#ifdef DEBUG
 					Serial.print("Restore RSA 1024 key");
 					#endif 
@@ -5083,15 +5091,6 @@ void RESTORE(uint8_t *buffer) {
 					SETPRIV(temp);
 					ptr = ptr + 512;
 					offset = offset - 515;
-				} else if (temp[5] > 100) { //We know its an ECC key
-					#ifdef DEBUG
-					Serial.print("Restore ECC key");
-					#endif 
-					ptr++; //Start of Key
-					memcpy(temp+7, ptr, MAX_ECC_KEY_SIZE); //Size of ECC key 32
-					SETPRIV(temp);
-					ptr = ptr + MAX_ECC_KEY_SIZE;
-					offset = offset - (MAX_ECC_KEY_SIZE+3);
 				} else {
 					#ifdef DEBUG
 					Serial.print("Error key configuration backup file format incorrect");
@@ -5112,10 +5111,7 @@ void RESTORE(uint8_t *buffer) {
 					SETU2FPRIV(temp);
 					ptr = ptr + 32;
 					offset = offset - 32;
-					memcpy(temp, ptr, 2);
-					temp2 = temp[0] << 8 | temp[1];
-					temp2 = temp2 + 300; //Add 300 to U2F counter
-					setCounter(temp2);
+					// For backward compatability with older versions, used to backup U2F counter
 					offset = offset - 2;
 					ptr=ptr+2;
 					memcpy(temp, ptr, 2);
@@ -5139,9 +5135,9 @@ void RESTORE(uint8_t *buffer) {
 			break;
 			}
 	}
-	hidprint("Successfully loaded backup of key configuration");
+	hidprint("Successfully loaded backup");
 	#ifdef DEBUG
-	Serial.print("Successfully loaded backup of key configuration");
+	Serial.print("Successfully loaded backup");
 	#endif 
 	memset(temp, 0, sizeof(temp)); //Wipe all data from temp
 	memset(large_temp, 0, 12323); //Wipe all data from largebuffer

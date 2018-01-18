@@ -1,8 +1,6 @@
-/* oku2f.c
-*/
 
-/* Modifications by Tim Steiner
- * Copyright (c) 2016 , CryptoTrust LLC.
+/* Tim Steiner
+ * Copyright (c) 2018 , CryptoTrust LLC.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -49,37 +47,12 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- *Original U2F Portion
- *Copyright (c) 2015, Yohanes Nugroho
- *All rights reserved.
- *
- *Redistribution and use in source and binary forms, with or without
- *modification, are permitted provided that the following conditions are met:
- *
- * Redistributions of source code must retain the above copyright notice, this
- * list of conditions and the following disclaimer.
- *
- *Redistributions in binary form must reproduce the above copyright notice,
- *this list of conditions and the following disclaimer in the documentation
- *and/or other materials provided with the distribution.
- *
- *THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- *AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- *IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- *DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
- *FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- *DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
- *SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
- *CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
- *OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- *OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-
 
 #include "oku2f.h"
 #include <SoftTimer.h>
 #include <okcore.h>
-
+#include "Time.h"
 
 #ifdef US_VERSION
 
@@ -771,13 +744,13 @@ void processMessage(uint8_t *buffer)
 #endif
         respondErrorPDU(buffer, SW_CONDITIONS_NOT_SATISFIED);
       } else if (P1==0x03) { //enforce-user-presence-and-sign
-        int counter = getCounter();
+        uint32_t counter = getCounter();
         SHA256_CTX ctx;
         sha256_init(&ctx);
         sha256_update(&ctx, application_parameter, 32);
         large_resp_buffer[0] = 0x01; // user_presence
 
-        int ctr = ((counter>>24)&0xff) | // move byte 3 to byte 0
+        uint32_t ctr = ((counter>>24)&0xff) | // move byte 3 to byte 0
           ((counter<<8)&0xff0000) | // move byte 1 to byte 2
           ((counter>>8)&0xff00) | // move byte 2 to byte 1
           ((counter<<24)&0xff000000); // byte 0 to byte 3
@@ -854,7 +827,11 @@ void processMessage(uint8_t *buffer)
 #endif
         u2f_button = 0;
         sendLargeResponse(buffer, len);
-        setCounter(counter+1);
+		if (timeStatus() == timeNotSet) {
+		setCounter(counter+60);	
+		} else {
+		setCounter(now());
+		}
         large_data_offset = 0;
 		large_data_len = 0;
 	    memset(large_buffer, 0, sizeof(large_buffer));

@@ -1,8 +1,6 @@
-/* okseeprom.h 
-*/
 
 /* Tim Steiner
- * Copyright (c) 2016 , CryptoTrust LLC.
+ * Copyright (c) 2018 , CryptoTrust LLC.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -89,7 +87,7 @@ extern "C"
 #define EElen_flashpos		1
 #define EElen_failedlogins	1
 #define EElen_sincelastregularlogin	1
-#define EElen_U2Fcounter	2
+#define EElen_U2Fcounter	4
 #define EElen_backupkey	1
 #define EElen_timeout	1
 #define EElen_wipemode	1

@@ -1,8 +1,6 @@
-/* okcore.h
-*/
 
 /* Tim Steiner
- * Copyright (c) 2016 , CryptoTrust LLC.
+ * Copyright (c) 2018 , CryptoTrust LLC.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -48,6 +46,7 @@
  * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
  * OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
  */
  
 
@@ -90,8 +89,6 @@ extern "C"
 
 #define UNLOCKED "UNLOCKED" OKversion
 
-extern int getCounter();
-extern void setCounter(int counter);
 extern void ByteToChar(uint8_t* bytes, char* chars, unsigned int count);
 extern void CharToByte(char* chars, uint8_t* bytes, unsigned int count);
 extern void ByteToChar2(uint8_t* bytes, char* chars, unsigned int count, unsigned int index);
@@ -118,7 +115,7 @@ extern void SETPRIV (uint8_t *buffer);
 extern void WIPEPRIV (uint8_t *buffer);
 extern void setOtherTimeout();
 extern void processPacket(uint8_t *buffer);
-extern void setCounter(int counter);
+extern void setCounter(uint32_t counter);
 extern int getCounter();
 extern void sendLargeResponse(uint8_t *request, int len);
 extern void respondErrorPDU(uint8_t *buffer, int err);
