@@ -3800,7 +3800,7 @@ if (PDmode) return 0;
 		hidprint("There is no ECC Private Key set in this slot");
 		if (outputU2F) {
 			fadeoff(1);
-		} else {
+		} else if (NEO_Color != 45) {
 		NEO_Color = 1;
 		blink(2);
 		}
@@ -3933,7 +3933,7 @@ if (PDmode) return 0;
 	hidprint("There is no RSA Private Key set in this slot");
 	if (outputU2F) {
 		fadeoff(1);
-	} else {
+	} else if (NEO_Color != 45) {
 	NEO_Color = 1;
 	blink(2);
 	}
@@ -4369,6 +4369,11 @@ void backup() {
   bool backupyubikey=false;
   uint8_t slot;
   uint8_t length[2];
+  uint8_t addchar1;
+  uint8_t addchar2;
+  uint8_t addchar3;
+  uint8_t addchar4;
+  uint8_t addchar5;
   large_data_offset = 0;
   memset(large_temp, 0, sizeof(large_temp)); //Wipe all data from largebuffer
  
@@ -4434,15 +4439,52 @@ void backup() {
 		memcpy(large_temp+large_data_offset+3, temp, urllength);
         large_data_offset=large_data_offset+urllength+3;
       }
-      onlykey_eeget_addchar(ptr, slot);
-      if(temp[0] > 0)
+      onlykey_eeget_addchar(&addchar5, slot);
+	  addchar1 = addchar5 & 0x3; //After Username
+      addchar2 = (addchar5 >> 4) & 0x3; //After Password
+      addchar3 = (addchar5 >> 6) & 0x1; //After OTP
+      addchar4 = (addchar5 >> 2) & 0x1; //Before Username
+      addchar5 = (addchar5 >> 3) & 0x1; //Before OTP
+	  if(addchar1 > 0)
+      {
+        large_temp[large_data_offset] = 0xFF; //delimiter
+		large_temp[large_data_offset+1] = slot;
+		large_temp[large_data_offset+2] = 16; //16 - Add Char 1
+		large_temp[large_data_offset+3] = addchar1; 
+        large_data_offset=large_data_offset+4;
+      } 
+      if(addchar2 > 0)
       {
 		large_temp[large_data_offset] = 0xFF; //delimiter
 		large_temp[large_data_offset+1] = slot;
-		large_temp[large_data_offset+2] = 16; //16 - Add Char 
-		large_temp[large_data_offset+3] = temp[0]; 
+		large_temp[large_data_offset+2] = 3; //3 - Add Char 2
+		large_temp[large_data_offset+3] = addchar2; 
         large_data_offset=large_data_offset+4;
       }
+      if(addchar3 > 0)
+      {
+		large_temp[large_data_offset] = 0xFF; //delimiter
+		large_temp[large_data_offset+1] = slot;
+		large_temp[large_data_offset+2] = 6; //6 - Add Char 3
+		large_temp[large_data_offset+3] = addchar3; 
+        large_data_offset=large_data_offset+4;
+      }
+      if(addchar4 > 0)
+      {
+        large_temp[large_data_offset] = 0xFF; //delimiter
+		large_temp[large_data_offset+1] = slot;
+		large_temp[large_data_offset+2] = 18; //18 - Add Char 4
+		large_temp[large_data_offset+3] = addchar4; 
+        large_data_offset=large_data_offset+4;
+      }
+      if(addchar5 > 0)
+      {
+        large_temp[large_data_offset] = 0xFF; //delimiter
+		large_temp[large_data_offset+1] = slot;
+		large_temp[large_data_offset+2] = 19; //19 - Add Char 5
+		large_temp[large_data_offset+3] = addchar5; 
+        large_data_offset=large_data_offset+4;
+      } 
       onlykey_eeget_delay1(ptr, slot);
       if(temp[0] > 0)
       {
