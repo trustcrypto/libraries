@@ -88,9 +88,7 @@ extern uint8_t type;
 uint8_t times = 0;
 int msgcount = 0;
 bool isFirefox;
-#ifdef OK_Color
 extern uint8_t NEO_Color;
-#endif
 
 const char stored_pub[] = "\x04\xC3\xC9\x1F\x25\x2E\x20\x10\x7B\x5E\x8D\xEA\xB1\x90\x20\x98\xF7\x28\x70\x71\xE4\x54\x18\xB8\x98\xCE\x5F\xF1\x7C\xA7\x25\xAE\x78\xC3\x3C\xC7\x01\xC0\x74\x60\x11\xCB\xBB\xB5\x8B\x08\xB6\x1D\x20\xC0\x5E\x75\xD5\x01\xA3\xF8\xF7\xA1\x67\x3F\xBE\x32\x63\xAE\xBE";
 
@@ -367,9 +365,7 @@ void processMessage(uint8_t *buffer)
       uint8_t *application_parameter = datapart+32;
 	  byteprint(challenge_parameter, 32);
 	  
-	  #ifdef OK_Color
 	  NEO_Color = 170; //Blue
-	  #endif
 	  fadeon();
 	  if (!u2f_button) {
 #ifdef DEBUG 
@@ -618,9 +614,7 @@ void processMessage(uint8_t *buffer)
 				if (client_handle[4] == OKDECRYPT && !CRYPTO_AUTH) {
 					if(!PDmode) {
 					#ifdef US_VERSION
-					#ifdef OK_Color
 					NEO_Color = 128; //Turquoise
-					#endif
 					outputU2F = 1;
 					large_data_offset = 0;
 					DECRYPT(client_handle);
@@ -629,9 +623,7 @@ void processMessage(uint8_t *buffer)
 				} else if (client_handle[4] == OKSIGN && !CRYPTO_AUTH) {
 					if(!PDmode) {
 					#ifdef US_VERSION
-					#ifdef OK_Color
 					NEO_Color = 213; //Purple
-					#endif
 					outputU2F = 1;
 					large_data_offset = 0;
 					SIGN(client_handle);
@@ -674,9 +666,7 @@ void processMessage(uint8_t *buffer)
 		  }
 	  }
 	  fadeon();
-	  #ifdef OK_Color
 	  NEO_Color = 170; //Blue
-	  #endif
 	  
       //minimum is 64 + 1 + 64
       if (reqlength!=(64+1+64)) {

@@ -70,8 +70,8 @@
 #define NEOPIN            10
 #define NUMPIXELS      1
 Adafruit_NeoPixel pixels = Adafruit_NeoPixel(NUMPIXELS, NEOPIN, NEO_GRB + NEO_KHZ800);
-uint8_t NEO_Color;
 #endif
+uint8_t NEO_Color;
 /*************************************/
 //Firmware Version Selection
 /*************************************/
@@ -383,9 +383,7 @@ void recvmsg() {
 	   {
 		if(!PDmode) {
 		#ifdef US_VERSION
-		#ifdef OK_Color
 		NEO_Color = 213; //Purple
-		#endif
 		fadeon();
 		outputU2F = 0;
 		SIGN(recv_buffer);
@@ -407,9 +405,7 @@ void recvmsg() {
 	   {
 		if(!PDmode) {
 		#ifdef US_VERSION
-		#ifdef OK_Color
 		NEO_Color = 128; //Turquoise
-		#endif
 		fadeon();
 		outputU2F = 0;
 		DECRYPT(recv_buffer);
@@ -4376,8 +4372,9 @@ void backup() {
   uint8_t addchar5;
   large_data_offset = 0;
   memset(large_temp, 0, sizeof(large_temp)); //Wipe all data from largebuffer
- 
+  #ifdef OK_Color
   setcolor(45); //Yellow
+  #endif
   for (uint8_t z = 0; z < sizeof(beginbackup); z++) { 
 		Keyboard.press(beginbackup[z]);
 		delay((TYPESPEED[0]*TYPESPEED[0]/3)*8); 
@@ -5014,7 +5011,9 @@ void RESTORE(uint8_t *buffer) {
 #endif 
 		large_temp[offset+1] = 0xFC;
 		ptr = large_temp;
+		#ifdef OK_Color
 		setcolor(45); //Yellow
+		#endif
 		while(*ptr) {
 			if (*ptr == 0xFF) {
 				memset(temp, 0, sizeof(temp));
