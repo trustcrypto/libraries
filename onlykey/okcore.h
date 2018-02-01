@@ -197,6 +197,7 @@ extern void SETECCPRIV (uint8_t *buffer);
 extern void RESTORE (uint8_t *buffer);
 extern void process_packets (uint8_t *buffer);
 extern void temp_voltage ();
+extern int RNG2(uint8_t *dest, unsigned size);
 
 #ifdef __cplusplus
 }

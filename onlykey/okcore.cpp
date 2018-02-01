@@ -180,6 +180,10 @@ uint8_t CRYPTO_AUTH = 0;
 /*************************************/
 float temperaturev; 
 /*************************************/
+/*************************************/
+//RNG Assignments
+/*************************************/
+size_t length = 48; // First block should wait for the pool to fill up.
 
 void recvmsg() {
   int n;
@@ -4244,9 +4248,11 @@ bool wipebuffersafter5sec(Task* me) {
 	if (configmode==false) {
 	packet_buffer_offset = 0;
 	memset(packet_buffer, 0, sizeof(packet_buffer));
+	#ifdef US_VERSION
 	extern int large_resp_buffer_offset;
 	large_resp_buffer_offset = 0;
 	memset(large_resp_buffer, 0, sizeof(large_resp_buffer));
+	#endif
 	CRYPTO_AUTH = 0;
 	Challenge_button1 = 0;
 	Challenge_button2 = 0;
@@ -5298,5 +5304,23 @@ void temp_voltage () {
 	  Serial.print(mv);
       Serial.println ("mv - VCC");
 	#endif
+}
+
+int RNG2(uint8_t *dest, unsigned size) {
+	// Generate output whenever 32 bytes of entropy have been accumulated.
+    // The first time through, we wait for 48 bytes for a full entropy pool.
+    while (!RNG.available(length)) {
+      //Serial.println("waiting for random number");
+	  rngloop(); //Gather entropy
+    }
+    RNG.rand(dest, size);
+    length = 32;
+#ifdef DEBUG
+	Serial.println();
+	Serial.print("Generating random number of size = ");
+	Serial.print(size);
+	byteprint(dest, size);
+#endif
+    return 1;
 }
 
