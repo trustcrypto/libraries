@@ -279,6 +279,7 @@ void respondErrorPDU(uint8_t *buffer, int err)
 	SET_MSG_LEN(buffer, 2); //len("") + 2 byte SW
 	uint8_t *datapart = buffer + 7;
 	APPEND_SW(datapart, (err >> 8) & 0xff, err & 0xff);
+	memset(buffer+9, 0, 55);
 	RawHID.send(buffer, 100);
 }
 

@@ -54,8 +54,8 @@
 #define ONLYKEY_H
 
 #define DEBUG //Enable Serial Monitor 
-//#define US_VERSION //Define for US Version Firmare
-//#define OK_Color //Color Version 
+#define US_VERSION //Define for US Version Firmare
+#define OK_Color //Color Version 
 
 #ifndef OKCORE_H
 #include "okcore.h"
