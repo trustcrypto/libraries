@@ -98,7 +98,8 @@ const char stored_der[] = "\x30\x82\x01\xB4\x30\x82\x01\x58\xA0\x03\x02\x01\x02\
 
 const char stored_appid[] = "\x23\xCD\xF4\x07\xFD\x90\x4F\xEE\x8B\x96\x40\x08\xB0\x49\xC5\x5E\xA8\x81\x13\x36\xA3\xA5\x17\x1B\x58\xD6\x6A\xEC\xF3\x79\xE7\x4A";
     
-uint8_t handlekey[34] = {0};
+uint8_t handlekey[32] = {0};
+uint8_t apphandlekey[32] = {0};
 
 const struct uECC_Curve_t * curve = uECC_secp256r1(); //P-256
 
@@ -124,6 +125,12 @@ void U2Finit()
   }
   DERIVEKEY(0 , (uint8_t*)attestation_priv);
   memcpy(handlekey, ecc_private_key, 32);
+  SHA256_CTX APPKEY;
+  sha256_init(&APPKEY);
+  sha256_update(&APPKEY, (uint8_t*)attestation_der+(handlekey[0]+handlekey[6]+handlekey[12]+handlekey[18]+handlekey[24]+handlekey[30]), 32);
+  sha256_update(&APPKEY, (uint8_t*)attestation_priv, 32);
+  sha256_update(&APPKEY, handlekey, 32);
+  sha256_final(&APPKEY, apphandlekey);
 #ifdef DEBUG
   Serial.println("HANDLE KEY =");
   byteprint(handlekey, 32); 
@@ -242,7 +249,8 @@ int initResponse(uint8_t *buffer)
 
 void errorResponse(uint8_t *buffer, int code)
 {
-        memset(resp_buffer, 0, 64);
+        u2f_button = 0;
+		memset(resp_buffer, 0, 64);
 		memcpy(resp_buffer, buffer, 4);
         resp_buffer[4] = U2FHID_ERROR;
         SET_MSG_LEN(resp_buffer, 1);
@@ -276,6 +284,7 @@ int find_channel_index(int channel_id)
 
 void respondErrorPDU(uint8_t *buffer, int err)
 {
+	u2f_button = 0;
 	SET_MSG_LEN(buffer, 2); //len("") + 2 byte SW
 	uint8_t *datapart = buffer + 7;
 	APPEND_SW(datapart, (err >> 8) & 0xff, err & 0xff);
@@ -405,12 +414,36 @@ void processMessage(uint8_t *buffer)
       Serial.println("Unencrypted handle");
 	  byteprint(handle, sizeof(handle));
 #endif
+	  //Derive this appkey
+	  uint8_t thisappkey[32];
+	  SHA256_CTX THISAPPKEY;
+	  sha256_init(&THISAPPKEY);
+	  sha256_update(&THISAPPKEY, application_parameter, 32);
+	  sha256_update(&THISAPPKEY, apphandlekey, 32);
+	  sha256_final(&THISAPPKEY, thisappkey);
+	  
+	  //Derive this IV
       SHA256_CTX IV;
       sha256_init(&IV);
       sha256_update(&IV, application_parameter, 32);
       sha256_final(&IV, sha256_hash);
+	  
+	  //Derive this handle key
+	  uint8_t thishandkey[32];
+	  SHA256_CTX THISHANDKEY;
+	  sha256_init(&THISHANDKEY);
+	  sha256_update(&THISHANDKEY, application_parameter, 32);
+	  sha256_update(&THISHANDKEY, (uint8_t*)attestation_priv, 32);
+	  sha256_update(&THISHANDKEY, handlekey, 32);
+	  sha256_final(&THISHANDKEY, thishandkey);
+	  
+	  //New keywrap method inner encryption
+	  aes_gcm_encrypt2(handle+32, (uint8_t*)sha256_hash+12, (uint8_t*)thishandkey, 32);
+	  
+	  
+	  //New keywrap method outer encryption
+	  aes_gcm_encrypt2(handle, (uint8_t*)sha256_hash, (uint8_t*)thisappkey, 64);
 
-      aes_gcm_encrypt2(handle, (uint8_t*)sha256_hash, (uint8_t*)handlekey, 64);
 
 #ifdef DEBUG
       Serial.println();
@@ -686,26 +719,47 @@ void processMessage(uint8_t *buffer)
         respondErrorPDU(buffer, SW_WRONG_DATA);
         return;
       }
-
-      if (!u2f_button) {
+	  
+	  //Derive this app id key
+	  uint8_t thisappkey[32];
+	  SHA256_CTX THISAPPKEY;
+	  sha256_init(&THISAPPKEY);
+	  sha256_update(&THISAPPKEY, application_parameter, 32);
+	  sha256_update(&THISAPPKEY, apphandlekey, 32);
+	  sha256_final(&THISAPPKEY, thisappkey);
+	  
+	  //Derive this IV
+	  memcpy(handle, client_handle, 64);
+      SHA256_CTX IV;
+      sha256_init(&IV);
+      sha256_update(&IV, application_parameter, 32);
+      sha256_final(&IV, sha256_hash);
+	  	  
+	  if (!u2f_button) {
+		//New key unwrap method outer encryption
+		aes_gcm_decrypt2(handle, (uint8_t*)sha256_hash, (uint8_t*)thisappkey, 64);
+		if (memcmp(handle, application_parameter, 32)!=0) {
+		//this handle is not from us
 #ifdef DEBUG
-		Serial.print("Error U2F Button Not Pressed");
+	Serial.println("U2F Error SW_WRONG_DATA");
+#endif
+	  respondErrorPDU(buffer, SW_WRONG_DATA);
+	  return;
+	 } else {
+#ifdef DEBUG
+		Serial.println("U2F Button Not Pressed");
+		Serial.println("U2F Error SW_CONDITIONS_NOT_SATISFIED");
 #endif
         respondErrorPDU(buffer, SW_CONDITIONS_NOT_SATISFIED);
 		return;
-        }
-      else { 
+	 }
+	 } else { 
 #ifdef DEBUG
         Serial.println("U2F button pressed for authenticate");
 #endif
 		fadeoff(0);
-      }
-
-      memcpy(handle, client_handle, 64);
-      SHA256_CTX IV2;
-      sha256_init(&IV2);
-      sha256_update(&IV2, application_parameter, 32);
-      sha256_final(&IV2, sha256_hash);
+		
+	  //Old method
 #ifdef DEBUG
       Serial.println("Encrypted handle");
 	  byteprint(handle, sizeof(handle));
@@ -715,25 +769,48 @@ void processMessage(uint8_t *buffer)
 
 #ifdef DEBUG
       Serial.println();
-      Serial.println("Unencrypted handle");
+      Serial.println("Unencrypted handle old method");
 	  byteprint(handle, sizeof(handle));
 #endif
-      uint8_t *key = handle + 32;
+
 
       if (memcmp(handle, application_parameter, 32)!=0) {
-        //this handle is not from us
+		  //New key unwrap method outer encryption
+		  aes_gcm_decrypt2(handle, (uint8_t*)sha256_hash, (uint8_t*)thisappkey, 64);
+#ifdef DEBUG
+		  Serial.println();
+		  Serial.println("Unencrypted appid new method");
+		  byteprint(handle, sizeof(handle));
+#endif
+		//this handle is not from us
+		 if (memcmp(handle, application_parameter, 32)!=0) {
 #ifdef DEBUG
 		Serial.println("U2F Error SW_WRONG_DATA");
 #endif
         respondErrorPDU(buffer, SW_WRONG_DATA);
         return;
+		 } else { 		
+		  //Derive this handle key
+		  uint8_t thishandkey[32];
+		  SHA256_CTX THISHANDKEY;
+		  sha256_init(&THISHANDKEY);
+		  sha256_update(&THISHANDKEY, application_parameter, 32);
+		  sha256_update(&THISHANDKEY, (uint8_t*)attestation_priv, 32);
+		  sha256_update(&THISHANDKEY, handlekey, 32);
+		  sha256_final(&THISHANDKEY, thishandkey);
+		  
+		  //New key unwrap method inner encryption
+		  aes_gcm_decrypt2(handle+32, (uint8_t*)sha256_hash+12, (uint8_t*)thishandkey, 32);
+		 }
       }
-
+      uint8_t *key = handle + 32;
+	  
       if (P1==0x07) { //check-only
 #ifdef DEBUG
 		Serial.println("U2F Error SW_CONDITIONS_NOT_SATISFIED");
 #endif
         respondErrorPDU(buffer, SW_CONDITIONS_NOT_SATISFIED);
+		return;
       } else if (P1==0x03) { //enforce-user-presence-and-sign
         uint32_t counter = getCounter();
         SHA256_CTX ctx;
@@ -832,6 +909,7 @@ void processMessage(uint8_t *buffer)
 #endif
       }
     }
+	}
     break;
   case U2F_INS_VERSION:
     {

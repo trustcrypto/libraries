@@ -136,6 +136,12 @@ unsigned int touchread3;
 unsigned int touchread4;
 unsigned int touchread5;
 unsigned int touchread6;
+unsigned int touchread1ref = 1350;
+unsigned int touchread2ref = 1350;
+unsigned int touchread3ref = 1350;
+unsigned int touchread4ref = 1350;
+unsigned int touchread5ref = 1350;
+unsigned int touchread6ref = 1450;
 /*************************************/
 //HID Report Assignments
 /*************************************/
@@ -1516,32 +1522,32 @@ void fadeout(){
 /*************************************/
 void rngloop() {
 	//Get temperature reading
-	analogReference(INTERNAL);
-	analogReadResolution(12);   
-	temperaturev = analogRead(38)+temperaturev;  
-	temperaturev = temperaturev/2;
+	//analogReference(INTERNAL);
+	//analogReadResolution(12);   
+	//temperaturev = analogRead(38)+temperaturev;  
+	//temperaturev = temperaturev/2;
 	  //Serial.print(temperaturev);
       //Serial.println (" Internal Temp");
 	//Stir in temperature reading
-	RNG.stir((uint8_t *)((int)temperaturev), sizeof(temperaturev), sizeof(temperaturev));
+	//RNG.stir((uint8_t *)((int)temperaturev), sizeof(temperaturev), sizeof(temperaturev));
     // Stir the touchread and analog read values into the entropy pool.
 	touchread1 = touchRead(TOUCHPIN1);
-	//Serial.println(touchread1);
+	Serial.println(touchread1);
     RNG.stir((uint8_t *)touchread1, sizeof(touchread1), sizeof(touchread1));
     touchread2 = touchRead(TOUCHPIN2);
-    //Serial.println(touchread2);
+    Serial.println(touchread2);
     RNG.stir((uint8_t *)touchread2, sizeof(touchread2), sizeof(touchread2));
     touchread3 = touchRead(TOUCHPIN3);
-    //Serial.println(touchread3);
+    Serial.println(touchread3);
     RNG.stir((uint8_t *)touchread3, sizeof(touchread3), sizeof(touchread3));
     touchread4 = touchRead(TOUCHPIN4);
-    //Serial.println(touchread4);
+    Serial.println(touchread4);
     RNG.stir((uint8_t *)touchread4, sizeof(touchread4), sizeof(touchread4));
     touchread5 = touchRead(TOUCHPIN5);
-    //Serial.println(touchread5);
+    Serial.println(touchread5);
     RNG.stir((uint8_t *)touchread5, sizeof(touchread5), sizeof(touchread5));
     touchread6 = touchRead(TOUCHPIN6);
-    //Serial.println(touchread6);
+    Serial.println(touchread6);
     RNG.stir((uint8_t *)touchread6, sizeof(touchread6), sizeof(touchread6));
     unsigned int analog1 = analogRead(ANALOGPIN1);
     //Serial.println(analog1);
@@ -4335,9 +4341,42 @@ void rainbowCycle(uint8_t wait, uint8_t cycle) {
     }
     pixels.show();
     delay(wait);
+	if (calibratecaptouch(j)) j=300;
   }
 }
 
+int calibratecaptouch (uint16_t j) {
+	rngloop();
+	if (((touchread1+touchread4+touchread5)*1.0) / ((touchread2+touchread3+touchread6)*1.0) > .6 && ((touchread1+touchread4+touchread5)*1.0) / ((touchread2+touchread3+touchread6)*1.0) < 1.6) {
+	if (j>=400) {		
+			if (j==400) {
+			touchread1ref = touchread1;
+			Serial.println(touchread1);
+			touchread2ref = touchread2;
+			Serial.println(touchread2);
+			touchread3ref = touchread3;
+			Serial.println(touchread3);
+			touchread4ref = touchread4;
+			Serial.println(touchread4);
+			touchread5ref = touchread5;
+			Serial.println(touchread5);
+			touchread6ref = touchread6;
+			Serial.println(touchread6);
+			} 
+		touchread1ref = (touchread1+touchread1ref)/2;
+		touchread2ref = (touchread2+touchread2ref)/2;
+		touchread3ref = (touchread3+touchread3ref)/2;
+		touchread4ref = (touchread4+touchread4ref)/2;
+		touchread5ref = (touchread5+touchread5ref)/2;
+		touchread6ref = (touchread6+touchread6ref)/2;
+		} 
+	} else {
+		Serial.println(((touchread1+touchread4+touchread5)*1.0) / ((touchread2+touchread3+touchread6)*1.0));
+	 return 1;	
+	}
+	return 0;	
+}
+	
 void initColor() {
   pixels.begin(); // This initializes the NeoPixel library.
   pixels.setBrightness(204); //80% Brightness
