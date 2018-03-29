@@ -1532,22 +1532,22 @@ void rngloop() {
 	//RNG.stir((uint8_t *)((int)temperaturev), sizeof(temperaturev), sizeof(temperaturev));
     // Stir the touchread and analog read values into the entropy pool.
 	touchread1 = touchRead(TOUCHPIN1);
-	Serial.println(touchread1);
+	//Serial.println(touchread1);
     RNG.stir((uint8_t *)touchread1, sizeof(touchread1), sizeof(touchread1));
     touchread2 = touchRead(TOUCHPIN2);
-    Serial.println(touchread2);
+    //Serial.println(touchread2);
     RNG.stir((uint8_t *)touchread2, sizeof(touchread2), sizeof(touchread2));
     touchread3 = touchRead(TOUCHPIN3);
-    Serial.println(touchread3);
+    //Serial.println(touchread3);
     RNG.stir((uint8_t *)touchread3, sizeof(touchread3), sizeof(touchread3));
     touchread4 = touchRead(TOUCHPIN4);
-    Serial.println(touchread4);
+    //Serial.println(touchread4);
     RNG.stir((uint8_t *)touchread4, sizeof(touchread4), sizeof(touchread4));
     touchread5 = touchRead(TOUCHPIN5);
-    Serial.println(touchread5);
+    //Serial.println(touchread5);
     RNG.stir((uint8_t *)touchread5, sizeof(touchread5), sizeof(touchread5));
     touchread6 = touchRead(TOUCHPIN6);
-    Serial.println(touchread6);
+    //Serial.println(touchread6);
     RNG.stir((uint8_t *)touchread6, sizeof(touchread6), sizeof(touchread6));
     unsigned int analog1 = analogRead(ANALOGPIN1);
     //Serial.println(analog1);
