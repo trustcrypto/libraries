@@ -1,5 +1,7 @@
 For information on installing libraries, see: http://www.arduino.cc/en/Guide/Libraries
 
+Source code reviewed by [![Codacy Badge](https://api.codacy.com/project/badge/Grade/bae30c735de3488bbc1b7efa0b57ddd4)](https://www.codacy.com/app/admin_74/libraries?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=trustcrypto/libraries&amp;utm_campaign=Badge_Grade)
+
 # License
 
 See Licenses.txt
@@ -22,3 +24,4 @@ The following cryptographic software is included in this distribution:
                       "YUBICO-C PROJECT" - https://github.com/Yubico/yubico-c
 
 For more information on export restrictions see: http://www.apache.org/licenses/exports/
+
