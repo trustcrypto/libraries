@@ -929,7 +929,7 @@ uint8_t GETKEYLABELS (uint8_t output)
 			labeltype[2] = 'A';
 			labeltype[3] = ((i-24)+'0');
 			labeltype[4] = 0x20;
-			memcpy(labeltype+5, labelchar+2, EElen_label+3);
+			memcpy(labeltype+5, labelchar+2, EElen_label+1);
 			keytype(labeltype);
 			Keyboard.println();
 		} else if (!outputU2F) { 
@@ -955,22 +955,22 @@ uint8_t GETKEYLABELS (uint8_t output)
 			if ((i-28)<10) {
 			labeltype[3] = ((i-28)+'0');
 			labeltype[4] = 0x20;
-			memcpy(labeltype+5, labelchar+2, EElen_label+3);
+			memcpy(labeltype+5, labelchar+2, EElen_label+1);
 			} else if ((i-28)<20) {
 			labeltype[3] = ('1');
 			labeltype[4] = ((i-28-10)+'0');
 			labeltype[5] = 0x20;
-			memcpy(labeltype+6, labelchar+2, EElen_label+3);
+			memcpy(labeltype+6, labelchar+2, EElen_label+1);
 			} else if ((i-28)<30) {
 			labeltype[3] = ('2');
 			labeltype[4] = ((i-28-20)+'0');
 			labeltype[5] = 0x20;
-			memcpy(labeltype+6, labelchar+2, EElen_label+3);
+			memcpy(labeltype+6, labelchar+2, EElen_label+1);
 			} else {
 			labeltype[3] = ('3');
 			labeltype[4] = ((i-28-30)+'0');
 			labeltype[5] = 0x20;
-			memcpy(labeltype+6, labelchar+2, EElen_label+3);
+			memcpy(labeltype+6, labelchar+2, EElen_label+1);
 			}
 			keytype(labeltype);
 			Keyboard.println();
@@ -1018,7 +1018,7 @@ void GETSLOTLABELS (uint8_t output)
 		labeltype[0] = (i-6+'0');
 		labeltype[1] = 'b';
 		}
-		memcpy(labeltype+3, labelchar+2, EElen_label+3);
+		memcpy(labeltype+3, labelchar+2, EElen_label+1);
 		keytype(labeltype);
 		Keyboard.println();
 	} else {

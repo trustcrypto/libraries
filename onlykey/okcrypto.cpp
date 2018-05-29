@@ -650,9 +650,7 @@ void ECDH(uint8_t *buffer)
 #ifdef DEBUG
     Serial.println();
     Serial.print("Public key to generate shared secret for"); 
-	for (int i = 0; i<= MAX_ECC_KEY_SIZE*2; i++) {
-		Serial.print(ephemeral_pub[i],HEX);
-		}
+	byteprint(ephemeral_pub, 64);
     Serial.println();
     Serial.print("ECDH Secret is "); 
 	for (uint8_t i = 0; i< 32; i++) {
