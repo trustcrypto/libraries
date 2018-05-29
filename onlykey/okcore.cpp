@@ -344,11 +344,7 @@ void recvmsg() {
 	   }	
       return;
 	  case OKSETPRIV:
-           if(initialized==false && unlocked==true) 
-	   {
-		hidprint("No PIN set, You must set a PIN first");
-		return;
-	   }else if (initialized==true && unlocked==true && FTFL_FSEC==0x44 && configmode==true) 
+       if ((initialized==true && unlocked==true && FTFL_FSEC==0x44 && configmode==true) || (initialized==false && unlocked==true && FTFL_FSEC==0xDE)) 
 	   {
                 if(!PDmode) {
                 #ifdef US_VERSION
@@ -504,6 +500,9 @@ void SETPIN (uint8_t *buffer)
 #ifdef DEBUG
       Serial.println("OKSETPIN MESSAGE RECEIVED");
 #endif
+
+if (PINSET > 3) PINSET = 0;
+
 	  
 switch (PINSET) {
       case 0:
@@ -573,10 +572,11 @@ switch (PINSET) {
 			Serial.println("Generating NONCE");
 #endif
 			onlykey_flashset_noncehash (ptr); //Store in flash
+			memcpy(nonce, ptr, 32);
 			recv_buffer[4] = 0xEF;
 			recv_buffer[5] = 0x84;
 			recv_buffer[6] = 0x61;
-			memset(recv_buffer+7, 0, sizeof(recv_buffer)-7);
+			RNG2(recv_buffer+7, 32);
 			SETPRIV(recv_buffer); //set default ECC key
 			}
 			
@@ -586,7 +586,7 @@ switch (PINSET) {
 			Serial.println("Hashing PIN and storing to Flash");
 #endif
 			onlykey_flashset_pinhash (ptr);
-
+			memcpy(phash, ptr, 32);
 #ifdef DEBUG
 	  		Serial.println();
 			Serial.println("Successfully set PIN, remove and reinsert OnlyKey");
@@ -620,6 +620,8 @@ void SETSDPIN (uint8_t *buffer)
 #ifdef DEBUG
       Serial.println("OKSETSDPIN MESSAGE RECEIVED");
 #endif
+	  
+	  if (PINSET < 4 || PINSET > 6) PINSET = 0;
 	  
       switch (PINSET) {
       case 0:
@@ -721,7 +723,8 @@ void SETPDPIN (uint8_t *buffer)
 #ifdef DEBUG
       Serial.println("OKSETPDPIN MESSAGE RECEIVED");
 #endif
-	  
+	if (PINSET < 7) PINSET = 0;
+
 	switch (PINSET) {
       case 0:
       password.reset();
@@ -1074,7 +1077,7 @@ void SETSLOT (uint8_t *buffer)
             Serial.println();
 #endif 
 #ifdef US_VERSION
-      	    if (slot <= 12) aes_gcm_encrypt((buffer + 7), (uint8_t*)('r'+ID[34]+slot), phash, length);
+      	    if (slot <= 12) aes_gcm_encrypt((buffer + 7), slot, value, phash, length);
 #endif 
 #ifdef DEBUG
       	    Serial.println("Encrypted");
@@ -1154,7 +1157,7 @@ void SETSLOT (uint8_t *buffer)
             Serial.println();
 #endif 
 #ifdef US_VERSION
-      	    if (slot <= 12) aes_gcm_encrypt((buffer + 7), (uint8_t*)('u'+ID[34]+slot), phash, length);
+      	    if (slot <= 12) aes_gcm_encrypt((buffer + 7), slot, value, phash, length);
 #endif 
 #ifdef DEBUG
       	    Serial.println("Encrypted");
@@ -1204,7 +1207,7 @@ void SETSLOT (uint8_t *buffer)
             Serial.println();
 #endif  
 #ifdef US_VERSION
-            if (slot <= 12) aes_gcm_encrypt((buffer + 7), (uint8_t*)('p'+ID[34]+slot), phash, length);
+            if (slot <= 12) aes_gcm_encrypt((buffer + 7), slot, value, phash, length);
 #endif 
 #ifdef DEBUG
       	    Serial.println("Encrypted");
@@ -1262,7 +1265,7 @@ void SETSLOT (uint8_t *buffer)
 #endif 
 #ifdef US_VERSION
             if (!PDmode) {
-            if (slot <= 12) aes_gcm_encrypt((buffer + 7), (uint8_t*)('t'+ID[34]+slot), phash, length);
+            if (slot <= 12) aes_gcm_encrypt((buffer + 7), slot, value, phash, length);
             }
 #endif
 #ifdef DEBUG
@@ -1287,7 +1290,7 @@ void SETSLOT (uint8_t *buffer)
             Serial.println();
 #endif 
 #ifdef US_VERSION
-            if (slot <= 12) aes_gcm_encrypt((buffer + 7), (uint8_t*)('y'+ID[34]), phash, length);
+            if (slot <= 12) aes_gcm_encrypt((buffer + 7), 0, value, phash, length);
 #endif 
 #ifdef DEBUG
       	    Serial.println("Encrypted");
@@ -1807,23 +1810,42 @@ void wipeflash() {
 }
 
 
-void aes_gcm_encrypt (uint8_t * state, uint8_t * iv1, const uint8_t * key, int len) {
+void aes_gcm_encrypt (uint8_t * state, uint8_t slot, uint8_t value, const uint8_t * key, int len) {
 	#ifdef US_VERSION
 	GCM<AES256> gcm; 
 	uint8_t iv2[12];
-	//uint8_t tag[16];
+	uint8_t aeskey[32];
+	uint8_t data[2];
+	data[0] = slot;
+	data[1] = value;
 	uint8_t *ptr;
 	ptr = iv2;
 	onlykey_flashget_noncehash(ptr, 12);
-		for(int i =0; i<=12; i++) {
-		  iv2[i]=iv2[i]^*iv1;
-		}
-	uint8_t aeskey[32];
+	
+	SHA256_CTX iv;
+	sha256_init(&iv);
+	sha256_update(&iv, iv2, 12); //add nonce
+	sha256_update(&iv, data, 2); //add data
+	sha256_update(&iv, (uint8_t*)ID, 32); //add first 32 bytes of Freescale CHIP ID
+	sha256_final(&iv, aeskey); //Create hash and store in aeskey temporarily
+	memcpy(iv2, aeskey, 12);
+	#ifdef DEBUG 
+	Serial.print("IV ");
+	byteprint(iv2, 12);
+	#endif 
+
 	SHA256_CTX key2;
 	sha256_init(&key2);
-	sha256_update(&key2, key, 32); //add pinhash
+	sha256_update(&key2, key, 16); //add pinhash
+	sha256_update(&key2, data, 2); //add slot
 	sha256_update(&key2, (uint8_t*)ID, 32); //add first 32 bytes of Freescale CHIP ID
 	sha256_final(&key2, aeskey); //Create hash and store in aeskey
+	
+	#ifdef DEBUG 
+	Serial.print("AES KEY ");
+	byteprint(aeskey, 32);
+	#endif 
+	
 	gcm.clear ();
 	gcm.setKey(aeskey, 32);
 	gcm.setIV(iv2, 12);
@@ -1832,23 +1854,43 @@ void aes_gcm_encrypt (uint8_t * state, uint8_t * iv1, const uint8_t * key, int l
 	#endif
 }
 
-void aes_gcm_decrypt (uint8_t * state, uint8_t * iv1, const uint8_t * key, int len) {
+void aes_gcm_decrypt (uint8_t * state, uint8_t slot, uint8_t value, const uint8_t * key, int len) {
         #ifdef US_VERSION
 	GCM<AES256> gcm; 
 	uint8_t iv2[12];
-	//uint8_t tag[16];
+	uint8_t aeskey[32];
+	uint8_t data[2];
+	data[0] = slot;
+	data[1] = value;
 	uint8_t *ptr;
 	ptr = iv2;
 	onlykey_flashget_noncehash(ptr, 12);
-		for(int i =0; i<=12; i++) {
-		  iv2[i]=iv2[i]^*iv1;
-		}
-	uint8_t aeskey[32];
+	
+	SHA256_CTX iv;
+	sha256_init(&iv);
+	sha256_update(&iv, iv2, 12); //add nonce
+	sha256_update(&iv, data, 2); //add data
+	sha256_update(&iv, (uint8_t*)ID, 32); //add first 32 bytes of Freescale CHIP ID
+	sha256_final(&iv, aeskey); //Create hash and store in aeskey temporarily
+	memcpy(iv2, aeskey, 12);
+	
+	#ifdef DEBUG 
+	Serial.print("IV ");
+	byteprint(iv2, 12);
+	#endif 
+
 	SHA256_CTX key2;
 	sha256_init(&key2);
-	sha256_update(&key2, key, 32); //add pinhash
+	sha256_update(&key2, key, 16); //add pinhash
+	sha256_update(&key2, data, 2); //add data
 	sha256_update(&key2, (uint8_t*)ID, 32); //add first 32 bytes of Freescale CHIP ID
 	sha256_final(&key2, aeskey); //Create hash and store in aeskey
+	
+	#ifdef DEBUG 
+	Serial.print("AES KEY ");
+	byteprint(aeskey, 32);
+	#endif 
+	
 	gcm.clear ();
 	gcm.setKey(aeskey, 32);
 	gcm.setIV(iv2, 12);
@@ -3771,7 +3813,7 @@ void WIPEPRIV (uint8_t *buffer) {
 	#endif
 }
 
-int onlykey_flashget_ECC (int slot)
+int onlykey_flashget_ECC (uint8_t slot)
 {
 
 if (PDmode) return 0;
@@ -3816,6 +3858,7 @@ if (PDmode) return 0;
 	}
 	adr = adr + (((slot-100)*32)-32);
     onlykey_flashget_common((uint8_t*)ecc_private_key, (unsigned long*)adr, 32); 
+	aes_gcm_decrypt(ecc_private_key, slot, features, phash, 32);
 	#ifdef DEBUG 
 	Serial.printf("Read ECC Private Key from Sector 0x%X ",adr);
 	#endif
@@ -3874,6 +3917,11 @@ if (PDmode) return;
 	if (gen_key == 0) { //All 0s
 		GENERATE_KEY(buffer);
 	} 
+#ifdef DEBUG 
+Serial.print("ECC Key value =");
+byteprint((uint8_t*)buffer+7, 32);
+#endif
+	aes_gcm_encrypt(ptr, buffer[5], buffer[6], phash, 32);
     //Copy current flash contents to buffer
     onlykey_flashget_common(tptr, (unsigned long*)adr, 2048);
     //Add new flash contents to buffer
@@ -3895,10 +3943,6 @@ if (PDmode) return;
 	//Write buffer to flash
     onlykey_flashset_common(tptr, (unsigned long*)adr, 2048);
 
-#ifdef DEBUG 
-    Serial.print("ECC Key value =");
-	byteprint((uint8_t*)buffer+7, 32);
-#endif
 	if (gen_key != 0){
 	hidprint("Successfully set ECC Key");
       blink(2);
@@ -3908,7 +3952,7 @@ if (PDmode) return;
 
 }
 
-int onlykey_flashget_RSA (int slot)
+int onlykey_flashget_RSA (uint8_t slot)
 {
 
 if (PDmode) return 0;
@@ -3953,6 +3997,7 @@ if (PDmode) return 0;
 	#endif
 	adr = adr + ((slot*MAX_RSA_KEY_SIZE)-MAX_RSA_KEY_SIZE);
     onlykey_flashget_common((uint8_t*)rsa_private_key, (unsigned long*)adr, (type*128)); 
+	aes_gcm_decrypt(rsa_private_key, slot, features, phash, (type*128));
 	#ifdef DEBUG 
 	Serial.printf("Read RSA Private Key from Sector 0x%X ",adr);
 	byteprint(rsa_private_key, (type*128));
@@ -4034,7 +4079,10 @@ if (PDmode) return;
 #ifdef DEBUG 
 		Serial.print("Received RSA Key of size ");
         Serial.print(keysize*8);
+		Serial.print("RSA Key value =");
+		byteprint((uint8_t*)rsa_private_key, keysize);
 #endif 
+    aes_gcm_encrypt(rsa_private_key, buffer[5], buffer[6], phash, keysize);
     //Copy current flash contents to buffer
     onlykey_flashget_common(tptr, (unsigned long*)adr, 2048);
     //Add new flash contents to buffer
@@ -4056,10 +4104,6 @@ if (PDmode) return;
 	//Write buffer to flash
     onlykey_flashset_common(tptr, (unsigned long*)adr, 2048);
 
-#ifdef DEBUG 
-    Serial.print("RSA Key value =");
-	byteprint((uint8_t*)rsa_private_key, keysize);
-#endif
 	packet_buffer_offset = 0;
 	hidprint("Successfully set RSA Key");
       blink(2);
@@ -4132,7 +4176,7 @@ if (PDmode) return;
   ptr = (temp+EElen_public+EElen_private);
   onlykey_eeget_aeskey(ptr);
   
-  aes_gcm_decrypt(temp, (uint8_t*)('y'+ID[34]), phash, (EElen_aeskey+EElen_private+EElen_public));
+  aes_gcm_decrypt(temp, 0, 10, phash, (EElen_aeskey+EElen_private+EElen_public));
 #ifdef DEBUG 
   Serial.println("public_id");
 #endif
@@ -4468,7 +4512,7 @@ void backup() {
         Serial.println();
     #endif
     #ifdef US_VERSION
-		if (slot <= 12) aes_gcm_decrypt(temp, (uint8_t*)('r'+ID[34]+slot), phash, urllength);
+		if (slot <= 12) aes_gcm_decrypt(temp, slot, 15, phash, urllength);
     #endif
     #ifdef DEBUG
         Serial.println("Unencrypted");
@@ -4551,7 +4595,7 @@ void backup() {
         Serial.println();
         #endif
         #ifdef US_VERSION
-        if (slot <= 12) aes_gcm_decrypt(temp, (uint8_t*)('u'+ID[34]+slot), phash, usernamelength);
+        if (slot <= 12) aes_gcm_decrypt(temp, slot, 2, phash, usernamelength);
         #endif
         }
 		#ifdef DEBUG
@@ -4589,7 +4633,7 @@ void backup() {
         Serial.println();
           #endif
         #ifdef US_VERSION
-        if (slot <= 12) aes_gcm_decrypt(temp, (uint8_t*)('p'+ID[34]+slot), phash, passwordlength);
+        if (slot <= 12) aes_gcm_decrypt(temp, slot, 5, phash, passwordlength);
         #endif
         }
 		#ifdef DEBUG
@@ -4633,7 +4677,7 @@ void backup() {
       Serial.print("TOTP Key Length = ");
       Serial.println(otplength);
       #endif
-      if (slot <= 12) aes_gcm_decrypt(temp, (uint8_t*)('t'+ID[34]+slot), phash, otplength);
+      if (slot <= 12) aes_gcm_decrypt(temp, slot, 9, phash, otplength);
       #ifdef DEBUG
       Serial.println("Unencrypted");
 	  byteprint(temp, otplength);
@@ -4685,7 +4729,7 @@ void backup() {
       ptr = (temp+EElen_public+EElen_private);
       onlykey_eeget_aeskey(ptr);
   
-      aes_gcm_decrypt(temp, (uint8_t*)('y'+ID[34]), phash, (EElen_aeskey+EElen_private+EElen_public));
+      aes_gcm_decrypt(temp, 0, 10, phash, (EElen_aeskey+EElen_private+EElen_public));
 
 	  large_temp[large_data_offset] = 0xFF; //delimiter
 	  large_temp[large_data_offset+1] = 0; //slot 0
@@ -4708,7 +4752,7 @@ void backup() {
   //Copy RSA keys to buffer  
   uint8_t backupslot;
   onlykey_eeget_backupkey (&backupslot);
-  for (int slot=1; slot<=4; slot++)
+  for (uint8_t slot=1; slot<=4; slot++)
   {
 	#ifdef DEBUG
     Serial.print("Backing up RSA Key Number ");
@@ -4736,7 +4780,7 @@ void backup() {
   }
   
   //Copy ECC keys to buffer
-  for (int slot=101; slot<=132; slot++)
+  for (uint8_t slot=101; slot<=132; slot++)
   {
 	#ifdef DEBUG
     Serial.print("Backing up ECC Key Number ");

@@ -333,6 +333,7 @@ void processMessage(uint8_t *buffer)
 {
   int len = buffer[5] << 8 | buffer[6];
   uint8_t sha256_hash[32];
+  uint8_t temp_handle[64];
 #ifdef DEBUG  
   Serial.println(F("Got message"));
   Serial.println(len);
@@ -570,6 +571,7 @@ void processMessage(uint8_t *buffer)
       uint8_t *application_parameter = datapart+32;
       uint8_t handle_len = datapart[64];
       uint8_t *client_handle = datapart+65;
+	  uint8_t *key;
 
 	  
 #ifdef DEBUG
@@ -736,45 +738,42 @@ void processMessage(uint8_t *buffer)
       sha256_final(&IV, sha256_hash);
 	  	  
 	  if (!u2f_button) {
-		//New key unwrap method outer encryption
 		aes_gcm_decrypt2(handle, (uint8_t*)sha256_hash, (uint8_t*)thisappkey, 64);
-		if (memcmp(handle, application_parameter, 32)!=0) {
-		//this handle is not from us
+		if (memcmp(handle, application_parameter, 32)!=0) { //this handle is not from us		
 #ifdef DEBUG
+	Serial.println("U2F Button Not Pressed");
 	Serial.println("U2F Error SW_WRONG_DATA");
 #endif
 	  respondErrorPDU(buffer, SW_WRONG_DATA);
 	  return;
-	 } else {
-#ifdef DEBUG
-		Serial.println("U2F Button Not Pressed");
-		Serial.println("U2F Error SW_CONDITIONS_NOT_SATISFIED");
-#endif
-        respondErrorPDU(buffer, SW_CONDITIONS_NOT_SATISFIED);
-		return;
-	 }
+		 } else {
+	#ifdef DEBUG
+			Serial.println("U2F Button Not Pressed");
+			Serial.println("U2F Error SW_CONDITIONS_NOT_SATISFIED");
+	#endif
+			respondErrorPDU(buffer, SW_CONDITIONS_NOT_SATISFIED);
+			return;
+		 }
 	 } else { 
 #ifdef DEBUG
         Serial.println("U2F button pressed for authenticate");
 #endif
 		fadeoff(0);
 		
-	  //Old method
+	  //Old method still supported for already registered accounts
 #ifdef DEBUG
       Serial.println("Encrypted handle");
 	  byteprint(handle, sizeof(handle));
 #endif
-
-      aes_gcm_decrypt2(handle, (uint8_t*)sha256_hash, (uint8_t*)handlekey, 64);
-
+	  memcpy(temp_handle, handle, 64);
+      aes_gcm_decrypt2(temp_handle, (uint8_t*)sha256_hash, (uint8_t*)handlekey, 64);
+		
 #ifdef DEBUG
       Serial.println();
       Serial.println("Unencrypted handle old method");
-	  byteprint(handle, sizeof(handle));
+	  byteprint(handle, sizeof(temp_handle));
 #endif
-
-
-      if (memcmp(handle, application_parameter, 32)!=0) {
+      if (memcmp(temp_handle, application_parameter, 32)!=0) {
 		  //New key unwrap method outer encryption
 		  aes_gcm_decrypt2(handle, (uint8_t*)sha256_hash, (uint8_t*)thisappkey, 64);
 #ifdef DEBUG
@@ -802,11 +801,14 @@ void processMessage(uint8_t *buffer)
 		  //New key unwrap method inner encryption
 		  aes_gcm_decrypt2(handle+32, (uint8_t*)sha256_hash+12, (uint8_t*)thishandkey, 32);
 		 }
-      }
-      uint8_t *key = handle + 32;
+	   key = handle + 32;
+      } else {
+	   key = temp_handle + 32;
+	  }     
 	  
       if (P1==0x07) { //check-only
 #ifdef DEBUG
+		Serial.println("Received check only request 0x07");
 		Serial.println("U2F Error SW_CONDITIONS_NOT_SATISFIED");
 #endif
         respondErrorPDU(buffer, SW_CONDITIONS_NOT_SATISFIED);
