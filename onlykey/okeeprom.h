@@ -96,7 +96,7 @@ extern "C"
 #define EElen_ecckey	1
 #define EElen_rsakey	1
 
-#define EEpos_U2Fcounter	0
+#define EEpos_U2Fcounter	2
 #define EEpos_aeskey	(EEpos_U2Fcounter + EElen_U2Fcounter)
 #define EEpos_public	(EEpos_aeskey + EElen_aeskey)
 #define EEpos_private	(EEpos_public + EElen_public)

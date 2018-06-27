@@ -61,6 +61,15 @@ extern "C"
 #include <SoftTimer.h>
 #include "base64.h"
 
+#define fwstartadr 0x6060
+#define flashstorestart 0x3B000
+#define flashend 0x3FFFF
+#define CLEAR_JUMP_FLAG()             eeprom_write_byte(0x00, 0) //Go to bootloader
+#define CPU_RESTART_ADDR (uint32_t *)0xE000ED0C
+#define CPU_RESTART_VAL 0x5FA0004
+#define CPU_RESTART() (*CPU_RESTART_ADDR = CPU_RESTART_VAL);
+#define SET_FWLOAD_FLAG()               eeprom_write_byte((unsigned char *)0x01, 0) //Firmware ready to load
+
 #define TYPE_INIT               0x80  // Initial frame identifier
 /*************************************/
 //Vendor Defined OnlyKey MSG Type assignments
@@ -84,6 +93,7 @@ extern "C"
 #define OKRESTORE            (TYPE_INIT | 0x71)
 #define OKGETRESPONSE            (TYPE_INIT | 0x72)
 #define OKPING           (TYPE_INIT | 0x73)
+#define OKFWUPDATE           (TYPE_INIT | 0x74)
 
 // Last vendor defined command
 
@@ -132,7 +142,7 @@ extern void keytype(char const * chars);
 extern void byteprint(uint8_t* bytes, int size);
 extern void factorydefault();
 extern void wipeEEPROM();
-extern void wipeflash();
+extern void wipeflash(uint8_t mode);
 extern bool unlocked;
 extern bool initialized;
 extern bool configmode;

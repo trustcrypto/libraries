@@ -118,6 +118,9 @@ extern uint8_t phash[32];
 extern uint8_t sdhash[32];
 extern uint8_t pdhash[32];
 extern uint8_t nonce[32];
+extern int integrityctr1;
+extern int integrityctr2;
+int initcheck;
 /*************************************/
 //PIN assignments
 /*************************************/
@@ -193,36 +196,57 @@ size_t length = 48; // First block should wait for the pool to fill up.
 
 void recvmsg() {
   int n;
+  uint8_t rand[1] = {0};
+  integrityctr1++;
+  rand[0] = RNG2(rand, 1);
+  integrityctr2++;
   n = RawHID.recv(recv_buffer, 0); // 0 timeout = do not wait
-  if (n > 0) {
+  if (n > 0 && rand[0] && integrityctr1==integrityctr2) {
+	//Integrity Check
+	integrityctr2++;
+	delay(rand[0]); //Delay random amount of time
+	integrityctr1++;
+	if (integrityctr1!=integrityctr2) {
+		Serial.println("integrity fail");
+		Serial.println(integrityctr1);
+		Serial.println(integrityctr2);
+		unlocked = false; 
+		CPU_RESTART();
+		return;
+	}
 #ifdef DEBUG    
-    Serial.print(F("\n\nReceived packet"));
+	Serial.print(F("\n\nReceived packet"));
 	byteprint(recv_buffer,64);
 #endif    
+	  if (configmode==true && recv_buffer[4]!=OKSETSLOT && recv_buffer[4]!=OKSETPRIV && recv_buffer[4]!=OKRESTORE && recv_buffer[4]!=OKFWUPDATE) { 
+		hidprint("ERROR MESSAGE TYPE NOT SUPPORTED IN CONFIG MODE"); 
+		return;		
+	  }
+	  
 	  switch (recv_buffer[4]) {
-      case OKSETPIN:
-      if(!PDmode) {
-      SETPIN(recv_buffer);
-      } else {
-      SETPDPIN(recv_buffer);
-      }
-      return;
-      case OKSETSDPIN:
-      SETSDPIN(recv_buffer);
-      return;
-      case OKSETPDPIN:
-      SETPDPIN(recv_buffer);
-      return;
-      case OKSETTIME:
+	  case OKSETPIN:
+	  if(!PDmode) {
+	  SETPIN(recv_buffer);
+	  } else {
+	  SETPDPIN(recv_buffer);
+	  }
+	  return;
+	  case OKSETSDPIN:
+	  SETSDPIN(recv_buffer);
+	  return;
+	  case OKSETPDPIN:
+	  SETPDPIN(recv_buffer);
+	  return;
+	  case OKSETTIME:
 	  outputU2F = 0;
-      SETTIME(recv_buffer);
-      return;
-      case OKGETLABELS:
+	  SETTIME(recv_buffer);
+	  return;
+	  case OKGETLABELS:
 	   if(initialized==false && unlocked==true) 
 	   {
-		hidprint("Error you must set a PIN and remove/reinsert OnlyKey");
+		hidprint("Error you must set a PIN first on OnlyKey");
 		return;
-	   }else if (initialized==true && unlocked==true && FTFL_FSEC==0x44) 
+	   }else if (initialized==true && unlocked==true && FTFL_FSEC==0x44 && integrityctr1==integrityctr2) 
 	   {
 		if (recv_buffer[5] == 'k') GETKEYLABELS(0);
 		else GETSLOTLABELS(0);
@@ -232,17 +256,17 @@ void recvmsg() {
 	   hidprint("ERROR DEVICE LOCKED");
 	   return;
 	   }	
-      return;
-      case OKSETSLOT:
+	  return;
+	  case OKSETSLOT:
 	   if(initialized==false && unlocked==true) 
 	   {
 		if (recv_buffer[6] == 12) {
 		SETSLOT(recv_buffer);
 		} else {
-		hidprint("Error you must set a PIN and remove/reinsert OnlyKey");
+		hidprint("Error you must set a PIN first on OnlyKey");
 		}
 		return;
-	   }else if (initialized==true && unlocked==true && FTFL_FSEC==0x44) 
+	   }else if ((initialized==true && unlocked==true && FTFL_FSEC==0x44 && integrityctr1==integrityctr2) || (!initcheck && unlocked==true && initialized==true && integrityctr1==integrityctr2))
 	   {
 		SETSLOT(recv_buffer);
 	   }
@@ -251,13 +275,13 @@ void recvmsg() {
 	   hidprint("ERROR DEVICE LOCKED");
 	   return;
 	   }
-      return;
-      case OKWIPESLOT:
+	  return;
+	  case OKWIPESLOT:
 	   if(initialized==false && unlocked==true) 
 	   {
-		hidprint("Error you must set a PIN and remove/reinsert OnlyKey");
+		hidprint("Error you must set a PIN first on OnlyKey");
 		return;
-	   }else if (initialized==true && unlocked==true && FTFL_FSEC==0x44) 
+	   }else if (initialized==true && unlocked==true && FTFL_FSEC==0x44 && integrityctr1==integrityctr2) 
 	   {
 		WIPESLOT(recv_buffer);
 	   }
@@ -266,13 +290,13 @@ void recvmsg() {
 	   hidprint("ERROR DEVICE LOCKED");
 	   return;
 	   }	
-      return;
-      case OKSETU2FPRIV:
+	  return;
+	  case OKSETU2FPRIV:
 	   if(initialized==false && unlocked==true) 
 	   {
 		hidprint("No PIN set, You must set a PIN first");
 		return;
-	   }else if (initialized==true && unlocked==true && FTFL_FSEC==0x44) 
+	   }else if (initialized==true && unlocked==true && FTFL_FSEC==0x44 && integrityctr1==integrityctr2) 
 	   {
 		if(!PDmode) {
 		#ifdef US_VERSION
@@ -285,13 +309,13 @@ void recvmsg() {
 	   hidprint("ERROR DEVICE LOCKED");
 	   return;
 	   }	
-      return;
-      case OKWIPEU2FPRIV:
+	  return;
+	  case OKWIPEU2FPRIV:
 	   if(initialized==false && unlocked==true) 
 	   {
-		hidprint("Error you must set a PIN and remove/reinsert OnlyKey");
+		hidprint("Error you must set a PIN first on OnlyKey");
 		return;
-	   }else if (initialized==true && unlocked==true && FTFL_FSEC==0x44) 
+	   }else if (initialized==true && unlocked==true && FTFL_FSEC==0x44 && integrityctr1==integrityctr2) 
 	   {
 		if(!PDmode) {
 		#ifdef US_VERSION
@@ -304,13 +328,13 @@ void recvmsg() {
 	   hidprint("ERROR DEVICE LOCKED");
 	   return;
 	   }	
-      return;
-      case OKSETU2FCERT:
+	  return;
+	  case OKSETU2FCERT:
 	   if(initialized==false && unlocked==true) 
 	   {
-		hidprint("Error you must set a PIN and remove/reinsert OnlyKey");
+		hidprint("Error you must set a PIN first on OnlyKey");
 		return;
-	   }else if (initialized==true && unlocked==true && FTFL_FSEC==0x44) 
+	   }else if (initialized==true && unlocked==true && FTFL_FSEC==0x44 && integrityctr1==integrityctr2) 
 	   {
 		if(!PDmode) {
 		#ifdef US_VERSION
@@ -323,13 +347,13 @@ void recvmsg() {
 	   hidprint("ERROR DEVICE LOCKED");
 	   return;
 	   }	
-      return;
-      case OKWIPEU2FCERT:
+	  return;
+	  case OKWIPEU2FCERT:
 	   if(initialized==false && unlocked==true) 
 	   {
-		hidprint("Error you must set a PIN and remove/reinsert OnlyKey");
+		hidprint("Error you must set a PIN first on OnlyKey");
 		return;
-	   }else if (initialized==true && unlocked==true && FTFL_FSEC==0x44) 
+	   }else if (initialized==true && unlocked==true && FTFL_FSEC==0x44 && integrityctr1==integrityctr2) 
 	   {
 		if(!PDmode) {
 		#ifdef US_VERSION
@@ -342,17 +366,17 @@ void recvmsg() {
 	   hidprint("ERROR DEVICE LOCKED");
 	   return;
 	   }	
-      return;
+	  return;
 	  case OKSETPRIV:
-       if ((initialized==true && unlocked==true && FTFL_FSEC==0x44 && configmode==true) || (initialized==false && unlocked==true && FTFL_FSEC==0xDE)) 
+	   if ((initialized==true && unlocked==true && FTFL_FSEC==0x44 && integrityctr1==integrityctr2 && configmode==true) || (initialized==true && unlocked==true && !initcheck)) //Only permit loading keys on first use and while in config mode
 	   {
-                if(!PDmode) {
-                #ifdef US_VERSION
-                if (recv_buffer[0] != 0xBA) SETPRIV(recv_buffer);
-                #endif
-                }
+				if(!PDmode) {
+				#ifdef US_VERSION
+				if (recv_buffer[0] != 0xBA) SETPRIV(recv_buffer);
+				#endif
+				}
 	   }
-	   else if (initialized==true && unlocked==true && FTFL_FSEC==0x44 && configmode==false) { 
+	   else if (initialized==true && unlocked==true && FTFL_FSEC==0x44 && integrityctr1==integrityctr2 && configmode==false) { 
 	   hidprint("ERROR NOT IN CONFIG MODE, HOLD BUTTON 6 DOWN FOR 5 SEC");
 	   }
 	   else
@@ -360,32 +384,32 @@ void recvmsg() {
 	   hidprint("ERROR DEVICE LOCKED");
 	   return;
 	   }	
-      return;
-      case OKWIPEPRIV:
-           if(initialized==false && unlocked==true) 
+	  return;
+	  case OKWIPEPRIV:
+		   if(initialized==false && unlocked==true) 
 	   {
 		hidprint("No PIN set, You must set a PIN first");
 		return;
-	   }else if (initialized==true && unlocked==true && FTFL_FSEC==0x44) 
+	   }else if (initialized==true && unlocked==true && FTFL_FSEC==0x44 && integrityctr1==integrityctr2) 
 	   {
-                if(!PDmode) {
-                #ifdef US_VERSION
-                WIPEPRIV(recv_buffer);
-                #endif
-                }
+				if(!PDmode) {
+				#ifdef US_VERSION
+				WIPEPRIV(recv_buffer);
+				#endif
+				}
 	   }
 	   else
 	   {
 	   hidprint("ERROR DEVICE LOCKED");
 	   return;
 	   }	
-      return;
-      case OKSIGN:
-           if(initialized==false && unlocked==true) 
+	  return;
+	  case OKSIGN:
+		   if(initialized==false && unlocked==true) 
 	   {
 		hidprint("No PIN set, You must set a PIN first");
 		return;
-	   }else if (initialized==true && unlocked==true && FTFL_FSEC==0x44 && !CRYPTO_AUTH) 
+	   }else if (initialized==true && unlocked==true && FTFL_FSEC==0x44 && integrityctr1==integrityctr2 && !CRYPTO_AUTH) 
 	   {
 		if(!PDmode) {
 		#ifdef US_VERSION
@@ -401,13 +425,13 @@ void recvmsg() {
 	   hidprint("ERROR DEVICE LOCKED");
 	   return;
 	   }	
-      return;
+	  return;
 	  case OKDECRYPT:
-           if(initialized==false && unlocked==true) 
+		   if(initialized==false && unlocked==true) 
 	   {
 		hidprint("No PIN set, You must set a PIN first");
 		return;
-	   }else if (initialized==true && unlocked==true && FTFL_FSEC==0x44 && !CRYPTO_AUTH) 
+	   }else if (initialized==true && unlocked==true && FTFL_FSEC==0x44 && integrityctr1==integrityctr2 && !CRYPTO_AUTH) 
 	   {
 		if(!PDmode) {
 		#ifdef US_VERSION
@@ -423,58 +447,82 @@ void recvmsg() {
 	   hidprint("ERROR DEVICE LOCKED");
 	   return;
 	   }	
-      return;
-      case OKGETPUBKEY:
+	  return;
+	  case OKGETPUBKEY:
 			if(initialized==false && unlocked==true) 
 	   {
 		hidprint("No PIN set, You must set a PIN first");
 		return;
-	   }else if (initialized==true && unlocked==true && FTFL_FSEC==0x44) 
+	   }else if (initialized==true && unlocked==true && FTFL_FSEC==0x44 && integrityctr1==integrityctr2) 
 	   {
-                if(!PDmode) {
-                #ifdef US_VERSION
+				if(!PDmode) {
+				#ifdef US_VERSION
 				outputU2F = 0;
-                GETPUBKEY(recv_buffer);
-                #endif
-                }
+				GETPUBKEY(recv_buffer);
+				#endif
+				}
 	   }
 	   else
 	   {
 	   hidprint("ERROR DEVICE LOCKED");
 	   return;
 	   }	
-      return;
+	  return;
 	  case OKRESTORE:
 			if(initialized==false && unlocked==true) 
 	   {
 		hidprint("No PIN set, You must set a PIN first");
 		return;
-	   }else if (initialized==true && unlocked==true && FTFL_FSEC==0x44 && configmode==true) 
+	   }else if ((initialized==true && unlocked==true && FTFL_FSEC==0x44 && integrityctr1==integrityctr2 && configmode==true) || (initialized==true && unlocked==true && !initcheck && integrityctr1==integrityctr2)) //Only permit loading backup on first use and while in config mode
 	   {
-                if(!PDmode) {
-                #ifdef US_VERSION
-                RESTORE(recv_buffer);
-                #endif
-                }
+				if(!PDmode) {
+				#ifdef US_VERSION
+				RESTORE(recv_buffer);
+				#endif
+				}
 	   }
-	   else if (initialized==true && unlocked==true && FTFL_FSEC==0x44 && configmode==false) { 
+	   else if (initialized==true && unlocked==true && FTFL_FSEC==0x44 && integrityctr1==integrityctr2 && configmode==false) { 
 	   hidprint("ERROR NOT IN CONFIG MODE, HOLD BUTTON 6 DOWN FOR 5 SEC");
 	   }
 	   else {
 	   hidprint("ERROR DEVICE LOCKED");
 	   return;
 	   }	
-      return;
-      default: 
-		if(!PDmode && initialized==true && unlocked==true && FTFL_FSEC==0x44) {
+	  return;
+	  case OKFWUPDATE:
+			if(initialized==false && unlocked==true) 
+	   {
+		hidprint("No PIN set, You must set a PIN first");
+		return;
+	   }else if ((initialized==true && unlocked==true && FTFL_FSEC==0x44 && integrityctr1==integrityctr2 && configmode==true) || (!initcheck && unlocked==true && integrityctr1==integrityctr2)) //Only permit loading firmware on first use and while in config mode
+	   {
+				if(!PDmode) {
+				#ifdef US_VERSION
+				hidprint("SUCCESSFULL FW LOAD REQUEST, REBOOTING...");
+				CLEAR_JUMP_FLAG(); //Go to bootloader
+				SET_FWLOAD_FLAG(); //Firmware ready to load 
+				CPU_RESTART();
+				#endif
+				}
+	   }
+	   else if (initialized==true && unlocked==true && FTFL_FSEC==0x44 && integrityctr1==integrityctr2 && configmode==false) { 
+	   hidprint("ERROR NOT IN CONFIG MODE, HOLD BUTTON 6 DOWN FOR 5 SEC");
+	   }
+	   else {
+	   hidprint("ERROR DEVICE LOCKED");
+	   return;
+	   }	
+	  return;
+	  default: 
+		if(!PDmode && initialized==true && unlocked==true && FTFL_FSEC==0x44 && integrityctr1==integrityctr2) {
 		#ifdef US_VERSION
-	    	recvu2fmsg(recv_buffer);
+			recvu2fmsg(recv_buffer);
 		#endif
 		}
-      return;
-    }
+	  return;
+	}
   } else {
-	  if(!PDmode && initialized==true && unlocked==true && FTFL_FSEC==0x44) {
+	  if(!PDmode && initialized==true && unlocked==true && FTFL_FSEC==0x44 && integrityctr1==integrityctr2) {
 	  #ifdef US_VERSION
 	  u2fmsgtimeout(recv_buffer);
 	  #endif
@@ -578,6 +626,7 @@ switch (PINSET) {
 			recv_buffer[6] = 0x61;
 			RNG2(recv_buffer+7, 32);
 			SETPRIV(recv_buffer); //set default ECC key
+			initialized==true;
 			}
 			
 			sha256_update(&pinhash, temp, 32); //Add nonce to hash
@@ -889,13 +938,6 @@ void SETTIME (uint8_t *buffer)
 	  #endif  
 	  }
 	  }
-	  else
-	  {
-#ifdef DEBUG
-	    Serial.print("FLASH ERROR");
-#endif
-		factorydefault();
-	  }
       return;
 }
 
@@ -1056,6 +1098,11 @@ void SETSLOT (uint8_t *buffer)
       Serial.print("Length = ");
       Serial.println(length);
 #endif
+	if (configmode==true && value!=1) {
+	hidprint("ERROR MESSAGE TYPE NOT SUPPORTED IN CONFIG MODE"); 
+	return;	
+	}
+	
 	if (PDmode) slot = slot + 12;
             switch (value) {
             case 1:
@@ -1641,15 +1688,16 @@ Serial.println();
 void factorydefault() {
 	uint8_t mode;
 	onlykey_eeget_wipemode(&mode);
+	wipeEEPROM(); //Wipe data and go to bootloader after factory default
 	if (mode <= 1) {
-	wipeflash(); //Wipe flash first need eeprom address for flash to wipe
-	wipeEEPROM();
+	//Just wipe data
+	wipeflash(1); 
 	} else {
-	//FULLWIPE Mode
-	flashEraseAll();
+	//FULLWIPE Mode wipe data and firmware
+	wipeflash(2);
 #ifdef DEBUG
 	uintptr_t adr = 0x0;
-        for (int i = 0; i < 7000; i++)
+        for (int i = 0; i < 65536; i+=4)
         {
         Serial.printf("0x%X", adr);
         Serial.printf(" 0x%X", *((unsigned int*)adr));
@@ -1657,6 +1705,8 @@ void factorydefault() {
         adr=adr+4;
         }
 #endif 
+SET_FWLOAD_FLAG(); //Firmware ready to load 
+CLEAR_JUMP_FLAG(); //Go to bootloader
 }
 	initialized = false;
 	unlocked = true;
@@ -1664,6 +1714,7 @@ void factorydefault() {
 	Serial.println("factory reset has been completed");
 #endif 
 	hidprint("factory reset has been completed");
+	CPU_RESTART();
 while(1==1) {
 	blink(3);
 }
@@ -1673,23 +1724,21 @@ void wipeEEPROM() {
 	//Erase all EEPROM values
 	uint8_t value;
 #ifdef DEBUG
-	Serial.println("Current EEPROM Values"); //TODO remove debug
-#endif 
+	Serial.println("Current EEPROM Values"); 
 	for (int i=0; i<2048; i++) {
 	value=EEPROM.read(i);
-#ifdef DEBUG
 	Serial.print(i);
   	Serial.print("\t");
   	Serial.print(value, DEC);
   	Serial.println();
-#endif 
 	}
+#endif
 	value=0x00;
 	for (int i=0; i<2048; i++) {
 	EEPROM.write(i, value);
 	}
 #ifdef DEBUG
-	Serial.println("EEPROM set to 0s");//TODO remove debug
+	Serial.println("EEPROM set to 0s");
 #endif 
 	for (int i=0; i<2048; i++) {
 	value=EEPROM.read(i);
@@ -1703,14 +1752,17 @@ void wipeEEPROM() {
 #ifdef DEBUG
 	Serial.println("EEPROM erased");//TODO remove debug
 #endif 
-
 }
 
-void wipeflash() {
-    uint8_t flashoffset[1];	
-	onlykey_eeget_flashpos((uint8_t*)flashoffset);
-	uintptr_t adr = (unsigned long)flashoffset[0] * (unsigned long)2048;
-	//Erase flash sectors used
+void wipeflash(uint8_t mode) {
+	uintptr_t adr;
+	if (mode <= 1) { 	
+		adr = (unsigned long)flashstorestart;
+	} else { //wipe data and fw
+		adr = fwstartadr;
+	}
+	uintptr_t endadr = flashend;
+	while (adr <= endadr-2048) { 
 #ifdef DEBUG
 	Serial.printf("Erase Sector 0x%X ",adr);
 #endif 
@@ -1723,85 +1775,6 @@ void wipeflash() {
 	Serial.printf("successful\r\n");
 #endif 
 	adr=adr+2048; //Next Sector 2048
-#ifdef DEBUG 
-	Serial.printf("Erase Sector 0x%X ",adr);
-#endif 
-	if (flashEraseSector((unsigned long*)adr)) {
-#ifdef DEBUG 
-	Serial.printf("NOT ");
-#endif 
-	}
-#ifdef DEBUG 
-	Serial.printf("successful\r\n");
-#endif 
-	adr=adr+2048; //Next Sector 4096
-#ifdef DEBUG 
-	Serial.printf("Erase Sector 0x%X ",adr);
-#endif 
-	if (flashEraseSector((unsigned long*)adr)) {
-#ifdef DEBUG 
-	Serial.printf("NOT ");
-#endif 
-	}
-#ifdef DEBUG 
-	Serial.printf("successful\r\n");
-#endif 
-	adr=adr+2048; //Next Sector 6144
-#ifdef DEBUG 
-	Serial.printf("Erase Sector 0x%X ",adr);
-#endif 
-	if (flashEraseSector((unsigned long*)adr)) {
-#ifdef DEBUG 
-	Serial.printf("NOT ");
-#endif 
-	}
-#ifdef DEBUG 
-	Serial.printf("successful\r\n");
-#endif
-	adr=adr+2048; //Next Sector 8192
-#ifdef DEBUG 
-	Serial.printf("Erase Sector 0x%X ",adr);
-#endif 
-	if (flashEraseSector((unsigned long*)adr)) {
-#ifdef DEBUG 
-	Serial.printf("NOT ");
-#endif 
-	}
-#ifdef DEBUG 
-	Serial.printf("successful\r\n");
-#endif
-	adr=adr+2048; //Next Sector 10240
-#ifdef DEBUG 
-	Serial.printf("Erase Sector 0x%X ",adr);
-#endif 
-	if (flashEraseSector((unsigned long*)adr)) {
-#ifdef DEBUG 
-	Serial.printf("NOT ");
-#endif 
-	}
-#ifdef DEBUG 
-	Serial.printf("successful\r\n");
-	#endif
-	adr=adr+2048; //Next Sector 12288
-#ifdef DEBUG 
-	Serial.printf("Erase Sector 0x%X ",adr);
-#endif 
-	if (flashEraseSector((unsigned long*)adr)) {
-#ifdef DEBUG 
-	Serial.printf("NOT ");
-#endif 
-	}
-#ifdef DEBUG 
-	Serial.printf("successful\r\n");
-	#endif
-	adr=adr+2048; //Next Sector 14336
-#ifdef DEBUG 
-	Serial.printf("Erase Sector 0x%X ",adr);
-#endif 
-	if (flashEraseSector((unsigned long*)adr)) {
-#ifdef DEBUG 
-	Serial.printf("NOT ");
-#endif 
 	}
 #ifdef DEBUG 
 	Serial.printf("successful\r\n");
@@ -1965,59 +1938,9 @@ void onlykey_flashset_common (uint8_t *ptr, unsigned long *adr, int len) {
 	}
 	return;
 }
-/*********************************/
 
-int onlykey_flashget_noncehash (uint8_t *ptr, int size) {
-	
-	uint8_t flashoffset[1];	
-	onlykey_eeget_flashpos((uint8_t*)flashoffset);
-	if (flashoffset[0]==255 || flashoffset[0]==0) {
-#ifdef DEBUG
-		Serial.printf("There is no Nonce hash set");
-#endif
-		return 0;
-	} else {
-	uintptr_t adr = (unsigned long)flashoffset[0] * (unsigned long)2048;
-	#ifdef DEBUG
-	Serial.printf("Reading nonce from Sector 0x%X ",adr);
-	#endif
-    onlykey_flashget_common(ptr, (unsigned long*)adr, size);
-	}
-	return 1;
-}
-
-void onlykey_flashset_noncehash (uint8_t *ptr) {
-	
-	uint8_t flashoffset[1];
-	uintptr_t adr;
-	onlykey_eeget_flashpos((uint8_t*)flashoffset);
-	if (flashoffset[0] == 0)
-	{
-	#ifdef DEBUG 
-	Serial.printf("There is no Nonce hash set");
-	#endif
-	adr = flashFirstEmptySector();
-	flashoffset[0] = (uint8_t)((adr / (unsigned long)2048)& 0XFF); //number of sectors 
-	#ifdef DEBUG
-	Serial.printf("Setting First flash Sector to 0x%X ",flashoffset[0]);
-	#endif
-	onlykey_eeset_flashpos((uint8_t*)flashoffset);
-	} else {
-	adr = (unsigned long)flashoffset[0] * (unsigned long)2048;
-	}	
-	#ifdef DEBUG 
-	Serial.printf("First Empty Flash Sector 0x%X ",adr);
-	#endif
-	uint8_t temp[255];
-	uint8_t *tptr;
-	tptr=temp;
-	//Get current flash contents
-	onlykey_flashget_common(tptr, (unsigned long*)adr, 254);
-	//Add new flash contents
-	for( int z = 0; z <= 31; z++){
-		temp[z] = ((uint8_t)*(ptr+z));
-	}
-	//Erase flash sector
+void onlykey_flashsector (uint8_t *ptr, unsigned long *adr, int len) {
+//Erase flash sector
 #ifdef DEBUG 
 	  Serial.printf("Erase Sector 0x%X ",adr);
 #endif 
@@ -2030,22 +1953,57 @@ void onlykey_flashset_noncehash (uint8_t *ptr) {
 	  Serial.printf("successful\r\n");
 #endif 
 	  //Write buffer to flash
-	  onlykey_flashset_common(tptr, (unsigned long*)adr, 254);
-#ifdef DEBUG 
+	  onlykey_flashset_common(ptr, (unsigned long*)adr, len);
+}
+
+/*********************************/
+
+int onlykey_flashget_noncehash (uint8_t *ptr, int size) {
+	int set = 0;
+	uintptr_t adr = (unsigned long)flashstorestart;
+	#ifdef DEBUG
+	Serial.printf("Reading nonce from Sector 0x%X ",adr);
+	#endif
+    onlykey_flashget_common(ptr, (unsigned long*)adr, size);
+	for (int i=0; i<32; i++) {
+		set = *(ptr+i) + set;
+	}
+	Serial.println(set);	
+	if (set == 8160) { //0xFF * 32
+#ifdef DEBUG
+		Serial.printf("There is no Nonce hash set");
+#endif
+		return 0;
+	} else {
+	return 1;
+	}
+}
+
+void onlykey_flashset_noncehash (uint8_t *ptr) {
+	
+	uintptr_t adr = (unsigned long)flashstorestart;
+	uint8_t temp[255];
+	uint8_t *tptr;
+	tptr=temp;
+	//Get current flash contents
+	onlykey_flashget_common(tptr, (unsigned long*)adr, 254);
+	//Add new flash contents
+	for( int z = 0; z <= 31; z++){
+		temp[z] = ((uint8_t)*(ptr+z));
+	}
+#ifdef DEBUG
 	  Serial.print("Nonce hash address =");
 	  Serial.println(adr, HEX);
 	  Serial.print("Nonce hash value =");
 #endif 
+	  onlykey_flashsector (tptr, (unsigned long*)adr, 254);
 	  onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_noncehash); 
-
 }
 
 
 int onlykey_flashget_pinhash (uint8_t *ptr, int size) {
 	
-    uint8_t flashoffset[1];	
-	onlykey_eeget_flashpos((uint8_t*)flashoffset);
-	uintptr_t adr = (unsigned long)flashoffset[0] * (unsigned long)2048;
+	uintptr_t adr = (unsigned long)flashstorestart;
 	adr = adr + EElen_noncehash;
     onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_pinhash);
     if (*ptr == 255 && *(ptr + 1) == 255 && *(ptr + 2) == 255) { //pinhash not set
@@ -2067,9 +2025,7 @@ int onlykey_flashget_pinhash (uint8_t *ptr, int size) {
 
 void onlykey_flashset_pinhash (uint8_t *ptr) {
 	
-	uint8_t flashoffset[1];	
-	onlykey_eeget_flashpos((uint8_t*)flashoffset);
-	uintptr_t adr = (unsigned long)flashoffset[0] * (unsigned long)2048;
+	uintptr_t adr = (unsigned long)flashstorestart;
 	uint8_t temp[255];
 	uint8_t *tptr;
 	tptr=temp;
@@ -2079,20 +2035,7 @@ void onlykey_flashset_pinhash (uint8_t *ptr) {
 	for( int z = 0; z <= 31; z++){
 		temp[z + EElen_noncehash] = ((uint8_t)*(ptr+z));
 	}
-	//Erase flash sector
-#ifdef DEBUG 
-      Serial.printf("Erase Sector 0x%X ",adr);
-#endif 
-      if (flashEraseSector((unsigned long*)adr)) {
-#ifdef DEBUG 
-	Serial.printf("NOT ");
-#endif 
-	}
-#ifdef DEBUG 
-      Serial.printf("successful\r\n");
-#endif 
-      //Write buffer to flash
-      onlykey_flashset_common(tptr, (unsigned long*)adr, 254);
+	  onlykey_flashsector (tptr, (unsigned long*)adr, 254);
 #ifdef DEBUG 
       Serial.print("Pin hash address =");
       Serial.println(adr, HEX);
@@ -2106,9 +2049,7 @@ void onlykey_flashset_pinhash (uint8_t *ptr) {
 
 int onlykey_flashget_selfdestructhash (uint8_t *ptr) {
 
-    uint8_t flashoffset[1];	
-	onlykey_eeget_flashpos((uint8_t*)flashoffset);
-	uintptr_t adr = (unsigned long)flashoffset[0] * (unsigned long)2048;
+	uintptr_t adr = (unsigned long)flashstorestart;
 	adr = adr + EElen_noncehash + EElen_pinhash;
     onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_selfdestructhash);
 	
@@ -2131,9 +2072,7 @@ int onlykey_flashget_selfdestructhash (uint8_t *ptr) {
 
 void onlykey_flashset_selfdestructhash (uint8_t *ptr) {
 
-	uint8_t flashoffset[1];	
-	onlykey_eeget_flashpos((uint8_t*)flashoffset);
-	uintptr_t adr = (unsigned long)flashoffset[0] * (unsigned long)2048;
+	uintptr_t adr = (unsigned long)flashstorestart;
 	uint8_t temp[255];
 	uint8_t *tptr;
 	tptr=temp;
@@ -2143,20 +2082,7 @@ void onlykey_flashset_selfdestructhash (uint8_t *ptr) {
 	for( int z = 0; z <= 31; z++){
 		temp[z + EElen_noncehash + EElen_pinhash] = ((uint8_t)*(ptr+z));
 	}
-	//Erase flash sector
-#ifdef DEBUG 
-      Serial.printf("Erase Sector 0x%X ",adr);
-#endif 
-      if (flashEraseSector((unsigned long*)adr)) {
-#ifdef DEBUG 
-	Serial.printf("NOT ");
-#endif 
-	}
-#ifdef DEBUG 
-      Serial.printf("successful\r\n");
-#endif 
-      //Write buffer to flash
-      onlykey_flashset_common(tptr, (unsigned long*)adr, 254);
+	onlykey_flashsector (tptr, (unsigned long*)adr, 254);
 #ifdef DEBUG 
       Serial.print("Self-Destruct PIN hash address =");
       Serial.println(adr, HEX);
@@ -2170,9 +2096,7 @@ void onlykey_flashset_selfdestructhash (uint8_t *ptr) {
 
 int onlykey_flashget_plausdenyhash (uint8_t *ptr) {
 
-    uint8_t flashoffset[1];	
-	onlykey_eeget_flashpos((uint8_t*)flashoffset);
-	uintptr_t adr = (unsigned long)flashoffset[0] * (unsigned long)2048;
+	uintptr_t adr = (unsigned long)flashstorestart;
 	adr = adr + EElen_noncehash + EElen_pinhash + EElen_selfdestructhash;
     onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_plausdenyhash);
 	
@@ -2194,9 +2118,7 @@ int onlykey_flashget_plausdenyhash (uint8_t *ptr) {
 }
 void onlykey_flashset_plausdenyhash (uint8_t *ptr) {
 
-	uint8_t flashoffset[1];	
-	onlykey_eeget_flashpos((uint8_t*)flashoffset);
-	uintptr_t adr = (unsigned long)flashoffset[0] * (unsigned long)2048;
+	uintptr_t adr = (unsigned long)flashstorestart;
 	uint8_t temp[255];
 	uint8_t *tptr;
 	tptr=temp;
@@ -2206,20 +2128,7 @@ void onlykey_flashset_plausdenyhash (uint8_t *ptr) {
 	for( int z = 0; z <= 31; z++){
 		temp[z + EElen_noncehash + EElen_pinhash + EElen_selfdestructhash] = ((uint8_t)*(ptr+z));
 	}
-	//Erase flash sector
-#ifdef DEBUG 
-      Serial.printf("Erase Sector 0x%X ",adr);
-#endif 
-      if (flashEraseSector((unsigned long*)adr)) {
-#ifdef DEBUG 
-	Serial.printf("NOT ");
-#endif 
-	}
-#ifdef DEBUG 
-      Serial.printf("successful\r\n");
-#endif 
-      //Write buffer to flash
-      onlykey_flashset_common(tptr, (unsigned long*)adr, 254);
+	onlykey_flashsector (tptr, (unsigned long*)adr, 254);
 #ifdef DEBUG 
       Serial.print("PIN hash address =");
       Serial.println(adr, HEX);
@@ -2233,9 +2142,7 @@ void onlykey_flashset_plausdenyhash (uint8_t *ptr) {
 
 int onlykey_flashget_url (uint8_t *ptr, int slot) {
 
-    uint8_t flashoffset[1];	
-	onlykey_eeget_flashpos((uint8_t*)flashoffset);
-	uintptr_t adr = (unsigned long)flashoffset[0] * (unsigned long)2048;
+	uintptr_t adr = (unsigned long)flashstorestart;
 	adr = adr + 2048; //2nd free sector
 	switch (slot) {
 		uint8_t length;
@@ -2414,9 +2321,7 @@ return 0;
 
 void onlykey_flashset_url (uint8_t *ptr, int size, int slot) {
 
-    uint8_t flashoffset[1];	
-	onlykey_eeget_flashpos((uint8_t*)flashoffset);
-	uintptr_t adr = (unsigned long)flashoffset[0] * (unsigned long)2048;
+	uintptr_t adr = (unsigned long)flashstorestart;
 	adr = adr + 2048; //2nd free sector
     uint8_t temp[2048];
     uint8_t *tptr;
@@ -2640,9 +2545,7 @@ return;
 
 int onlykey_flashget_username (uint8_t *ptr, int slot) {
 
-    uint8_t flashoffset[1];	
-	onlykey_eeget_flashpos((uint8_t*)flashoffset);
-	uintptr_t adr = (unsigned long)flashoffset[0] * (unsigned long)2048;
+	uintptr_t adr = (unsigned long)flashstorestart;
 	adr = adr + 4096; //3rd free sector
 	switch (slot) {
 		uint8_t length;
@@ -2842,9 +2745,7 @@ return 0;
 
 void onlykey_flashset_username (uint8_t *ptr, int size, int slot) {
 
-    uint8_t flashoffset[1];	
-	onlykey_eeget_flashpos((uint8_t*)flashoffset);
-	uintptr_t adr = (unsigned long)flashoffset[0] * (unsigned long)2048;
+	uintptr_t adr = (unsigned long)flashstorestart;
 	adr = adr + 4096; //3rd free sector
     uint8_t temp[2048];
     uint8_t *tptr;
@@ -3067,9 +2968,7 @@ return;
 
 
 void onlykey_flashget_label (uint8_t *ptr, int slot) {
-    uint8_t flashoffset[1];	
-	onlykey_eeget_flashpos((uint8_t*)flashoffset);
-	uintptr_t adr = (unsigned long)flashoffset[0] * (unsigned long)2048;
+	uintptr_t adr = (unsigned long)flashstorestart;
 	adr = adr + 6144; //4th free sector
 	adr=adr+((EElen_label*slot)-EElen_label);
 	onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
@@ -3077,9 +2976,7 @@ void onlykey_flashget_label (uint8_t *ptr, int slot) {
 
 void onlykey_flashset_label (uint8_t *ptr, int slot) {
 
-    uint8_t flashoffset[1];	
-	onlykey_eeget_flashpos((uint8_t*)flashoffset);
-	uintptr_t adr = (unsigned long)flashoffset[0] * (unsigned long)2048;
+	uintptr_t adr = (unsigned long)flashstorestart;
 	adr = adr + 6144; //4th free sector
     uint8_t temp[2048];
     uint8_t *tptr;
@@ -3113,9 +3010,7 @@ return;
 
 int onlykey_flashget_totpkey (uint8_t *ptr, int slot) {
 
-    uint8_t flashoffset[1];	
-	onlykey_eeget_flashpos((uint8_t*)flashoffset);
-	uintptr_t adr = (unsigned long)flashoffset[0] * (unsigned long)2048;
+	uintptr_t adr = (unsigned long)flashstorestart;
 	adr = adr + 8192; //5th free sector
 	switch (slot) {
 		uint8_t length;
@@ -3318,9 +3213,7 @@ return 0;
 
 void onlykey_flashset_totpkey (uint8_t *ptr, int size, int slot) {
 
-    uint8_t flashoffset[1];	
-	onlykey_eeget_flashpos((uint8_t*)flashoffset);
-	uintptr_t adr = (unsigned long)flashoffset[0] * (unsigned long)2048;
+	uintptr_t adr = (unsigned long)flashstorestart;
 	adr = adr + 8192;
     uint8_t temp[2048];
     uint8_t *tptr;
@@ -3549,9 +3442,7 @@ if (PDmode) return;
     Serial.println("Flashget U2F");
 #endif
 	uint8_t length[2];
-    uint8_t flashoffset[1];
-	onlykey_eeget_flashpos((uint8_t*)flashoffset);
-	uintptr_t adr = (unsigned long)flashoffset[0] * (unsigned long)2048;
+	uintptr_t adr = (unsigned long)flashstorestart;
 	adr = adr + 10240; //6th flash sector
     onlykey_flashget_common((uint8_t*)attestation_priv, (unsigned long*)adr, 32);
 #ifdef DEBUG
@@ -3588,9 +3479,7 @@ if (PDmode) return;
 #ifdef DEBUG
     Serial.println("OKSETU2FPRIV MESSAGE RECEIVED");
 #endif
-    uint8_t flashoffset[1];
-	onlykey_eeget_flashpos((uint8_t*)flashoffset);
-	uintptr_t adr = (unsigned long)flashoffset[0] * (unsigned long)2048;
+	uintptr_t adr = (unsigned long)flashstorestart;
 	adr = adr + 10240; //6th flash sector
 	uint8_t *ptr;
   uint8_t temp[2048];
@@ -3649,9 +3538,7 @@ if (PDmode) return;
 #ifdef DEBUG
     Serial.println("OKWIPEU2FPRIV MESSAGE RECEIVED");
 #endif
-	uint8_t flashoffset[1];
-	onlykey_eeget_flashpos((uint8_t*)flashoffset);
-	uintptr_t adr = (unsigned long)flashoffset[0] * (unsigned long)2048;
+	uintptr_t adr = (unsigned long)flashstorestart;
 	adr = adr + 10240; //6th flash sector
 	//Erase flash sector
 #ifdef DEBUG
@@ -3681,9 +3568,7 @@ if (PDmode) return;
     Serial.println("OKSETU2FCERT MESSAGE RECEIVED");
 #endif
 	uint8_t length[2];
-    uint8_t flashoffset[1];
-	onlykey_eeget_flashpos((uint8_t*)flashoffset);
-	uintptr_t adr = (unsigned long)flashoffset[0] * (unsigned long)2048;
+	uintptr_t adr = (unsigned long)flashstorestart;
 	adr = adr + 10240; //6th flash sector
   uint8_t *ptr;
   uint8_t temp[2048];
@@ -3756,9 +3641,7 @@ if (PDmode) return;
     Serial.println("OKWIPEU2FCERT MESSAGE RECEIVED");
 #endif
 	uint8_t length[2] = {0x00,0x00};
-    uint8_t flashoffset[1];
-	onlykey_eeget_flashpos((uint8_t*)flashoffset);
-	uintptr_t adr = (unsigned long)flashoffset[0] * (unsigned long)2048;
+	uintptr_t adr = (unsigned long)flashstorestart;
 	adr = adr + 10240; //6th flash sector
 	//Erase flash sector
 #ifdef DEBUG
@@ -3822,10 +3705,8 @@ if (PDmode) return 0;
     Serial.print("Flashget ECC key from slot # ");
 	Serial.println(slot);
 #endif 
-    uint8_t flashoffset[1];	
     extern uint8_t type;
 	uint8_t features;
-	onlykey_eeget_flashpos((uint8_t*)flashoffset);
 	if (slot<101 || slot>132) {	
 #ifdef DEBUG 
 	Serial.printf("Error invalid ECC slot");
@@ -3833,7 +3714,7 @@ if (PDmode) return 0;
 	hidprint("Error invalid ECC slot");
 	return 0;
 	}
-	uintptr_t adr = (unsigned long)flashoffset[0] * (unsigned long)2048;
+	uintptr_t adr = (unsigned long)flashstorestart;
 	adr = adr + 12288; //7th flash sector
 	onlykey_eeget_ecckey(&type, slot); //Key Type (1-3) and slot (101-132)
 	#ifdef DEBUG 
@@ -3890,9 +3771,7 @@ if (PDmode) return;
 #ifdef DEBUG 
     Serial.println("OKSETECCPRIV MESSAGE RECEIVED");
 #endif 
-    uint8_t flashoffset[1];	
-	onlykey_eeget_flashpos((uint8_t*)flashoffset);
-	uintptr_t adr = (unsigned long)flashoffset[0] * (unsigned long)2048;
+	uintptr_t adr = (unsigned long)flashstorestart;
 	adr = adr + 12288; //7th free flash sector
 	//Write ID to EEPROM
 	if (buffer[5]<101 || buffer[5]>132) {	
@@ -3943,7 +3822,7 @@ byteprint((uint8_t*)buffer+7, 32);
 	//Write buffer to flash
     onlykey_flashset_common(tptr, (unsigned long*)adr, 2048);
 
-	if (gen_key != 0){
+	if (gen_key != 0 && initialized){
 	hidprint("Successfully set ECC Key");
       blink(2);
 	}
@@ -3961,7 +3840,6 @@ if (PDmode) return 0;
     Serial.print("Flashget RSA key from slot # ");
 	Serial.println(slot);
 #endif 
-    uint8_t flashoffset[1];	
 	extern uint8_t type;
 	uint8_t features;
 	if (slot<1 || slot>4) {	
@@ -3971,8 +3849,7 @@ if (PDmode) return 0;
 	hidprint("Error invalid RSA slot");
 	return 0;
 	}
-	onlykey_eeget_flashpos((uint8_t*)flashoffset);
-	uintptr_t adr = (unsigned long)flashoffset[0] * (unsigned long)2048;
+	uintptr_t adr = (unsigned long)flashstorestart;
 	adr = adr + 14336; //8th free flash sector
 	onlykey_eeget_rsakey(&type, slot); //Key Type (1-4) and slot (1-4)
 	features=type;
@@ -4018,14 +3895,12 @@ if (PDmode) return;
     Serial.println("OKSETRSAPRIV MESSAGE RECEIVED");
 #endif 
 	extern uint8_t rsa_private_key[MAX_RSA_KEY_SIZE];
-    uint8_t flashoffset[1];	
 	int keysize;
 	uint8_t temp[2048];
     uint8_t *tptr;
     tptr=temp;
 	uint8_t *ptr=rsa_private_key;
-	onlykey_eeget_flashpos((uint8_t*)flashoffset);
-	uintptr_t adr = (unsigned long)flashoffset[0] * (unsigned long)2048;
+	uintptr_t adr = (unsigned long)flashstorestart;
 	adr = adr + 14336; //8th free flash sector
 	if (buffer[5]<1 || buffer[5]>4) {
 #ifdef DEBUG 		
@@ -4119,9 +3994,7 @@ if (PDmode) return;
 #ifdef DEBUG
     Serial.println("OKWIPERSAPRIV MESSAGE RECEIVED");
 #endif
-	uint8_t flashoffset[1];	
-	onlykey_eeget_flashpos((uint8_t*)flashoffset);
-	uintptr_t adr = (unsigned long)flashoffset[0] * (unsigned long)2048;
+	uintptr_t adr = (unsigned long)flashstorestart;
 	adr = adr + 14336; //8th free flash sector
 	//Wipe ID from EEPROM
 	onlykey_eeset_rsakey(0, (int)buffer[5]);
@@ -5280,6 +5153,7 @@ void RESTORE(uint8_t *buffer) {
 	#ifdef OK_Color
     NEO_Color = 85; //Green
     #endif
+	CPU_RESTART();
 	while (1==1) {
 	blink(3);
 	}
@@ -5399,10 +5273,12 @@ int RNG2(uint8_t *dest, unsigned size) {
     RNG.rand(dest, size);
     length = 32;
 #ifdef DEBUG
-	Serial.println();
-	Serial.print("Generating random number of size = ");
-	Serial.print(size);
-	byteprint(dest, size);
+	if (size>1) {
+		Serial.println();
+		Serial.print("Generating random number of size = ");
+		Serial.print(size);
+		byteprint(dest, size);
+	}
 #endif
     return 1;
 }

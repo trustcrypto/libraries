@@ -41,6 +41,8 @@ uint8_t phash[32];
 uint8_t sdhash[32];
 uint8_t pdhash[32];
 uint8_t nonce[32];
+int integrityctr1 = 0;
+int integrityctr2 = 0;
 extern bool PDmode;
 
 //construct object in memory, set all variables
@@ -117,7 +119,7 @@ bool Password::hashevaluate(){
 			sha256_init(&pinhash);
 			sha256_update(&pinhash, temp, strlen(guess)); //Add new PIN to hash
 #ifdef DEBUG
-			Serial.print(F("NONCE HASH:")); //TODO remove debug
+			Serial.print(F("NONCE HASH:")); 
       for (int i =0; i < 32; i++) {
         Serial.print(nonce[i], HEX);
       }
@@ -127,12 +129,12 @@ bool Password::hashevaluate(){
 			sha256_update(&pinhash, nonce, 32); //Add nonce to hash
 			sha256_final(&pinhash, temp); //Create hash and store in temp
 #ifdef DEBUG
-	Serial.print(F("Guessed Hash:")); //TODO remove debug
+	Serial.print(F("Guessed Hash:")); 
       for (int i =0; i < 32; i++) {
         Serial.print(temp[i], HEX);
       }
 	  Serial.println();
-	  Serial.print(F("PIN Hash:")); //TODO remove debug
+	  Serial.print(F("PIN Hash:")); 
       for (int i =0; i < 32; i++) {
         Serial.print(phash[i], HEX);
       }
@@ -144,6 +146,7 @@ bool Password::hashevaluate(){
 		
 		//check if guessed char is equal to the password char
 		if (i == 31 && pass2==guessed2){
+			integrityctr1 = 1;
 			return true; //both strings ended and all previous characters are equal 
 		}else if (pass2!=guessed2){
 			return false; //difference 
@@ -160,7 +163,7 @@ bool Password::sdhashevaluate(){
 #ifdef DEBUG
 	Serial.println();
 	
-	  Serial.print(F("SD PIN Hash:")); //TODO remove debug
+	  Serial.print(F("SD PIN Hash:")); 
       for (int i =0; i < 32; i++) {
         Serial.print(sdhash[i], HEX);
       }
@@ -187,7 +190,7 @@ bool Password::pdhashevaluate(){
 #ifdef DEBUG
 	Serial.println();
 	
-	  Serial.print(F("PD PIN Hash:")); //TODO remove debug
+	  Serial.print(F("PD PIN Hash:")); 
       for (int i =0; i < 32; i++) {
         Serial.print(pdhash[i], HEX);
       }
@@ -199,6 +202,7 @@ bool Password::pdhashevaluate(){
 		
 		//check if guessed char is equal to the password char
 		if (i == 31 && pass2==guessed2){
+			integrityctr1 = 1;
 			PDmode=true;
 			return true; //both strings ended and all previous characters are equal 
 		}else if (pass2!=guessed2){

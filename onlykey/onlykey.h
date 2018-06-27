@@ -53,7 +53,7 @@
 #ifndef ONLYKEY_H
 #define ONLYKEY_H
 
-#define DEBUG //Enable Serial Monitor 
+//#define DEBUG //Enable Serial Monitor 
 #define US_VERSION //Define for US Version Firmare
 #define OK_Color //Color Version 
 
@@ -63,9 +63,9 @@
 #endif
 
 #ifdef OK_Color
-#define OKversion "v0.2-beta.6c"
+#define OKversion "v0.2-beta.7c"
 #else
-#define OKversion "v0.2-beta.6o"
+#define OKversion "v0.2-beta.7o"
 #endif
 
 #ifdef __cplusplus
