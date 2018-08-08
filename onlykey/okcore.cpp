@@ -1,6 +1,5 @@
-
 /* Tim Steiner
- * Copyright (c) 2018 , CryptoTrust LLC.
+ * Copyright (c) 2015-2018, CryptoTrust LLC.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -17,8 +16,8 @@
  *      
  * 3. All advertising materials mentioning features or use of this
  *    software must display the following acknowledgment:
- *    "This product includes software developed by the OnlyKey Project
- *    (http://www.crp.to/ok)"
+ *    "This product includes software developed by CryptoTrust LLC. for
+ *    the OnlyKey Project (http://www.crp.to/ok)" 
  *
  * 4. The names "OnlyKey" and "OnlyKey Project" must not be used to
  *    endorse or promote products derived from this software without
@@ -26,28 +25,53 @@
  *    admin@crp.to.
  *
  * 5. Products derived from this software may not be called "OnlyKey"
- *    nor may "OnlyKey" appear in their names without prior written
- *    permission of the OnlyKey Project.
+ *    nor may "OnlyKey" or "CryptoTrust" appear in their names without 
+ *    specific prior written permission. For written permission, please
+ *    contact admin@crp.to.
  *
  * 6. Redistributions of any form whatsoever must retain the following
  *    acknowledgment:
- *    "This product includes software developed by the OnlyKey Project
- *    (http://www.crp.to/ok)"
+ *    "This product includes software developed by CryptoTrust LLC. for
+ *    the OnlyKey Project (http://www.crp.to/ok)" 
  *
- * THIS SOFTWARE IS PROVIDED BY THE OnlyKey PROJECT ``AS IS'' AND ANY
- * EXPRESSED OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE OnlyKey PROJECT OR
- * ITS CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
- * NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
- * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
- * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
- * OF THE POSSIBILITY OF SUCH DAMAGE.
+ * 7. Redistributions in any form must be accompanied by information on 
+ *    how to obtain complete source code for this software and any 
+ *    accompanying software that uses this software. The source code 
+ *    must either be included in the distribution or be available for 
+ *    no more than the cost of distribution plus a nominal fee, and must 
+ *    be freely redistributable under reasonable conditions. For a 
+ *    binary file, complete source code means the source code for all 
+ *    modules it contains. 
  *
+ * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS
+ * ARE GRANTED BY THIS LICENSE. IF SOFTWARE RECIPIENT INSTITUTES PATENT
+ * LITIGATION AGAINST ANY ENTITY (INCLUDING A CROSS-CLAIM OR COUNTERCLAIM
+ * IN A LAWSUIT) ALLEGING THAT THIS SOFTWARE (INCLUDING COMBINATIONS OF THE 
+ * SOFTWARE WITH OTHER SOFTWARE OR HARDWARE) INFRINGES SUCH SOFTWARE 
+ * RECIPIENT'S PATENT(S), THEN SUCH SOFTWARE RECIPIENT'S RIGHTS GRANTED BY 
+ * THIS LICENSE SHALL TERMINATE AS OF THE DATE SUCH LITIGATION IS FILED. IF
+ * ANY PROVISION OF THIS AGREEMENT IS INVALID OR UNENFORCEABLE UNDER 
+ * APPLICABLE LAW, IT SHALL NOT AFFECT THE VALIDITY OR ENFORCEABILITY OF THE 
+ * REMAINDER OF THE TERMS OF THIS AGREEMENT, AND WITHOUT FURTHER ACTION 
+ * BY THE PARTIES HERETO, SUCH PROVISION SHALL BE REFORMED TO THE MINIMUM 
+ * EXTENT NECESSARY TO MAKE SUCH PROVISION VALID AND ENFORCEABLE. ALL 
+ * SOFTWARE RECIPIENT'S RIGHTS UNDER THIS AGREEMENT SHALL TERMINATE IF IT 
+ * FAILS TO COMPLY WITH ANY OF THE MATERIAL TERMS OR CONDITIONS OF THIS 
+ * AGREEMENT AND DOES NOT CURE SUCH FAILURE IN A REASONABLE PERIOD OF 
+ * TIME AFTER BECOMING AWARE OF SUCH NONCOMPLIANCE. THIS SOFTWARE IS 
+ * PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY 
+ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED 
+ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR  PURPOSE 
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS 
+ * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,  EXEMPLARY, OR 
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF 
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR 
+ * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, 
+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR 
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF 
+ * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
+
 
 
 #include "sha256.h"
@@ -180,10 +204,15 @@ extern uint8_t ecc_private_key[MAX_ECC_KEY_SIZE];
 extern uint8_t rsa_private_key[MAX_RSA_KEY_SIZE];
 extern uint8_t type;
 #endif
+/*************************************/
+//Crypto Challenge assignments
+/*************************************/
 uint8_t Challenge_button1 = 0;
 uint8_t Challenge_button2 = 0;
 uint8_t Challenge_button3 = 0;
 uint8_t CRYPTO_AUTH = 0;
+uint8_t sshchallengemode = 0;
+uint8_t pgpchallengemode = 0;
 /*************************************/
 //built-in temperature sensor
 /*************************************/
@@ -198,28 +227,34 @@ void recvmsg() {
   int n;
   uint8_t rand[1] = {0};
   integrityctr1++;
-  rand[0] = RNG2(rand, 1);
+  RNG2(rand, 1);
   integrityctr2++;
   n = RawHID.recv(recv_buffer, 0); // 0 timeout = do not wait
   if (n > 0 && rand[0] && integrityctr1==integrityctr2) {
+#ifdef DEBUG    
+	Serial.print(F("\n\nReceived packet"));
+	byteprint(recv_buffer,64);
+	Serial.print("Delay ");
+	Serial.println(rand[0]);
+#endif 
 	//Integrity Check
 	integrityctr2++;
 	delay(rand[0]); //Delay random amount of time
 	integrityctr1++;
 	if (integrityctr1!=integrityctr2) {
-		Serial.println("integrity fail");
+		Serial.println("integrity fail2");
 		Serial.println(integrityctr1);
 		Serial.println(integrityctr2);
 		unlocked = false; 
 		CPU_RESTART();
 		return;
 	}
-#ifdef DEBUG    
-	Serial.print(F("\n\nReceived packet"));
-	byteprint(recv_buffer,64);
-#endif    
+   
 	  if (configmode==true && recv_buffer[4]!=OKSETSLOT && recv_buffer[4]!=OKSETPRIV && recv_buffer[4]!=OKRESTORE && recv_buffer[4]!=OKFWUPDATE) { 
-		hidprint("ERROR MESSAGE TYPE NOT SUPPORTED IN CONFIG MODE"); 
+		hidprint("ERROR NOT IN CONFIG MODE, HOLD BUTTON 6 DOWN FOR 5 SEC"); 
+#ifdef DEBUG    
+	Serial.println("ERROR NOT IN CONFIG MODE, HOLD BUTTON 6 DOWN FOR 5 SEC");
+#endif 
 		return;		
 	  }
 	  
@@ -248,8 +283,8 @@ void recvmsg() {
 		return;
 	   }else if (initialized==true && unlocked==true && FTFL_FSEC==0x44 && integrityctr1==integrityctr2) 
 	   {
-		if (recv_buffer[5] == 'k') GETKEYLABELS(0);
-		else GETSLOTLABELS(0);
+		if (recv_buffer[5] == 'k') GETKEYLABELS(2);
+		else GETSLOTLABELS(2);
 	   }
 	   else
 	   {
@@ -258,9 +293,9 @@ void recvmsg() {
 	   }	
 	  return;
 	  case OKSETSLOT:
-	   if(initialized==false && unlocked==true) 
+	   if(initialized==false && unlocked==true && integrityctr1==integrityctr2) 
 	   {
-		if (recv_buffer[6] == 12) {
+		if (recv_buffer[6] == 12 || recv_buffer[6] == 20) { //You can set wipemode and backupkeymode any time but they are set once settings
 		SETSLOT(recv_buffer);
 		} else {
 		hidprint("Error you must set a PIN first on OnlyKey");
@@ -496,14 +531,11 @@ void recvmsg() {
 		return;
 	   }else if ((initialized==true && unlocked==true && FTFL_FSEC==0x44 && integrityctr1==integrityctr2 && configmode==true) || (!initcheck && unlocked==true && integrityctr1==integrityctr2)) //Only permit loading firmware on first use and while in config mode
 	   {
-				if(!PDmode) {
-				#ifdef US_VERSION
-				hidprint("SUCCESSFULL FW LOAD REQUEST, REBOOTING...");
-				CLEAR_JUMP_FLAG(); //Go to bootloader
-				SET_FWLOAD_FLAG(); //Firmware ready to load 
-				CPU_RESTART();
-				#endif
-				}
+			hidprint("SUCCESSFULL FW LOAD REQUEST, REBOOTING...");
+			eeprom_write_byte(0x00, 0); //Go to bootloader
+			eeprom_write_byte((unsigned char *)0x01, 0); //Firmware ready to load 
+			delay(100);
+			CPU_RESTART();
 	   }
 	   else if (initialized==true && unlocked==true && FTFL_FSEC==0x44 && integrityctr1==integrityctr2 && configmode==false) { 
 	   hidprint("ERROR NOT IN CONFIG MODE, HOLD BUTTON 6 DOWN FOR 5 SEC");
@@ -626,7 +658,7 @@ switch (PINSET) {
 			recv_buffer[6] = 0x61;
 			RNG2(recv_buffer+7, 32);
 			SETPRIV(recv_buffer); //set default ECC key
-			initialized==true;
+			initialized=true;
 			}
 			
 			sha256_update(&pinhash, temp, 32); //Add nonce to hash
@@ -889,7 +921,7 @@ void SETTIME (uint8_t *buffer)
 #ifdef DEBUG
 		Serial.print("UNINITIALIZED");
 #endif
-		if (!outputU2F) hidprint("UNINITIALIZED");
+		if (!outputU2F) hidprint(UNINITIALIZED);
 		return;
 	   } else if (initialized==true && unlocked==true && configmode==true) 
 	   {
@@ -965,7 +997,7 @@ uint8_t GETKEYLABELS (uint8_t output)
 #ifdef DEBUG
 	  Serial.println(labelchar);
 #endif
-	  if (output == 1) {
+	  if (output == 1) { //Output via keyboard
 			labeltype[0] = 'R';
 			labeltype[1] = 'S';
 			labeltype[2] = 'A';
@@ -974,13 +1006,13 @@ uint8_t GETKEYLABELS (uint8_t output)
 			memcpy(labeltype+5, labelchar+2, EElen_label+1);
 			keytype(labeltype);
 			Keyboard.println();
-		} else if (!outputU2F) { 
-	  hidprint(labelchar);
-	  delay(20);
-	  } else {
-		  keyid_match = memcmp (ptr+8, recv_buffer+6, 8);
-		  if (keyid_match == 0) return i-24;
-	  }
+		} else if (!outputU2F && output == 2){//Output via rawhid
+			hidprint(labelchar);
+			delay(20);
+		} else if (output == 3) { //Output slot number of matching label
+			keyid_match = memcmp (ptr+8, recv_buffer+6, 8);
+			if (keyid_match == 0) return i-24;
+		} 
 	}
 	for (uint8_t i = 29; i<=60; i++) { //32 labels for ECC keys
 	  onlykey_flashget_label(ptr, (offset + i));
@@ -1016,10 +1048,10 @@ uint8_t GETKEYLABELS (uint8_t output)
 			}
 			keytype(labeltype);
 			Keyboard.println();
-		} else if (!outputU2F) { 
+		} else if (!outputU2F && output == 2) {//Output via rawhid
 		  hidprint(labelchar);
 		  delay(20);
-		} else {
+		} else if (output == 3) { //Output slot number of matching label 
 		  keyid_match = memcmp (ptr+8, recv_buffer+6, 8);
 		  if (keyid_match == 0) return i+103;
 		}
@@ -1099,7 +1131,7 @@ void SETSLOT (uint8_t *buffer)
       Serial.println(length);
 #endif
 	if (configmode==true && value!=1) {
-	hidprint("ERROR MESSAGE TYPE NOT SUPPORTED IN CONFIG MODE"); 
+	hidprint("ERROR NOT IN CONFIG MODE, HOLD BUTTON 6 DOWN FOR 5 SEC"); 
 	return;	
 	}
 	
@@ -1369,11 +1401,55 @@ void SETSLOT (uint8_t *buffer)
             Serial.println(); //newline
             Serial.println("Writing wipemode to EEPROM...");
 #endif 
-            if(buffer[7] == 2) {
+			if(buffer[7] == 2) {
             	onlykey_eeset_wipemode(buffer + 7);
             	hidprint("Successfully set Wipe Mode to Full Wipe");
-            } else {
+            } else if (!initcheck) { //Only permit changing this on first use on a clean device
+				onlykey_eeset_wipemode(buffer + 7);
+            	hidprint("Successfully set Wipe Mode to Default Setting");
+			}
+			else {
 	        hidprint("Successful");
+			}
+			break;
+			case 20:
+#ifdef DEBUG
+            Serial.println(); //newline
+            Serial.println("Writing backupkeymode to EEPROM...");
+#endif 
+			if(buffer[7] == 2) {
+            	onlykey_eeset_backupkeymode(buffer + 7);
+            	hidprint("Successfully set Backup Key Mode to Set Once");
+            } else if (!initcheck) { //Only permit changing this on first use on a clean device
+				onlykey_eeset_backupkeymode(buffer + 7);
+            	hidprint("Successfully set Backup Key Mode to Default Setting");
+			}
+			else {
+	        hidprint("Successful");
+			}
+			break;
+			case 21:
+#ifdef DEBUG
+            Serial.println(); //newline
+            Serial.println("Writing sshchallengemode to EEPROM...");
+#endif 
+            if(configmode==true || !initcheck) { //Only permit changing this on first use or while in config mode
+            	onlykey_eeset_sshchallengemode(buffer + 7);
+            	hidprint("Successfully set SSH Challenge Mode");
+            } else {
+	        hidprint("ERROR NOT IN CONFIG MODE, HOLD BUTTON 6 DOWN FOR 5 SEC");
+			}
+			break;
+			case 22:
+#ifdef DEBUG
+            Serial.println(); //newline
+            Serial.println("Writing pgpchallengemode to EEPROM...");
+#endif 
+           if(configmode==true || !initcheck) { //Only permit changing this on first use or while in config mode
+            	onlykey_eeset_pgpchallengemode(buffer + 7);
+            	hidprint("Successfully set PGP Challenge Mode");
+            } else {
+	        hidprint("ERROR NOT IN CONFIG MODE, HOLD BUTTON 6 DOWN FOR 5 SEC");
 			}
 			break;
 			case 13:
@@ -1705,8 +1781,8 @@ void factorydefault() {
         adr=adr+4;
         }
 #endif 
-SET_FWLOAD_FLAG(); //Firmware ready to load 
-CLEAR_JUMP_FLAG(); //Go to bootloader
+eeprom_write_byte((unsigned char *)0x01, 0); //Firmware ready to load 
+eeprom_write_byte(0x00, 0); //Go to bootloader
 }
 	initialized = false;
 	unlocked = true;
@@ -1714,6 +1790,7 @@ CLEAR_JUMP_FLAG(); //Go to bootloader
 	Serial.println("factory reset has been completed");
 #endif 
 	hidprint("factory reset has been completed");
+	delay(100);
 	CPU_RESTART();
 while(1==1) {
 	blink(3);
@@ -3667,6 +3744,19 @@ if (PDmode) return;
 
 void SETPRIV (uint8_t *buffer)
 {
+	uint8_t backupkeymode = 0;
+	uint8_t backupkeyslot = 0;
+	integrityctr2++;
+	onlykey_eeget_backupkey(&backupkeyslot);
+	integrityctr1++;
+	onlykey_eeget_backupkeymode(&backupkeymode);
+	integrityctr2++;
+	if (backupkeymode && backupkeyslot == buffer[5]) {
+		hidprint("ERROR BACKUP KEY MODE SET TO SET ONCE"); 
+		integrityctr1++;
+		return;
+	} 	
+	integrityctr1++;
 	if (PDmode) return;
 	#ifdef US_VERSION
 	if (buffer[6] > 0x80) {//Type is Backup key
@@ -4180,6 +4270,8 @@ bool wipebuffersafter5sec(Task* me) {
 	Challenge_button1 = 0;
 	Challenge_button2 = 0;
 	Challenge_button3 = 0;
+	sshchallengemode = 0;
+	pgpchallengemode = 0;
 	if (isfade || CRYPTO_AUTH) fadeoff(1); //Fade Red, failed to complete within 5 seconds
 	}
 	return false;
@@ -5153,6 +5245,7 @@ void RESTORE(uint8_t *buffer) {
 	#ifdef OK_Color
     NEO_Color = 85; //Green
     #endif
+	delay(100);
 	CPU_RESTART();
 	while (1==1) {
 	blink(3);
@@ -5192,7 +5285,7 @@ void process_packets (uint8_t *buffer) {
 			  return;
         }
     } else { //Last packet
-        if (packet_buffer_offset <= (int)(sizeof(packet_buffer) - 57) && buffer[6] <= 57) {
+        if (packet_buffer_offset <= (int)(sizeof(packet_buffer) - 57) && buffer[6] <= 57 && buffer[6] >= 1) {
             memcpy(packet_buffer+packet_buffer_offset, buffer+7, buffer[6]);
             packet_buffer_offset = packet_buffer_offset + buffer[6];
 			packet_buffer_details[0] = buffer[4];
@@ -5201,24 +5294,32 @@ void process_packets (uint8_t *buffer) {
 			CRYPTO_AUTH = 1;
 			SoftTimer.remove(&Wipedata); //Cancel this we got all packets
 			fadeoffafter20(); //Wipe and fadeoff after 20 seconds
-			SHA256_CTX msg_hash;
-			sha256_init(&msg_hash);
-			sha256_update(&msg_hash, packet_buffer, packet_buffer_offset); //add data to sign
-			sha256_final(&msg_hash, temp); //Temporarily store hash
-			if (temp[0] < 6) Challenge_button1 = '1'; //Convert first byte of hash
-			else {
-				Challenge_button1 = temp[0] % 5; //Get the base 5 remainder (0-5)
-				Challenge_button1 = Challenge_button1 + '0' + 1; //Add '0' and 1 so number will be ASCII 1 - 6
+			if (packet_buffer_details[1] > 200) { //SSH request
+			onlykey_eeget_sshchallengemode(&sshchallengemode);
 			}
-			if (temp[15] < 6) Challenge_button2 = '1'; //Convert middle byte of hash
-			else {
-				Challenge_button2 = temp[15] % 5; //Get the base 5 remainder (0-5)
-				Challenge_button2 = Challenge_button2 + '0' + 1; //Add '0' and 1 so number will be ASCII 1 - 6
+			if (packet_buffer_details[1] < 5 || (packet_buffer_details[1] > 100 && packet_buffer_details[1] <= 132)) { //PGP request
+			onlykey_eeget_pgpchallengemode(&pgpchallengemode);
 			}
-			if (temp[31] < 6) Challenge_button3 = '1'; //Convert last byte of hash
-			else {
-				Challenge_button3 = temp[31] % 5; //Get the base 5 remainder (0-5)
-				Challenge_button3 = Challenge_button3 + '0' + 1; //Add '0' and 1 so number will be ASCII 1 - 6
+			if (!sshchallengemode && !pgpchallengemode) {
+				SHA256_CTX msg_hash;
+				sha256_init(&msg_hash);
+				sha256_update(&msg_hash, packet_buffer, packet_buffer_offset); //add data to sign
+				sha256_final(&msg_hash, temp); //Temporarily store hash
+				if (temp[0] < 6) Challenge_button1 = '1'; //Convert first byte of hash
+				else {
+					Challenge_button1 = temp[0] % 5; //Get the base 5 remainder (0-5)
+					Challenge_button1 = Challenge_button1 + '0' + 1; //Add '0' and 1 so number will be ASCII 1 - 6
+				}
+				if (temp[15] < 6) Challenge_button2 = '1'; //Convert middle byte of hash
+				else {
+					Challenge_button2 = temp[15] % 5; //Get the base 5 remainder (0-5)
+					Challenge_button2 = Challenge_button2 + '0' + 1; //Add '0' and 1 so number will be ASCII 1 - 6
+				}
+				if (temp[31] < 6) Challenge_button3 = '1'; //Convert last byte of hash
+				else {
+					Challenge_button3 = temp[31] % 5; //Get the base 5 remainder (0-5)
+					Challenge_button3 = Challenge_button3 + '0' + 1; //Add '0' and 1 so number will be ASCII 1 - 6
+				}
 			}
 #ifdef DEBUG
     Serial.println("Received Message");
@@ -5236,7 +5337,7 @@ void process_packets (uint8_t *buffer) {
 	return;
 	#endif
 }
-
+/*
 void temp_voltage () {
 	float average = 0;
 	analogReference(INTERNAL);
@@ -5262,7 +5363,7 @@ void temp_voltage () {
       Serial.println ("mv - VCC");
 	#endif
 }
-
+*/
 int RNG2(uint8_t *dest, unsigned size) {
 	// Generate output whenever 32 bytes of entropy have been accumulated.
     // The first time through, we wait for 48 bytes for a full entropy pool.

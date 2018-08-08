@@ -147,6 +147,7 @@ bool Password::hashevaluate(){
 		//check if guessed char is equal to the password char
 		if (i == 31 && pass2==guessed2){
 			integrityctr1 = 1;
+			PDmode=false;
 			return true; //both strings ended and all previous characters are equal 
 		}else if (pass2!=guessed2){
 			return false; //difference 

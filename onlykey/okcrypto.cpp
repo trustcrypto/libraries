@@ -1,6 +1,5 @@
-
 /* Tim Steiner
- * Copyright (c) 2018 , CryptoTrust LLC.
+ * Copyright (c) 2015-2018, CryptoTrust LLC.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -17,8 +16,8 @@
  *      
  * 3. All advertising materials mentioning features or use of this
  *    software must display the following acknowledgment:
- *    "This product includes software developed by the OnlyKey Project
- *    (http://www.crp.to/ok)"
+ *    "This product includes software developed by CryptoTrust LLC. for
+ *    the OnlyKey Project (http://www.crp.to/ok)" 
  *
  * 4. The names "OnlyKey" and "OnlyKey Project" must not be used to
  *    endorse or promote products derived from this software without
@@ -26,28 +25,53 @@
  *    admin@crp.to.
  *
  * 5. Products derived from this software may not be called "OnlyKey"
- *    nor may "OnlyKey" appear in their names without prior written
- *    permission of the OnlyKey Project.
+ *    nor may "OnlyKey" or "CryptoTrust" appear in their names without 
+ *    specific prior written permission. For written permission, please
+ *    contact admin@crp.to.
  *
  * 6. Redistributions of any form whatsoever must retain the following
  *    acknowledgment:
- *    "This product includes software developed by the OnlyKey Project
- *    (http://www.crp.to/ok)"
+ *    "This product includes software developed by CryptoTrust LLC. for
+ *    the OnlyKey Project (http://www.crp.to/ok)" 
  *
- * THIS SOFTWARE IS PROVIDED BY THE OnlyKey PROJECT ``AS IS'' AND ANY
- * EXPRESSED OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE OnlyKey PROJECT OR
- * ITS CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
- * NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
- * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
- * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
- * OF THE POSSIBILITY OF SUCH DAMAGE.
- * 
+ * 7. Redistributions in any form must be accompanied by information on 
+ *    how to obtain complete source code for this software and any 
+ *    accompanying software that uses this software. The source code 
+ *    must either be included in the distribution or be available for 
+ *    no more than the cost of distribution plus a nominal fee, and must 
+ *    be freely redistributable under reasonable conditions. For a 
+ *    binary file, complete source code means the source code for all 
+ *    modules it contains. 
+ *
+ *
+ * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+ * GRANTED BY THIS LICENSE. IF SOFTWARE RECIPIENT INSTITUTES PATENT LITIGATION 
+ * AGAINST ANY ENTITY (INCLUDING A CROSS-CLAIM OR COUNTERCLAIM IN A LAWSUIT)
+ * ALLEGING THAT THIS SOFTWARE (INCLUDING COMBINATIONS OF THE SOFTWARE WITH 
+ * OTHER SOFTWARE OR HARDWARE) INFRINGES SUCH SOFTWARE RECIPIENT'S PATENT(S), 
+ * THEN SUCH SOFTWARE RECIPIENT'S RIGHTS GRANTED BY THIS LICENSE SHALL TERMINATE 
+ * AS OF THE DATE SUCH LITIGATION IS FILED. IF ANY PROVISION OF THIS AGREEMENT 
+ * IS INVALID OR UNENFORCEABLE UNDER APPLICABLE LAW, IT SHALL NOT AFFECT
+ * THE VALIDITY OR ENFORCEABILITY OF THE REMAINDER OF THE TERMS OF THIS 
+ * AGREEMENT, AND WITHOUT FURTHER ACTION BY THE PARTIES HERETO, SUCH 
+ * PROVISION SHALL BE REFORMED TO THE MINIMUM EXTENT NECESSARY TO MAKE 
+ * SUCH PROVISION VALID AND ENFORCEABLE. ALL SOFTWARE RECIPIENT'S RIGHTS UNDER 
+ * THIS AGREEMENT SHALL TERMINATE IF IT FAILS TO COMPLY WITH ANY OF THE MATERIAL 
+ * TERMS OR CONDITIONS OF THIS AGREEMENT AND DOES NOT CURE SUCH FAILURE IN 
+ * A REASONABLE PERIOD OF TIME AFTER BECOMING AWARE OF SUCH NONCOMPLIANCE. 
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS 
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
+ * TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR 
+ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR 
+ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, 
+ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, 
+ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; 
+ * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+ * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
+
 
 #include "okcrypto.h"
 #include <SoftTimer.h>
@@ -98,12 +122,13 @@ extern int msgcount;
 
 void SIGN (uint8_t *buffer) {
 	uECC_set_rng(&RNG2); 
+	uint8_t features = 0;
 	#ifdef DEBUG
 	Serial.println();
 	Serial.println("OKSIGN MESSAGE RECEIVED"); 
 	#endif
 	if (buffer[5] < 101) { //Slot 101-132 are for ECC, 1-4 are for RSA
-	uint8_t features = onlykey_flashget_RSA ((int)buffer[5]);
+	features = onlykey_flashget_RSA ((int)buffer[5]);
 	if (type == 0) {
 		if (outputU2F) {
 			custom_error(3); //no key set in this slot
@@ -127,7 +152,9 @@ void SIGN (uint8_t *buffer) {
 		return;
 	}
 	} else {
-	uint8_t features = onlykey_flashget_ECC ((int)buffer[5]);
+	if (buffer[5] != 132 && buffer[5] != 131) { //These keys are reserved for derivation and backup
+	features = onlykey_flashget_ECC ((int)buffer[5]);
+	}
 	if (type == 0) {
 		if (outputU2F) {
 			custom_error(3); //no key set in this slot
@@ -159,15 +186,15 @@ void GETPUBKEY (uint8_t *buffer) {
 	Serial.println();
 	Serial.println("OKGETPUBKEY MESSAGE RECEIVED"); 
 	#endif
-	if (buffer[5] < 101 && !outputU2F && !buffer[6]) { //Slot 101-132 are for ECC, 1-4 are for RSA
+	if (buffer[5] < 5 && !outputU2F && !buffer[6]) { //Slot 101-132 are for ECC, 1-4 are for RSA
 		if (onlykey_flashget_RSA ((int)buffer[5])) GETRSAPUBKEY(buffer);
-	} else if (!outputU2F && !buffer[6]) {
+	} else if (buffer[5] < 131 && !outputU2F && !buffer[6]) { //132 and 131 are reserved 
 		if (onlykey_flashget_ECC ((int)buffer[5])) GETECCPUBKEY(buffer);	
 	} else if (buffer[6] <= 3 && !outputU2F) { // Generate key using provided data, return public
 	DERIVEKEY(buffer[6], buffer+7);
 	RawHID.send(ecc_public_key, 0);
 	} else if (buffer[6] == 0xff) { //Search Keylabels for matching key, return slot
-		temp[0] = GETKEYLABELS(0);
+		temp[0] = GETKEYLABELS(3);
 		if (temp[0] >= 1) {
 			if (outputU2F) {
 				store_U2F_response(temp, 1, true);
@@ -181,12 +208,13 @@ void GETPUBKEY (uint8_t *buffer) {
 
 void DECRYPT (uint8_t *buffer){
 	uECC_set_rng(&RNG2); 
+	uint8_t features = 0;
 	#ifdef DEBUG
 	Serial.println();
 	Serial.println("OKDECRYPT MESSAGE RECEIVED"); 
 	#endif
 	if (buffer[5] < 101) { //Slot 101-132 are for ECC, 1-4 are for RSA
-	uint8_t features = onlykey_flashget_RSA (buffer[5]);
+	features = onlykey_flashget_RSA (buffer[5]);
 	if (type == 0) {
 		if (outputU2F) {
 			custom_error(3); //no key set in this slot
@@ -207,7 +235,9 @@ void DECRYPT (uint8_t *buffer){
 		return;
 	}
 	} else {
-	uint8_t features = onlykey_flashget_ECC (buffer[5]);
+		if (buffer[5] != 132 && buffer[5] != 131) { //These keys are reserved for derivation and backup
+		features = onlykey_flashget_ECC ((int)buffer[5]);
+		}
     if (type == 0) {
 		if (outputU2F) {
 			custom_error(3); //no key set in this slot
@@ -518,26 +548,31 @@ void ECDSA_EDDSA(uint8_t *buffer)
 #endif
 	uint8_t tmp[32 + 32 + 64];
 	SHA256_HashContext ectx = {{&init_SHA256, &update_SHA256, &finish_SHA256, 64, 32, tmp}};
-	if (buffer[5] == 132) { 
-		if (packet_buffer[(packet_buffer_offset - 97)] == 0x04 && packet_buffer[(packet_buffer_offset - 99)] == 0 && packet_buffer[(packet_buffer_offset - 100)] == 0 && packet_buffer[(packet_buffer_offset - 101)] == 0) {
-			DERIVEKEY(2, packet_buffer+(packet_buffer_offset-32)); 
-			type = 2;	
-		} else {
-			DERIVEKEY(1, packet_buffer+(packet_buffer_offset-32)); 
-			type = 1;
-		}
-		if (packet_buffer_offset > 32) packet_buffer_offset = packet_buffer_offset - 32;
+	if (buffer[5] == 132 || buffer[5] == 201) {
+		//Used by SSH, old version used 132, new version uses 201 for type 1
+		DERIVEKEY(1, packet_buffer+(packet_buffer_offset-32)); 
+		type = 1;
 	}
+	else if (buffer[5] == 202) {
+		DERIVEKEY(2, packet_buffer+(packet_buffer_offset-32)); 
+		type = 2;
+	}
+	else if (buffer[5] == 203) {
+		DERIVEKEY(3, packet_buffer+(packet_buffer_offset-32)); 
+		type = 3;
+	}
+	
+	if (packet_buffer_offset > 32) packet_buffer_offset = packet_buffer_offset - 32;
+
 	SHA256_CTX msghash;
 	sha256_init(&msghash);
 	sha256_update(&msghash, packet_buffer, packet_buffer_offset); 
 	sha256_final(&msghash, sha256_hash); //Create hash and store
-	#ifdef DEBUG
+#ifdef DEBUG
       Serial.println("Signature Hash ");
 	  byteprint(sha256_hash, 32);
 	  Serial.print("Type");
 	  Serial.println(type);
-
 #endif
 	if (type==0x01) Ed25519::sign(ecc_signature, ecc_private_key, ecc_public_key, packet_buffer, packet_buffer_offset);
 	else if (type==0x02) {
@@ -1107,7 +1142,7 @@ int mbedtls_rand( void *rng_state, unsigned char *output, size_t len )
 void newhope_test ()
 {
 	int i;
-	unsigned long ran;
+	//unsigned long ran;
 	char rand[32];
 	csprng SRNG,CRNG;
 	RAND_clean(&SRNG); 
