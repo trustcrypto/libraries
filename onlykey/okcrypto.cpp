@@ -496,6 +496,18 @@ void GETECCPUBKEY (uint8_t *buffer)
 			memset(ecc_private_key, 0, MAX_ECC_KEY_SIZE); //wipe buffer
 }
 
+void GENPUBKEY (uint8_t *buffer)
+{
+	uint8_t pk[crypto_box_PUBLICKEYBYTES];
+	//Generate public key of hash
+	//crypto_scalarmult_base(pk, buffer);
+	// ^^ Too Slow
+	buffer[0] &= 0xF8;
+    buffer[31] = (buffer[31] & 0x7F) | 0x40;
+	Curve25519::eval(pk, buffer, 0);
+	memcpy(buffer, pk, 32);
+}
+
 void DERIVEKEY (uint8_t ktype, uint8_t *data)
 {
   onlykey_flashget_ECC (132); //Default Key stored in ECC slot 32
@@ -802,6 +814,9 @@ int shared_secret (uint8_t *pub, uint8_t *secret) {
 		curve = uECC_secp256k1(); 
 		if (uECC_shared_secret(pub, ecc_private_key, secret, curve)) return 0;
 		else return 1;	
+	case 4:
+		Curve25519::eval(secret, ecc_private_key, pub); 
+		return 0;	
 	default:
 		if (!outputU2F) hidprint("Error ECC type incorrect");
 		return 1;

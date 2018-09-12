@@ -117,6 +117,14 @@ extern "C"
 #define OKPING           (TYPE_INIT | 0x73)
 #define OKFWUPDATE           (TYPE_INIT | 0x74)
 
+/*************************************/
+//Types of second profile
+/*************************************/
+#define NOPROFILE 0
+#define STDPROFILE 1
+#define NOENCRYPT 2 //International Travel Edition or Plausible Deniability
+
+
 // Last vendor defined command
 
 extern void ByteToChar(uint8_t* bytes, char* chars, unsigned int count);
@@ -175,20 +183,12 @@ extern void aes_gcm_encrypt (uint8_t * state, uint8_t slot, uint8_t value, const
 extern void aes_gcm_decrypt (uint8_t * state, uint8_t slot, uint8_t value, const uint8_t * key, int len);
 extern void aes_gcm_encrypt2 (uint8_t * state, uint8_t * iv1, const uint8_t * key, int len);
 extern void aes_gcm_decrypt2 (uint8_t * state, uint8_t * iv1, const uint8_t * key, int len);
-extern int onlykey_eeget_noncehash (uint8_t *ptr, int size);
-extern void onlykey_eeset_noncehash (uint8_t *ptr);
-extern int onlykey_eeget_pinhash (uint8_t *ptr, int size);
-extern void onlykey_eeset_pinhash (uint8_t *ptr); 
-extern int onlykey_eeget_selfdestructhash (uint8_t *ptr);
-extern void onlykey_eeset_selfdestructhash (uint8_t *ptr);
-extern int onlykey_eeget_plausdenyhash (uint8_t *ptr);
-extern void onlykey_eeset_plausdenyhash (uint8_t *ptr);
-extern void onlykey_flashset_plausdenyhash (uint8_t *ptr);
-extern int onlykey_flashget_plausdenyhash (uint8_t *ptr);
+extern void onlykey_flashset_2ndpinhashpublic (uint8_t *ptr);
+extern int onlykey_flashget_2ndpinhashpublic (uint8_t *ptr);
 extern void onlykey_flashset_selfdestructhash (uint8_t *ptr);
 extern int onlykey_flashget_selfdestructhash (uint8_t *ptr);
-extern void onlykey_flashset_pinhash (uint8_t *ptr);
-extern int onlykey_flashget_pinhash (uint8_t *ptr, int size);
+extern void onlykey_flashset_pinhashpublic (uint8_t *ptr);
+extern int onlykey_flashget_pinhashpublic (uint8_t *ptr, int size);
 extern void onlykey_flashset_noncehash (uint8_t *ptr);
 extern int onlykey_flashget_noncehash (uint8_t *ptr, int size);
 extern void onlykey_flashset_common (uint8_t *ptr, uintptr_t adr, int len);

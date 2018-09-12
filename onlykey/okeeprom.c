@@ -156,6 +156,15 @@ void onlykey_eeset_pgpchallengemode (uint8_t *ptr) {
 }
 /*********************************/
 /*********************************/
+int onlykey_eeget_2ndprofilemode (uint8_t *ptr) {
+    onlykey_eeget_common(ptr, EEpos_2ndprofilemode, EElen_2ndprofilemode);
+    return EElen_2ndprofilemode;
+}
+void onlykey_eeset_2ndprofilemode (uint8_t *ptr) {
+    onlykey_eeset_common(ptr, EEpos_2ndprofilemode, EElen_2ndprofilemode);
+}
+/*********************************/
+/*********************************/
 int onlykey_eeget_typespeed (uint8_t *ptr) {
     onlykey_eeget_common(ptr, EEpos_typespeed, EElen_typespeed);
     return EElen_typespeed;
@@ -1619,7 +1628,7 @@ void onlykey_eeset_addchar (uint8_t *ptr, int slot) {
 		case 12:
 		onlykey_eeset_common(ptr, EEpos_addchar_12, EElen_addchar);
             break;
-            	case 13:
+		case 13:
 		onlykey_eeset_common(ptr, EEpos_addchar_13, EElen_addchar);
             break;
 		case 14:
@@ -1898,7 +1907,7 @@ int onlykey_eeget_delay2 (uint8_t *ptr, int slot) {
 			onlykey_eeget_common(ptr, EEpos_delay2_12, EElen_delay);
 			return EElen_delay;
             break;
-                case 13:
+		case 13:
 			onlykey_eeget_common(ptr, EEpos_delay2_13, EElen_delay);
 			return EElen_delay;
             break;
@@ -1994,7 +2003,7 @@ void onlykey_eeset_delay2 (uint8_t *ptr, int slot) {
 		case 12:
 		onlykey_eeset_common(ptr, EEpos_delay2_12, EElen_delay);
             break;
-                case 13:
+		case 13:
 		onlykey_eeset_common(ptr, EEpos_delay2_13, EElen_delay);
             break;
 		case 14:
@@ -2087,7 +2096,7 @@ int onlykey_eeget_delay3 (uint8_t *ptr, int slot) {
 			onlykey_eeget_common(ptr, EEpos_delay3_12, EElen_delay);
 			return EElen_delay;
             break;
-                case 13:
+		case 13:
 			onlykey_eeget_common(ptr, EEpos_delay3_13, EElen_delay);
 			return EElen_delay;
             break;
@@ -2183,7 +2192,7 @@ void onlykey_eeset_delay3 (uint8_t *ptr, int slot) {
 		case 12:
 		onlykey_eeset_common(ptr, EEpos_delay3_12, EElen_delay);
             break;
-                case 13:
+		case 13:
 		onlykey_eeset_common(ptr, EEpos_delay3_13, EElen_delay);
             break;
 		case 14:
@@ -2276,7 +2285,7 @@ int onlykey_eeget_2FAtype (uint8_t *ptr, int slot) {
 			onlykey_eeget_common(ptr, EEpos_2FAtype12, EElen_2FAtype);
 			return EElen_2FAtype;
             break;
-            	case 13:
+		case 13:
 			onlykey_eeget_common(ptr, EEpos_2FAtype13, EElen_2FAtype);
 			return EElen_2FAtype;
             break;
@@ -2659,7 +2668,7 @@ void onlykey_eeset_ecckey (uint8_t *ptr, int slot) {
 int onlykey_eeget_rsakey (uint8_t *ptr, int slot) {
     
 	switch (slot) {
-        	case 1:
+		case 1:
 			onlykey_eeget_common(ptr, EEpos_rsakey1, EElen_rsakey);
 			return EElen_rsakey;
             break;
@@ -2686,7 +2695,7 @@ void onlykey_eeset_rsakey (uint8_t *ptr, int slot) {
     
 		switch (slot) {
 
-        	case 1:
+		case 1:
 		onlykey_eeset_common(ptr, EEpos_rsakey1, EElen_rsakey);
             break;
 		case 2:

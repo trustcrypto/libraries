@@ -134,6 +134,8 @@ uint8_t private_k[36]; //32
 uint8_t public_k[68]; //64
 uint8_t public_temp[64]; //64
 
+extern uint8_t profile2mode;
+
 ch_state channel_states[MAX_CHANNEL];
 
 void U2Finit()
@@ -606,7 +608,7 @@ void processMessage(uint8_t *buffer)
 		byteprint(challenge_parameter, 32);
 		Serial.print("Application");
 		byteprint(application_parameter, 32);
-		Serial.print("Handle Len");
+		Serial.println("Handle Len");
 		Serial.println(handle_len);
 		Serial.print("Client Handle");
 		byteprint(client_handle, 64);
@@ -618,7 +620,7 @@ void processMessage(uint8_t *buffer)
 		   if (client_handle[0] == 0xFF && client_handle[1] == 0xFF && client_handle[2] == 0xFF && client_handle[3] == 0xFF) {
 				handle_firefox_u2f (client_handle+4);
 				if (client_handle[4] == OKSETTIME && !CRYPTO_AUTH) {
-					if(!PDmode) {
+					if(profile2mode!=NOENCRYPT) {
 					#ifdef US_VERSION
 					msgcount = 0;
 					outputU2F = 1;
@@ -675,7 +677,7 @@ void processMessage(uint8_t *buffer)
 						Serial.println(times);
 				#endif  
 				if (client_handle[4] == OKDECRYPT && !CRYPTO_AUTH) {
-					if(!PDmode) {
+					if(profile2mode!=NOENCRYPT) {
 					#ifdef US_VERSION
 					NEO_Color = 128; //Turquoise
 					outputU2F = 1;
@@ -684,7 +686,7 @@ void processMessage(uint8_t *buffer)
 					#endif
 					}	
 				} else if (client_handle[4] == OKSIGN && !CRYPTO_AUTH) {
-					if(!PDmode) {
+					if(profile2mode!=NOENCRYPT) {
 					#ifdef US_VERSION
 					NEO_Color = 213; //Purple
 					outputU2F = 1;
@@ -693,7 +695,7 @@ void processMessage(uint8_t *buffer)
 					#endif
 					}
 				} else if (client_handle[4] == OKGETPUBKEY && !CRYPTO_AUTH) {
-					if(!PDmode) {
+					if(profile2mode!=NOENCRYPT) {
 					#ifdef US_VERSION
 					outputU2F = 1;
 					large_data_offset = 0;
@@ -703,7 +705,7 @@ void processMessage(uint8_t *buffer)
 					#endif
 					}
 				} else if (client_handle[4] == OKPING) { //Ping
-					if(!PDmode) {
+					if(profile2mode!=NOENCRYPT) {
 					#ifdef US_VERSION
 					large_data_offset = 0;
 					if  (CRYPTO_AUTH) {
@@ -1232,7 +1234,7 @@ void finish_SHA256(const uECC_HashContext *base, uint8_t *hash_result) {
 }
 
 void send_U2F_response(uint8_t *buffer) {
-	if(!PDmode) {
+	if(profile2mode!=NOENCRYPT) {
 		#ifdef DEBUG
 		Serial.print("Sending data on OnlyKey via U2F");
 		#endif  

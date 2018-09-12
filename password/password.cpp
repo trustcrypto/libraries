@@ -36,14 +36,16 @@
 #include "flashkinetis.h"
 #include "onlykey.h"
 
-uint8_t temp[32];
-uint8_t phash[32];
+uint8_t profilekey[32];
+uint8_t p1hash[32];
 uint8_t sdhash[32];
-uint8_t pdhash[32];
+uint8_t p2hash[32];
 uint8_t nonce[32];
 int integrityctr1 = 0;
 int integrityctr2 = 0;
-extern bool PDmode;
+extern uint8_t profile2mode;
+extern uint8_t ecc_private_key[MAX_ECC_KEY_SIZE];
+extern uint8_t type;
 
 //construct object in memory, set all variables
 Password::Password(char* pass){
@@ -79,7 +81,7 @@ bool Password::append(char character){
 }
 
 //reset the guessed password, one can guess again
-void Password::reset(){ 
+void Password::reset(){
 	currentIndex = 0;
 	guess[currentIndex] = STRING_TERMINATOR;
 }
@@ -107,71 +109,171 @@ bool Password::evaluate(){
 
 
 //is the hash of the current guessed password equal to the stored hash?
-bool Password::hashevaluate(){ 
-//	uint8_t *ptr;
-//	ptr = temp;
-
-	//Copy characters to byte array
-			for (unsigned int i =0; i <= strlen(guess); i++) {
-			temp[i] = (byte)guess[i];
-			}
-			SHA256_CTX pinhash;
-			sha256_init(&pinhash);
-			sha256_update(&pinhash, temp, strlen(guess)); //Add new PIN to hash
+bool Password::profile1hashevaluate(){ 
+	size_t guesslen = strlen(guess);
+	if (guesslen < 7) {
+		delay (30); //Simulate time taken to hash
+		return false; //PIN length must be 7 - 10 digits
+	}
+//Hash values
+	SHA256_CTX pinhash;
+	sha256_init(&pinhash);
+	sha256_update(&pinhash, (uint8_t *)guess, guesslen); //Add new PIN to hash
 #ifdef DEBUG
-			Serial.print(F("NONCE HASH:")); 
-      for (int i =0; i < 32; i++) {
-        Serial.print(nonce[i], HEX);
-      }
-	  Serial.println();
+	Serial.print("NONCE HASH:"); 
+	byteprint(nonce, 32);
 #endif
 	  
-			sha256_update(&pinhash, nonce, 32); //Add nonce to hash
-			sha256_final(&pinhash, temp); //Create hash and store in temp
+	sha256_update(&pinhash, nonce, 32); //Add nonce to hash
+	sha256_final(&pinhash, profilekey); //Create hash and store in profilekey
+	//Generate public key of pinhash
+	memcpy(ecc_private_key, profilekey, 32);
+	ecc_private_key[0] &= 0xF8;
+    ecc_private_key[31] = (ecc_private_key[31] & 0x7F) | 0x40;
+	//Generate public key of pinhash
+	Curve25519::eval(profilekey, ecc_private_key, 0); //Generate public in profilekey
+
 #ifdef DEBUG
-	Serial.print(F("Guessed Hash:")); 
-      for (int i =0; i < 32; i++) {
-        Serial.print(temp[i], HEX);
-      }
-	  Serial.println();
-	  Serial.print(F("PIN Hash:")); 
-      for (int i =0; i < 32; i++) {
-        Serial.print(phash[i], HEX);
-      }
-	  Serial.println();
+	Serial.print("Guessed Hash/PublicKey:"); 
+    byteprint(profilekey, 32);
+	Serial.print("PIN Hash/PublicKey:"); 
+	byteprint(p1hash, 32);
 #endif
-	char pass2 = phash[0];
-	char guessed2 = temp[0];
+	char pass2 = p1hash[0];
+	char guessed2 = profilekey[0];
 	for (byte i=1; i<32; i++){
-		
+
 		//check if guessed char is equal to the password char
+		integrityctr1++;
 		if (i == 31 && pass2==guessed2){
-			integrityctr1 = 1;
-			PDmode=false;
+			onlykey_eeget_2ndprofilemode (&profile2mode); //get 2nd profile mode
+			type=4; //Curve25519
+			Serial.print("Profile Mode"); 
+			Serial.print(profile2mode);
+			if (profile2mode==STDPROFILE) { //there are two profiles
+			//Generate shared secret of p1hash private key and p2hash public key
+				shared_secret(p2hash, profilekey); //shared secret stored in profilekey
+				#ifdef DEBUG
+				Serial.print("Shared Secret Profile 1"); 
+				byteprint(profilekey, 32);
+				#endif
+				profile2mode=0;
+			} else { 
+			//Generate shared secret of p1hash private key and p1hash public key
+				shared_secret(p1hash, profilekey); //Set this as profile key, used to encrypt profile 1 data
+				profile2mode=0;
+			}
+			memset(ecc_private_key, 0, 32);
+			integrityctr2++;
 			return true; //both strings ended and all previous characters are equal 
 		}else if (pass2!=guessed2){
+			memset(ecc_private_key, 0, 32);
+			integrityctr2++;
 			return false; //difference 
 		}
 		
 		//read next char
-		pass2 = phash[i];
-		guessed2 = temp[i];
+		pass2 = p1hash[i];
+		guessed2 = profilekey[i];
+		integrityctr2++;
 	}
+	memset(ecc_private_key, 0, 32);
 	return false; //a 'true' condition has not been met
 }
 
+bool Password::profile2hashevaluate(){ 
+	size_t guesslen = strlen(guess);
+	if (guesslen < 7) {
+		delay (30); //Simulate time taken to hash
+		return false; //PIN length must be 7 - 10 digits
+	}
+//Hash values
+	SHA256_CTX pinhash;
+	sha256_init(&pinhash);
+	sha256_update(&pinhash, (uint8_t *)guess, guesslen); //Add new PIN to hash
+#ifdef DEBUG
+	Serial.print("NONCE HASH:"); 
+	byteprint(nonce, 32);
+#endif
+
+	sha256_update(&pinhash, nonce, 32); //Add nonce to hash
+	sha256_final(&pinhash, profilekey); //Create hash and store in profilekey
+	//Generate public key of pinhash
+	memcpy(ecc_private_key, profilekey, 32);
+	ecc_private_key[0] &= 0xF8;
+    ecc_private_key[31] = (ecc_private_key[31] & 0x7F) | 0x40;
+	//Generate public key of pinhash
+	Curve25519::eval(profilekey, ecc_private_key, 0); //Generate public in profilekey
+
+#ifdef DEBUG
+	Serial.print("Guessed Hash/PublicKey:"); 
+    byteprint(profilekey, 32);
+	Serial.print("2nd Profile PIN Hash/PublicKey:"); 
+	byteprint(p2hash, 32);
+#endif
+	char pass2 = p2hash[0];
+	char guessed2 = profilekey[0];
+	for (byte i=1; i<32; i++){
+		
+		//check if guessed char is equal to the password char
+		integrityctr1++;
+		if (i == 31 && pass2==guessed2){
+			onlykey_eeget_2ndprofilemode (&profile2mode); //get 2nd profile mode
+			type=4; //Curve25519
+			if (profile2mode!=NOENCRYPT) { //profile key not used for plausible deniability mode
+			#ifdef US_VERSION
+			shared_secret(p1hash, profilekey); //Generate shared secret of p2hash private key and p1hash public key
+			#ifdef DEBUG
+			Serial.print("Shared Secret Profile 2"); 
+			byteprint(profilekey, 32);
+			#endif
+			//Set this as profile key, used to encrypt profile 2 data
+			#endif
+			}
+			memset(ecc_private_key, 0, 32);
+			integrityctr2++;
+			return true; //both strings ended and all previous characters are equal 
+		}else if (pass2!=guessed2){
+			memset(ecc_private_key, 0, 32);
+			integrityctr2++;
+			return false; //difference 
+		}
+		
+		//read next char
+		pass2 = p2hash[i];
+		guessed2 = profilekey[i];
+		integrityctr2++;
+	}
+	memset(ecc_private_key, 0, 32);
+	return false; //a 'true' condition has not been met
+}
+
+
 bool Password::sdhashevaluate(){ 
+	size_t guesslen = strlen(guess);
+	if (guesslen < 7) {
+		delay (30); //Simulate time taken to hash
+		return false; //PIN length must be 7 - 10 digits
+	}
+//Hash values
+	SHA256_CTX pinhash;
+	sha256_init(&pinhash);
+	sha256_update(&pinhash, (uint8_t *)guess, guesslen); //Add new PIN to hash
+#ifdef DEBUG
+	Serial.print("NONCE HASH:"); 
+	byteprint(nonce, 32);
+#endif
+	  
+	sha256_update(&pinhash, nonce, 32); //Add nonce to hash
+	sha256_final(&pinhash, profilekey); //Create hash and store in profilekey
 #ifdef DEBUG
 	Serial.println();
 	
-	  Serial.print(F("SD PIN Hash:")); 
-      for (int i =0; i < 32; i++) {
-        Serial.print(sdhash[i], HEX);
-      }
-	  Serial.println();
+	  Serial.print("SD PIN Hash: "); 
+      byteprint(sdhash, 32);
 #endif
 	char pass2 = sdhash[0];
-	char guessed2 = temp[0];
+	char guessed2 = profilekey[0];
 	for (byte i=1; i<32; i++){
 		
 		//check if guessed char is equal to the password char
@@ -183,39 +285,11 @@ bool Password::sdhashevaluate(){
 		
 		//read next char
 		pass2 = sdhash[i];
-		guessed2 = temp[i];
+		guessed2 = profilekey[i];
 	}
 	return false; //a 'true' condition has not been met
 }
-bool Password::pdhashevaluate(){ 
-#ifdef DEBUG
-	Serial.println();
-	
-	  Serial.print(F("PD PIN Hash:")); 
-      for (int i =0; i < 32; i++) {
-        Serial.print(pdhash[i], HEX);
-      }
-	  Serial.println();
-#endif
-	char pass2 = pdhash[0];
-	char guessed2 = temp[0];
-	for (byte i=1; i<32; i++){
-		
-		//check if guessed char is equal to the password char
-		if (i == 31 && pass2==guessed2){
-			integrityctr1 = 1;
-			PDmode=true;
-			return true; //both strings ended and all previous characters are equal 
-		}else if (pass2!=guessed2){
-			return false; //difference 
-		}
-		
-		//read next char
-		pass2 = pdhash[i];
-		guessed2 = temp[i];
-	}
-	return false; //a 'true' condition has not been met
-}
+
 //set password using operator =
 Password &Password::operator=(char* pass){
 	set( pass );

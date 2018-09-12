@@ -55,9 +55,9 @@ public:
 	bool append(char character);
 	void reset();
 	bool evaluate();
-	bool hashevaluate();
+	bool profile1hashevaluate();
 	bool sdhashevaluate();
-	bool pdhashevaluate();
+	bool profile2hashevaluate();
 	//char* getPassword();
 	//char* getGuess();
 	

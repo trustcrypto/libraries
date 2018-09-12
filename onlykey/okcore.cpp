@@ -110,7 +110,7 @@ uint8_t NEO_Color;
 /*************************************/
 uint32_t unixTimeStamp;
 int PINSET = 0;
-bool PDmode;
+uint8_t profile2mode;
 bool unlocked = false;
 bool initialized = false;
 bool configmode = false;
@@ -138,9 +138,10 @@ yubikey_ctx_st ctx;
 //Password.cpp Assignments
 /*************************************/
 Password password = Password( (char*) "not used" );
-extern uint8_t phash[32];
+extern uint8_t profilekey[32];
+extern uint8_t p1hash[32];
 extern uint8_t sdhash[32];
-extern uint8_t pdhash[32];
+extern uint8_t p2hash[32];
 extern uint8_t nonce[32];
 extern int integrityctr1;
 extern int integrityctr2;
@@ -225,52 +226,41 @@ size_t length = 48; // First block should wait for the pool to fill up.
 
 void recvmsg() {
   int n;
-  uint8_t rand[1] = {0};
-  integrityctr1++;
-  RNG2(rand, 1);
-  integrityctr2++;
   n = RawHID.recv(recv_buffer, 0); // 0 timeout = do not wait
-  if (n > 0 && rand[0] && integrityctr1==integrityctr2) {
+  
+  //Integrity Check
+  if (integrityctr1!=integrityctr2) {
+	unlocked = false;
+	CPU_RESTART();
+	return;
+  }
+	
+  if (n > 0) {
 #ifdef DEBUG
 	Serial.print(F("\n\nReceived packet"));
 	byteprint(recv_buffer,64);
-	Serial.print("Delay ");
-	Serial.println(rand[0]);
 #endif
-	//Integrity Check
-	integrityctr2++;
-	delay(rand[0]); //Delay random amount of time
-	integrityctr1++;
-	if (integrityctr1!=integrityctr2) {
-		Serial.println("integrity fail2");
-		Serial.println(integrityctr1);
-		Serial.println(integrityctr2);
-		unlocked = false;
-		CPU_RESTART();
-		return;
-	}
 
 	  if (configmode==true && recv_buffer[4]!=OKSETSLOT && recv_buffer[4]!=OKSETPRIV && recv_buffer[4]!=OKRESTORE && recv_buffer[4]!=OKFWUPDATE) {
-		hidprint("ERROR NOT IN CONFIG MODE, HOLD BUTTON 6 DOWN FOR 5 SEC");
 #ifdef DEBUG
-	Serial.println("ERROR NOT IN CONFIG MODE, HOLD BUTTON 6 DOWN FOR 5 SEC");
+	Serial.println("ERROR NOT SUPPORTED IN CONFIG MODE");
 #endif
 		return;
 	  }
 
 	  switch (recv_buffer[4]) {
 	  case OKSETPIN:
-	  if(!PDmode) {
-	  SETPIN(recv_buffer);
+	  if(profile2mode!=NOENCRYPT) {
+	  if (!initcheck) SETPIN(recv_buffer);
 	  } else {
-	  SETPDPIN(recv_buffer);
+	  if (!initcheck) SETPDPIN(recv_buffer);
 	  }
 	  return;
 	  case OKSETSDPIN:
 	  SETSDPIN(recv_buffer);
 	  return;
 	  case OKSETPDPIN:
-	  SETPDPIN(recv_buffer);
+	  if (!initcheck) SETPDPIN(recv_buffer);
 	  return;
 	  case OKSETTIME:
 	  outputU2F = 0;
@@ -296,14 +286,14 @@ void recvmsg() {
 	   if(initialized==false && unlocked==true && integrityctr1==integrityctr2)
 	   {
 		if (recv_buffer[6] == 12 || recv_buffer[6] == 20) { //You can set wipemode and backupkeymode any time but they are set once settings
-		SETSLOT(recv_buffer);
+		if (recv_buffer[0] != 0xBA) SETSLOT(recv_buffer);
 		} else {
 		hidprint("Error you must set a PIN first on OnlyKey");
 		}
 		return;
 	   }else if ((initialized==true && unlocked==true && FTFL_FSEC==0x44 && integrityctr1==integrityctr2) || (!initcheck && unlocked==true && initialized==true && integrityctr1==integrityctr2))
 	   {
-		SETSLOT(recv_buffer);
+		if (recv_buffer[0] != 0xBA) SETSLOT(recv_buffer);
 	   }
 	   else
 	   {
@@ -333,7 +323,7 @@ void recvmsg() {
 		return;
 	   }else if (initialized==true && unlocked==true && FTFL_FSEC==0x44 && integrityctr1==integrityctr2)
 	   {
-		if(!PDmode) {
+		if(profile2mode!=NOENCRYPT) {
 		#ifdef US_VERSION
 		SETU2FPRIV(recv_buffer);
 		#endif
@@ -352,7 +342,7 @@ void recvmsg() {
 		return;
 	   }else if (initialized==true && unlocked==true && FTFL_FSEC==0x44 && integrityctr1==integrityctr2)
 	   {
-		if(!PDmode) {
+		if(profile2mode!=NOENCRYPT) {
 		#ifdef US_VERSION
 		WIPEU2FPRIV(recv_buffer);
 		#endif
@@ -371,7 +361,7 @@ void recvmsg() {
 		return;
 	   }else if (initialized==true && unlocked==true && FTFL_FSEC==0x44 && integrityctr1==integrityctr2)
 	   {
-		if(!PDmode) {
+		if(profile2mode!=NOENCRYPT) {
 		#ifdef US_VERSION
 		if (recv_buffer[0] != 0xBA) SETU2FCERT(recv_buffer);
 		#endif
@@ -390,7 +380,7 @@ void recvmsg() {
 		return;
 	   }else if (initialized==true && unlocked==true && FTFL_FSEC==0x44 && integrityctr1==integrityctr2)
 	   {
-		if(!PDmode) {
+		if(profile2mode!=NOENCRYPT) {
 		#ifdef US_VERSION
 		WIPEU2FCERT(recv_buffer);
 		#endif
@@ -405,7 +395,7 @@ void recvmsg() {
 	  case OKSETPRIV:
 	   if ((initialized==true && unlocked==true && FTFL_FSEC==0x44 && integrityctr1==integrityctr2 && configmode==true) || (initialized==true && unlocked==true && !initcheck)) //Only permit loading keys on first use and while in config mode
 	   {
-				if(!PDmode) {
+				if(profile2mode!=NOENCRYPT) {
 				#ifdef US_VERSION
 				if (recv_buffer[0] != 0xBA) SETPRIV(recv_buffer);
 				#endif
@@ -427,7 +417,7 @@ void recvmsg() {
 		return;
 	   }else if (initialized==true && unlocked==true && FTFL_FSEC==0x44 && integrityctr1==integrityctr2)
 	   {
-				if(!PDmode) {
+				if(profile2mode!=NOENCRYPT) {
 				#ifdef US_VERSION
 				WIPEPRIV(recv_buffer);
 				#endif
@@ -446,7 +436,7 @@ void recvmsg() {
 		return;
 	   }else if (initialized==true && unlocked==true && FTFL_FSEC==0x44 && integrityctr1==integrityctr2 && !CRYPTO_AUTH)
 	   {
-		if(!PDmode) {
+		if(profile2mode!=NOENCRYPT) {
 		#ifdef US_VERSION
 		NEO_Color = 213; //Purple
 		fadeon();
@@ -468,7 +458,7 @@ void recvmsg() {
 		return;
 	   }else if (initialized==true && unlocked==true && FTFL_FSEC==0x44 && integrityctr1==integrityctr2 && !CRYPTO_AUTH)
 	   {
-		if(!PDmode) {
+		if(profile2mode!=NOENCRYPT) {
 		#ifdef US_VERSION
 		NEO_Color = 128; //Turquoise
 		fadeon();
@@ -490,7 +480,7 @@ void recvmsg() {
 		return;
 	   }else if (initialized==true && unlocked==true && FTFL_FSEC==0x44 && integrityctr1==integrityctr2)
 	   {
-				if(!PDmode) {
+				if(profile2mode!=NOENCRYPT) {
 				#ifdef US_VERSION
 				outputU2F = 0;
 				GETPUBKEY(recv_buffer);
@@ -510,7 +500,7 @@ void recvmsg() {
 		return;
 	   }else if ((initialized==true && unlocked==true && FTFL_FSEC==0x44 && integrityctr1==integrityctr2 && configmode==true) || (initialized==true && unlocked==true && !initcheck && integrityctr1==integrityctr2)) //Only permit loading backup on first use and while in config mode
 	   {
-				if(!PDmode) {
+				if(profile2mode!=NOENCRYPT) {
 				#ifdef US_VERSION
 				RESTORE(recv_buffer);
 				#endif
@@ -546,7 +536,7 @@ void recvmsg() {
 	   }
 	  return;
 	  default:
-		if(!PDmode && initialized==true && unlocked==true && FTFL_FSEC==0x44 && integrityctr1==integrityctr2) {
+		if(profile2mode!=NOENCRYPT && initialized==true && unlocked==true && FTFL_FSEC==0x44 && integrityctr1==integrityctr2) {
 		#ifdef US_VERSION
 			recvu2fmsg(recv_buffer);
 		#endif
@@ -554,7 +544,7 @@ void recvmsg() {
 	  return;
 	}
   } else {
-	  if(!PDmode && initialized==true && unlocked==true && FTFL_FSEC==0x44 && integrityctr1==integrityctr2) {
+	  if(profile2mode!=NOENCRYPT && initialized==true && unlocked==true && FTFL_FSEC==0x44 && integrityctr1==integrityctr2) {
 	  #ifdef US_VERSION
 	  u2fmsgtimeout(recv_buffer);
 	  #endif
@@ -646,31 +636,21 @@ switch (PINSET) {
 			SHA256_CTX pinhash;
 			sha256_init(&pinhash);
 			sha256_update(&pinhash, temp, strlen(password.guess)); //Add new PIN to hash
-			if (!onlykey_flashget_noncehash (ptr, 32)) {
 			RNG2(ptr, 32); //Fill temp with random data
 #ifdef DEBUG
 			Serial.println("Generating NONCE");
 #endif
 			onlykey_flashset_noncehash (ptr); //Store in flash
 			memcpy(nonce, ptr, 32);
-			recv_buffer[4] = 0xEF;
-			recv_buffer[5] = 0x84;
-			recv_buffer[6] = 0x61;
-			RNG2(recv_buffer+7, 32);
-			SETPRIV(recv_buffer); //set default ECC key
 			initialized=true;
-			}
 
 			sha256_update(&pinhash, temp, 32); //Add nonce to hash
 			sha256_final(&pinhash, temp); //Create hash and store in temp
-#ifdef DEBUG
-			Serial.println("Hashing PIN and storing to Flash");
-#endif
-			onlykey_flashset_pinhash (ptr);
-			memcpy(phash, ptr, 32);
+
+			onlykey_flashset_pinhashpublic (ptr);
 #ifdef DEBUG
 	  		Serial.println();
-			Serial.println("Successfully set PIN, remove and reinsert OnlyKey");
+			Serial.println("Successfully set PIN");
 #endif
 			hidprint("Successfully set PIN");
           }
@@ -880,11 +860,10 @@ void SETPDPIN (uint8_t *buffer)
 #ifdef DEBUG
 			Serial.println("Hashing PIN and storing to Flash");
 #endif
-			onlykey_flashset_plausdenyhash (ptr);
-
+			onlykey_flashset_2ndpinhashpublic (ptr);
 #ifdef DEBUG
 	  		Serial.println();
-			Serial.println("Successfully set PIN, remove and reinsert OnlyKey");
+			Serial.println("Successfully set PIN");
 #endif
 			hidprint("Successfully set PIN");
           }
@@ -975,7 +954,7 @@ void SETTIME (uint8_t *buffer)
 
 uint8_t GETKEYLABELS (uint8_t output)
 {
-	if (PDmode) return 0;
+	if (profile2mode==NOENCRYPT) return 0;
 	#ifdef US_VERSION
 #ifdef DEBUG
       Serial.println();
@@ -1073,7 +1052,7 @@ void GETSLOTLABELS (uint8_t output)
 	  char labeltype[EElen_label+3+3];
 	  labeltype[2] = 0x20;
 	  ptr=label+2;
-	  if (PDmode) offset = 12;
+	  if (profile2mode) offset = 12;
 
 	for (int i = 1; i<=12; i++) {
 	  onlykey_flashget_label(ptr, (offset + i));
@@ -1130,12 +1109,8 @@ void SETSLOT (uint8_t *buffer)
       Serial.print("Length = ");
       Serial.println(length);
 #endif
-	if (configmode==true && value!=1) {
-	hidprint("ERROR NOT IN CONFIG MODE, HOLD BUTTON 6 DOWN FOR 5 SEC");
-	return;
-	}
 
-	if (PDmode) slot = slot + 12;
+	if (profile2mode && buffer[0] != 0xBA) slot = slot + 12; // 2nd profile slots 12 -24 0xBA is loading from backup
             switch (value) {
             case 1:
 #ifdef DEBUG
@@ -1149,14 +1124,14 @@ void SETSLOT (uint8_t *buffer)
 #ifdef DEBUG
             Serial.println("Writing URL Value to Flash...");
 #endif
-            if (!PDmode) {
+            if (profile2mode!=NOENCRYPT) {
 #ifdef DEBUG
             Serial.println("Unencrypted");
 			byteprint(buffer+7, 32);
             Serial.println();
 #endif
 #ifdef US_VERSION
-      	    if (slot <= 12) aes_gcm_encrypt((buffer + 7), slot, value, phash, length);
+      	    aes_gcm_encrypt((buffer + 7), slot, value, profilekey, length);
 #endif
 #ifdef DEBUG
       	    Serial.println("Encrypted");
@@ -1229,14 +1204,14 @@ void SETSLOT (uint8_t *buffer)
 #ifdef DEBUG
             Serial.println("Writing Username Value to Flash...");
 #endif
-            if (!PDmode) {
+            if (profile2mode!=NOENCRYPT) {
 #ifdef DEBUG
             Serial.println("Unencrypted");
 			byteprint(buffer+7, 32);
             Serial.println();
 #endif
 #ifdef US_VERSION
-      	    if (slot <= 12) aes_gcm_encrypt((buffer + 7), slot, value, phash, length);
+      	    aes_gcm_encrypt((buffer + 7), slot, value, profilekey, length);
 #endif
 #ifdef DEBUG
       	    Serial.println("Encrypted");
@@ -1262,7 +1237,7 @@ void SETSLOT (uint8_t *buffer)
 #ifdef DEBUG
 			Serial.print(buffer[7]);
 #endif
-	    hidprint("Successfully set additonal character after password");
+	    hidprint("Successfully set additional character after password");
 			break;
             case 4:
             //Set value in EEPROM
@@ -1279,14 +1254,14 @@ void SETSLOT (uint8_t *buffer)
 #ifdef DEBUG
             Serial.println("Writing Password to EEPROM...");
 #endif
-            if (!PDmode) {
+            if (profile2mode!=NOENCRYPT) {
 #ifdef DEBUG
             Serial.println("Unencrypted");
 			byteprint(buffer+7, 32);
             Serial.println();
 #endif
 #ifdef US_VERSION
-            if (slot <= 12) aes_gcm_encrypt((buffer + 7), slot, value, phash, length);
+            aes_gcm_encrypt((buffer + 7), slot, value, profilekey, length);
 #endif
 #ifdef DEBUG
       	    Serial.println("Encrypted");
@@ -1343,8 +1318,8 @@ void SETSLOT (uint8_t *buffer)
             Serial.println();
 #endif
 #ifdef US_VERSION
-            if (!PDmode) {
-            if (slot <= 12) aes_gcm_encrypt((buffer + 7), slot, value, phash, length);
+            if (profile2mode!=NOENCRYPT) {
+            aes_gcm_encrypt((buffer + 7), slot, value, profilekey, length);
             }
 #endif
 #ifdef DEBUG
@@ -1356,7 +1331,7 @@ void SETSLOT (uint8_t *buffer)
 	    hidprint("Successfully set TOTP Key");
 			break;
             case 10:
-            if (!PDmode) {
+            if (profile2mode!=NOENCRYPT) {
             //Encrypt and Set value in Flash
 #ifdef DEBUG
             Serial.println("Writing AES Key, Private ID, and Public ID to EEPROM...");
@@ -1369,7 +1344,7 @@ void SETSLOT (uint8_t *buffer)
             Serial.println();
 #endif
 #ifdef US_VERSION
-            if (slot <= 12) aes_gcm_encrypt((buffer + 7), 0, value, phash, length);
+            aes_gcm_encrypt((buffer + 7), 0, value, profilekey, length);
 #endif
 #ifdef DEBUG
       	    Serial.println("Encrypted");
@@ -1409,7 +1384,7 @@ void SETSLOT (uint8_t *buffer)
             	hidprint("Successfully set Wipe Mode to Default Setting");
 			}
 			else {
-	        hidprint("Successful");
+	        hidprint("Success");
 			}
 			break;
 			case 20:
@@ -1417,7 +1392,7 @@ void SETSLOT (uint8_t *buffer)
             Serial.println(); //newline
             Serial.println("Writing backupkeymode to EEPROM...");
 #endif
-			if(buffer[7] == 2) {
+			if(buffer[7] == 1) {
             	onlykey_eeset_backupkeymode(buffer + 7);
             	hidprint("Successfully set Backup Key Mode to Set Once");
             } else if (!initcheck) { //Only permit changing this on first use on a clean device
@@ -1425,7 +1400,7 @@ void SETSLOT (uint8_t *buffer)
             	hidprint("Successfully set Backup Key Mode to Default Setting");
 			}
 			else {
-	        hidprint("Successful");
+	        hidprint("Success");
 			}
 			break;
 			case 21:
@@ -1451,6 +1426,25 @@ void SETSLOT (uint8_t *buffer)
             } else {
 	        hidprint("ERROR NOT IN CONFIG MODE, HOLD BUTTON 6 DOWN FOR 5 SEC");
 			}
+			break;
+			case 23:
+#ifdef DEBUG
+            Serial.println(); //newline
+            Serial.println("Writing 2ndprofilemode to EEPROM...");
+#endif
+			if (profile2mode==NOENCRYPT) return;
+			#ifdef US_VERSION
+			if (!initcheck) { //Only permit changing this on first use
+            	onlykey_eeset_2ndprofilemode(buffer + 7);
+            	hidprint("Successfully set 2nd profile mode");
+				profile2mode = buffer[7];
+				Serial.print("Profile Mode"); 
+				Serial.println(profile2mode);
+			
+            } else {
+	        hidprint("ERROR 2ND PROFILE MODE MAY ONLY BE SET ON FIRST USE");
+			}
+			#endif
 			break;
 			case 13:
 #ifdef DEBUG
@@ -1478,7 +1472,7 @@ void SETSLOT (uint8_t *buffer)
             default:
             return;
           }
-      blink(1);
+      if (buffer[0] != 0xBA) blink(1);
       return;
 }
 
@@ -1512,7 +1506,7 @@ void WIPESLOT (uint8_t *buffer)
 			yubikey_eeset_counter(buffer + 7);
             hidprint("Successfully wiped AES Key, Private ID, and Public ID");
 	 } else if (slot >= 1 && slot <=12) {
-   	if (PDmode) slot = slot+12;
+   	if (profile2mode) slot = slot+12;
 #ifdef DEBUG
             Serial.println(); //newline
             Serial.print("Wiping Label Value...");
@@ -1657,32 +1651,32 @@ void rngloop() {
 	//Stir in temperature reading
 	//RNG.stir((uint8_t *)((int)temperaturev), sizeof(temperaturev), sizeof(temperaturev));
     // Stir the touchread and analog read values into the entropy pool.
+	integrityctr1++;
 	touchread1 = touchRead(TOUCHPIN1);
-	//Serial.println(touchread1);
     RNG.stir((uint8_t *)touchread1, sizeof(touchread1), sizeof(touchread1));
     touchread2 = touchRead(TOUCHPIN2);
-    //Serial.println(touchread2);
     RNG.stir((uint8_t *)touchread2, sizeof(touchread2), sizeof(touchread2));
     touchread3 = touchRead(TOUCHPIN3);
-    //Serial.println(touchread3);
     RNG.stir((uint8_t *)touchread3, sizeof(touchread3), sizeof(touchread3));
     touchread4 = touchRead(TOUCHPIN4);
-    //Serial.println(touchread4);
     RNG.stir((uint8_t *)touchread4, sizeof(touchread4), sizeof(touchread4));
     touchread5 = touchRead(TOUCHPIN5);
-    //Serial.println(touchread5);
     RNG.stir((uint8_t *)touchread5, sizeof(touchread5), sizeof(touchread5));
     touchread6 = touchRead(TOUCHPIN6);
-    //Serial.println(touchread6);
     RNG.stir((uint8_t *)touchread6, sizeof(touchread6), sizeof(touchread6));
     unsigned int analog1 = analogRead(ANALOGPIN1);
-    //Serial.println(analog1);
     RNG.stir((uint8_t *)analog1, sizeof(analog1), sizeof(analog1)*4);
     unsigned int analog2 = analogRead(ANALOGPIN2);
-    //Serial.println(analog2);
     RNG.stir((uint8_t *)analog2, sizeof(analog2), sizeof(analog2)*4);
-    // Perform regular housekeeping on the random number generator.
+	// Perform regular housekeeping on the random number generator.
     RNG.loop();
+	delay((analog1 % 3) + (analog2 % 3)); //delay 0 - 6 ms
+	integrityctr2++;
+	if (integrityctr1!=integrityctr2) { //Integrity Check
+	unlocked = false;
+	CPU_RESTART();
+	return;
+	}
 }
 
 void printHex(const uint8_t *data, unsigned len)
@@ -1871,6 +1865,21 @@ void aes_gcm_encrypt (uint8_t * state, uint8_t slot, uint8_t value, const uint8_
 	uint8_t *ptr;
 	ptr = iv2;
 	onlykey_flashget_noncehash(ptr, 12);
+	
+	#ifdef DEBUG
+	Serial.print("INPUT KEY ");
+	byteprint((uint8_t*)key, 32);
+	#endif
+	
+	#ifdef DEBUG
+	Serial.println("SLOT");
+	Serial.println(slot);
+	#endif
+	
+	#ifdef DEBUG
+	Serial.print("VALUE");
+	Serial.print(value);
+	#endif
 
 	SHA256_CTX iv;
 	sha256_init(&iv);
@@ -1886,7 +1895,7 @@ void aes_gcm_encrypt (uint8_t * state, uint8_t slot, uint8_t value, const uint8_
 
 	SHA256_CTX key2;
 	sha256_init(&key2);
-	sha256_update(&key2, key, 16); //add pinhash
+	sha256_update(&key2, key, 16); //add profilekey
 	sha256_update(&key2, data, 2); //add slot
 	sha256_update(&key2, (uint8_t*)ID, 32); //add first 32 bytes of Freescale CHIP ID
 	sha256_final(&key2, aeskey); //Create hash and store in aeskey
@@ -1899,7 +1908,15 @@ void aes_gcm_encrypt (uint8_t * state, uint8_t slot, uint8_t value, const uint8_
 	gcm.clear ();
 	gcm.setKey(aeskey, 32);
 	gcm.setIV(iv2, 12);
+	#ifdef DEBUG
+	Serial.print("DECRYPTED STATE");
+	byteprint(state, len);
+	#endif
 	gcm.encrypt(state, state, len);
+	#ifdef DEBUG
+	Serial.print("ENCRYPTED STATE");
+	byteprint(state, len);
+	#endif
 	//gcm.computeTag(tag, sizeof(tag));
 	#endif
 }
@@ -1915,6 +1932,21 @@ void aes_gcm_decrypt (uint8_t * state, uint8_t slot, uint8_t value, const uint8_
 	uint8_t *ptr;
 	ptr = iv2;
 	onlykey_flashget_noncehash(ptr, 12);
+	
+	#ifdef DEBUG
+	Serial.print("INPUT KEY ");
+	byteprint((uint8_t*)key, 32);
+	#endif
+	
+	#ifdef DEBUG
+	Serial.println("SLOT");
+	Serial.println(slot);
+	#endif
+	
+	#ifdef DEBUG
+	Serial.print("VALUE");
+	Serial.print(value);
+	#endif
 
 	SHA256_CTX iv;
 	sha256_init(&iv);
@@ -1931,7 +1963,7 @@ void aes_gcm_decrypt (uint8_t * state, uint8_t slot, uint8_t value, const uint8_
 
 	SHA256_CTX key2;
 	sha256_init(&key2);
-	sha256_update(&key2, key, 16); //add pinhash
+	sha256_update(&key2, key, 16); //add profilekey
 	sha256_update(&key2, data, 2); //add data
 	sha256_update(&key2, (uint8_t*)ID, 32); //add first 32 bytes of Freescale CHIP ID
 	sha256_final(&key2, aeskey); //Create hash and store in aeskey
@@ -1944,7 +1976,15 @@ void aes_gcm_decrypt (uint8_t * state, uint8_t slot, uint8_t value, const uint8_
 	gcm.clear ();
 	gcm.setKey(aeskey, 32);
 	gcm.setIV(iv2, 12);
+	#ifdef DEBUG
+	Serial.print("ENCRYPTED STATE");
+	byteprint(state, len);
+	#endif
 	gcm.decrypt(state, state, len);
+	#ifdef DEBUG
+	Serial.print("DECRYPTED STATE");
+	byteprint(state, len);
+	#endif
 	//if (!gcm.checkTag(tag, sizeof(tag))) {
 	//	return 1;
 	//}
@@ -2078,7 +2118,7 @@ void onlykey_flashset_noncehash (uint8_t *ptr) {
 }
 
 
-int onlykey_flashget_pinhash (uint8_t *ptr, int size) {
+int onlykey_flashget_pinhashpublic (uint8_t *ptr, int size) {
 
 	uintptr_t adr = (unsigned long)flashstorestart;
 	adr = adr + EElen_noncehash;
@@ -2100,12 +2140,26 @@ int onlykey_flashget_pinhash (uint8_t *ptr, int size) {
 
 }
 
-void onlykey_flashset_pinhash (uint8_t *ptr) {
+void onlykey_flashset_pinhashpublic (uint8_t *ptr) {
 
 	uintptr_t adr = (unsigned long)flashstorestart;
 	uint8_t temp[255];
 	uint8_t *tptr;
 	tptr=temp;
+	ptr[0] &= 0xF8;
+    ptr[31] = (ptr[31] & 0x7F) | 0x40;
+	//Generate public key of pinhash in temp
+	Curve25519::eval(temp, ptr, 0); 
+#ifdef DEBUG
+      Serial.print("Storing public key of PIN hash =");
+	  byteprint(temp, 32);
+#endif
+	//Generate shared secret in profile key
+	memcpy(ecc_private_key, ptr, 32);
+	type=4; //Curve25519
+	shared_secret(temp, profilekey);
+	//Copy public key to ptr for writing to flash
+	memcpy(ptr, temp, 32);
 	//Copy current flash contents to buffer
     onlykey_flashget_common(tptr, (unsigned long*)adr, 254);
 	//Add new flash contents to buffer
@@ -2116,9 +2170,15 @@ void onlykey_flashset_pinhash (uint8_t *ptr) {
 #ifdef DEBUG
       Serial.print("Pin hash address =");
       Serial.println(adr, HEX);
-      Serial.print("Pin hash value =");
 #endif
-      onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_pinhash);
+	// Generate and encrypt default key
+	recv_buffer[4] = 0xEF;
+	recv_buffer[5] = 0x84;
+	recv_buffer[6] = 0x61;
+	RNG2(recv_buffer+7, 32);
+	SETPRIV(recv_buffer); //set default ECC key
+	memset(ecc_private_key, 0, 32);
+    onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_pinhash);
 
 }
 /*********************************/
@@ -2140,7 +2200,8 @@ int onlykey_flashget_selfdestructhash (uint8_t *ptr) {
     else {
 		#ifdef DEBUG
 		Serial.printf("Read Self-Destruct PIN hash from Sector 0x%X ",adr);
-		Serial.printf("Self-Destruct PIN hash has been set");
+		Serial.print("Self-Destruct PIN hash value =");
+		byteprint(ptr, 32);
 		#endif
 		return 1;
     }
@@ -2164,6 +2225,7 @@ void onlykey_flashset_selfdestructhash (uint8_t *ptr) {
       Serial.print("Self-Destruct PIN hash address =");
       Serial.println(adr, HEX);
       Serial.print("Self-Destruct PIN hash value =");
+	  byteprint(ptr, 32);
 #endif
       onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_selfdestructhash);
 }
@@ -2171,7 +2233,7 @@ void onlykey_flashset_selfdestructhash (uint8_t *ptr) {
 /*********************************/
 /*********************************/
 
-int onlykey_flashget_plausdenyhash (uint8_t *ptr) {
+int onlykey_flashget_2ndpinhashpublic (uint8_t *ptr) {
 
 	uintptr_t adr = (unsigned long)flashstorestart;
 	adr = adr + EElen_noncehash + EElen_pinhash + EElen_selfdestructhash;
@@ -2193,14 +2255,49 @@ int onlykey_flashget_plausdenyhash (uint8_t *ptr) {
     }
 
 }
-void onlykey_flashset_plausdenyhash (uint8_t *ptr) {
+void onlykey_flashset_2ndpinhashpublic (uint8_t *ptr) {
 
 	uintptr_t adr = (unsigned long)flashstorestart;
 	uint8_t temp[255];
+	uint8_t backupkeyslot;
+	uint8_t backupkeytype;
 	uint8_t *tptr;
 	tptr=temp;
+
+	ptr[0] &= 0xF8;
+    ptr[31] = (ptr[31] & 0x7F) | 0x40;
+	//Generate public key of pinhash in temp
+	Curve25519::eval(temp, ptr, 0); 
+#ifdef DEBUG
+      Serial.print("Storing public key of PIN 2 hash =");
+	  byteprint(temp, 32);
+#endif
+	if (profile2mode!=NOENCRYPT) { //profile key not used for plausible deniability mode
+#ifdef US_VERSION
+	// Decrypt backup key 
+	onlykey_eeget_backupkey(&backupkeyslot);
+	backupkeytype = onlykey_flashget_ECC(backupkeyslot);
+	memcpy(temp + 39, ecc_private_key, 32); //Temporarily store backup key
+	//Generate shared secret in profile key
+	memcpy(ecc_private_key, ptr, 32);
+	type=4; //Curve25519
+	onlykey_flashget_pinhashpublic (p1hash, 32); //store PIN hash
+	shared_secret(p1hash, profilekey);//Generate shared secret of p2hash private key and p1hash public key
+	Serial.print("p1hash ecc_private and profilekey");
+	byteprint(p1hash, 32);
+	byteprint(ecc_private_key, 32);
+	byteprint(profilekey, 32);
+	temp[36] = 0xEF;
+	temp[37] = backupkeyslot;
+	temp[38] = backupkeytype;
+	SETPRIV(temp+32); //Re-encrypt and set backup key
+#endif	
+	}
+	//Copy public key to ptr for writing to flash
+	memcpy(ptr, temp, 32);
 	//Copy current flash contents to buffer
     onlykey_flashget_common(tptr, (unsigned long*)adr, 254);
+
 	//Add new flash contents to buffer
 	for( int z = 0; z <= 31; z++){
 		temp[z + EElen_noncehash + EElen_pinhash + EElen_selfdestructhash] = ((uint8_t)*(ptr+z));
@@ -2211,7 +2308,18 @@ void onlykey_flashset_plausdenyhash (uint8_t *ptr) {
       Serial.println(adr, HEX);
       Serial.print("PIN hash value =");
 #endif
-      onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_plausdenyhash);
+	if (profile2mode!=NOENCRYPT) { 
+#ifdef US_VERSION
+	// Generate and encrypt default key
+	recv_buffer[4] = 0xEF;
+	recv_buffer[5] = 0x84;
+	recv_buffer[6] = 0x61;
+	RNG2(recv_buffer+7, 32);
+	SETPRIV(recv_buffer); //set default ECC key
+	memset(ecc_private_key, 0, 32);
+#endif	
+	}
+    onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_plausdenyhash);
 
 }
 
@@ -3513,7 +3621,7 @@ return;
 void onlykey_flashget_U2F ()
 {
 
-if (PDmode) return;
+if (profile2mode==NOENCRYPT) return;
 #ifdef US_VERSION
 #ifdef DEBUG
     Serial.println("Flashget U2F");
@@ -3551,7 +3659,7 @@ if (PDmode) return;
 void SETU2FPRIV (uint8_t *buffer)
 {
 
-if (PDmode) return;
+if (profile2mode==NOENCRYPT) return;
 #ifdef US_VERSION
 #ifdef DEBUG
     Serial.println("OKSETU2FPRIV MESSAGE RECEIVED");
@@ -3600,7 +3708,7 @@ if (PDmode) return;
     }
     hidprint("Successfully set U2F Private");
 
-  blink(2);
+  if (buffer[0] != 0xBA) blink(2);
 #endif
   return;
 
@@ -3610,7 +3718,7 @@ if (PDmode) return;
 void WIPEU2FPRIV (uint8_t *buffer)
 {
 
-if (PDmode) return;
+if (profile2mode==NOENCRYPT) return;
 #ifdef US_VERSION
 #ifdef DEBUG
     Serial.println("OKWIPEU2FPRIV MESSAGE RECEIVED");
@@ -3639,7 +3747,7 @@ if (PDmode) return;
 void SETU2FCERT (uint8_t *buffer)
 {
 
-if (PDmode) return;
+if (profile2mode==NOENCRYPT) return;
 #ifdef US_VERSION
 #ifdef DEBUG
     Serial.println("OKSETU2FCERT MESSAGE RECEIVED");
@@ -3703,7 +3811,7 @@ if (PDmode) return;
 #endif
 	packet_buffer_offset = 0;
 	hidprint("Successfully set U2F Certificate");
-      blink(2);
+      if (buffer[0] != 0xBA) blink(2);
 #endif
       return;
 
@@ -3712,7 +3820,7 @@ if (PDmode) return;
 void WIPEU2FCERT (uint8_t *buffer)
 {
 
-if (PDmode) return;
+if (profile2mode==NOENCRYPT) return;
 #ifdef US_VERSION
 #ifdef DEBUG
     Serial.println("OKWIPEU2FCERT MESSAGE RECEIVED");
@@ -3751,13 +3859,13 @@ void SETPRIV (uint8_t *buffer)
 	integrityctr1++;
 	onlykey_eeget_backupkeymode(&backupkeymode);
 	integrityctr2++;
-	if (backupkeymode && backupkeyslot == buffer[5]) {
+	if (backupkeymode && backupkeyslot == buffer[5] && initcheck) {
 		hidprint("ERROR BACKUP KEY MODE SET TO SET ONCE");
 		integrityctr1++;
 		return;
 	}
 	integrityctr1++;
-	if (PDmode) return;
+	if (profile2mode==NOENCRYPT) return;
 	#ifdef US_VERSION
 	if (buffer[6] > 0x80) {//Type is Backup key
 	buffer[6] = buffer[6] - 0x80;
@@ -3773,7 +3881,7 @@ void SETPRIV (uint8_t *buffer)
 }
 
 void WIPEPRIV (uint8_t *buffer) {
-	if (PDmode) return;
+	if (profile2mode==NOENCRYPT) return;
 	#ifdef US_VERSION
 	if (buffer[5] <= 4 && buffer[5] >= 1) {
 	WIPERSAPRIV(buffer);
@@ -3789,7 +3897,7 @@ void WIPEPRIV (uint8_t *buffer) {
 int onlykey_flashget_ECC (uint8_t slot)
 {
 
-if (PDmode) return 0;
+if (profile2mode==NOENCRYPT) return 0;
 #ifdef US_VERSION
 #ifdef DEBUG
     Serial.print("Flashget ECC key from slot # ");
@@ -3829,7 +3937,7 @@ if (PDmode) return 0;
 	}
 	adr = adr + (((slot-100)*32)-32);
     onlykey_flashget_common((uint8_t*)ecc_private_key, (unsigned long*)adr, 32);
-	aes_gcm_decrypt(ecc_private_key, slot, features, phash, 32);
+	aes_gcm_decrypt(ecc_private_key, slot, features, profilekey, 32);
 	#ifdef DEBUG
 	Serial.printf("Read ECC Private Key from Sector 0x%X ",adr);
 	#endif
@@ -3856,7 +3964,7 @@ if (PDmode) return 0;
 void SETECCPRIV (uint8_t *buffer)
 {
 
-if (PDmode) return;
+if (profile2mode==NOENCRYPT) return;
 #ifdef US_VERSION
 #ifdef DEBUG
     Serial.println("OKSETECCPRIV MESSAGE RECEIVED");
@@ -3881,8 +3989,7 @@ if (PDmode) return;
     uint8_t temp[2048];
     uint8_t *tptr;
     tptr=temp;
-	uint8_t *ptr = buffer+7;
-	int gen_key = *ptr + *(ptr+1)+ *(ptr+2)+ *(ptr+3)+ *(ptr+4);
+	int gen_key = buffer[7] + buffer[8] + buffer[9] + buffer[10]+ buffer[11];
 	if (gen_key == 0) { //All 0s
 		GENERATE_KEY(buffer);
 	}
@@ -3890,12 +3997,12 @@ if (PDmode) return;
 Serial.print("ECC Key value =");
 byteprint((uint8_t*)buffer+7, 32);
 #endif
-	aes_gcm_encrypt(ptr, buffer[5], buffer[6], phash, 32);
+	aes_gcm_encrypt(buffer+7, buffer[5], buffer[6], profilekey, 32);
     //Copy current flash contents to buffer
     onlykey_flashget_common(tptr, (unsigned long*)adr, 2048);
     //Add new flash contents to buffer
     for( int z = 0; z < MAX_ECC_KEY_SIZE; z++){
-    temp[z+(((buffer[5]-100)*MAX_ECC_KEY_SIZE)-MAX_ECC_KEY_SIZE)] = ((uint8_t)*(ptr+z));
+    temp[z+(((buffer[5]-100)*MAX_ECC_KEY_SIZE)-MAX_ECC_KEY_SIZE)] = buffer[7+z];
     }
     //Erase flash sector
 #ifdef DEBUG
@@ -3911,11 +4018,13 @@ byteprint((uint8_t*)buffer+7, 32);
 #endif
 	//Write buffer to flash
     onlykey_flashset_common(tptr, (unsigned long*)adr, 2048);
-
-	if (gen_key != 0 && initialized){
+	Serial.println(buffer[5]);
+	if (buffer[5]==131) { //Designated Backup Passphrase slot
+	hidprint("Successfully set Backup Passphrase");	
+	} else if (gen_key != 0 && initcheck){
 	hidprint("Successfully set ECC Key");
-      blink(2);
-	}
+      if (buffer[0] != 0xBA) blink(2);
+	} 
 #endif
       return;
 
@@ -3924,7 +4033,7 @@ byteprint((uint8_t*)buffer+7, 32);
 int onlykey_flashget_RSA (uint8_t slot)
 {
 
-if (PDmode) return 0;
+if (profile2mode==NOENCRYPT) return 0;
 #ifdef US_VERSION
 #ifdef DEBUG
     Serial.print("Flashget RSA key from slot # ");
@@ -3964,7 +4073,7 @@ if (PDmode) return 0;
 	#endif
 	adr = adr + ((slot*MAX_RSA_KEY_SIZE)-MAX_RSA_KEY_SIZE);
     onlykey_flashget_common((uint8_t*)rsa_private_key, (unsigned long*)adr, (type*128));
-	aes_gcm_decrypt(rsa_private_key, slot, features, phash, (type*128));
+	aes_gcm_decrypt(rsa_private_key, slot, features, profilekey, (type*128));
 	#ifdef DEBUG
 	Serial.printf("Read RSA Private Key from Sector 0x%X ",adr);
 	byteprint(rsa_private_key, (type*128));
@@ -3979,7 +4088,7 @@ return 0;
 void SETRSAPRIV (uint8_t *buffer)
 {
 
-if (PDmode) return;
+if (profile2mode==NOENCRYPT) return;
 #ifdef US_VERSION
 #ifdef DEBUG
     Serial.println("OKSETRSAPRIV MESSAGE RECEIVED");
@@ -3989,7 +4098,6 @@ if (PDmode) return;
 	uint8_t temp[2048];
     uint8_t *tptr;
     tptr=temp;
-	uint8_t *ptr=rsa_private_key;
 	uintptr_t adr = (unsigned long)flashstorestart;
 	adr = adr + 14336; //8th free flash sector
 	if (buffer[5]<1 || buffer[5]>4) {
@@ -4036,7 +4144,6 @@ if (PDmode) return;
 	//Write ID to EEPROM
 	if (packet_buffer_offset >= keysize || buffer[0] == 0xBA) {		//Then we have the complete RSA key
 	if (buffer[0] == 0xBA) {
-		ptr = buffer+7;
 		memcpy(rsa_private_key, buffer+7, keysize);
 	}
 	onlykey_eeset_rsakey(&buffer[6], (int)buffer[5]); //Key Type (1-4) and slot (1-4)
@@ -4047,12 +4154,12 @@ if (PDmode) return;
 		Serial.print("RSA Key value =");
 		byteprint((uint8_t*)rsa_private_key, keysize);
 #endif
-    aes_gcm_encrypt(rsa_private_key, buffer[5], buffer[6], phash, keysize);
+    aes_gcm_encrypt(rsa_private_key, buffer[5], buffer[6], profilekey, keysize);
     //Copy current flash contents to buffer
     onlykey_flashget_common(tptr, (unsigned long*)adr, 2048);
     //Add new flash contents to buffer
     for( int z = 0; z < MAX_RSA_KEY_SIZE; z++){
-    temp[z+((buffer[5]*MAX_RSA_KEY_SIZE)-MAX_RSA_KEY_SIZE)] = ((uint8_t)*(ptr+z));
+     temp[z+((buffer[5]*MAX_RSA_KEY_SIZE)-MAX_RSA_KEY_SIZE)] = rsa_private_key[z];
     }
     //Erase flash sector
 #ifdef DEBUG
@@ -4071,7 +4178,7 @@ if (PDmode) return;
 
 	packet_buffer_offset = 0;
 	hidprint("Successfully set RSA Key");
-      blink(2);
+      if (buffer[0] != 0xBA) blink(2);
 	}
 #endif
 	return;
@@ -4079,7 +4186,7 @@ if (PDmode) return;
 
 
 void WIPERSAPRIV (uint8_t *buffer) {
-if (PDmode) return;
+if (profile2mode==NOENCRYPT) return;
 #ifdef US_VERSION
 #ifdef DEBUG
     Serial.println("OKWIPERSAPRIV MESSAGE RECEIVED");
@@ -4110,7 +4217,7 @@ if (PDmode) return;
 //Initialize Yubico OTP
 /*************************************/
 void yubikeyinit() {
-if (PDmode) return;
+if (profile2mode==NOENCRYPT) return;
 #ifdef US_VERSION
   uint32_t seed;
   uint8_t *ptr = (uint8_t *)&seed;
@@ -4139,7 +4246,7 @@ if (PDmode) return;
   ptr = (temp+EElen_public+EElen_private);
   onlykey_eeget_aeskey(ptr);
 
-  aes_gcm_decrypt(temp, 0, 10, phash, (EElen_aeskey+EElen_private+EElen_public));
+  aes_gcm_decrypt(temp, 0, 10, profilekey, (EElen_aeskey+EElen_private+EElen_public));
 #ifdef DEBUG
   Serial.println("public_id");
 #endif
@@ -4198,7 +4305,7 @@ if (PDmode) return;
 //Generate Yubico OTP
 /*************************************/
 void yubikeysim(char *ptr) {
-	if (PDmode) return;
+	if (profile2mode==NOENCRYPT) return;
 	#ifdef US_VERSION
 	yubikey_simulate1(ptr, &ctx);
         yubikey_incr_usage(&ctx);
@@ -4208,7 +4315,7 @@ void yubikeysim(char *ptr) {
 //Increment Yubico timestamp
 /*************************************/
 void yubikey_incr_time() {
-	if (PDmode) return;
+	if (profile2mode==NOENCRYPT) return;
 	#ifdef US_VERSION
 	yubikey_incr_timestamp(&ctx);
 	#endif
@@ -4404,7 +4511,7 @@ void setcolor (uint8_t Color) {
 #endif
 
 void backup() {
-  if (PDmode) return;
+  if (profile2mode==NOENCRYPT) return;
   #ifdef US_VERSION
   uint8_t temp[MAX_RSA_KEY_SIZE];
   uint8_t large_temp[12323];
@@ -4477,7 +4584,7 @@ void backup() {
         Serial.println();
     #endif
     #ifdef US_VERSION
-		if (slot <= 12) aes_gcm_decrypt(temp, slot, 15, phash, urllength);
+		if (profile2mode!=NOENCRYPT) aes_gcm_decrypt(temp, slot, 15, profilekey, urllength);
     #endif
     #ifdef DEBUG
         Serial.println("Unencrypted");
@@ -4553,14 +4660,14 @@ void backup() {
         Serial.print("Username Length = ");
         Serial.println(usernamelength);
         #endif
-        if (!PDmode) {
+        if (profile2mode!=NOENCRYPT) {
         #ifdef DEBUG
         Serial.println("Encrypted");
 		byteprint(temp, usernamelength);
         Serial.println();
         #endif
         #ifdef US_VERSION
-        if (slot <= 12) aes_gcm_decrypt(temp, slot, 2, phash, usernamelength);
+        aes_gcm_decrypt(temp, slot, 2, profilekey, usernamelength);
         #endif
         }
 		#ifdef DEBUG
@@ -4591,14 +4698,14 @@ void backup() {
         Serial.print("Password Length = ");
         Serial.println(passwordlength);
         #endif
-        if (!PDmode) {
+        if (profile2mode!=NOENCRYPT) {
         #ifdef DEBUG
         Serial.println("Encrypted");
 		byteprint(temp, passwordlength);
         Serial.println();
           #endif
         #ifdef US_VERSION
-        if (slot <= 12) aes_gcm_decrypt(temp, slot, 5, phash, passwordlength);
+        aes_gcm_decrypt(temp, slot, 5, profilekey, passwordlength);
         #endif
         }
 		#ifdef DEBUG
@@ -4642,7 +4749,7 @@ void backup() {
       Serial.print("TOTP Key Length = ");
       Serial.println(otplength);
       #endif
-      if (slot <= 12) aes_gcm_decrypt(temp, slot, 9, phash, otplength);
+      if (profile2mode!=NOENCRYPT) aes_gcm_decrypt(temp, slot, 9, profilekey, otplength);
       #ifdef DEBUG
       Serial.println("Unencrypted");
 	  byteprint(temp, otplength);
@@ -4694,7 +4801,7 @@ void backup() {
       ptr = (temp+EElen_public+EElen_private);
       onlykey_eeget_aeskey(ptr);
 
-      aes_gcm_decrypt(temp, 0, 10, phash, (EElen_aeskey+EElen_private+EElen_public));
+      aes_gcm_decrypt(temp, 0, 10, profilekey, (EElen_aeskey+EElen_private+EElen_public));
 
 	  large_temp[large_data_offset] = 0xFF; //delimiter
 	  large_temp[large_data_offset+1] = 0; //slot 0
@@ -4946,7 +5053,7 @@ int freeRam () {
 }
 
 void RESTORE(uint8_t *buffer) {
-  if (PDmode) return;
+  if (profile2mode==NOENCRYPT) return;
   #ifdef US_VERSION
   uint8_t temp[MAX_RSA_KEY_SIZE+7];
   static uint8_t* large_temp;
@@ -5017,6 +5124,8 @@ void RESTORE(uint8_t *buffer) {
 		offset=offset-12;
 		memcpy(iv, large_temp+offset, 12);
 		shared_secret (ecc_public_key, temp);
+
+		byteprint(temp, 32);
 		SHA256_CTX context;
 		sha256_init(&context);
 		sha256_update(&context, temp, 32); //add secret
@@ -5071,7 +5180,7 @@ void RESTORE(uint8_t *buffer) {
 		while(*ptr) {
 			if (*ptr == 0xFF) {
 				memset(temp, 0, sizeof(temp));
-				temp[0] = 0xFF;
+				temp[0] = 0xBA;
 				temp[1] = 0xFF;
 				temp[2] = 0xFF;
 				temp[3] = 0xFF;
@@ -5255,11 +5364,13 @@ void RESTORE(uint8_t *buffer) {
 }
 
 void process_packets (uint8_t *buffer) {
-	if (PDmode) return;
+	if (profile2mode==NOENCRYPT) return;
     #ifdef US_VERSION
 	uint8_t temp[32];
 	isfade=1;
 	wipedata(); //Wait 5 seconds to receive packets
+	sshchallengemode=0;
+	pgpchallengemode=0;
 	if (CRYPTO_AUTH >= 1) {
 		if (outputU2F == 1) {
 #ifdef DEBUG

@@ -118,6 +118,7 @@ extern "C"
 #define EElen_backupkeymode	1
 #define EElen_sshchallengemode	1
 #define EElen_pgpchallengemode	1
+#define EElen_2ndprofilemode	1
 #define EElen_typespeed	1
 #define EElen_keyboardlayout	1
 #define EElen_ecckey	1
@@ -430,7 +431,8 @@ extern "C"
 #define EEpos_backupkeymode	(EEpos_wipemode + EElen_wipemode)
 #define EEpos_sshchallengemode	(EEpos_backupkeymode + EElen_backupkeymode)
 #define EEpos_pgpchallengemode	(EEpos_sshchallengemode + EElen_sshchallengemode)
-#define EEpos_typespeed	(EEpos_pgpchallengemode + EElen_pgpchallengemode)
+#define EEpos_2ndprofilemode	(EEpos_pgpchallengemode + EElen_pgpchallengemode)
+#define EEpos_typespeed	(EEpos_2ndprofilemode + EElen_2ndprofilemode)
 #define EEpos_keyboardlayout	(EEpos_typespeed + EElen_typespeed)
 #define EEpos_sincelastregularlogin	(EEpos_keyboardlayout + EElen_keyboardlayout)
 #define EEpos_failedlogins	(EEpos_sincelastregularlogin + EElen_sincelastregularlogin)
@@ -452,6 +454,9 @@ extern void onlykey_eeset_sshchallengemode(uint8_t *ptr);
 
 extern int  onlykey_eeget_pgpchallengemode (uint8_t *ptr);
 extern void onlykey_eeset_pgpchallengemode(uint8_t *ptr);
+
+extern int  onlykey_eeget_2ndprofilemode (uint8_t *ptr);
+extern void onlykey_eeset_2ndprofilemode(uint8_t *ptr);
 
 extern int  onlykey_eeget_typespeed (uint8_t *ptr);
 extern void onlykey_eeset_typespeed(uint8_t *ptr);
