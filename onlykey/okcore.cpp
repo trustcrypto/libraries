@@ -2274,23 +2274,11 @@ void onlykey_flashset_2ndpinhashpublic (uint8_t *ptr) {
 #endif
 	if (profile2mode!=NOENCRYPT) { //profile key not used for plausible deniability mode
 #ifdef US_VERSION
-	// Decrypt backup key 
-	onlykey_eeget_backupkey(&backupkeyslot);
-	backupkeytype = onlykey_flashget_ECC(backupkeyslot);
-	memcpy(temp + 39, ecc_private_key, 32); //Temporarily store backup key
 	//Generate shared secret in profile key
 	memcpy(ecc_private_key, ptr, 32);
 	type=4; //Curve25519
 	onlykey_flashget_pinhashpublic (p1hash, 32); //store PIN hash
 	shared_secret(p1hash, profilekey);//Generate shared secret of p2hash private key and p1hash public key
-	Serial.print("p1hash ecc_private and profilekey");
-	byteprint(p1hash, 32);
-	byteprint(ecc_private_key, 32);
-	byteprint(profilekey, 32);
-	temp[36] = 0xEF;
-	temp[37] = backupkeyslot;
-	temp[38] = backupkeytype;
-	SETPRIV(temp+32); //Re-encrypt and set backup key
 #endif	
 	}
 	//Copy public key to ptr for writing to flash
@@ -5411,7 +5399,10 @@ void process_packets (uint8_t *buffer) {
 			if (packet_buffer_details[1] < 5 || (packet_buffer_details[1] > 100 && packet_buffer_details[1] <= 132)) { //PGP request
 			onlykey_eeget_pgpchallengemode(&pgpchallengemode);
 			}
-			if (!sshchallengemode && !pgpchallengemode) {
+			if (sshchallengemode || pgpchallengemode) {
+				CRYPTO_AUTH = 3;
+			} else {
+				
 				SHA256_CTX msg_hash;
 				sha256_init(&msg_hash);
 				sha256_update(&msg_hash, packet_buffer, packet_buffer_offset); //add data to sign
@@ -5431,7 +5422,7 @@ void process_packets (uint8_t *buffer) {
 					Challenge_button3 = temp[31] % 5; //Get the base 5 remainder (0-5)
 					Challenge_button3 = Challenge_button3 + '0' + 1; //Add '0' and 1 so number will be ASCII 1 - 6
 				}
-			}
+			} 
 #ifdef DEBUG
     Serial.println("Received Message");
 	byteprint(packet_buffer, packet_buffer_offset);
