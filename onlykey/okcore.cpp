@@ -4510,6 +4510,7 @@ void backup() {
   uint8_t *ptr;
   unsigned char beginbackup[] = "-----BEGIN ONLYKEY BACKUP-----";
   unsigned char endbackup[] = "-----END ONLYKEY BACKUP-----";
+  unsigned char nobackupkey[] = "No Backup Key - Follow instructions here https://docs.crp.to/usersguide.html#secure-encrypted-backup-anywhere";
   uint8_t ctr[2];
   bool backupyubikey=false;
   uint8_t slot;
@@ -4913,6 +4914,12 @@ void backup() {
 	RNG2(ptr, 32); //Fill temp with random data
 	if (slot == 0) {
 		hidprint("Error no backup key set");
+		for (uint8_t z = 0; z < sizeof(nobackupkey); z++) {
+			Keyboard.press(nobackupkey[z]);
+			delay((TYPESPEED[0]*TYPESPEED[0]/3)*8);
+			Keyboard.releaseAll();
+			delay((TYPESPEED[0]*TYPESPEED[0]/3)*8);
+		}
 		return;
 	}
 	else if (slot > 100) {
