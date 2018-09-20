@@ -1438,9 +1438,10 @@ void SETSLOT (uint8_t *buffer)
             	onlykey_eeset_2ndprofilemode(buffer + 7);
             	hidprint("Successfully set 2nd profile mode");
 				profile2mode = buffer[7];
+#ifdef DEBUG
 				Serial.print("Profile Mode"); 
 				Serial.println(profile2mode);
-			
+#endif		
             } else {
 	        hidprint("ERROR 2ND PROFILE MODE MAY ONLY BE SET ON FIRST USE");
 			}
@@ -1805,7 +1806,7 @@ void wipeEEPROM() {
 	}
 #endif
 	value=0x00;
-	for (int i=0; i<2048; i++) {
+	for (int i=66; i<2048; i++) {
 	EEPROM.write(i, value);
 	}
 #ifdef DEBUG
@@ -2085,7 +2086,9 @@ int onlykey_flashget_noncehash (uint8_t *ptr, int size) {
 	for (int i=0; i<32; i++) {
 		set = *(ptr+i) + set;
 	}
+#ifdef DEBUG
 	Serial.println(set);
+#endif
 	if (set == 8160) { //0xFF * 32
 #ifdef DEBUG
 		Serial.printf("There is no Nonce hash set");
@@ -2237,7 +2240,7 @@ int onlykey_flashget_2ndpinhashpublic (uint8_t *ptr) {
 
 	uintptr_t adr = (unsigned long)flashstorestart;
 	adr = adr + EElen_noncehash + EElen_pinhash + EElen_selfdestructhash;
-    onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_plausdenyhash);
+    onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_2ndpinhash);
 
     if (*ptr == 255 && *(ptr + 1) == 255 && *(ptr + 2) == 255) { //pinhash not set
 		#ifdef DEBUG
@@ -2259,8 +2262,6 @@ void onlykey_flashset_2ndpinhashpublic (uint8_t *ptr) {
 
 	uintptr_t adr = (unsigned long)flashstorestart;
 	uint8_t temp[255];
-	uint8_t backupkeyslot;
-	uint8_t backupkeytype;
 	uint8_t *tptr;
 	tptr=temp;
 
@@ -2307,7 +2308,7 @@ void onlykey_flashset_2ndpinhashpublic (uint8_t *ptr) {
 	memset(ecc_private_key, 0, 32);
 #endif	
 	}
-    onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_plausdenyhash);
+    onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_2ndpinhash);
 
 }
 
@@ -4006,7 +4007,9 @@ byteprint((uint8_t*)buffer+7, 32);
 #endif
 	//Write buffer to flash
     onlykey_flashset_common(tptr, (unsigned long*)adr, 2048);
+#ifdef DEBUG
 	Serial.println(buffer[5]);
+#endif
 	if (buffer[5]==131) { //Designated Backup Passphrase slot
 	hidprint("Successfully set Backup Passphrase");	
 	} else if (gen_key != 0 && initcheck){
@@ -4455,17 +4458,19 @@ int calibratecaptouch (uint16_t j) {
 	if (j>=400) {
 			if (j==400) {
 			touchread1ref = touchread1;
-			Serial.println(touchread1);
 			touchread2ref = touchread2;
-			Serial.println(touchread2);
 			touchread3ref = touchread3;
-			Serial.println(touchread3);
 			touchread4ref = touchread4;
-			Serial.println(touchread4);
 			touchread5ref = touchread5;
-			Serial.println(touchread5);
 			touchread6ref = touchread6;
+#ifdef DEBUG
+			Serial.println(touchread1);
+			Serial.println(touchread2);
+			Serial.println(touchread3);
+			Serial.println(touchread4);
+			Serial.println(touchread5);
 			Serial.println(touchread6);
+#endif
 			}
 		touchread1ref = (touchread1+touchread1ref)/2;
 		touchread2ref = (touchread2+touchread2ref)/2;
@@ -4475,7 +4480,9 @@ int calibratecaptouch (uint16_t j) {
 		touchread6ref = (touchread6+touchread6ref)/2;
 		}
 	} else {
+#ifdef DEBUG
 		Serial.println(((touchread1+touchread4+touchread5)*1.0) / ((touchread2+touchread3+touchread6)*1.0));
+#endif
 	 return 1;
 	}
 	return 0;

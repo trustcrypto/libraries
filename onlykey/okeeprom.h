@@ -84,7 +84,7 @@ extern "C"
 #define EElen_noncehash	32
 #define EElen_pinhash	32
 #define EElen_selfdestructhash	32
-#define EElen_plausdenyhash	32
+#define EElen_2ndpinhash	32
 #define EElen_aeskey	16
 #define EElen_public	6
 #define EElen_private	6

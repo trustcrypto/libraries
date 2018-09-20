@@ -148,8 +148,10 @@ bool Password::profile1hashevaluate(){
 		if (i == 31 && pass2==guessed2){
 			onlykey_eeget_2ndprofilemode (&profile2mode); //get 2nd profile mode
 			type=4; //Curve25519
+#ifdef DEBUG
 			Serial.print("Profile Mode"); 
 			Serial.print(profile2mode);
+#endif
 			if (profile2mode==STDPROFILE) { //there are two profiles
 			//Generate shared secret of p1hash private key and p2hash public key
 				shared_secret(p2hash, profilekey); //shared secret stored in profilekey

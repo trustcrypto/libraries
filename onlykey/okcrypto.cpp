@@ -1156,7 +1156,6 @@ int mbedtls_rand( void *rng_state, unsigned char *output, size_t len )
 
 void newhope_test ()
 {
-	int i;
 	//unsigned long ran;
 	char rand[32];
 	csprng SRNG,CRNG;
