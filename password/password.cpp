@@ -41,9 +41,9 @@ uint8_t p1hash[32];
 uint8_t sdhash[32];
 uint8_t p2hash[32];
 uint8_t nonce[32];
+extern uint8_t profilemode;
 int integrityctr1 = 0;
 int integrityctr2 = 0;
-extern uint8_t profile2mode;
 extern uint8_t ecc_private_key[MAX_ECC_KEY_SIZE];
 extern uint8_t type;
 
@@ -110,6 +110,7 @@ bool Password::evaluate(){
 
 //is the hash of the current guessed password equal to the stored hash?
 bool Password::profile1hashevaluate(){ 
+	uint8_t p2mode;
 	size_t guesslen = strlen(guess);
 	if (guesslen < 7) {
 		delay (30); //Simulate time taken to hash
@@ -146,27 +147,26 @@ bool Password::profile1hashevaluate(){
 		//check if guessed char is equal to the password char
 		integrityctr1++;
 		if (i == 31 && pass2==guessed2){
-			onlykey_eeget_2ndprofilemode (&profile2mode); //get 2nd profile mode
+			onlykey_eeget_2ndprofilemode (&p2mode); //get 2nd profile mode
 			type=4; //Curve25519
 #ifdef DEBUG
 			Serial.print("Profile Mode"); 
-			Serial.print(profile2mode);
+			Serial.print(p2mode);
 #endif
-			if (profile2mode==STDPROFILE) { //there are two profiles
+			if (p2mode==STDPROFILE2) { //there are two profiles
 			//Generate shared secret of p1hash private key and p2hash public key
 				shared_secret(p2hash, profilekey); //shared secret stored in profilekey
 				#ifdef DEBUG
 				Serial.print("Shared Secret Profile 1"); 
 				byteprint(profilekey, 32);
 				#endif
-				profile2mode=0;
-			} else { 
+			} else { //there is one profile
 			//Generate shared secret of p1hash private key and p1hash public key
 				shared_secret(p1hash, profilekey); //Set this as profile key, used to encrypt profile 1 data
-				profile2mode=0;
 			}
 			memset(ecc_private_key, 0, 32);
 			integrityctr2++;
+			profilemode=STDPROFILE1;
 			return true; //both strings ended and all previous characters are equal 
 		}else if (pass2!=guessed2){
 			memset(ecc_private_key, 0, 32);
@@ -184,6 +184,7 @@ bool Password::profile1hashevaluate(){
 }
 
 bool Password::profile2hashevaluate(){ 
+	uint8_t p2mode;
 	size_t guesslen = strlen(guess);
 	if (guesslen < 7) {
 		delay (30); //Simulate time taken to hash
@@ -220,17 +221,21 @@ bool Password::profile2hashevaluate(){
 		//check if guessed char is equal to the password char
 		integrityctr1++;
 		if (i == 31 && pass2==guessed2){
-			onlykey_eeget_2ndprofilemode (&profile2mode); //get 2nd profile mode
+			onlykey_eeget_2ndprofilemode (&p2mode); //get 2nd profile mode
 			type=4; //Curve25519
-			if (profile2mode!=NOENCRYPT) { //profile key not used for plausible deniability mode
-			#ifdef US_VERSION
-			shared_secret(p1hash, profilekey); //Generate shared secret of p2hash private key and p1hash public key
-			#ifdef DEBUG
-			Serial.print("Shared Secret Profile 2"); 
-			byteprint(profilekey, 32);
-			#endif
-			//Set this as profile key, used to encrypt profile 2 data
-			#endif
+			if (p2mode!=NONENCRYPTEDPROFILE) { //profile key not used for plausible deniability mode
+				#ifdef US_VERSION
+				shared_secret(p1hash, profilekey); //Generate shared secret of p2hash private key and p1hash public key
+				#ifdef DEBUG
+				Serial.print("Shared Secret Profile 2"); 
+				byteprint(profilekey, 32);
+				#endif
+				//Set this as profile key, used to encrypt profile 2 data
+				profilemode=STDPROFILE2;
+				#endif
+			} else {
+				if (configmode) return false;
+				profilemode=NONENCRYPTEDPROFILE;
 			}
 			memset(ecc_private_key, 0, 32);
 			integrityctr2++;

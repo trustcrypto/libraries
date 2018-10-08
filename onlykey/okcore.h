@@ -120,9 +120,9 @@ extern "C"
 /*************************************/
 //Types of second profile
 /*************************************/
-#define NOPROFILE 0
-#define STDPROFILE 1
-#define NOENCRYPT 2 //International Travel Edition or Plausible Deniability
+#define STDPROFILE1 0
+#define STDPROFILE2 1
+#define NONENCRYPTEDPROFILE 2 //International Travel Edition or Plausible Deniability
 
 
 // Last vendor defined command
@@ -170,7 +170,7 @@ extern void keytype(char const * chars);
 extern void byteprint(uint8_t* bytes, int size);
 extern void factorydefault();
 extern void wipeEEPROM();
-extern void wipeflash(uint8_t mode);
+extern void wipeflashdata();
 extern bool unlocked;
 extern bool initialized;
 extern bool configmode;

@@ -151,6 +151,8 @@ void SIGN (uint8_t *buffer) {
 		}
 		return;
 	}
+	} else if (buffer[5] > 200 && buffer[5] < 204) { //SSH Sign Request
+		ECDSA_EDDSA(buffer);
 	} else {
 	if (buffer[5] != 132 && buffer[5] != 131) { //These keys are reserved for derivation and backup
 	features = onlykey_flashget_ECC ((int)buffer[5]);
@@ -560,7 +562,7 @@ void ECDSA_EDDSA(uint8_t *buffer)
 #endif
 	uint8_t tmp[32 + 32 + 64];
 	SHA256_HashContext ectx = {{&init_SHA256, &update_SHA256, &finish_SHA256, 64, 32, tmp}};
-	if (buffer[5] == 132 || buffer[5] == 201) {
+	if (buffer[5] == 201) {
 		//Used by SSH, old version used 132, new version uses 201 for type 1
 		DERIVEKEY(1, packet_buffer+(packet_buffer_offset-32)); 
 		type = 1;
