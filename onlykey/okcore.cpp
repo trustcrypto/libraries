@@ -1441,7 +1441,7 @@ void SETSLOT (uint8_t *buffer)
 			#ifdef US_VERSION
 			if (!initcheck) { //Only permit changing this on first use
             	onlykey_eeset_2ndprofilemode(buffer + 7);
-            	hidprint("Successfully set 2nd profile mode");	
+            	//hidprint("Successfully set 2nd profile mode");	
             } else {
 	        hidprint("Second Profile Mode may only be changed on first use");
 			}
