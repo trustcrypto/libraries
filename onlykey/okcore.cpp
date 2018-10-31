@@ -1400,7 +1400,7 @@ void SETSLOT (uint8_t *buffer)
             	hidprint("Successfully set Backup Key Mode to Set Once");
             } else if (!initcheck) { //Only permit changing this on first use on a clean device
 				onlykey_eeset_backupkeymode(buffer + 7);
-            	hidprint("Successfully set Backup Key Mode to Default Setting");
+				hidprint("Successfully set Backup Key Mode to Permit Future Changes");
 			}
 			else {
 	        hidprint("Backup Key Mode may only be changed on first use");
@@ -4529,6 +4529,8 @@ void backup() {
   uint8_t addchar3;
   uint8_t addchar4;
   uint8_t addchar5;
+  uint8_t p2mode;
+  onlykey_eeget_2ndprofilemode (&p2mode); //get 2nd profile mode
   large_data_offset = 0;
   memset(large_temp, 0, sizeof(large_temp)); //Wipe all data from largebuffer
   #ifdef OK_Color
@@ -4582,7 +4584,7 @@ void backup() {
         Serial.println();
     #endif
     #ifdef US_VERSION
-		if (profilemode!=NONENCRYPTEDPROFILE) aes_gcm_decrypt(temp, slot, 15, profilekey, urllength);
+		if (slot <= 12 || (slot > 12 && p2mode!=NONENCRYPTEDPROFILE)) aes_gcm_decrypt(temp, slot, 15, profilekey, urllength);
     #endif
     #ifdef DEBUG
         Serial.println("Unencrypted");
@@ -4658,7 +4660,7 @@ void backup() {
         Serial.print("Username Length = ");
         Serial.println(usernamelength);
         #endif
-        if (profilemode!=NONENCRYPTEDPROFILE) {
+        if (slot <= 12 || (slot > 12 && p2mode!=NONENCRYPTEDPROFILE)) {
         #ifdef DEBUG
         Serial.println("Encrypted");
 		byteprint(temp, usernamelength);
@@ -4696,7 +4698,7 @@ void backup() {
         Serial.print("Password Length = ");
         Serial.println(passwordlength);
         #endif
-        if (profilemode!=NONENCRYPTEDPROFILE) {
+        if (slot <= 12 || (slot > 12 && p2mode!=NONENCRYPTEDPROFILE)) {
         #ifdef DEBUG
         Serial.println("Encrypted");
 		byteprint(temp, passwordlength);
@@ -4747,7 +4749,7 @@ void backup() {
       Serial.print("TOTP Key Length = ");
       Serial.println(otplength);
       #endif
-      if (profilemode!=NONENCRYPTEDPROFILE) aes_gcm_decrypt(temp, slot, 9, profilekey, otplength);
+      if (slot <= 12 || (slot > 12 && p2mode!=NONENCRYPTEDPROFILE)) aes_gcm_decrypt(temp, slot, 9, profilekey, otplength);
       #ifdef DEBUG
       Serial.println("Unencrypted");
 	  byteprint(temp, otplength);
@@ -5065,8 +5067,7 @@ void RESTORE(uint8_t *buffer) {
   if (offset == 0) large_temp = (uint8_t*)malloc(12323); //Max size for slots 7715 max size for keys 3072 + 768 + 32 + headers + Max RSA key size
   uint8_t *ptr;
   uint8_t slot;
-  uint8_t p2mode;
-  onlykey_eeget_2ndprofilemode (&p2mode); //get 2nd profile mode
+
 
 
   //Slot restore
