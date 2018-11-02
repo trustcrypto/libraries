@@ -2144,6 +2144,7 @@ void onlykey_flashset_pinhashpublic (uint8_t *ptr) {
 
 	uintptr_t adr = (unsigned long)flashstorestart;
 	uint8_t temp[255];
+	uint8_t tempkey[32];
 	uint8_t *tptr;
 	tptr=temp;
 	ptr[0] &= 0xF8;
@@ -2155,9 +2156,8 @@ void onlykey_flashset_pinhashpublic (uint8_t *ptr) {
 	  byteprint(temp, 32);
 #endif
 	//Generate shared secret in profile key
-	memcpy(ecc_private_key, ptr, 32);
-	type=4; //Curve25519
-	shared_secret(temp, profilekey);
+	memcpy(tempkey, ptr, 32);
+	Curve25519::eval(profilekey, tempkey, temp);
 	//Copy public key to ptr for writing to flash
 	memcpy(ptr, temp, 32);
 	//Copy current flash contents to buffer
@@ -2177,7 +2177,7 @@ void onlykey_flashset_pinhashpublic (uint8_t *ptr) {
 	recv_buffer[6] = 0x61;
 	RNG2(recv_buffer+7, 32);
 	SETPRIV(recv_buffer); //set default ECC key
-	memset(ecc_private_key, 0, 32);
+	memset(tempkey, 0, 32);
     onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_pinhash);
 
 }
@@ -2260,6 +2260,7 @@ void onlykey_flashset_2ndpinhashpublic (uint8_t *ptr) {
 	uint8_t p2mode;
 	uintptr_t adr = (unsigned long)flashstorestart;
 	uint8_t temp[255];
+	uint8_t tempkey[32];
 	uint8_t *tptr;
 	tptr=temp;
 
@@ -2275,11 +2276,10 @@ void onlykey_flashset_2ndpinhashpublic (uint8_t *ptr) {
 	if (p2mode!=NONENCRYPTEDPROFILE) { //profile key not used for plausible deniability mode or international fw
 #ifdef US_VERSION
 	//Generate shared secret in profile key
-	memcpy(ecc_private_key, ptr, 32);
-	type=4; //Curve25519
+	memcpy(tempkey, ptr, 32);
 	onlykey_flashget_pinhashpublic (p1hash, 32); //store PIN hash
-	shared_secret(p1hash, profilekey);//Generate shared secret of p2hash private key and p1hash public key
-#endif	
+	Curve25519::eval(profilekey, tempkey, p1hash); //Generate shared secret of p2hash private key and p1hash public key
+	#endif	
 	}
 	//Copy public key to ptr for writing to flash
 	memcpy(ptr, temp, 32);
@@ -2304,7 +2304,7 @@ void onlykey_flashset_2ndpinhashpublic (uint8_t *ptr) {
 	recv_buffer[6] = 0x61;
 	RNG2(recv_buffer+7, 32);
 	SETPRIV(recv_buffer); //set default ECC key
-	memset(ecc_private_key, 0, 32);
+	memset(tempkey, 0, 32);
 #endif	
 	}
     onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_2ndpinhash);
