@@ -154,15 +154,19 @@ bool Password::profile1hashevaluate(){
 			Serial.print(p2mode);
 #endif
 			if (p2mode==STDPROFILE2) { //there are two profiles
+			#ifdef US_VERSION
 			//Generate shared secret of p1hash private key and p2hash public key
 				shared_secret(p2hash, profilekey); //shared secret stored in profilekey
 				#ifdef DEBUG
 				Serial.print("Shared Secret Profile 1"); 
 				byteprint(profilekey, 32);
 				#endif
+			#endif	
 			} else { //there is one profile
+			#ifdef US_VERSION
 			//Generate shared secret of p1hash private key and p1hash public key
 				shared_secret(p1hash, profilekey); //Set this as profile key, used to encrypt profile 1 data
+			#endif
 			}
 			memset(ecc_private_key, 0, 32);
 			integrityctr2++;
