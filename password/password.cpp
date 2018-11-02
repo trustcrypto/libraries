@@ -45,7 +45,6 @@ uint8_t nonce[32];
 extern uint8_t profilemode;
 int integrityctr1 = 0;
 int integrityctr2 = 0;
-extern uint8_t ecc_private_key[MAX_ECC_KEY_SIZE];
 extern uint8_t type;
 
 //construct object in memory, set all variables
@@ -112,6 +111,7 @@ bool Password::evaluate(){
 //is the hash of the current guessed password equal to the stored hash?
 bool Password::profile1hashevaluate(){ 
 	uint8_t p2mode;
+	uint8_t temp[32];
 	size_t guesslen = strlen(guess);
 	if (guesslen < 7) {
 		delay (30); //Simulate time taken to hash
@@ -129,11 +129,11 @@ bool Password::profile1hashevaluate(){
 	sha256_update(&pinhash, nonce, 32); //Add nonce to hash
 	sha256_final(&pinhash, profilekey); //Create hash and store in profilekey
 	//Generate public key of pinhash
-	memcpy(ecc_private_key, profilekey, 32);
-	ecc_private_key[0] &= 0xF8;
-    ecc_private_key[31] = (ecc_private_key[31] & 0x7F) | 0x40;
+	memcpy(temp, profilekey, 32);
+	temp[0] &= 0xF8;
+    temp[31] = (temp[31] & 0x7F) | 0x40;
 	//Generate public key of pinhash
-	Curve25519::eval(profilekey, ecc_private_key, 0); //Generate public in profilekey
+	Curve25519::eval(profilekey, temp, 0); //Generate public in profilekey
 
 #ifdef DEBUG
 	Serial.print("Guessed Hash/PublicKey:"); 
@@ -149,7 +149,6 @@ bool Password::profile1hashevaluate(){
 		integrityctr1++;
 		if (i == 31 && pass2==guessed2){
 			onlykey_eeget_2ndprofilemode (&p2mode); //get 2nd profile mode
-			type=4; //Curve25519
 #ifdef DEBUG
 			Serial.print("Profile Mode"); 
 			Serial.print(p2mode);
@@ -157,7 +156,7 @@ bool Password::profile1hashevaluate(){
 			if (p2mode==STDPROFILE2) { //there are two profiles
 			#ifdef US_VERSION
 			//Generate shared secret of p1hash private key and p2hash public key
-				shared_secret(p2hash, profilekey); //shared secret stored in profilekey
+				Curve25519::eval(profilekey, temp, p2hash); //shared secret stored in profilekey			
 				#ifdef DEBUG
 				Serial.print("Shared Secret Profile 1"); 
 				byteprint(profilekey, 32);
@@ -166,15 +165,13 @@ bool Password::profile1hashevaluate(){
 			} else { //there is one profile
 			#ifdef US_VERSION
 			//Generate shared secret of p1hash private key and p1hash public key
-				shared_secret(p1hash, profilekey); //Set this as profile key, used to encrypt profile 1 data
+				Curve25519::eval(profilekey, temp, p1hash); //Set this as profile key, used to encrypt profile 1 data
 			#endif
 			}
-			memset(ecc_private_key, 0, 32);
 			integrityctr2++;
 			profilemode=STDPROFILE1;
 			return true; //both strings ended and all previous characters are equal 
 		}else if (pass2!=guessed2){
-			memset(ecc_private_key, 0, 32);
 			integrityctr2++;
 			return false; //difference 
 		}
@@ -184,12 +181,12 @@ bool Password::profile1hashevaluate(){
 		guessed2 = profilekey[i];
 		integrityctr2++;
 	}
-	memset(ecc_private_key, 0, 32);
 	return false; //a 'true' condition has not been met
 }
 
 bool Password::profile2hashevaluate(){ 
 	uint8_t p2mode;
+	uint8_t temp[32];
 	size_t guesslen = strlen(guess);
 	if (guesslen < 7) {
 		delay (30); //Simulate time taken to hash
@@ -207,11 +204,11 @@ bool Password::profile2hashevaluate(){
 	sha256_update(&pinhash, nonce, 32); //Add nonce to hash
 	sha256_final(&pinhash, profilekey); //Create hash and store in profilekey
 	//Generate public key of pinhash
-	memcpy(ecc_private_key, profilekey, 32);
-	ecc_private_key[0] &= 0xF8;
-    ecc_private_key[31] = (ecc_private_key[31] & 0x7F) | 0x40;
+	memcpy(temp, profilekey, 32);
+	temp[0] &= 0xF8;
+    temp[31] = (temp[31] & 0x7F) | 0x40;
 	//Generate public key of pinhash
-	Curve25519::eval(profilekey, ecc_private_key, 0); //Generate public in profilekey
+	Curve25519::eval(profilekey, temp, 0); //Generate public in profilekey
 
 #ifdef DEBUG
 	Serial.print("Guessed Hash/PublicKey:"); 
@@ -227,10 +224,9 @@ bool Password::profile2hashevaluate(){
 		integrityctr1++;
 		if (i == 31 && pass2==guessed2){
 			onlykey_eeget_2ndprofilemode (&p2mode); //get 2nd profile mode
-			type=4; //Curve25519
 			if (p2mode!=NONENCRYPTEDPROFILE) { //profile key not used for plausible deniability mode
 				#ifdef US_VERSION
-				shared_secret(p1hash, profilekey); //Generate shared secret of p2hash private key and p1hash public key
+				Curve25519::eval(profilekey, temp, p1hash); //Generate shared secret of p2hash private key and p1hash public key
 				#ifdef DEBUG
 				Serial.print("Shared Secret Profile 2"); 
 				byteprint(profilekey, 32);
@@ -242,11 +238,9 @@ bool Password::profile2hashevaluate(){
 				if (configmode) return false;
 				profilemode=NONENCRYPTEDPROFILE;
 			}
-			memset(ecc_private_key, 0, 32);
 			integrityctr2++;
 			return true; //both strings ended and all previous characters are equal 
 		}else if (pass2!=guessed2){
-			memset(ecc_private_key, 0, 32);
 			integrityctr2++;
 			return false; //difference 
 		}
@@ -256,7 +250,6 @@ bool Password::profile2hashevaluate(){
 		guessed2 = profilekey[i];
 		integrityctr2++;
 	}
-	memset(ecc_private_key, 0, 32);
 	return false; //a 'true' condition has not been met
 }
 
