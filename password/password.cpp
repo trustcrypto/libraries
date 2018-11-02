@@ -35,6 +35,7 @@
 #include <EEPROM.h>
 #include "flashkinetis.h"
 #include "onlykey.h"
+#include <Curve25519.h>
 
 uint8_t profilekey[32];
 uint8_t p1hash[32];
