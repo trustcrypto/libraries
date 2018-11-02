@@ -241,7 +241,7 @@ void recvmsg() {
 	byteprint(recv_buffer,64);
 #endif
 
-	  if (configmode==true && recv_buffer[4]!=OKSETSLOT && recv_buffer[4]!=OKSETPRIV && recv_buffer[4]!=OKRESTORE && recv_buffer[4]!=OKFWUPDATE) {
+	  if (configmode==true && recv_buffer[4]!=OKSETSLOT && recv_buffer[4]!=OKSETPRIV && recv_buffer[4]!=OKRESTORE && recv_buffer[4]!=OKFWUPDATE && recv_buffer[4]!=OKWIPEPRIV && recv_buffer[4]!=OKGETLABELS) {
 #ifdef DEBUG
 	Serial.println("ERROR NOT SUPPORTED IN CONFIG MODE");
 #endif
@@ -1397,13 +1397,13 @@ void SETSLOT (uint8_t *buffer)
 #endif
 			if(buffer[7] == 1) {
             	onlykey_eeset_backupkeymode(buffer + 7);
-            	hidprint("Successfully set Backup Key Mode to Set Once");
+            	hidprint("Successfully set Backup Key Mode to Locked");
             } else if (!initcheck) { //Only permit changing this on first use on a clean device
 				onlykey_eeset_backupkeymode(buffer + 7);
 				hidprint("Successfully set Backup Key Mode to Permit Future Changes");
 			}
 			else {
-	        hidprint("Backup Key Mode may only be changed on first use");
+	        hidprint("Backup Key Mode may only be changed to default setting on first use");
 			}
 			break;
 			case 21:
@@ -3850,8 +3850,8 @@ void SETPRIV (uint8_t *buffer)
 	Serial.println("Backup key slot and key mode");
 	Serial.println(backupkeyslot);
 	Serial.println(backupkeymode);
-	if (backupkeymode && backupkeyslot == buffer[5] && initcheck) {
-		hidprint("ERROR BACKUP KEY MODE SET TO SET ONCE");
+	if ((buffer[6] > 0x80 && backupkeymode && initcheck) || (backupkeymode && backupkeyslot == buffer[5] && initcheck)) {
+		hidprint("ERROR BACKUP KEY MODE SET TO LOCKED");
 		integrityctr1++;
 		return;
 	}
@@ -3980,8 +3980,8 @@ if (profilemode==NONENCRYPTEDPROFILE) return;
     uint8_t temp[2048];
     uint8_t *tptr;
     tptr=temp;
-	int gen_key = buffer[7] + buffer[8] + buffer[9] + buffer[10]+ buffer[11];
-	if (gen_key == 0) { //All 0s
+	int gen_key = buffer[7] + buffer[8] + buffer[9] + buffer[10]+ buffer[11 ]+ buffer[12] + buffer[13]+ buffer[14];
+	if (gen_key == 2040) { //All FFs
 		GENERATE_KEY(buffer);
 	}
 #ifdef DEBUG

@@ -132,6 +132,8 @@ void SIGN (uint8_t *buffer) {
 	if (type == 0) {
 		if (outputU2F) {
 			custom_error(3); //no key set in this slot
+		} else {
+		 fadeoff(0);
 		}
 		return;
 	}
@@ -146,6 +148,7 @@ void SIGN (uint8_t *buffer) {
 		#endif
 		if (!outputU2F) {
 			hidprint("Error key not set as signature key");
+			fadeoff(0);
 		} else {
 			custom_error(2); //key type not set as signature/decrypt
 		}
@@ -160,6 +163,8 @@ void SIGN (uint8_t *buffer) {
 	if (type == 0) {
 		if (outputU2F) {
 			custom_error(3); //no key set in this slot
+		} else {
+		 fadeoff(0);
 		}
 		return;
 	}
@@ -174,6 +179,7 @@ void SIGN (uint8_t *buffer) {
 		#endif
 		if (!outputU2F) {
 			hidprint("Error key not set as signature key");
+			fadeoff(0);
 		} else {
 			custom_error(2); //key type not set as signature/decrypt
 		}
@@ -220,6 +226,8 @@ void DECRYPT (uint8_t *buffer){
 	if (type == 0) {
 		if (outputU2F) {
 			custom_error(3); //no key set in this slot
+		} else {
+		 fadeoff(0);
 		}
 		return;
 	}
@@ -231,6 +239,7 @@ void DECRYPT (uint8_t *buffer){
 		#endif
 		if (!outputU2F) {
 			hidprint("Error key not set as decryption key");
+			fadeoff(0);
 		} else {
 			custom_error(2); //key type not set as signature/decrypt
 		}
@@ -243,6 +252,8 @@ void DECRYPT (uint8_t *buffer){
     if (type == 0) {
 		if (outputU2F) {
 			custom_error(3); //no key set in this slot
+		} else {
+		 fadeoff(0);
 		}
 		return;
 	}	
@@ -254,6 +265,7 @@ void DECRYPT (uint8_t *buffer){
 		#endif
 		if (!outputU2F) {
 			hidprint("Error key not set as decryption key");
+			fadeoff(0);
 		} else {
 			custom_error(2); //key type not set as signature/decrypt
 		}
@@ -270,28 +282,15 @@ void GENERATE_KEY (uint8_t *buffer) {
 	Serial.println();
 	Serial.println("GENERATE KEY MESSAGE RECEIVED"); 
 	#endif
-	onlykey_eeget_backupkey (&backupslot);
 	if (buffer[5] > 100) { //Slot 101-132 are for ECC, 1-4 are for RSA
 		if ((buffer[6] & 0x0F) == 1) {
 			RNG2(buffer+7, 32);
-			if (backupslot == buffer[5]) { //Backup Key
-				memcpy(temp, buffer+7, 32);
-				RawHID.send(temp, 0);	
-			} 
 		} else if ((buffer[6] & 0x0F) == 2) {
 			const struct uECC_Curve_t * curve = uECC_secp256r1(); //P-256
 			uECC_make_key(ecc_public_key, buffer+7, curve); 
-			if (backupslot == buffer[5]) { //Backup Key
-				memcpy(temp, buffer+7, 32);
-				RawHID.send(temp, 0);	
-			} 
 		} else if ((buffer[6] & 0x0F) == 3) {
 			const struct uECC_Curve_t * curve = uECC_secp256k1();
 			uECC_make_key(ecc_public_key, buffer+7, curve); 
-			if (backupslot == buffer[5]) { //Backup Key
-				memcpy(temp, buffer+7, 32);
-				RawHID.send(temp, 0);	
-			} 
 		}
 		memset(ecc_public_key, 0, sizeof(ecc_public_key));
 	}
