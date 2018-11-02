@@ -3847,9 +3847,9 @@ void SETPRIV (uint8_t *buffer)
 	integrityctr1++;
 	onlykey_eeget_backupkeymode(&backupkeymode);
 	integrityctr2++;
-	Serial.println("Backup key slot and key mode");
-	Serial.println(backupkeyslot);
-	Serial.println(backupkeymode);
+	//Serial.println("Backup key slot and key mode");
+	//Serial.println(backupkeyslot);
+	//Serial.println(backupkeymode);
 	if ((buffer[6] > 0x80 && backupkeymode && initcheck) || (backupkeymode && backupkeyslot == buffer[5] && initcheck)) {
 		hidprint("ERROR BACKUP KEY MODE SET TO LOCKED");
 		integrityctr1++;
