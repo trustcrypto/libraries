@@ -86,6 +86,7 @@
 #include <RNG.h>
 #include "T3MacLib.h"
 #include "base64.h"
+#include <Curve25519.h>
 /*************************************/
 //Neopixel color LED
 /*************************************/
@@ -114,7 +115,7 @@ uint8_t profilemode;
 bool unlocked = false;
 bool initialized = false;
 bool configmode = false;
-uint8_t TIMEOUT[1] = {30}; //Default 30 Min
+uint8_t TIMEOUT[1]; //Default 30 Min
 uint8_t TYPESPEED[1] = {100}; //Default 100 Ms
 extern uint8_t KeyboardLayout[1];
 elapsedMillis idletimer;
