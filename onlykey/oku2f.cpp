@@ -156,7 +156,7 @@ void U2Finit()
   memcpy(handlekey, ecc_private_key, 32);
   SHA256_CTX APPKEY;
   sha256_init(&APPKEY);
-  sha256_update(&APPKEY, (uint8_t*)attestation_der+(handlekey[0]+handlekey[6]+handlekey[12]+handlekey[18]+handlekey[24]+handlekey[30]), 32);
+  sha256_update(&APPKEY, (uint8_t*)attestation_der+(handlekey[30]/2), 32);
   sha256_update(&APPKEY, (uint8_t*)attestation_priv, 32);
   sha256_update(&APPKEY, handlekey, 32);
   sha256_final(&APPKEY, apphandlekey);

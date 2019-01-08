@@ -171,11 +171,13 @@ unsigned int touchread3ref = 1350;
 unsigned int touchread4ref = 1350;
 unsigned int touchread5ref = 1350;
 unsigned int touchread6ref = 1450;
+unsigned int sumofall;
 /*************************************/
-//HID Report Assignments
+//HMCAC SHA1 Assignments
 /*************************************/
-uint8_t setBuffer[64] = {0};
-uint8_t getBuffer[64] = {0};
+uint8_t setBuffer[9] = {0};
+uint8_t getBuffer[9] = { 0, 2, 2, 3, 3, 3, 5, 0, 5 };
+extern uint8_t hmacBuffer[70];
 /*************************************/
 //U2F Assignments
 /*************************************/
@@ -227,6 +229,11 @@ size_t length = 48; // First block should wait for the pool to fill up.
 
 void recvmsg() {
   int n;
+  
+  if (setBuffer[8] == 1 && !isfade) {  //Done receiving packets
+		process_setreport();
+  } 
+
   n = RawHID.recv(recv_buffer, 0); // 0 timeout = do not wait
   
   //Integrity Check
@@ -624,15 +631,17 @@ switch (PINSET) {
 #endif
             //hidprint("Both PINs Match");
 			uint8_t temp[32];
+			uint8_t pinmask[10];
 			uint8_t *ptr;
+			
+			ptr = pinmask;
+			RNG2(ptr, 10); //Fill temp with random data
+			onlykey_eeset_pinmask(ptr);
+			
 			ptr = temp;
-			//Copy characters to byte array
-			for (unsigned int i =0; i <= strlen(password.guess); i++) {
-			temp[i] = (uint8_t)password.guess[i];
-			}
+			
 			SHA256_CTX pinhash;
 			sha256_init(&pinhash);
-			sha256_update(&pinhash, temp, strlen(password.guess)); //Add new PIN to hash
 			RNG2(ptr, 32); //Fill temp with random data
 #ifdef DEBUG
 			Serial.println("Generating NONCE");
@@ -640,8 +649,16 @@ switch (PINSET) {
 			onlykey_flashset_noncehash (ptr); //Store in flash
 			memcpy(nonce, ptr, 32);
 			initialized=true;
-
 			sha256_update(&pinhash, temp, 32); //Add nonce to hash
+			//Copy characters to byte array
+			for (unsigned int i =0; i <= strlen(password.guess); i++) {
+			temp[i] = (uint8_t)password.guess[i] ^ (ID[i] ^ (nonce[i] ^ pinmask[i])); //Mask PIN Number with nonce (flash), pinmask (eeprom), and chip ID (ROM)
+#ifdef DEBUG
+			Serial.println("Masked PIN Number");
+			Serial.print(temp[i]);
+#endif
+			}
+			sha256_update(&pinhash, temp, strlen(password.guess)); //Add new PIN to hash
 			sha256_final(&pinhash, temp); //Create hash and store in temp
 
 			onlykey_flashset_pinhashpublic (ptr);
@@ -835,15 +852,17 @@ void SETPDPIN (uint8_t *buffer)
 #endif
             //hidprint("Both PINs Match");
 			uint8_t temp[32];
+			uint8_t pinmask[10];
 			uint8_t *ptr;
+			
+			ptr = pinmask;
+			RNG2(ptr, 10); //Fill temp with random data
+			onlykey_eeset_pinmask(ptr);
+			
 			ptr = temp;
-			//Copy characters to byte array
-			for (unsigned int i =0; i <= strlen(password.guess); i++) {
-			temp[i] = (uint8_t)password.guess[i];
-			}
+
 			SHA256_CTX pinhash;
 			sha256_init(&pinhash);
-			sha256_update(&pinhash, temp, strlen(password.guess)); //Add new PIN to hash
 			if (!onlykey_flashget_noncehash (ptr, 32)) {
 			RNG2(ptr, 32); //Fill temp with random data
 #ifdef DEBUG
@@ -851,8 +870,12 @@ void SETPDPIN (uint8_t *buffer)
 #endif
 			onlykey_flashset_noncehash (ptr); //Store in flash
 			}
-
 			sha256_update(&pinhash, temp, 32); //Add nonce to hash
+			//Copy characters to byte array
+			for (unsigned int i =0; i <= strlen(password.guess); i++) {
+			temp[i] = (uint8_t)password.guess[i] ^ (ID[i] ^ (nonce[i] ^ pinmask[i])); //Mask PIN Number with nonce (flash), pinmask (eeprom), and chip ID (ROM)
+			}
+			sha256_update(&pinhash, temp, strlen(password.guess)); //Add new PIN to hash
 			sha256_final(&pinhash, temp); //Create hash and store in temp
 #ifdef DEBUG
 			Serial.println("Hashing PIN and storing to Flash");
@@ -911,7 +934,7 @@ void SETTIME (uint8_t *buffer)
 #ifdef DEBUG
 		Serial.print("UNLOCKED");
 #endif
-		if (!outputU2F) hidprint(UNLOCKED);
+		if (!outputU2F && buffer[11] != OKSETTIME) hidprint(UNLOCKED); //Time set by U2F or HMACSHA1 message
 	if (timeStatus() == timeNotSet) {
     int i, j;
     for(i=0, j=3; i<4; i++, j--){
@@ -966,7 +989,7 @@ uint8_t GETKEYLABELS (uint8_t output)
 	  ptr=label+2;
 
 	for (uint8_t i = 25; i<=28; i++) { //4 labels for RSA keys
-	  onlykey_flashget_label(ptr+8, (offset + i));
+	  onlykey_flashget_label(ptr, (offset + i));
 	  label[0] = (uint8_t)i; //1-4
 	  label[1] = (uint8_t)0x7C;
 	  ByteToChar(label, labelchar, EElen_label+3);
@@ -1653,10 +1676,13 @@ void rngloop() {
 	//Stir in temperature reading
 	//RNG.stir((uint8_t *)((int)temperaturev), sizeof(temperaturev), sizeof(temperaturev));
     // Stir the touchread and analog read values into the entropy pool.
-	integrityctr1++;
+	unsigned int analog1 = analogRead(ANALOGPIN1);
+    RNG.stir((uint8_t *)analog1, sizeof(analog1), sizeof(analog1)*4);
 	touchread1 = touchRead(TOUCHPIN1);
     RNG.stir((uint8_t *)touchread1, sizeof(touchread1), sizeof(touchread1));
-    touchread2 = touchRead(TOUCHPIN2);
+    delay((analog1 % 3) + ((touchread1+touchread2+touchread3) % 3)); //delay 0 - 6 ms
+	integrityctr1++;
+	touchread2 = touchRead(TOUCHPIN2);
     RNG.stir((uint8_t *)touchread2, sizeof(touchread2), sizeof(touchread2));
     touchread3 = touchRead(TOUCHPIN3);
     RNG.stir((uint8_t *)touchread3, sizeof(touchread3), sizeof(touchread3));
@@ -1666,19 +1692,18 @@ void rngloop() {
     RNG.stir((uint8_t *)touchread5, sizeof(touchread5), sizeof(touchread5));
     touchread6 = touchRead(TOUCHPIN6);
     RNG.stir((uint8_t *)touchread6, sizeof(touchread6), sizeof(touchread6));
-    unsigned int analog1 = analogRead(ANALOGPIN1);
-    RNG.stir((uint8_t *)analog1, sizeof(analog1), sizeof(analog1)*4);
     unsigned int analog2 = analogRead(ANALOGPIN2);
     RNG.stir((uint8_t *)analog2, sizeof(analog2), sizeof(analog2)*4);
 	// Perform regular housekeeping on the random number generator.
     RNG.loop();
-	delay((analog1 % 3) + (analog2 % 3)); //delay 0 - 6 ms
+	delay((analog2 % 3) + ((touchread6+touchread5+touchread4) % 3)); //delay 0 - 6 ms
 	integrityctr2++;
 	if (integrityctr1!=integrityctr2) { //Integrity Check
 	unlocked = false;
 	CPU_RESTART();
 	return;
 	}
+	sumofall = analog2 ^ (analog1 + touchread6 + touchread5 + touchread4 + touchread3 + touchread2 + touchread1);
 }
 
 void printHex(const uint8_t *data, unsigned len)
@@ -3919,7 +3944,7 @@ if (profilemode==NONENCRYPTEDPROFILE) return 0;
 		hidprint("There is no ECC Private Key set in this slot");
 		if (outputU2F) {
 			fadeoff(1);
-		} else if (NEO_Color != 45) {
+		} else if (NEO_Color != 45 &&  NEO_Color != 43) {
 		NEO_Color = 1;
 		blink(2);
 		}
@@ -4352,6 +4377,13 @@ void decrement(Task* me) {
     // -- Floor reached.
     SoftTimer.remove(&FadeoutTask);
     SoftTimer.add(&FadeinTask);
+	if (getBuffer[7] >= 0xa1 && getBuffer[7] <= 0xaf) {
+		if (getBuffer[7] == 0xa1) {
+			fadeoff(1);
+		} else {
+			getBuffer[7]--;
+		}	
+	}
   }
 }
 
@@ -4399,6 +4431,13 @@ void fadeoff(uint8_t color) {
 	#ifdef OK_Color
 	NEO_Color = color;
 	#endif
+	}
+	if (color == 1) { //1=Red indicates error
+	  memset(hmacBuffer, 0, 70);
+	  getBuffer[8] = 4; //Reset GetBuffer (HMACSHA1)
+	  packet_buffer_details[0] = 0;
+	  packet_buffer_details[1] = 0;
+		
 	}
 }
 
@@ -5522,4 +5561,38 @@ int RNG2(uint8_t *dest, unsigned size) {
 	}
 #endif
     return 1;
+}
+
+void process_setreport () {
+	// HMACSHA1 - This is the HMACSHA1 Challenge default size is 32	bytes
+	getBuffer[7] = 0xaf;
+	setBuffer[8] = 0;
+	if (hmacBuffer[59] == 0x3f && hmacBuffer[60] == 0x3f && hmacBuffer[61] == 0x3f && hmacBuffer[62] == 0x3f && hmacBuffer[63] == 0x3f) { 
+		memset(setBuffer, 0, 9);
+		memset(hmacBuffer, 0, 70);
+#ifdef DEBUG    
+		Serial.println("Received HMACSHA1 Test");
+#endif
+		return;
+	} else if (hmacBuffer[69] != 0x00) { 
+		if (hmacBuffer[69] == OKSETTIME) {
+			memcpy(hmacBuffer+5, hmacBuffer + 63, 7);
+			SETTIME(hmacBuffer);
+		}
+		getBuffer[6] = OKversion[3] | (OKversion[10] << 4); //Send fw version also functions as an ACK
+		getBuffer[7] = 0;
+		memset(hmacBuffer, 0, 70);
+		return;
+	}
+#ifdef DEBUG    
+	Serial.println("Received HMACSHA1 Packets");
+	byteprint(hmacBuffer, 70);
+#endif
+	CRYPTO_AUTH = 3;
+	packet_buffer_details[0] = 0xFF;
+	NEO_Color = 43; //Yellow
+	SoftTimer.remove(&Wipedata);
+	fadeon();
+	fadeoffafter20(); //Wipe and fadeoff after 20 seconds
+	memset(setBuffer, 0, 9);
 }

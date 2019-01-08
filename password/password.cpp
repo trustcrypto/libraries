@@ -112,6 +112,7 @@ bool Password::evaluate(){
 bool Password::profile1hashevaluate(){ 
 	uint8_t p2mode;
 	uint8_t temp[32];
+	uint8_t pinmask[10];
 	size_t guesslen = strlen(guess);
 	if (guesslen < 7) {
 		delay (30); //Simulate time taken to hash
@@ -120,13 +121,16 @@ bool Password::profile1hashevaluate(){
 //Hash values
 	SHA256_CTX pinhash;
 	sha256_init(&pinhash);
-	sha256_update(&pinhash, (uint8_t *)guess, guesslen); //Add new PIN to hash
 #ifdef DEBUG
 	Serial.print("NONCE HASH:"); 
 	byteprint(nonce, 32);
 #endif
-	  
 	sha256_update(&pinhash, nonce, 32); //Add nonce to hash
+	onlykey_eeget_pinmask((uint8_t*)pinmask);
+	for (int i =0; i <= guesslen; i++) {
+		temp[i] = (uint8_t)guess[i] ^ (ID[i] ^ (nonce[i] ^ pinmask[i])); //Mask PIN Number with nonce (flash), pinmask (eeprom), and chip ID (ROM)
+	}
+	sha256_update(&pinhash, temp, guesslen); //Add new PIN to hash
 	sha256_final(&pinhash, profilekey); //Create hash and store in profilekey
 	//Generate public key of pinhash
 	memcpy(temp, profilekey, 32);
@@ -187,6 +191,7 @@ bool Password::profile1hashevaluate(){
 bool Password::profile2hashevaluate(){ 
 	uint8_t p2mode;
 	uint8_t temp[32];
+	uint8_t pinmask[10];
 	size_t guesslen = strlen(guess);
 	if (guesslen < 7) {
 		delay (30); //Simulate time taken to hash
@@ -195,13 +200,16 @@ bool Password::profile2hashevaluate(){
 //Hash values
 	SHA256_CTX pinhash;
 	sha256_init(&pinhash);
-	sha256_update(&pinhash, (uint8_t *)guess, guesslen); //Add new PIN to hash
 #ifdef DEBUG
 	Serial.print("NONCE HASH:"); 
 	byteprint(nonce, 32);
 #endif
-
 	sha256_update(&pinhash, nonce, 32); //Add nonce to hash
+	onlykey_eeget_pinmask((uint8_t*)pinmask);
+	for (int i =0; i <= guesslen; i++) {
+		temp[i] = (uint8_t)guess[i] ^ (ID[i] ^ (nonce[i] ^ pinmask[i])); //Mask PIN Number with nonce (flash), pinmask (eeprom), and chip ID (ROM)
+	}
+	sha256_update(&pinhash, temp, guesslen); //Add new PIN to hash
 	sha256_final(&pinhash, profilekey); //Create hash and store in profilekey
 	//Generate public key of pinhash
 	memcpy(temp, profilekey, 32);

@@ -203,6 +203,16 @@ void onlykey_eeset_failedlogins (uint8_t *ptr) {
 
 /*********************************/
 /*********************************/
+int onlykey_eeget_pinmask (uint8_t *ptr) {
+    onlykey_eeget_common(ptr, EEpos_pinmask, EElen_pinmask);
+    return EElen_pinmask;
+}
+void onlykey_eeset_pinmask (uint8_t *ptr) {
+    onlykey_eeset_common(ptr, EEpos_pinmask, EElen_pinmask);
+}
+
+/*********************************/
+/*********************************/
 
 int onlykey_eeget_U2Fcertlen (uint8_t *ptr) {
     onlykey_eeget_common(ptr, EEpos_U2Fcertlen, EElen_U2Fcertlen);

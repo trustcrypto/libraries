@@ -230,7 +230,8 @@ extern void process_packets (uint8_t *buffer);
 extern void temp_voltage ();
 extern int RNG2(uint8_t *dest, unsigned size);
 extern int calibratecaptouch (uint16_t j);
-
+extern void process_setreport ();
+	
 #ifdef __cplusplus
 }
 #endif
