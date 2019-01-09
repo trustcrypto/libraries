@@ -1,6 +1,6 @@
 For information on installing libraries, see: http://www.arduino.cc/en/Guide/Libraries
 
-Source code reviewed by [![Codacy Badge](https://api.codacy.com/project/badge/Grade/bae30c735de3488bbc1b7efa0b57ddd4)](https://www.codacy.com/app/admin_74/libraries?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=trustcrypto/libraries&amp;utm_campaign=Badge_Grade)
+Source code reviewed by [![Codacy Badge](https://api.codacy.com/project/badge/Grade/d20af76dbb4840c8b39e2b8f0feb32a5)](https://www.codacy.com/app/onlykey/libraries?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=trustcrypto/libraries&amp;utm_campaign=Badge_Grade)
 
 # License
 
