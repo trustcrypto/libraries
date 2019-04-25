@@ -85,12 +85,20 @@ extern "C"
 #include <SoftTimer.h>
 #include "base64.h"
 
+// Start of firmware
 #define fwstartadr 0x6060
+// Start of flash storage
 #define flashstorestart 0x3B000
+// End of flash storage
 #define flashend 0x3FFFF
 #define CPU_RESTART_ADDR (uint32_t *)0xE000ED0C
 #define CPU_RESTART_VAL 0x5FA0004
+// Restart device
 #define CPU_RESTART() (*CPU_RESTART_ADDR = CPU_RESTART_VAL);
+
+#define LARGE_RESP_BUFFER_SIZE         1024
+#define LARGE_BUFFER_SIZE         1024
+#define PACKET_BUFFER_SIZE         768
 
 #define TYPE_INIT               0x80  // Initial frame identifier
 /*************************************/
@@ -110,7 +118,7 @@ extern "C"
 #define OKGETPUBKEY          (TYPE_INIT | 0x6C)
 #define OKSIGN      (TYPE_INIT | 0x6D)
 #define OKWIPEPRIV           (TYPE_INIT | 0x6E)
-#define OKSETPRIV            (TYPE_INIT | 0x6F)
+#define OKSETPRIV           (TYPE_INIT | 0x6F)
 #define OKDECRYPT      (TYPE_INIT | 0x70)//
 #define OKRESTORE            (TYPE_INIT | 0x71)
 #define OKGETRESPONSE            (TYPE_INIT | 0x72)
@@ -124,6 +132,11 @@ extern "C"
 #define STDPROFILE2 1
 #define NONENCRYPTEDPROFILE 2 //International Travel Edition or Plausible Deniability
 
+/*************************************/
+//Keyboard setup mode
+/*************************************/
+#define MANUAL_PIN_SET 1
+#define AUTO_PIN_SET 2
 
 // Last vendor defined command
 
@@ -137,20 +150,22 @@ extern void fadein();
 extern void fadeout();
 extern void printDigits(int digits);
 extern void digitalClockDisplay();
-extern void GETSLOTLABELS (uint8_t output);
-extern uint8_t GETKEYLABELS (uint8_t output);
-extern void SETTIME (uint8_t *buffer);
-extern void WIPEU2FCERT (uint8_t *buffer);
-extern void SETU2FCERT (uint8_t *buffer);
-extern void WIPEU2FPRIV (uint8_t *buffer);
-extern void SETU2FPRIV (uint8_t *buffer);
-extern void WIPESLOT (uint8_t *buffer);
-extern void SETSLOT (uint8_t *buffer);
-extern void SETPIN (uint8_t *buffer);
-extern void SETPDPIN (uint8_t *buffer);
-extern void SETSDPIN (uint8_t *buffer);
-extern void SETPRIV (uint8_t *buffer);
-extern void WIPEPRIV (uint8_t *buffer);
+extern void get_slot_labels (uint8_t output);
+extern uint8_t get_key_labels (uint8_t output);
+extern void keyboard_mode_config(uint8_t step);
+extern void set_time (uint8_t *buffer);
+extern void wipe_u2f_cert (uint8_t *buffer);
+extern void set_u2f_cert (uint8_t *buffer);
+extern void wipe_u2f_priv (uint8_t *buffer);
+extern void set_u2f_priv (uint8_t *buffer);
+extern void wipe_slot (uint8_t *buffer);
+extern void set_slot (uint8_t *buffer);
+extern void set_primary_pin (uint8_t *buffer, uint8_t keyboard_mode);
+extern void set_secondary_pin (uint8_t *buffer, uint8_t keyboard_mode);
+extern void set_sd_pin (uint8_t *buffer, uint8_t keyboard_mode);
+extern void set_private (uint8_t *buffer);
+extern void wipe_private (uint8_t *buffer);
+extern void ctap_flash (int index, uint8_t *buffer, int size, uint8_t mode);
 extern void setOtherTimeout();
 extern void processPacket(uint8_t *buffer);
 extern void setCounter(uint32_t counter);
@@ -175,7 +190,7 @@ extern bool unlocked;
 extern bool initialized;
 extern bool configmode;
 extern bool PDmode;
-extern int PINSET;
+extern int pin_set;
 extern int u2f_button;
 extern int large_data_offset;
 
@@ -217,20 +232,22 @@ extern void wipedata();
 extern void fadeoffafter20();
 extern void cancelfadeoffafter20();
 extern void fadeoff(uint8_t color);
-extern void fadeon();
+extern void fadeon(uint8_t color);
 extern void rainbowCycle(uint8_t wait, uint8_t cycle);
 extern void initColor();
 extern void setcolor (uint8_t Color);
 extern void backup();
-extern void SETRSAPRIV (uint8_t *buffer);
-extern void WIPERSAPRIV (uint8_t *buffer);
-extern void SETECCPRIV (uint8_t *buffer);
+extern void rsa_priv_flash (uint8_t *buffer, bool wipe);
+extern void ecc_priv_flash (uint8_t *buffer);
+extern void flash_modify (int index, uint8_t *sector, uint8_t *data, int size, bool wipe);
 extern void RESTORE (uint8_t *buffer);
 extern void process_packets (uint8_t *buffer);
 extern void temp_voltage ();
 extern int RNG2(uint8_t *dest, unsigned size);
 extern int calibratecaptouch (uint16_t j);
 extern void process_setreport ();
+extern void generate_random_pin (uint8_t *buffer);
+extern void generate_random_passphrase (uint8_t *buffer);
 	
 #ifdef __cplusplus
 }

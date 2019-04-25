@@ -84,6 +84,7 @@
 #include "yubikey.h"
 
 
+
 #if !defined(MBEDTLS_CONFIG_FILE)
 #include "config.h"
 #else
@@ -120,8 +121,8 @@ extern int outputU2F;
 uint8_t type;
 extern int packet_buffer_offset;
 extern uint8_t resp_buffer[64];
-extern uint8_t large_buffer[1024];
-extern uint8_t packet_buffer[768];
+extern uint8_t* large_buffer;
+extern uint8_t* packet_buffer;
 extern uint8_t recv_buffer[64];
 extern int large_data_len;
 extern int msgcount;
@@ -208,7 +209,7 @@ void GETPUBKEY (uint8_t *buffer) {
 	DERIVEKEY(buffer[6], buffer+7);
 	RawHID.send(ecc_public_key, 0);
 	} else if (buffer[6] == 0xff) { //Search Keylabels for matching key, return slot
-		temp[0] = GETKEYLABELS(3);
+		temp[0] = get_key_labels(3);
 		if (temp[0] >= 1) {
 			if (outputU2F) {
 				store_U2F_response(temp, 1, true);
@@ -354,7 +355,7 @@ void RSASIGN (uint8_t *buffer)
 #endif
 		fadeoff(1);
 		packet_buffer_offset = 0;
-		memset(packet_buffer, 0, sizeof(packet_buffer)); //wipe buffer
+		memset(packet_buffer, 0, PACKET_BUFFER_SIZE); //wipe buffer
 		return;
 	}
 #ifdef DEBUG
@@ -433,7 +434,7 @@ void RSADECRYPT (uint8_t *buffer)
 #endif
 		fadeoff(1);
 		packet_buffer_offset = 0;
-		memset(packet_buffer, 0, sizeof(packet_buffer)); //wipe buffer
+		memset(packet_buffer, 0, PACKET_BUFFER_SIZE); //wipe buffer
 		return;
 	}
 #ifdef DEBUG
@@ -480,7 +481,7 @@ void RSADECRYPT (uint8_t *buffer)
 	}
 	fadeoff(85);
     // Reset the buffer offset
-	memset(large_buffer, 0, sizeof(large_buffer));
+	memset(large_buffer, 0, LARGE_BUFFER_SIZE);
     return;
 	} else {
 #ifdef DEBUG

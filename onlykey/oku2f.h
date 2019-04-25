@@ -73,9 +73,6 @@
  */
 
 
-
-
-
 #include "uECC.h"
 #include "sha256.h"
 #include "T3MacLib.h"
@@ -84,6 +81,27 @@
 #include "tweetnacl.h"
 
 #ifdef US_VERSION
+
+#ifdef OKSOLO
+#include "ctap.h"
+#include "ctaphid.h"
+#include "cbor.h"
+#include "device.h"
+#include "storage.h"
+#include "extensions/wallet.h"
+#include "extensions/extensions.h"
+#define NVIC_SystemReset CPU_RESTART
+// Storage of FIDO2 resident keys
+#define PAGE_SIZE		2048
+#define PAGES			2
+#define RK_NUM_PAGES    10
+#define RK_START_PAGE   (PAGES - 14)
+#define RK_END_PAGE     (PAGES - 14 + RK_NUM_PAGES)     // not included
+#define DEBUG_LEVEL 0
+#define ENABLE_U2F
+//#define ENABLE_U2F_EXTENSIONS
+//#define BRIDGE_TO_WALLET
+#endif
  
 #ifndef OKU2F_H
 #define OKU2F_H
@@ -102,83 +120,36 @@ extern "C"
 /*************************************/
 //U2F assignments
 /*************************************/
-#define CID_BROADCAST           0xffffffff  // Broadcast channel id
-#define TYPE_MASK               0x80  // Frame type mask
-#define TYPE_CONT               0x00  // Continuation frame identifier
-
-#define U2F_INS_REGISTER  0x01
-#define U2F_INS_AUTHENTICATE  0x02
-#define U2F_INS_VERSION  0x03
-
-#define STATE_CHANNEL_AVAILABLE 0
-#define STATE_CHANNEL_WAIT_PACKET 1
-#define STATE_CHANNEL_WAIT_CONT 2
-#define STATE_CHANNEL_TIMEOUT 3
-#define STATE_LARGE_PACKET 4
-
-#define MAX_TOTAL_PACKET 7609
 #define MAX_INITIAL_PACKET 57
 #define MAX_CONTINUATION_PACKET 59
 #define SET_MSG_LEN(b, v) do { (b)[5] = ((v) >> 8) & 0xff;  (b)[6] = (v) & 0xff; } while(0)
 
-#define U2FHID_IF_VERSION       2  // Current interface implementation version
-#define MAX_CHANNEL 4
-#define TIMEOUT_VALUE 1000
-
 #define IS_CONTINUATION_PACKET(x) ( (x) < 0x80)
 #define IS_NOT_CONTINUATION_PACKET(x) ( (x) >= 0x80)
-/*************************************/
-//U2F MSG Type assignments
-/*************************************/
-#define U2FHID_PING         (TYPE_INIT | 0x01)  // Echo data through local processor only
+
 #define U2FHID_MSG          (TYPE_INIT | 0x03)  // Send U2F message frame
-#define U2FHID_LOCK         (TYPE_INIT | 0x04)  // Send lock channel command
-#define U2FHID_INIT         (TYPE_INIT | 0x06)  // Channel initialization
-#define U2FHID_WINK         (TYPE_INIT | 0x08)  // Send device identification wink
 #define U2FHID_ERROR        (TYPE_INIT | 0x3f)  // Error response
-/*************************************/
-//U2F Error assignments
-/*************************************/
-#define ERR_NONE  0
-#define ERR_INVALID_CMD  1
-#define ERR_INVALID_PAR  2
-#define ERR_INVALID_LEN  3
-#define ERR_INVALID_SEQ  4
-#define ERR_MSG_TIMEOUT  5
-#define ERR_CHANNEL_BUSY  6
-#define ERR_LOCK_REQUIRED  10
-#define ERR_INVALID_CID  11
-#define ERR_ACK  127
-#define ERR_CODE  128
-#define ERR_KEY_TYPE  129
-#define ERR_KEY_CHECK  130
-#define ERR_DATA  131
 
-
-#define SW_NO_ERROR                       0x9000
 #define SW_CONDITIONS_NOT_SATISFIED       0x6985
-#define SW_WRONG_DATA                     0x6A80
-#define SW_WRONG_LENGTH                     0x6700
-#define SW_INS_NOT_SUPPORTED 0x6D00
-#define SW_CLA_NOT_SUPPORTED 0x6E00
 
 #define APPEND_SW(x, v1, v2) do { (*x++)=v1; (*x++)=v2;} while (0)
 #define APPEND_SW_NO_ERROR(x) do { (*x++)=0x90; (*x++)=0x00;} while (0)
 	
-#define TIMEOUT_VALUE 1000
 /*************************************/
-extern void u2fmsgtimeout(uint8_t *buffer);
-extern void recvu2fmsg(uint8_t *buffer);
+extern void sendLargeResponse(uint8_t *request, int len);
+extern void fido_msg_timeout(uint8_t *buffer);
+extern void recv_fido_msg(uint8_t *buffer);
 extern void init_SHA256(const uECC_HashContext *base);
 extern void update_SHA256(const uECC_HashContext *base,
                    const uint8_t *message,
                    unsigned message_size);                   
 extern void finish_SHA256(const uECC_HashContext *base, uint8_t *hash_result);
 extern void U2Finit();
-extern void send_U2F_response (uint8_t *buffer);
 extern void store_U2F_response (uint8_t *data, int len, bool encrypt);
+extern void send_U2F_response(uint8_t *buffer);
 extern void custom_error (uint8_t code);
 extern void handle_firefox_u2f (uint8_t *msgid);
+extern int recv_custom_msg(uint8_t *data, uint8_t *buffer);
 
 #ifdef __cplusplus
 }

@@ -84,10 +84,12 @@
 #include "rsa.h"
 #include "tweetnacl.h"
 
+
 #ifdef __cplusplus
 extern "C"
 {
 #endif
+
 #define MAX_RSA_KEY_SIZE 512
 #define MAX_ECC_KEY_SIZE 32
 

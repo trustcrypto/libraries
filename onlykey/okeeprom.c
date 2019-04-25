@@ -183,6 +183,15 @@ void onlykey_eeset_keyboardlayout (uint8_t *ptr) {
 }
 /*********************************/
 /*********************************/
+int onlykey_eeget_ledbrightness (uint8_t *ptr) {
+    onlykey_eeget_common(ptr, EEpos_ledbrightness, EElen_ledbrightness);
+    return EElen_ledbrightness;
+}
+void onlykey_eeset_ledbrightness (uint8_t *ptr) {
+    onlykey_eeset_common(ptr, EEpos_ledbrightness, EElen_ledbrightness);
+}
+/*********************************/
+/*********************************/
 int onlykey_eeget_sincelastregularlogin (uint8_t *ptr) {
     onlykey_eeget_common(ptr, EEpos_sincelastregularlogin, EElen_sincelastregularlogin);
     return EElen_sincelastregularlogin;

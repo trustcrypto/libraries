@@ -121,6 +121,7 @@ extern "C"
 #define EElen_2ndprofilemode	1
 #define EElen_typespeed	1
 #define EElen_keyboardlayout	1
+#define EElen_ledbrightness	1
 #define EElen_ecckey	1
 #define EElen_rsakey	1
 #define EElen_pinmask	10
@@ -437,8 +438,11 @@ extern "C"
 #define EEpos_typespeed	(EEpos_2ndprofilemode + EElen_2ndprofilemode)
 #define EEpos_keyboardlayout	(EEpos_typespeed + EElen_typespeed)
 #define EEpos_sincelastregularlogin	(EEpos_keyboardlayout + EElen_keyboardlayout)
-#define EEpos_pinmask	(EEpos_sincelastregularlogin + EElen_sincelastregularlogin)
-#define EEpos_failedlogins	(EEpos_pinmask + EElen_pinmask)
+#define EEpos_failedlogins	(EEpos_sincelastregularlogin + EElen_sincelastregularlogin)
+#define EEpos_pinmask	(EEpos_failedlogins + EElen_failedlogins)
+#define EEpos_ledbrightness	(EEpos_pinmask + EElen_pinmask)
+
+
 
 extern int  onlykey_eeget_backupkey (uint8_t *ptr);
 extern void onlykey_eeset_backupkey(uint8_t *ptr);
@@ -466,6 +470,9 @@ extern void onlykey_eeset_typespeed(uint8_t *ptr);
 
 extern int  onlykey_eeget_keyboardlayout (uint8_t *ptr);
 extern void onlykey_eeset_keyboardlayout(uint8_t *ptr);
+
+extern int  onlykey_eeget_ledbrightness (uint8_t *ptr);
+extern void onlykey_eeset_ledbrightness (uint8_t *ptr);
 
 extern int  onlykey_eeget_failedlogins (uint8_t *ptr);
 extern void onlykey_eeset_failedlogins(uint8_t *ptr);
