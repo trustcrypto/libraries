@@ -12,6 +12,7 @@
     #define uECC_ENABLE_VLI_API 0
 #endif
 
+
 #ifdef __cplusplus
 extern "C"
 {
