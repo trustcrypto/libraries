@@ -14,11 +14,13 @@ extern "C"
 {
 #endif
 
-extern int check_ret(CborError r);
+#define check_ret(r)    _check_ret(r,__LINE__, __FILE__);\
+                        if ((r) != CborNoError) return CTAP2_ERR_CBOR_PARSING;
 
-extern int check_retr(CborError r);
+#define check_retr(r)    _check_ret(r,__LINE__, __FILE__);\
+                        if ((r) != CborNoError) return r;
 
-extern void _check_ret(CborError ret, int line, const char * filename);
+extern void _check_ret(int ret, int line, const char * filename);
 
 const char * cbor_value_get_type_string(const CborValue *value);
 

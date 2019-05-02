@@ -13,11 +13,11 @@
  *    copyright notice, this list of conditions and the following
  *    disclaimer in the documentation and/or other materials provided
  *    with the distribution.
- *      
+ *
  * 3. All advertising materials mentioning features or use of this
  *    software must display the following acknowledgment:
  *    "This product includes software developed by CryptoTrust LLC. for
- *    the OnlyKey Project (http://www.crp.to/ok)" 
+ *    the OnlyKey Project (http://www.crp.to/ok)"
  *
  * 4. The names "OnlyKey" and "OnlyKey Project" must not be used to
  *    endorse or promote products derived from this software without
@@ -25,51 +25,51 @@
  *    admin@crp.to.
  *
  * 5. Products derived from this software may not be called "OnlyKey"
- *    nor may "OnlyKey" or "CryptoTrust" appear in their names without 
+ *    nor may "OnlyKey" or "CryptoTrust" appear in their names without
  *    specific prior written permission. For written permission, please
  *    contact admin@crp.to.
  *
  * 6. Redistributions of any form whatsoever must retain the following
  *    acknowledgment:
  *    "This product includes software developed by CryptoTrust LLC. for
- *    the OnlyKey Project (http://www.crp.to/ok)" 
+ *    the OnlyKey Project (http://www.crp.to/ok)"
  *
- * 7. Redistributions in any form must be accompanied by information on 
- *    how to obtain complete source code for this software and any 
- *    accompanying software that uses this software. The source code 
- *    must either be included in the distribution or be available for 
- *    no more than the cost of distribution plus a nominal fee, and must 
- *    be freely redistributable under reasonable conditions. For a 
- *    binary file, complete source code means the source code for all 
- *    modules it contains. 
+ * 7. Redistributions in any form must be accompanied by information on
+ *    how to obtain complete source code for this software and any
+ *    accompanying software that uses this software. The source code
+ *    must either be included in the distribution or be available for
+ *    no more than the cost of distribution plus a nominal fee, and must
+ *    be freely redistributable under reasonable conditions. For a
+ *    binary file, complete source code means the source code for all
+ *    modules it contains.
  *
  * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS
  * ARE GRANTED BY THIS LICENSE. IF SOFTWARE RECIPIENT INSTITUTES PATENT
  * LITIGATION AGAINST ANY ENTITY (INCLUDING A CROSS-CLAIM OR COUNTERCLAIM
- * IN A LAWSUIT) ALLEGING THAT THIS SOFTWARE (INCLUDING COMBINATIONS OF THE 
- * SOFTWARE WITH OTHER SOFTWARE OR HARDWARE) INFRINGES SUCH SOFTWARE 
- * RECIPIENT'S PATENT(S), THEN SUCH SOFTWARE RECIPIENT'S RIGHTS GRANTED BY 
+ * IN A LAWSUIT) ALLEGING THAT THIS SOFTWARE (INCLUDING COMBINATIONS OF THE
+ * SOFTWARE WITH OTHER SOFTWARE OR HARDWARE) INFRINGES SUCH SOFTWARE
+ * RECIPIENT'S PATENT(S), THEN SUCH SOFTWARE RECIPIENT'S RIGHTS GRANTED BY
  * THIS LICENSE SHALL TERMINATE AS OF THE DATE SUCH LITIGATION IS FILED. IF
- * ANY PROVISION OF THIS AGREEMENT IS INVALID OR UNENFORCEABLE UNDER 
- * APPLICABLE LAW, IT SHALL NOT AFFECT THE VALIDITY OR ENFORCEABILITY OF THE 
- * REMAINDER OF THE TERMS OF THIS AGREEMENT, AND WITHOUT FURTHER ACTION 
- * BY THE PARTIES HERETO, SUCH PROVISION SHALL BE REFORMED TO THE MINIMUM 
- * EXTENT NECESSARY TO MAKE SUCH PROVISION VALID AND ENFORCEABLE. ALL 
- * SOFTWARE RECIPIENT'S RIGHTS UNDER THIS AGREEMENT SHALL TERMINATE IF IT 
- * FAILS TO COMPLY WITH ANY OF THE MATERIAL TERMS OR CONDITIONS OF THIS 
- * AGREEMENT AND DOES NOT CURE SUCH FAILURE IN A REASONABLE PERIOD OF 
- * TIME AFTER BECOMING AWARE OF SUCH NONCOMPLIANCE. THIS SOFTWARE IS 
- * PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY 
- * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED 
- * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR  PURPOSE 
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS 
- * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,  EXEMPLARY, OR 
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF 
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR 
- * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, 
- * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR 
- * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF 
- * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * ANY PROVISION OF THIS AGREEMENT IS INVALID OR UNENFORCEABLE UNDER
+ * APPLICABLE LAW, IT SHALL NOT AFFECT THE VALIDITY OR ENFORCEABILITY OF THE
+ * REMAINDER OF THE TERMS OF THIS AGREEMENT, AND WITHOUT FURTHER ACTION
+ * BY THE PARTIES HERETO, SUCH PROVISION SHALL BE REFORMED TO THE MINIMUM
+ * EXTENT NECESSARY TO MAKE SUCH PROVISION VALID AND ENFORCEABLE. ALL
+ * SOFTWARE RECIPIENT'S RIGHTS UNDER THIS AGREEMENT SHALL TERMINATE IF IT
+ * FAILS TO COMPLY WITH ANY OF THE MATERIAL TERMS OR CONDITIONS OF THIS
+ * AGREEMENT AND DOES NOT CURE SUCH FAILURE IN A REASONABLE PERIOD OF
+ * TIME AFTER BECOMING AWARE OF SUCH NONCOMPLIANCE. THIS SOFTWARE IS
+ * PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
+ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR  PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS
+ * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,  EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
+ * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
+ * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #include "oku2f.h"
@@ -115,7 +115,7 @@ bool isFirefox;
 extern uint8_t NEO_Color;
 
 const char stored_appid[] = "\x23\xCD\xF4\x07\xFD\x90\x4F\xEE\x8B\x96\x40\x08\xB0\x49\xC5\x5E\xA8\x81\x13\x36\xA3\xA5\x17\x1B\x58\xD6\x6A\xEC\xF3\x79\xE7\x4A";
-    
+
 uint8_t handlekey[32] = {0};
 uint8_t apphandlekey[32] = {0};
 
@@ -130,12 +130,14 @@ void U2Finit()
   onlykey_eeget_U2Fcertlen(length);
   int length2 = length[0] << 8 | length[1];
   if (length2 != 0) {
+  extern uint16_t attestation_cert_der_size;
+  attestation_cert_der_size=length2;
   onlykey_flashget_U2F();
   } else {
   byteprint((uint8_t*)attestation_key,sizeof(attestation_key));
   byteprint((uint8_t*)attestation_cert_der,sizeof(attestation_cert_der));
   }
-  DERIVEKEY(0 , (uint8_t*)attestation_key); //Derive key from default key in slot 32 
+  DERIVEKEY(0 , (uint8_t*)attestation_key); //Derive key from default key in slot 32
   memcpy(handlekey, ecc_private_key, 32); // Copy derived key to handlekey
   SHA256_CTX APPKEY;
   sha256_init(&APPKEY);
@@ -145,7 +147,7 @@ void U2Finit()
   sha256_final(&APPKEY, apphandlekey); // Derivation key for app IDs
 #ifdef DEBUG
   Serial.println("HANDLE KEY =");
-  byteprint(handlekey, 32); 
+  byteprint(handlekey, 32);
 #endif
 }
 
@@ -226,8 +228,8 @@ int recv_custom_msg(uint8_t *datapart, uint8_t *buffer) {
 				#endif
 				SHA256_CTX context;
 				sha256_init(&context);
-				sha256_update(&context, shared, 32); 
-				sha256_final(&context, ecc_private_key); 
+				sha256_update(&context, shared, 32);
+				sha256_final(&context, ecc_private_key);
 				#ifdef DEBUG
 				Serial.println("AES Key = ");
 				byteprint(ecc_private_key, 32);
@@ -244,12 +246,12 @@ int recv_custom_msg(uint8_t *datapart, uint8_t *buffer) {
 			#ifdef DEBUG
 			Serial.println("Decrypted client handle");
 			byteprint(client_handle, 64);
-			#endif  
+			#endif
 		   if (client_handle[0] == 0xFF && client_handle[1] == 0xFF && client_handle[2] == 0xFF && client_handle[3] == 0xFF) {
 			#ifdef DEBUG
 					Serial.println("Received U2F request to send data to OnlyKey");
 					Serial.println(times);
-			#endif 		
+			#endif
 			if (client_handle[4] == OKDECRYPT && !CRYPTO_AUTH) {
 				if(profilemode!=NONENCRYPTEDPROFILE) {
 				#ifdef US_VERSION
@@ -258,7 +260,7 @@ int recv_custom_msg(uint8_t *datapart, uint8_t *buffer) {
 				large_data_offset = 0;
 				DECRYPT(client_handle);
 				#endif
-				}	
+				}
 			} else if (client_handle[4] == OKSIGN && !CRYPTO_AUTH) {
 				if(profilemode!=NONENCRYPTEDPROFILE) {
 				#ifdef US_VERSION
@@ -291,23 +293,23 @@ int recv_custom_msg(uint8_t *datapart, uint8_t *buffer) {
 					large_data_offset = 0;
 					send_U2F_response(buffer);
 					fadeoff(0);
-				}					
+				}
 				return 1;
 				#endif
 				}
-			} 
+			}
 			large_data_offset = 0;
 			return 1;
 		  } else {
-			msgcount--; 
-			return 1;				
+			msgcount--;
+			return 1;
 		  }
 	  }
   }
   wipedata();
   return 0;
 }
-	  
+
 void fido_msg_timeout(uint8_t *buffer) {
 	ctaphid_check_timeouts();
 }
@@ -343,7 +345,7 @@ void store_U2F_response (uint8_t *data, int len, bool encrypt) {
 	if (encrypt) {
 		aes_crypto_box (data, len, false);
 		large_resp_buffer[4] = 0x01;
-	} 
+	}
 	if ((len+13) >= (int)LARGE_RESP_BUFFER_SIZE) return; //Double check buf overflow
 	if (len < 64) {
 		uint8_t tempdata[64];
@@ -356,17 +358,17 @@ void store_U2F_response (uint8_t *data, int len, bool encrypt) {
 	large_resp_buffer[0] = 0x01; // user_presence
 	len2 = 5;
 	large_resp_buffer[len2++] = 0x30; //header: compound structure
-	large_resp_buffer[len2++] = len+4; //total length 
+	large_resp_buffer[len2++] = len+4; //total length
     large_resp_buffer[len2++] = 0x02;  //header: integer
 	#ifdef DEBUG
       Serial.print ("Len1 ");
       Serial.print (len/2);
 #endif
-	large_resp_buffer[len2++] = len/2; 
+	large_resp_buffer[len2++] = len/2;
 	memmove(large_resp_buffer+len2, data, len/2); //R value
 	len2 += len/2;
-	large_resp_buffer[len2++] = 0x02;  //header: integer 
-	large_resp_buffer[len2++] = len/2; 
+	large_resp_buffer[len2++] = 0x02;  //header: integer
+	large_resp_buffer[len2++] = len/2;
 	memmove(large_resp_buffer+len2, data+(len/2), len/2); //S value
 	len2 += len/2;
 	uint8_t *last = large_resp_buffer+len2;
@@ -384,7 +386,7 @@ void send_U2F_response(uint8_t *buffer) {
 	if(profilemode!=NONENCRYPTEDPROFILE) {
 		#ifdef DEBUG
 		Serial.print("Sending data on OnlyKey via U2F");
-		#endif  
+		#endif
 		if (large_resp_buffer[large_resp_buffer_offset-1] == 0 && large_resp_buffer[large_resp_buffer_offset-2] == 0x90) {
 			#ifdef US_VERSION
 			sendLargeResponse(buffer, large_resp_buffer_offset);
@@ -396,8 +398,8 @@ void send_U2F_response(uint8_t *buffer) {
 		} else {
 			#ifdef DEBUG
 			Serial.print("Error no data ready to be retrieved");
-			#endif 
-			custom_error(6); 
+			#endif
+			custom_error(6);
 			outputU2F = 0;
 			if (!CRYPTO_AUTH) fadeoff(1);
 			return;
@@ -414,7 +416,7 @@ void custom_error (uint8_t code) {
 		outputU2F = 1;
 	} else {
 		msgcount++;
-		errorResponse(recv_buffer, 127+code); 
+		errorResponse(recv_buffer, 127+code);
 	}
 }
 
@@ -434,18 +436,18 @@ void handle_firefox_u2f (uint8_t *msgid) {
       Serial.print ("Browser is Firefox");
 #endif
 	} else { //Chrome
-		isFirefox = false;				
+		isFirefox = false;
 	}
 }
 
 void sendLargeResponse(uint8_t *request, int len)
 {
-#ifdef DEBUG	
+#ifdef DEBUG
 	Serial.print("Sending large response ");
 	Serial.println(len);
 	byteprint(large_resp_buffer, len);
 	Serial.println("\n--\n");
-#endif	
+#endif
 	memcpy(resp_buffer, request, 4); //copy cid
 	resp_buffer[4] = U2FHID_MSG;
 	int r = len;

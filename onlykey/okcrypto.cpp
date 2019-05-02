@@ -13,11 +13,11 @@
  *    copyright notice, this list of conditions and the following
  *    disclaimer in the documentation and/or other materials provided
  *    with the distribution.
- *      
+ *
  * 3. All advertising materials mentioning features or use of this
  *    software must display the following acknowledgment:
  *    "This product includes software developed by CryptoTrust LLC. for
- *    the OnlyKey Project (http://www.crp.to/ok)" 
+ *    the OnlyKey Project (http://www.crp.to/ok)"
  *
  * 4. The names "OnlyKey" and "OnlyKey Project" must not be used to
  *    endorse or promote products derived from this software without
@@ -25,51 +25,51 @@
  *    admin@crp.to.
  *
  * 5. Products derived from this software may not be called "OnlyKey"
- *    nor may "OnlyKey" or "CryptoTrust" appear in their names without 
+ *    nor may "OnlyKey" or "CryptoTrust" appear in their names without
  *    specific prior written permission. For written permission, please
  *    contact admin@crp.to.
  *
  * 6. Redistributions of any form whatsoever must retain the following
  *    acknowledgment:
  *    "This product includes software developed by CryptoTrust LLC. for
- *    the OnlyKey Project (http://www.crp.to/ok)" 
+ *    the OnlyKey Project (http://www.crp.to/ok)"
  *
- * 7. Redistributions in any form must be accompanied by information on 
- *    how to obtain complete source code for this software and any 
- *    accompanying software that uses this software. The source code 
- *    must either be included in the distribution or be available for 
- *    no more than the cost of distribution plus a nominal fee, and must 
- *    be freely redistributable under reasonable conditions. For a 
- *    binary file, complete source code means the source code for all 
- *    modules it contains. 
+ * 7. Redistributions in any form must be accompanied by information on
+ *    how to obtain complete source code for this software and any
+ *    accompanying software that uses this software. The source code
+ *    must either be included in the distribution or be available for
+ *    no more than the cost of distribution plus a nominal fee, and must
+ *    be freely redistributable under reasonable conditions. For a
+ *    binary file, complete source code means the source code for all
+ *    modules it contains.
  *
  *
  * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
- * GRANTED BY THIS LICENSE. IF SOFTWARE RECIPIENT INSTITUTES PATENT LITIGATION 
+ * GRANTED BY THIS LICENSE. IF SOFTWARE RECIPIENT INSTITUTES PATENT LITIGATION
  * AGAINST ANY ENTITY (INCLUDING A CROSS-CLAIM OR COUNTERCLAIM IN A LAWSUIT)
- * ALLEGING THAT THIS SOFTWARE (INCLUDING COMBINATIONS OF THE SOFTWARE WITH 
- * OTHER SOFTWARE OR HARDWARE) INFRINGES SUCH SOFTWARE RECIPIENT'S PATENT(S), 
- * THEN SUCH SOFTWARE RECIPIENT'S RIGHTS GRANTED BY THIS LICENSE SHALL TERMINATE 
- * AS OF THE DATE SUCH LITIGATION IS FILED. IF ANY PROVISION OF THIS AGREEMENT 
+ * ALLEGING THAT THIS SOFTWARE (INCLUDING COMBINATIONS OF THE SOFTWARE WITH
+ * OTHER SOFTWARE OR HARDWARE) INFRINGES SUCH SOFTWARE RECIPIENT'S PATENT(S),
+ * THEN SUCH SOFTWARE RECIPIENT'S RIGHTS GRANTED BY THIS LICENSE SHALL TERMINATE
+ * AS OF THE DATE SUCH LITIGATION IS FILED. IF ANY PROVISION OF THIS AGREEMENT
  * IS INVALID OR UNENFORCEABLE UNDER APPLICABLE LAW, IT SHALL NOT AFFECT
- * THE VALIDITY OR ENFORCEABILITY OF THE REMAINDER OF THE TERMS OF THIS 
- * AGREEMENT, AND WITHOUT FURTHER ACTION BY THE PARTIES HERETO, SUCH 
- * PROVISION SHALL BE REFORMED TO THE MINIMUM EXTENT NECESSARY TO MAKE 
- * SUCH PROVISION VALID AND ENFORCEABLE. ALL SOFTWARE RECIPIENT'S RIGHTS UNDER 
- * THIS AGREEMENT SHALL TERMINATE IF IT FAILS TO COMPLY WITH ANY OF THE MATERIAL 
- * TERMS OR CONDITIONS OF THIS AGREEMENT AND DOES NOT CURE SUCH FAILURE IN 
- * A REASONABLE PERIOD OF TIME AFTER BECOMING AWARE OF SUCH NONCOMPLIANCE. 
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS 
+ * THE VALIDITY OR ENFORCEABILITY OF THE REMAINDER OF THE TERMS OF THIS
+ * AGREEMENT, AND WITHOUT FURTHER ACTION BY THE PARTIES HERETO, SUCH
+ * PROVISION SHALL BE REFORMED TO THE MINIMUM EXTENT NECESSARY TO MAKE
+ * SUCH PROVISION VALID AND ENFORCEABLE. ALL SOFTWARE RECIPIENT'S RIGHTS UNDER
+ * THIS AGREEMENT SHALL TERMINATE IF IT FAILS TO COMPLY WITH ANY OF THE MATERIAL
+ * TERMS OR CONDITIONS OF THIS AGREEMENT AND DOES NOT CURE SUCH FAILURE IN
+ * A REASONABLE PERIOD OF TIME AFTER BECOMING AWARE OF SUCH NONCOMPLIANCE.
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
- * TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR 
- * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR 
- * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, 
- * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, 
- * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; 
+ * TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR
+ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
  * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
  * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
- * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 
@@ -128,11 +128,11 @@ extern int large_data_len;
 extern int msgcount;
 
 void SIGN (uint8_t *buffer) {
-	uECC_set_rng(&RNG2); 
+	uECC_set_rng(&RNG2);
 	uint8_t features = 0;
 	#ifdef DEBUG
 	Serial.println();
-	Serial.println("OKSIGN MESSAGE RECEIVED"); 
+	Serial.println("OKSIGN MESSAGE RECEIVED");
 	#endif
 	if (buffer[5] < 101) { //Slot 101-132 are for ECC, 1-4 are for RSA
 	features = onlykey_flashget_RSA ((int)buffer[5]);
@@ -199,12 +199,12 @@ void GETPUBKEY (uint8_t *buffer) {
 	uint8_t temp[64] = {0};
 	#ifdef DEBUG
 	Serial.println();
-	Serial.println("OKGETPUBKEY MESSAGE RECEIVED"); 
+	Serial.println("OKGETPUBKEY MESSAGE RECEIVED");
 	#endif
 	if (buffer[5] < 5 && !outputU2F && !buffer[6]) { //Slot 101-132 are for ECC, 1-4 are for RSA
 		if (onlykey_flashget_RSA ((int)buffer[5])) GETRSAPUBKEY(buffer);
-	} else if (buffer[5] < 130 && !outputU2F && !buffer[6]) { //132 and 131 and 130 are reserved 
-		if (onlykey_flashget_ECC ((int)buffer[5])) GETECCPUBKEY(buffer);	
+	} else if (buffer[5] < 130 && !outputU2F && !buffer[6]) { //132 and 131 and 130 are reserved
+		if (onlykey_flashget_ECC ((int)buffer[5])) GETECCPUBKEY(buffer);
 	} else if (buffer[6] <= 3 && !outputU2F) { // Generate key using provided data, return public
 	DERIVEKEY(buffer[6], buffer+7);
 	RawHID.send(ecc_public_key, 0);
@@ -213,7 +213,7 @@ void GETPUBKEY (uint8_t *buffer) {
 		if (temp[0] >= 1) {
 			if (outputU2F) {
 				store_U2F_response(temp, 1, true);
-				send_U2F_response(buffer); 
+				send_U2F_response(buffer);
 			} else {
 				RawHID.send(temp, 0);
 			}
@@ -222,11 +222,11 @@ void GETPUBKEY (uint8_t *buffer) {
 }
 
 void DECRYPT (uint8_t *buffer){
-	uECC_set_rng(&RNG2); 
+	uECC_set_rng(&RNG2);
 	uint8_t features = 0;
 	#ifdef DEBUG
 	Serial.println();
-	Serial.println("OKDECRYPT MESSAGE RECEIVED"); 
+	Serial.println("OKDECRYPT MESSAGE RECEIVED");
 	#endif
 	if (buffer[5] < 101) { //Slot 101-132 are for ECC, 1-4 are for RSA
 	features = onlykey_flashget_RSA (buffer[5]);
@@ -263,7 +263,7 @@ void DECRYPT (uint8_t *buffer){
 		 fadeoff(0);
 		}
 		return;
-	}	
+	}
 	if (is_bit_set(features, 5)) {
 		ECDH(buffer);
 	} else {
@@ -282,22 +282,22 @@ void DECRYPT (uint8_t *buffer){
 }
 
 void GENERATE_KEY (uint8_t *buffer) {
-	uECC_set_rng(&RNG2); 
+	uECC_set_rng(&RNG2);
 	uint8_t backupslot;
 	uint8_t temp[64];
 	#ifdef DEBUG
 	Serial.println();
-	Serial.println("GENERATE KEY MESSAGE RECEIVED"); 
+	Serial.println("GENERATE KEY MESSAGE RECEIVED");
 	#endif
 	if (buffer[5] > 100) { //Slot 101-132 are for ECC, 1-4 are for RSA
 		if ((buffer[6] & 0x0F) == 1) {
 			RNG2(buffer+7, 32);
 		} else if ((buffer[6] & 0x0F) == 2) {
 			const struct uECC_Curve_t * curve = uECC_secp256r1(); //P-256
-			uECC_make_key(ecc_public_key, buffer+7, curve); 
+			uECC_make_key(ecc_public_key, buffer+7, curve);
 		} else if ((buffer[6] & 0x0F) == 3) {
 			const struct uECC_Curve_t * curve = uECC_secp256k1();
-			uECC_make_key(ecc_public_key, buffer+7, curve); 
+			uECC_make_key(ecc_public_key, buffer+7, curve);
 		}
 		memset(ecc_public_key, 0, sizeof(ecc_public_key));
 	}
@@ -338,7 +338,7 @@ void GETRSAPUBKEY (uint8_t *buffer)
 	memcpy(resp_buffer, rsa_publicN+448, 64);
     RawHID.send(resp_buffer, 0);
 	delay(100);
-	} 
+	}
 }
 
 void RSASIGN (uint8_t *buffer)
@@ -364,7 +364,7 @@ void RSASIGN (uint8_t *buffer)
 	Serial.println();
 	byteprint(packet_buffer, packet_buffer_offset);
 #endif
-	// sign data in packet_buffer 
+	// sign data in packet_buffer
     if (rsa_sign (packet_buffer_offset, packet_buffer, rsa_signature) == 0)
 	{
 #ifdef DEBUG
@@ -401,7 +401,7 @@ void RSASIGN (uint8_t *buffer)
 		memcpy(resp_buffer, rsa_signature+448, 64);
 		RawHID.send(resp_buffer, 0);
 		delay(100);
-		} 
+		}
 	} else if (outputU2F) {
 	msgcount+=2;
 	store_U2F_response(rsa_signature, (type*128), true);
@@ -470,7 +470,7 @@ void RSADECRYPT (uint8_t *buffer)
 		memcpy(resp_buffer, large_buffer+192, 64);
 		RawHID.send(resp_buffer, 0);
 		delay(100);
-		}  
+		}
 	} else if (outputU2F) {
 	msgcount+=2;
 	store_U2F_response(large_buffer, plaintext_len, true);
@@ -492,9 +492,9 @@ void RSADECRYPT (uint8_t *buffer)
 
 void GETECCPUBKEY (uint8_t *buffer)
 {
-		onlykey_flashget_ECC (buffer[5]);        
+		onlykey_flashget_ECC (buffer[5]);
 			#ifdef DEBUG
-    	    Serial.println("OKGETECCPUBKEY MESSAGE RECEIVED"); 
+    	    Serial.println("OKGETECCPUBKEY MESSAGE RECEIVED");
 			byteprint(ecc_public_key, sizeof(ecc_public_key));
 	    #endif
             if (!outputU2F) {
@@ -522,7 +522,7 @@ void DERIVEKEY (uint8_t ktype, uint8_t *data)
   memset(ecc_public_key, 0, sizeof(ecc_public_key));
   SHA256_CTX ekey;
   sha256_init(&ekey);
-  sha256_update(&ekey, ecc_private_key, 32); //Add default key to ekey 
+  sha256_update(&ekey, ecc_private_key, 32); //Add default key to ekey
   sha256_update(&ekey, data, 32); //Add provided data to ekey
   sha256_final(&ekey, ecc_private_key); //Create hash and store
 	if (ktype==1) {
@@ -541,7 +541,7 @@ void DERIVEKEY (uint8_t ktype, uint8_t *data)
 	uECC_compress(ecc_public_key, temp, curve);
 	memset(ecc_public_key, 0, sizeof(ecc_public_key));
 	memcpy(ecc_public_key+31, temp, 33);
-	#ifdef DEBUG 
+	#ifdef DEBUG
 	Serial.println("Compressed Public key");
 	byteprint(ecc_public_key, sizeof(ecc_public_key));
 	#endif
@@ -552,10 +552,10 @@ void ECDSA_EDDSA(uint8_t *buffer)
 {
 	uint8_t ecc_signature[64];
 	uint8_t sha256_hash[32];
-	uint8_t len = 0;	
+	uint8_t len = 0;
 #ifdef DEBUG
     Serial.println();
-    Serial.println("OKECDSA_EDDSACHALLENGE MESSAGE RECEIVED"); 
+    Serial.println("OKECDSA_EDDSACHALLENGE MESSAGE RECEIVED");
 #endif
     if(!CRYPTO_AUTH) process_packets (buffer);
 	else if (CRYPTO_AUTH == 4) {
@@ -570,23 +570,23 @@ void ECDSA_EDDSA(uint8_t *buffer)
 	SHA256_HashContext ectx = {{&init_SHA256, &update_SHA256, &finish_SHA256, 64, 32, tmp}};
 	if (buffer[5] == 201) {
 		//Used by SSH, old version used 132, new version uses 201 for type 1
-		DERIVEKEY(1, packet_buffer+(packet_buffer_offset-32)); 
+		DERIVEKEY(1, packet_buffer+(packet_buffer_offset-32));
 		type = 1;
 	}
 	else if (buffer[5] == 202) {
-		DERIVEKEY(2, packet_buffer+(packet_buffer_offset-32)); 
+		DERIVEKEY(2, packet_buffer+(packet_buffer_offset-32));
 		type = 2;
 	}
 	else if (buffer[5] == 203) {
-		DERIVEKEY(3, packet_buffer+(packet_buffer_offset-32)); 
+		DERIVEKEY(3, packet_buffer+(packet_buffer_offset-32));
 		type = 3;
 	}
-	
+
 	if (packet_buffer_offset > 32) packet_buffer_offset = packet_buffer_offset - 32;
 
 	SHA256_CTX msghash;
 	sha256_init(&msghash);
-	sha256_update(&msghash, packet_buffer, packet_buffer_offset); 
+	sha256_update(&msghash, packet_buffer, packet_buffer_offset);
 	sha256_final(&msghash, sha256_hash); //Create hash and store
 #ifdef DEBUG
       Serial.println("Signature Hash ");
@@ -602,24 +602,24 @@ void ECDSA_EDDSA(uint8_t *buffer)
 						32,
 						&ectx.uECC,
 						ecc_signature,
-						curve)) {  
+						curve)) {
 #ifdef DEBUG
       Serial.println("Signature Failed ");
 #endif
-      }					
+      }
 	}
 	else if (type==0x03) {
-			const struct uECC_Curve_t * curve = uECC_secp256k1(); 
+			const struct uECC_Curve_t * curve = uECC_secp256k1();
 		if (!uECC_sign_deterministic(ecc_private_key,
 						sha256_hash,
 						32,
 						&ectx.uECC,
 						ecc_signature,
-						curve)) {  
+						curve)) {
 #ifdef DEBUG
       Serial.println("Signature Failed ");
 #endif
-      }					
+      }
 	}
 /*
 	if (type==0x03 || type==0x02) {
@@ -634,7 +634,7 @@ void ECDSA_EDDSA(uint8_t *buffer)
 				tmp[len++] = 0;
 				(*total_len)++; //update total length
 			}  else {
-				tmp[len++] = 32;  //32 byte      
+				tmp[len++] = 32;  //32 byte
 		    }
 	  memcpy(tmp+len, ecc_signature, 32); //R value
       len +=32;
@@ -656,7 +656,7 @@ void ECDSA_EDDSA(uint8_t *buffer)
 	byteprint(ecc_signature, 64);
 	#endif
 	if (outputU2F) {
-	store_U2F_response(ecc_signature, len, true); 
+	store_U2F_response(ecc_signature, len, true);
 	} else {
 		/*
 		if (type==0x03 || type==0x02) {
@@ -693,7 +693,7 @@ void ECDH(uint8_t *buffer)
 	uint8_t secret[64] = {0};
 #ifdef DEBUG
     Serial.println();
-    Serial.println("OKECDH MESSAGE RECEIVED"); 
+    Serial.println("OKECDH MESSAGE RECEIVED");
 #endif
     if(!CRYPTO_AUTH) process_packets (buffer);
 	else if (CRYPTO_AUTH == 4) {
@@ -704,16 +704,16 @@ void ECDH(uint8_t *buffer)
 	}
 #ifdef DEBUG
     Serial.println();
-    Serial.print("Public key to generate shared secret for"); 
+    Serial.print("Public key to generate shared secret for");
 	byteprint(ephemeral_pub, 64);
     Serial.println();
-    Serial.print("ECDH Secret is "); 
+    Serial.print("ECDH Secret is ");
 	for (uint8_t i = 0; i< 32; i++) {
 		Serial.print(secret[i],HEX);
 		}
 #endif
 	if (outputU2F) {
-	//store_U2F_response(secret, 32); 
+	//store_U2F_response(secret, 32);
 	} else{
 	//RawHID.send(secret, 0);
 	}
@@ -757,7 +757,7 @@ void ECDH(uint8_t *buffer)
 		sha256_update(&context, counter, 4); //add counter
 		sha256_update(&context, secret, sizeof(secret)); //add secret
 		sha256_update(&context, msg, (packet_buffer_offset-1-type)); //add message
-		sha256_final(&context, hash); 
+		sha256_final(&context, hash);
 		break;
 		case 3: //sha384
 		mbedtls_sha512_init (&sha512);
@@ -765,7 +765,7 @@ void ECDH(uint8_t *buffer)
 		mbedtls_sha512_update (&sha512, counter, 4); //add counter
 		mbedtls_sha512_update (&sha512, secret, sizeof(secret)); //add secret
 		mbedtls_sha512_update (&sha512, msg, (packet_buffer_offset-1-type)); //add message
-		mbedtls_sha512_finish (&sha512, hash); 
+		mbedtls_sha512_finish (&sha512, hash);
 		mbedtls_sha512_free (&sha512);
 		break;
 		case 5: //sha512
@@ -774,7 +774,7 @@ void ECDH(uint8_t *buffer)
 		mbedtls_sha512_update (&sha512, counter, 4); //add counter
 		mbedtls_sha512_update (&sha512, secret, sizeof(secret)); //add secret
 		mbedtls_sha512_update (&sha512, msg, (packet_buffer_offset-1-sizeof(secret))); //add message
-		mbedtls_sha512_finish (&sha512, hash); 
+		mbedtls_sha512_finish (&sha512, hash);
 		mbedtls_sha512_free (&sha512);
 		break;
 		default:
@@ -783,10 +783,10 @@ void ECDH(uint8_t *buffer)
 	}
 	//Send the KEK, client app should know the symmetric encryption alg
 	//Depending on the alg the client will drop the uneeded tail of the the key
-    
+
 #ifdef DEBUG
     Serial.println();
-    Serial.print("ECDH KEK is "); 
+    Serial.print("ECDH KEK is ");
 	for (int i = 0; i< sizeof(hash); i++) {
 		Serial.print(hash[i],HEX);
 		}
@@ -813,13 +813,13 @@ void HMACSHA1 () {
 	uint8_t *ptr;
 #ifdef DEBUG
 	Serial.println();
-	Serial.println("GENERATE HMACSHA1 MESSAGE RECEIVED"); 
+	Serial.println("GENERATE HMACSHA1 MESSAGE RECEIVED");
 #endif
     if (CRYPTO_AUTH == 4) {
 		//Check CRC of Input
 		crc = yubikey_crc16 (hmacBuffer, 64);
 		temp[0] = crc & 0xFF;
-		temp[1] = crc >> 8; 
+		temp[1] = crc >> 8;
 		if (hmacBuffer[65] != temp[0] || hmacBuffer[66] != temp[1]) {
 			//CRC Check failed
 			memset(setBuffer, 0, 9);
@@ -836,10 +836,10 @@ void HMACSHA1 () {
 			for(int i=0; i<32; i++) {
 				temp[i] = i + (hmacBuffer[64] & 0x0f);
 			}
-			DERIVEKEY(0, temp);		
-		} 
+			DERIVEKEY(0, temp);
+		}
 		//Variable buffer size
-		if (hmacBuffer[57] == 0x20 && hmacBuffer[58] == 0x20 && hmacBuffer[59] == 0x20 && hmacBuffer[60] == 0x20 && hmacBuffer[61] == 0x20 && hmacBuffer[62] == 0x20 && hmacBuffer[63] == 0x20) { 
+		if (hmacBuffer[57] == 0x20 && hmacBuffer[58] == 0x20 && hmacBuffer[59] == 0x20 && hmacBuffer[60] == 0x20 && hmacBuffer[61] == 0x20 && hmacBuffer[62] == 0x20 && hmacBuffer[63] == 0x20) {
 			inputlen = 32; //KeepassXC uses 0x20 for empty buffer
 		} else if (hmacBuffer[57] == 0 && hmacBuffer[58] == 0 && hmacBuffer[59] == 0 && hmacBuffer[60] == 0 && hmacBuffer[61] == 0 && hmacBuffer[62] == 0 && hmacBuffer[63] == 0) {
 			inputlen = 32; //YubiKey personalization tool uses 0 for empty buffer
@@ -877,8 +877,8 @@ void HMACSHA1 () {
     // Weird that firmware uses a different CRC-16 than https://github.com/Yubico/yubikey-personalization/blob/master/ykcore/
 	// Possibly intentional obfuscation, We can XOR CRC-16/MCRF4XX output to convert to CRC-16/X-25
 	crc ^= 0xFFFF;
-	hmacBuffer[22] = crc & 0xFF; 	
-	hmacBuffer[24] = crc >> 8; 	
+	hmacBuffer[22] = crc & 0xFF;
+	hmacBuffer[24] = crc >> 8;
 	hmacBuffer[31] = 0xC3; //Part 4 contains part of CRC and mystery byte hmacBuffer[28]
 	hmacBuffer[28] = 0x4B;
 #ifdef DEBUG
@@ -897,31 +897,31 @@ void HMACSHA1 () {
 
 int shared_secret (uint8_t *pub, uint8_t *secret) {
 	const struct uECC_Curve_t * curve;
-	#ifdef DEBUG 
+	#ifdef DEBUG
 	Serial.printf("Shared Secret for type %X ",type);
 	#endif
 	switch (type) {
 	case 1:
 		if (crypto_box_beforenm(secret, pub, ecc_private_key)) return 1;
-		else return 0;			
+		else return 0;
 	case 2:
-		curve = uECC_secp256r1(); 
+		curve = uECC_secp256r1();
 		if (uECC_shared_secret(pub, ecc_private_key, secret, curve)) return 0;
-		else return 1;	
+		else return 1;
 	case 3:
-		curve = uECC_secp256k1(); 
+		curve = uECC_secp256k1();
 		if (uECC_shared_secret(pub, ecc_private_key, secret, curve)) return 0;
-		else return 1;	
+		else return 1;
 	case 4:
-		Curve25519::eval(secret, ecc_private_key, pub); 
-		return 0;	
+		Curve25519::eval(secret, ecc_private_key, pub);
+		return 0;
 	default:
 		if (!outputU2F) hidprint("Error ECC type incorrect");
 		return 1;
 	}
 }
 
-void aes_crypto_box (uint8_t *buffer, int len, bool open) { 
+void aes_crypto_box (uint8_t *buffer, int len, bool open) {
 	uint8_t iv[12];
 	memset(iv, 0, 12);
 	msgcount++;
@@ -943,7 +943,7 @@ void aes_crypto_box (uint8_t *buffer, int len, bool open) {
 	byteprint(buffer, len);
 	#endif
 	if (open) {
-		aes_gcm_decrypt2 (buffer, iv, ecc_private_key, len); 
+		aes_gcm_decrypt2 (buffer, iv, ecc_private_key, len);
 	}
 	else {
 		aes_gcm_encrypt2 (buffer, iv, ecc_private_key, len);
@@ -959,11 +959,11 @@ int rsa_sign (int mlen, const uint8_t *msg, uint8_t *out)
     uint8_t rsa_ciphertext[(type*128)];
 	mbedtls_mpi P1, Q1, H;
 	mbedtls_rsa_init( &rsa, MBEDTLS_RSA_PKCS_V15, 0 );
-	
+
 	mbedtls_mpi_init (&P1);  mbedtls_mpi_init (&Q1);  mbedtls_mpi_init (&H);
 	rsa.len = (type*128);
 	MBEDTLS_MPI_CHK( mbedtls_mpi_lset (&rsa.E, 0x10001) );
-	
+
 	MBEDTLS_MPI_CHK( mbedtls_mpi_read_binary (&rsa.P, &rsa_private_key[0], ((type*128) / 2) ));
 	MBEDTLS_MPI_CHK( mbedtls_mpi_read_binary (&rsa.Q, &rsa_private_key[((type*128) / 2)], ((type*128) / 2) ));
 	MBEDTLS_MPI_CHK( mbedtls_mpi_mul_mpi (&rsa.N, &rsa.P, &rsa.Q) );
@@ -974,7 +974,7 @@ int rsa_sign (int mlen, const uint8_t *msg, uint8_t *out)
 	MBEDTLS_MPI_CHK( mbedtls_mpi_mod_mpi (&rsa.DP, &rsa.D, &P1) );
 	MBEDTLS_MPI_CHK( mbedtls_mpi_mod_mpi (&rsa.DQ, &rsa.D, &Q1) );
 	MBEDTLS_MPI_CHK( mbedtls_mpi_inv_mod (&rsa.QP, &rsa.Q, &rsa.P) );
-	
+
 	#ifdef DEBUG
 	Serial.printf( "\nRSA len = " );
 	Serial.println(rsa.len);
@@ -982,7 +982,7 @@ int rsa_sign (int mlen, const uint8_t *msg, uint8_t *out)
 	ret = mbedtls_rsa_check_privkey( &rsa );
 	cleanup:
 	mbedtls_mpi_free (&P1);  mbedtls_mpi_free (&Q1);  mbedtls_mpi_free (&H);
-	
+
    if( ret != 0 )
     {
 		#ifdef DEBUG
@@ -1000,12 +1000,12 @@ int rsa_sign (int mlen, const uint8_t *msg, uint8_t *out)
 	  Serial.println(mlen);
 	  #endif
 	  if (mlen > ((type*128)-11)) mlen = ((type*128)-11);
-		
+
 		switch (mlen) {
 		case 64:
 			md_type = MBEDTLS_MD_SHA512;
 		break;
-					
+
 		case 48:
 			md_type = MBEDTLS_MD_SHA384;
 		break;
@@ -1013,20 +1013,20 @@ int rsa_sign (int mlen, const uint8_t *msg, uint8_t *out)
 		case 32:
 			md_type = MBEDTLS_MD_SHA256;
 		break;
-		
+
 		case 28:
 			md_type = MBEDTLS_MD_SHA224;
 		break;
-			
+
 		//case 20:
 		//	md_type = MBEDTLS_MD_RIPEMD160;
 		//break;
-	
+
 		default:
 		break;
 
 		}
-	  
+
       ret = mbedtls_rsa_rsassa_pkcs1_v15_sign (&rsa, mbedtls_rand, NULL, MBEDTLS_RSA_PRIVATE, md_type, mlen, msg, rsa_ciphertext);
       #ifdef DEBUG
       Serial.print("Hash Value = ");
@@ -1063,7 +1063,7 @@ int rsa_sign (int mlen, const uint8_t *msg, uint8_t *out)
 	if (outputU2F) {
 		custom_error(5); //invalid data, or data does not match  key
 	}
-    return -1; 
+    return -1;
     }
 }
 
@@ -1096,12 +1096,12 @@ int rsa_decrypt (unsigned int *olen, const uint8_t *in, uint8_t *out)
   #endif
   cleanup:
   mbedtls_mpi_free (&P1);  mbedtls_mpi_free (&Q1);  mbedtls_mpi_free (&H);
-  
+
 	#ifdef DEBUG
 	Serial.printf( "\nRSA len = " );
 	Serial.println(rsa.len);
 	#endif
-  ret = mbedtls_rsa_check_privkey( &rsa ); 
+  ret = mbedtls_rsa_check_privkey( &rsa );
 	if (ret != 0) {
 	  #ifdef DEBUG
       Serial.print ("MBEDTLS_ERR_RSA_XXX error code ");
@@ -1148,7 +1148,7 @@ void rsa_getpub (uint8_t type)
   #ifdef DEBUG
   Serial.print ("RSA generate public N:");
   #endif
-  
+
   mbedtls_mpi_init (&P);  mbedtls_mpi_init (&Q);  mbedtls_mpi_init (&N);
 
   MBEDTLS_MPI_CHK( mbedtls_mpi_read_binary (&P, &rsa_private_key[0], ((type*128) / 2) ));
@@ -1157,7 +1157,7 @@ void rsa_getpub (uint8_t type)
   MBEDTLS_MPI_CHK( mbedtls_mpi_write_binary (&N, &rsa_publicN[0], (type*128) ));
   cleanup:
   mbedtls_mpi_free (&P);  mbedtls_mpi_free (&Q);  mbedtls_mpi_free (&N);
-  
+
   if (ret == 0)
     {
 	  #ifdef DEBUG
@@ -1202,12 +1202,12 @@ int rsa_encrypt (int len, const uint8_t *in, uint8_t *out)
 	#endif
 	cleanup:
 	mbedtls_mpi_free (&P1);  mbedtls_mpi_free (&Q1);  mbedtls_mpi_free (&H);
-  
+
 	#ifdef DEBUG
 	Serial.printf( "\nRSA len = " );
 	Serial.println(rsa.len);
 	#endif
-  ret = mbedtls_rsa_check_pubkey( &rsa ); 
+  ret = mbedtls_rsa_check_pubkey( &rsa );
 	if (ret != 0) {
 	  #ifdef DEBUG
       Serial.print ("MBEDTLS_ERR_RSA_XXX error code ");
@@ -1252,12 +1252,13 @@ int mbedtls_rand( void *rng_state, unsigned char *output, size_t len )
     return( 0 );
 }
 
+/*
 void newhope_test ()
 {
 	//unsigned long ran;
 	char rand[32];
 	csprng SRNG,CRNG;
-	RAND_clean(&SRNG); 
+	RAND_clean(&SRNG);
 	RAND_clean(&CRNG);
 	char s[1792],sb[1824],uc[2176],keyA[32],keyB[32];
 
@@ -1273,7 +1274,7 @@ void newhope_test ()
 
 	// NewHope Simple key exchange
 
-	NHS_SERVER_1(&SRNG,&SB,&S); 
+	NHS_SERVER_1(&SRNG,&SB,&S);
 	NHS_CLIENT(&CRNG,&SB,&UC,&KEYB);
 	NHS_SERVER_2(&S,&UC,&KEYA);
 #ifdef DEBUG
@@ -1285,6 +1286,6 @@ void newhope_test ()
 	byteprint((uint8_t*)KEYB.val, KEYB.len);
 #endif
 	return;
-}
+} */
 
 #endif

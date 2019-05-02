@@ -11,6 +11,11 @@
 
 #define WALLET_MAX_BUFFER	(32 + 255)
 
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+
 // Sign request
 // op: 					0x10
 // authType:			0x00 //sign?
@@ -93,5 +98,9 @@ int16_t bridge_u2f_to_extensions(uint8_t * chal, uint8_t * appid, uint8_t klen, 
 int is_extension_request(uint8_t * req, int len);
 
 void wallet_init();
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* WALLET_H_ */

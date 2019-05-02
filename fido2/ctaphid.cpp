@@ -18,7 +18,7 @@
 #include "Time.h"
 #include "util.h"
 #include "log.h"
-#include "extensions/extensions.h"
+#include "extensions.h"
 
 // move custom SHA512 command out,
 // and the following headers too
@@ -390,10 +390,10 @@ static int ctaphid_buffer_packet(uint8_t * pkt_raw, uint8_t * cmd, uint32_t * ci
     CTAPHID_PACKET * pkt = (CTAPHID_PACKET *)(pkt_raw);
 
     Serial.println("Recv packet");
-	
+
     Serial.println( pkt->cid);
     Serial.println(pkt->pkt.init.cmd);
-    if (!is_cont_pkt(pkt)) { 
+    if (!is_cont_pkt(pkt)) {
 		Serial.println(ctaphid_packet_len(pkt));
 	}
 
@@ -563,13 +563,13 @@ uint8_t ctaphid_handle_packet(uint8_t * pkt_raw)
 #ifndef DISABLE_CTAPHID_CBOR
     int status;
 #endif
-	
+
     static uint8_t is_busy = 0;
     static CTAPHID_WRITE_BUFFER wb;
     CTAP_RESPONSE ctap_resp;
 
     int bufstatus = ctaphid_buffer_packet(pkt_raw, &cmd, &cid, &len);
-	
+
     if (bufstatus == HID_IGNORE)
     {
         Serial.println("HID_IGNORE");
@@ -596,7 +596,7 @@ uint8_t ctaphid_handle_packet(uint8_t * pkt_raw)
 		Serial.println("BUFFERING");
         return 0;
     }
-	
+
     switch(cmd)
     {
 

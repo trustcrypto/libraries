@@ -29,7 +29,7 @@ uint32_t __last_update = 0;
 static bool haveNFC = 0;
 //static bool isLowFreq = 0;
 
-#define IS_BUTTON_PRESSED()         (u2f_button == 1)
+#define IS_BUTTON_PRESSED()         (1 == 1)
 
 /*
 // Timer6 overflow handler.  happens every ~90ms.
@@ -287,10 +287,10 @@ void authenticator_read_state(AuthenticatorState * a)
 {
     //uint32_t * ptr = (uint32_t *)flash_addr(STATE1_PAGE);
     //memmove(a,ptr,sizeof(AuthenticatorState));
-	//max size AuthenticatorState ~204bytes
+	//max size AuthenticatorState 208bytes
 	uint8_t buffer[sizeof(AuthenticatorState)];
 	Serial.println("authenticator_read_state");
-	ctap_flash (1, buffer, sizeof(AuthenticatorState), 1);
+	ctap_flash (0, buffer, sizeof(AuthenticatorState), 3);
 	memcpy((uint8_t*)a, buffer, sizeof(AuthenticatorState));
 	byteprint(buffer,sizeof(AuthenticatorState));
 }
@@ -332,11 +332,13 @@ void authenticator_write_state(AuthenticatorState * a, int backup)
         flash_write(flash_addr(STATE2_PAGE), (uint8_t*)a, sizeof(AuthenticatorState));
     }
 	*/
-	//max size AuthenticatorState ~204bytes
+	//max size AuthenticatorState 208bytes
 	uint8_t buffer[sizeof(AuthenticatorState)];
 	Serial.println("authenticator_write_state");
 	memcpy(buffer, (uint8_t*)a, sizeof(AuthenticatorState));
-	ctap_flash (1, buffer, sizeof(AuthenticatorState), 3);
+  Serial.println("authenticator_write_state size");
+  Serial.println(sizeof(AuthenticatorState));
+  ctap_flash (0, buffer, sizeof(AuthenticatorState), 4);
 	byteprint(buffer,sizeof(AuthenticatorState));
 }
 
@@ -346,13 +348,16 @@ uint32_t ctap_atomic_count(int sel)
 
     if (sel == 0)
     {
-        if (timeStatus() == timeNotSet) {
-			setCounter(counter1++);	
-		} else {
-			setCounter(now());
-		}
+      counter1++;
+      if (timeStatus() == timeNotSet) {
+			setCounter(counter1);
+		  } else {
+      setCounter(counter1);
+      // TODO Test EPOCH counter method
+			//setCounter(now());
+		  }
 		printf1(TAG_RED,"counter1: %d\n", counter1);
-        return counter1++;
+        return counter1;
     }
     else
     {
@@ -503,14 +508,13 @@ void ctap_reset_rk()
         flash_erase_page(RK_START_PAGE + i);
     }
 	*/
-	
+
 	Serial.println("ctap_reset_rk");
 }
 
 uint32_t ctap_rk_size()
 {
-    return 3; //support 3 RKs for now
-	Serial.println("ctap_rk_size");
+    return 6; //support 5 RKs for now
 }
 
 void ctap_store_rk(int index,CTAP_residentKey * rk)
@@ -532,7 +536,8 @@ void ctap_store_rk(int index,CTAP_residentKey * rk)
     }
 	*/
 	Serial.println("ctap_store_rk");
-	ctap_flash(index, (uint8_t*)rk, sizeof(CTAP_residentKey), 4);
+	ctap_flash(index, (uint8_t*)rk, sizeof(CTAP_residentKey), 2);
+  Serial.println("ctap_store_rk done");
 }
 
 void ctap_load_rk(int index,CTAP_residentKey * rk)
@@ -554,12 +559,12 @@ void ctap_load_rk(int index,CTAP_residentKey * rk)
     }
 	*/
 	Serial.println("ctap_load_rk");
-	ctap_flash(index, (uint8_t*)rk, sizeof(CTAP_residentKey), 2);
+	ctap_flash(index, (uint8_t*)rk, sizeof(CTAP_residentKey), 1);
 }
 
 void ctap_overwrite_rk(int index,CTAP_residentKey * rk)
 {
-    /* 
+    /*
 	uint8_t tmppage[PAGE_SIZE];
     int page_offset = (sizeof(CTAP_residentKey) * index) / PAGE_SIZE;
     int page = page_offset + RK_START_PAGE;

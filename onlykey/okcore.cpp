@@ -108,6 +108,7 @@ uint8_t NEO_Brightness[1];
 #include <Crypto.h>
 #include <AES.h>
 #include <GCM.h>
+#include <CBC.h>
 #include "ctaphid.h"
 #endif
 /*************************************/
@@ -242,20 +243,20 @@ size_t length = 48; // First block should wait for the pool to fill up.
 
 void recvmsg() {
   int n;
-  
+
   if (setBuffer[8] == 1 && !isfade) {  //Done receiving packets
 		process_setreport();
-  } 
+  }
 
   n = RawHID.recv(recv_buffer, 0); // 0 timeout = do not wait
-  
+
   //Integrity Check
   if (integrityctr1!=integrityctr2) {
 	unlocked = false;
 	CPU_RESTART();
 	return;
   }
-	
+
   if (n > 0) {
 #ifdef DEBUG
 	Serial.print(F("\n\nReceived packet"));
@@ -541,7 +542,7 @@ void recvmsg() {
 			eeprom_write_byte((unsigned char *)0x01, 1); //Firmware ready to load
 			delay(100);
 			CPU_RESTART();
-	   } 
+	   }
 	   else if (initialized==true && unlocked==true && FTFL_FSEC==0x44 && integrityctr1==integrityctr2 && configmode==false) {
 	   hidprint("ERROR NOT IN CONFIG MODE, HOLD BUTTON 6 DOWN FOR 5 SEC");
 	   }
@@ -567,7 +568,7 @@ void recvmsg() {
   }
 }
 
-int getCounter() {
+uint32_t getCounter() {
   unsigned int eeAddress = EEpos_U2Fcounter; //EEPROM address to start reading from
   uint32_t counter;
   EEPROM.get( eeAddress, counter );
@@ -580,7 +581,7 @@ void setCounter(uint32_t counter)
   EEPROM.put( eeAddress, counter );
 }
 
-void keyboard_mode_config(uint8_t step) 
+void keyboard_mode_config(uint8_t step)
  {
 #ifdef DEBUG
 	Serial.println("Auto-configure OnlyKey");
@@ -601,13 +602,13 @@ void keyboard_mode_config(uint8_t step)
 		keytype("To configure these PINs yourself press 1 on OnlyKey, you have 20 seconds starting now");
 		pin_set = 10;
 		fadeoffafter20();
-		keyboard_mode_config(AUTO_PIN_SET);	
+		keyboard_mode_config(AUTO_PIN_SET);
 		return;
 	} if (step==1) { //Manual Set PIN
 		pin_set = 0;
 		keytype("You will now be prompted to enter three 7-10 digit long PIN codes");
 		keytype("Enter these on the OnlyKey 6 button keypad");
-		set_primary_pin(NULL, 1); 
+		set_primary_pin(NULL, 1);
 		return;
 	} else if (step==2) { //Auto Set PIN
 		#ifndef DEBUG
@@ -629,7 +630,7 @@ void keyboard_mode_config(uint8_t step)
 		#ifdef DEBUG
 		memset(buffer, '2', 7);
 		#endif
-		set_secondary_pin(buffer, AUTO_PIN_SET); 
+		set_secondary_pin(buffer, AUTO_PIN_SET);
 		#ifndef DEBUG
 		keytype("YOUR ONLYKEY SECOND PROFILE PIN IS:");
 		keytype((char*)buffer);
@@ -640,7 +641,7 @@ void keyboard_mode_config(uint8_t step)
 		memset(buffer, '3', 7);
 		#endif
 		set_sd_pin(buffer, AUTO_PIN_SET);
-		#ifndef DEBUG		
+		#ifndef DEBUG
 		keytype("YOUR ONLYKEY SELF-DESTRUCT PIN IS:");
 		keytype((char*)buffer);
 		#endif
@@ -657,8 +658,8 @@ void keyboard_mode_config(uint8_t step)
 	buffer[6]=0xA1;
 	SHA256_CTX hash;
 	sha256_init(&hash);
-	sha256_update(&hash, buffer+7, 25); 
-	sha256_final(&hash, buffer+7); 
+	sha256_update(&hash, buffer+7, 25);
+	sha256_final(&hash, buffer+7);
 	ecc_priv_flash (buffer);
 	#ifndef DEBUG
 	keytype("To start using OnlyKey enter your primary or secondary PIN on the OnlyKey 6 button keypad");
@@ -667,25 +668,25 @@ void keyboard_mode_config(uint8_t step)
 	#endif
 	CPU_RESTART();
 }
- 
+
 void generate_random_pin (uint8_t *buffer)
  {
-	RNG2(buffer, 7); 
+	RNG2(buffer, 7);
 	for(int i=0; i<7; i++) {
 		buffer[i] = ((buffer[i]%5)+1)+'0';
 	}
-buffer[7]=0;	
+buffer[7]=0;
  }
 
 void generate_random_passphrase (uint8_t *buffer)
  {
-	RNG2(buffer, 25); 
+	RNG2(buffer, 25);
 	for(int i=0; i<25; i++) {
 		buffer[i] = ((buffer[i]%25)+1)+'`';
 	}
-buffer[25]=0;	
+buffer[25]=0;
  }
- 
+
 void set_primary_pin (uint8_t *buffer, uint8_t keyboard_mode)
 {
 #ifdef DEBUG
@@ -706,7 +707,7 @@ switch (pin_set) {
 			keytype("You have 20 seconds to enter primary PIN, starting now");
 			fadeoffafter20();
 		} else hidprint("OnlyKey is ready, enter your PIN");
-	  
+
       return;
       case 1:
       pin_set = 2;
@@ -734,7 +735,7 @@ switch (pin_set) {
 		password.reset();
 		pin_set = 0;
       }
-	  if (keyboard_mode==MANUAL_PIN_SET) set_primary_pin(NULL, MANUAL_PIN_SET); 
+	  if (keyboard_mode==MANUAL_PIN_SET) set_primary_pin(NULL, MANUAL_PIN_SET);
       return;
       case 2:
 #ifdef DEBUG
@@ -745,7 +746,7 @@ switch (pin_set) {
 			keytype ("You have 20 seconds to re-enter PIN, starting now");
 			fadeoffafter20();
 		} else hidprint("OnlyKey is ready, re-enter your PIN to confirm");
-	  
+
       return;
       case 3:
 	  pin_set = 0;
@@ -760,13 +761,13 @@ switch (pin_set) {
 			uint8_t temp[32];
 			uint8_t pinmask[10];
 			uint8_t *ptr;
-			
+
 			ptr = pinmask;
 			RNG2(ptr, 10); //Fill temp with random data
 			onlykey_eeset_pinmask(ptr);
-			
+
 			ptr = temp;
-			
+
 			SHA256_CTX pinhash;
 			sha256_init(&pinhash);
 			RNG2(ptr, 32); //Fill temp with random data
@@ -796,9 +797,9 @@ switch (pin_set) {
 #endif
 			if (keyboard_mode==MANUAL_PIN_SET) {
 				keytype("Successfully set PIN");
-				set_secondary_pin(NULL, MANUAL_PIN_SET); 
+				set_secondary_pin(NULL, MANUAL_PIN_SET);
 			} else hidprint("Successfully set PIN");
-			
+
           }
           else {
 #ifdef DEBUG
@@ -806,7 +807,7 @@ switch (pin_set) {
 #endif
 			if (!keyboard_mode) hidprint("Error PINs Don't Match");
 			else keytype("Error PINs Don't Match");
-			if (keyboard_mode==MANUAL_PIN_SET) set_primary_pin(NULL, MANUAL_PIN_SET); 
+			if (keyboard_mode==MANUAL_PIN_SET) set_primary_pin(NULL, MANUAL_PIN_SET);
           }
       }
       else
@@ -816,7 +817,7 @@ switch (pin_set) {
 #endif
 		if (!keyboard_mode) hidprint("Error PIN is not between 7 - 10 characters");
 		else keytype("Error PIN is not between 7 - 10 characters");
-		if (keyboard_mode==MANUAL_PIN_SET) set_primary_pin(NULL, MANUAL_PIN_SET); 
+		if (keyboard_mode==MANUAL_PIN_SET) set_primary_pin(NULL, MANUAL_PIN_SET);
 
       }
       password.reset();
@@ -844,7 +845,7 @@ void set_sd_pin (uint8_t *buffer, uint8_t keyboard_mode)
 			keytype ("You have 20 seconds to enter self-destruct PIN, starting now");
 			fadeoffafter20();
 		} else hidprint("OnlyKey is ready, enter your self-destruct PIN");
-	  
+
       return;
       case 4:
 	  pin_set = 5;
@@ -872,7 +873,7 @@ void set_sd_pin (uint8_t *buffer, uint8_t keyboard_mode)
 		password.reset();
 		pin_set = 0;
       }
-	  if (keyboard_mode==MANUAL_PIN_SET) set_sd_pin(NULL, MANUAL_PIN_SET); 
+	  if (keyboard_mode==MANUAL_PIN_SET) set_sd_pin(NULL, MANUAL_PIN_SET);
       return;
       case 5:
 #ifdef DEBUG
@@ -883,7 +884,7 @@ void set_sd_pin (uint8_t *buffer, uint8_t keyboard_mode)
 			keytype ("You have 20 seconds to re-enter PIN, starting now");
 			fadeoffafter20();
 		} else hidprint("OnlyKey is ready, re-enter your PIN to confirm");
-	  
+
       return;
       case 6:
 	  pin_set = 0;
@@ -928,7 +929,7 @@ void set_sd_pin (uint8_t *buffer, uint8_t keyboard_mode)
 #endif
 			if (!keyboard_mode) hidprint("Error PINs Don't Match");
 			else keytype("Error PINs Don't Match");
-			if (keyboard_mode==MANUAL_PIN_SET) set_sd_pin(NULL, MANUAL_PIN_SET); 
+			if (keyboard_mode==MANUAL_PIN_SET) set_sd_pin(NULL, MANUAL_PIN_SET);
 		  }
       }
       else
@@ -938,7 +939,7 @@ void set_sd_pin (uint8_t *buffer, uint8_t keyboard_mode)
 #endif
 		if (!keyboard_mode) hidprint("Error PIN is not between 7 - 10 characters");
 		else keytype ("Error PIN is not between 7 - 10 characters");
-		if (keyboard_mode==MANUAL_PIN_SET) set_sd_pin(NULL, MANUAL_PIN_SET); 
+		if (keyboard_mode==MANUAL_PIN_SET) set_sd_pin(NULL, MANUAL_PIN_SET);
 	  }
       password.reset();
       blink(3);
@@ -991,7 +992,7 @@ void set_secondary_pin (uint8_t *buffer, uint8_t keyboard_mode)
 		password.reset();
 	pin_set = 0;
       }
-	  if (keyboard_mode==MANUAL_PIN_SET) set_secondary_pin(NULL, MANUAL_PIN_SET); 
+	  if (keyboard_mode==MANUAL_PIN_SET) set_secondary_pin(NULL, MANUAL_PIN_SET);
       return;
       case 8:
 #ifdef DEBUG
@@ -1002,7 +1003,7 @@ void set_secondary_pin (uint8_t *buffer, uint8_t keyboard_mode)
 			keytype ("You have 20 seconds to re-enter PIN, starting now");
 			fadeoffafter20();
 		} else hidprint("OnlyKey is ready, re-enter your PIN to confirm");
-	  
+
       return;
       case 9:
       pin_set = 0;
@@ -1016,18 +1017,18 @@ void set_secondary_pin (uint8_t *buffer, uint8_t keyboard_mode)
 			uint8_t temp[32];
 			uint8_t pinmask[10];
 			uint8_t *ptr;
-			
+
 			SHA256_CTX pinhash;
 			sha256_init(&pinhash);
 			ptr = pinmask;
 			onlykey_eeget_pinmask((uint8_t*)pinmask);
 			ptr = temp;
 			if (!onlykey_flashget_noncehash (ptr, 32)) {
-				
+
 			ptr = pinmask;
 			RNG2(ptr, 10); //Fill temp with random data
 			onlykey_eeset_pinmask(ptr);
-			
+
 			ptr = temp;
 			RNG2(ptr, 32); //Fill temp with random data
 #ifdef DEBUG
@@ -1053,7 +1054,7 @@ void set_secondary_pin (uint8_t *buffer, uint8_t keyboard_mode)
 #endif
 			if (keyboard_mode==MANUAL_PIN_SET) {
 				keytype("Successfully set PIN");
-				set_sd_pin(NULL, 1); 
+				set_sd_pin(NULL, 1);
 			}
 			else hidprint("Successfully set PIN");
           }
@@ -1063,7 +1064,7 @@ void set_secondary_pin (uint8_t *buffer, uint8_t keyboard_mode)
 #endif
 			if (!keyboard_mode) hidprint("Error PINs Don't Match");
 			else keytype ("Error PINs Don't Match");
-			if (keyboard_mode==MANUAL_PIN_SET) set_secondary_pin(NULL, MANUAL_PIN_SET); 
+			if (keyboard_mode==MANUAL_PIN_SET) set_secondary_pin(NULL, MANUAL_PIN_SET);
           }
       }
       else
@@ -1073,7 +1074,7 @@ void set_secondary_pin (uint8_t *buffer, uint8_t keyboard_mode)
 #endif
 		if (!keyboard_mode) hidprint("Error PIN is not between 7 - 10 characters");
 		else keytype ("Error PIN is not between 7 - 10 characters");
-		if (keyboard_mode==MANUAL_PIN_SET) set_secondary_pin(NULL, MANUAL_PIN_SET); 
+		if (keyboard_mode==MANUAL_PIN_SET) set_secondary_pin(NULL, MANUAL_PIN_SET);
       }
       password.reset();
       blink(3);
@@ -1305,7 +1306,7 @@ void set_slot (uint8_t *buffer)
 	else {
 		mode = profilemode;
 	}
-	
+
 	if (profilemode && buffer[0] != 0xBA) slot = slot + 12; // 2nd profile slots 12 -24 0xBA is loading from backup
             switch (value) {
             case 1:
@@ -1634,7 +1635,7 @@ void set_slot (uint8_t *buffer)
 			#ifdef US_VERSION
 			if (!initcheck) { //Only permit changing this on first use
             	onlykey_eeset_2ndprofilemode(buffer + 7);
-            	//hidprint("Successfully set 2nd profile mode");	
+            	//hidprint("Successfully set 2nd profile mode");
             } else {
 	        hidprint("Second Profile Mode may only be changed on first use");
 			}
@@ -2070,17 +2071,17 @@ void aes_gcm_encrypt (uint8_t * state, uint8_t slot, uint8_t value, const uint8_
 	uint8_t *ptr;
 	ptr = iv2;
 	onlykey_flashget_noncehash(ptr, 12);
-	
+
 	#ifdef DEBUG
 	Serial.print("INPUT KEY ");
 	byteprint((uint8_t*)key, 32);
 	#endif
-	
+
 	#ifdef DEBUG
 	Serial.println("SLOT");
 	Serial.println(slot);
 	#endif
-	
+
 	#ifdef DEBUG
 	Serial.print("VALUE");
 	Serial.print(value);
@@ -2137,17 +2138,17 @@ void aes_gcm_decrypt (uint8_t * state, uint8_t slot, uint8_t value, const uint8_
 	uint8_t *ptr;
 	ptr = iv2;
 	onlykey_flashget_noncehash(ptr, 12);
-	
+
 	#ifdef DEBUG
 	Serial.print("INPUT KEY ");
 	byteprint((uint8_t*)key, 32);
 	#endif
-	
+
 	#ifdef DEBUG
 	Serial.println("SLOT");
 	Serial.println(slot);
 	#endif
-	
+
 	#ifdef DEBUG
 	Serial.print("VALUE");
 	Serial.print(value);
@@ -2201,10 +2202,18 @@ void aes_gcm_encrypt2 (uint8_t * state, uint8_t * iv1, const uint8_t * key, int 
 	#ifdef US_VERSION
 	GCM<AES256> gcm;
 	//uint8_t tag[16];
+  #ifdef DEBUG
+  Serial.print("DECRYPTED STATE");
+  byteprint(state, len);
+  #endif
 	gcm.clear ();
 	gcm.setKey(key, 32);
 	gcm.setIV(iv1, 12);
 	gcm.encrypt(state, state, len);
+  #ifdef DEBUG
+  Serial.print("ENCRYPTED STATE");
+  byteprint(state, len);
+  #endif
 	//gcm.computeTag(tag, sizeof(tag));
 	#endif
 }
@@ -2213,15 +2222,65 @@ void aes_gcm_decrypt2 (uint8_t * state, uint8_t * iv1, const uint8_t * key, int 
         #ifdef US_VERSION
 	GCM<AES256> gcm;
 	//uint8_t tag[16];
+  #ifdef DEBUG
+  Serial.print("ENCRYPTED STATE");
+  byteprint(state, len);
+  #endif
 	gcm.clear ();
 	gcm.setKey(key, 32);
 	gcm.setIV(iv1, 12);
 	gcm.decrypt(state, state, len);
+  #ifdef DEBUG
+  Serial.print("DECRYPTED STATE");
+  byteprint(state, len);
+  #endif
 	//if (!gcm.checkTag(tag, sizeof(tag))) {
 	//	return 1;
 	//}
 	#endif
 }
+
+void aes_cbc_encrypt (uint8_t * state, const uint8_t * key, int len) {
+	#ifdef US_VERSION
+	CBC<AES256> cbc;
+  uint8_t iv[16] = {0};
+  // newPinEnc uses IV=0
+  // https://fidoalliance.org/specs/fido-v2.0-id-20180227/fido-client-to-authenticator-protocol-v2.0-id-20180227.pdf
+
+  #ifdef DEBUG
+  Serial.print("DECRYPTED STATE");
+  byteprint(state, len);
+  #endif
+	cbc.clear ();
+	cbc.setKey(key, 32);
+	cbc.setIV(iv, 16);
+	cbc.encrypt(state, state, len);
+  #ifdef DEBUG
+  Serial.print("ENCRYPTED STATE");
+  byteprint(state, len);
+  #endif
+	#endif
+}
+
+void aes_cbc_decrypt (uint8_t * state, const uint8_t * key, int len) {
+  #ifdef US_VERSION
+	CBC<AES256> cbc;
+  uint8_t iv[16] = {0};
+  #ifdef DEBUG
+  Serial.print("ENCRYPTED STATE");
+  byteprint(state, len);
+  #endif
+	cbc.clear ();
+	cbc.setKey(key, 32);
+	cbc.setIV(iv, 16);
+	cbc.decrypt(state, state, len);
+  #ifdef DEBUG
+  Serial.print("DECRYPTED STATE");
+  byteprint(state, len);
+  #endif
+	#endif
+}
+
 
 /*************************************/
 void onlykey_flashget_common (uint8_t *ptr, unsigned long *adr, int len) {
@@ -2357,7 +2416,7 @@ void onlykey_flashset_pinhashpublic (uint8_t *ptr) {
 	ptr[0] &= 0xF8;
     ptr[31] = (ptr[31] & 0x7F) | 0x40;
 	//Generate public key of pinhash in temp
-	Curve25519::eval(temp, ptr, 0); 
+	Curve25519::eval(temp, ptr, 0);
 #ifdef DEBUG
       Serial.print("Storing public key of PIN hash =");
 	  byteprint(temp, 32);
@@ -2474,7 +2533,7 @@ void onlykey_flashset_2ndpinhashpublic (uint8_t *ptr) {
 	ptr[0] &= 0xF8;
     ptr[31] = (ptr[31] & 0x7F) | 0x40;
 	//Generate public key of pinhash in temp
-	Curve25519::eval(temp, ptr, 0); 
+	Curve25519::eval(temp, ptr, 0);
 #ifdef DEBUG
       Serial.print("Storing public key of PIN 2 hash =");
 	  byteprint(temp, 32);
@@ -2486,7 +2545,7 @@ void onlykey_flashset_2ndpinhashpublic (uint8_t *ptr) {
 	memcpy(tempkey, ptr, 32);
 	onlykey_flashget_pinhashpublic (p1hash, 32); //store PIN hash
 	Curve25519::eval(profilekey, tempkey, p1hash); //Generate shared secret of p2hash private key and p1hash public key
-	#endif	
+	#endif
 	}
 	//Copy public key to ptr for writing to flash
 	memcpy(ptr, temp, 32);
@@ -2503,7 +2562,7 @@ void onlykey_flashset_2ndpinhashpublic (uint8_t *ptr) {
       Serial.println(adr, HEX);
       Serial.print("PIN hash value =");
 #endif
-	if (p2mode!=NONENCRYPTEDPROFILE) { 
+	if (p2mode!=NONENCRYPTEDPROFILE) {
 #ifdef US_VERSION
 	// Generate and encrypt default key
 	recv_buffer[4] = 0xEF;
@@ -2512,7 +2571,7 @@ void onlykey_flashset_2ndpinhashpublic (uint8_t *ptr) {
 	RNG2(recv_buffer+7, 32);
 	set_private(recv_buffer); //set default ECC key
 	memset(tempkey, 0, 32);
-#endif	
+#endif
 	}
     onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_2ndpinhash);
 
@@ -4221,11 +4280,11 @@ byteprint((uint8_t*)buffer+7, 32);
 	Serial.println(buffer[5]);
 #endif
 	if (buffer[5]==131) { //Designated Backup Passphrase slot
-	hidprint("Successfully set Backup Passphrase");	
+	hidprint("Successfully set Backup Passphrase");
 	} else if (gen_key != 0 && initcheck){
 	hidprint("Successfully set ECC Key");
       if (buffer[0] != 0xBA) blink(2);
-	} 
+	}
 #endif
       return;
 
@@ -4398,38 +4457,46 @@ if (profilemode==NONENCRYPTEDPROFILE) return;
 
 void ctap_flash (int index, uint8_t *buffer, int size, uint8_t mode) {
 	uintptr_t adr = (unsigned long)flashstorestart;
-	adr = adr + 16384; //9th free flash sector
-	uint8_t temp[1024];
-    uint8_t *tptr;
-    tptr=temp;
+	adr = adr + 16384;
+	uint8_t temp[2048]; //last part of 9th sector usable?
+  uint8_t *tptr;
+  tptr=temp;
+  Serial.print("CTAP Flash mode= ");
+  Serial.print(mode);
+   if (mode == 3) { // read auth state from EEPROM
+    onlykey_eeget_ctap_authstate(buffer);
+    return;
+  }	else if (mode == 4) { // write auth state to EEPROM
+    onlykey_eeset_ctap_authstate(buffer);
+    return;
+  } else {
+    Serial.print("RK Index = ");
+    Serial.print(index);
+    // Max size RK ~368
+    // Support 5 RKs for now, 0-4
+    if (index>4 || index<0) return;
+    else index++;
+  }
     //Copy current flash contents to buffer
-    onlykey_flashget_common(tptr, (unsigned long*)adr, 1024);
+    onlykey_flashget_common(tptr, (unsigned long*)adr, sizeof(temp));
 	//Add new flash contents to buffer
-	//TODO need to find max size of CTAP_residentKey or save start flash location & size
-	//TODO after this ^ implement overwrite
-	if (mode==1) { // read auth state
+	 if (mode==1) { // read RK
 		memcpy(buffer, tptr+((index*size)-size), size);
 		return;
-	} else if (mode==2) { // read RK
-		memcpy(buffer, tptr+((index*size)-size)+sizeof(AuthenticatorState), size);
-		return;
-	} else if (mode > 2) { 
-		// Max size  auth state ~203 sizeof(AuthenticatorState)
-		// Max size RK ~368
-		// Support 3 RKs for now
-		if (mode == 3) flash_modify (index, temp, buffer, size, 0); //write auth state
-		else if (mode == 4) flash_modify (index, temp+sizeof(AuthenticatorState), buffer, size, 0); //write RK
+	} else if (mode == 2) {
+    flash_modify (index, temp, buffer, size, 0); //write RK
+
 		if (flashEraseSector((unsigned long*)adr))
 		{
 			#ifdef DEBUG
-			Serial.printf("NOT ");
+			Serial.println("NOT ");
 			#endif
 		}
 		#ifdef DEBUG
-		Serial.printf("successful\r\n");
+		Serial.println("successful");
 		#endif
 		//Write buffer to flash
-		onlykey_flashset_common(tptr, (unsigned long*)adr, 1024);
+		onlykey_flashset_common(tptr, (unsigned long*)adr, sizeof(temp));
 		#ifdef DEBUG
 		Serial.print("CTAP address =");
 		Serial.println(adr, HEX);
@@ -4437,7 +4504,7 @@ void ctap_flash (int index, uint8_t *buffer, int size, uint8_t mode) {
 		byteprint(buffer, size);
 		#endif
 		//hidprint("Successfully set CTAP Value");
-	} 	
+	}
 }
 
 void flash_modify (int index, uint8_t *sector, uint8_t *data, int size, bool wipe) {
@@ -4447,7 +4514,7 @@ void flash_modify (int index, uint8_t *sector, uint8_t *data, int size, bool wip
 	}
 }
 
-	
+
 /*************************************/
 //Initialize Yubico OTP
 /*************************************/
@@ -4603,7 +4670,7 @@ void decrement(Task* me) {
 			packet_buffer_details[1] = 0;
 		} else {
 			getBuffer[7]--;
-		}	
+		}
 	}
   }
 }
@@ -4636,7 +4703,7 @@ bool fadeoffafter20sec(Task* me) {
 	//Below used for keyboard OnlyKey setup
 	if (!initcheck || configmode) {
 		if (pin_set<=3) {
-			set_primary_pin(NULL, MANUAL_PIN_SET); //Done PIN entry		
+			set_primary_pin(NULL, MANUAL_PIN_SET); //Done PIN entry
 		} else if (pin_set<=6) {
 			set_sd_pin(NULL, MANUAL_PIN_SET); //Done PIN entry
 		} else if (pin_set<=9) {
@@ -4673,7 +4740,7 @@ bool fadeendafter2sec(Task* me) {
 
 void fadeon(uint8_t color) {
   NEO_Color=color;
-  if (NEO_Color == 170) packet_buffer_details[0] = 0xFE; //U2F 
+  if (NEO_Color == 170) packet_buffer_details[0] = 0xFE; //U2F
   SoftTimer.add(&FadeinTask);
   isfade=1;
 }
@@ -5371,7 +5438,7 @@ void RESTORE(uint8_t *buffer) {
 		Serial.print("Length of backup file = ");
         Serial.println(offset);
 #endif
-			
+
 	if (offset == 0) {
 		CPU_RESTART();
 	}
@@ -5705,7 +5772,7 @@ void process_packets (uint8_t *buffer) {
 			if (sshchallengemode || pgpchallengemode) {
 				CRYPTO_AUTH = 3;
 			} else {
-				
+
 				SHA256_CTX msg_hash;
 				sha256_init(&msg_hash);
 				sha256_update(&msg_hash, packet_buffer, packet_buffer_offset); //add data to sign
@@ -5725,7 +5792,7 @@ void process_packets (uint8_t *buffer) {
 					Challenge_button3 = temp[31] % 5; //Get the base 5 remainder (0-5)
 					Challenge_button3 = Challenge_button3 + '0' + 1; //Add '0' and 1 so number will be ASCII 1 - 6
 				}
-			} 
+			}
 #ifdef DEBUG
     Serial.println("Received Message");
 	byteprint(packet_buffer, packet_buffer_offset);
@@ -5795,18 +5862,18 @@ void process_setreport () {
 	uint8_t index = 0;
 	ptr = hmacBuffer+22;
 	//while (*ptr && *ptr == *(ptr+1)) {
-	while (*ptr && *ptr == 0x3f) { 	
+	while (*ptr && *ptr == 0x3f) {
 		ptr++;
 		index++;
 	}
-	if (index > 9) { 
+	if (index > 9) {
 		memset(setBuffer, 0, 9);
 		memset(hmacBuffer, 0, 70);
-#ifdef DEBUG    
+#ifdef DEBUG
 		Serial.println("Received HMACSHA1 Test");
 #endif
 		return;
-	} else if (hmacBuffer[69] != 0x00) { 
+	} else if (hmacBuffer[69] != 0x00) {
 		if (hmacBuffer[69] == OKSETTIME) {
 			memcpy(hmacBuffer+5, hmacBuffer + 63, 7);
 			set_time(hmacBuffer);
@@ -5816,7 +5883,7 @@ void process_setreport () {
 		memset(hmacBuffer, 0, 70);
 		return;
 	}
-#ifdef DEBUG    
+#ifdef DEBUG
 	Serial.println("Received HMACSHA1 Packets");
 	byteprint(hmacBuffer, 70);
 #endif

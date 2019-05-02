@@ -27,9 +27,10 @@
 #include "device.h"
 #include "ctap.h"
 #include "ctap_errors.h"
+#include "version.h"
 
 #include "log.h"
-#include APP_CONFIG
+//#include APP_CONFIG
 
 // output must be at least 71 bytes
 int16_t bridge_u2f_to_solo(uint8_t * output, uint8_t * keyh, int keylen)

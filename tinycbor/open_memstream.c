@@ -112,4 +112,3 @@ FILE *open_memstream(char **bufptr, size_t *lenptr)
     return fopencookie(b, "w", vtable);
 #endif
 }
-

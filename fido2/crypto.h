@@ -51,8 +51,8 @@ void crypto_ecc256_shared_secret(const uint8_t * pubkey, const uint8_t * privkey
 
 void crypto_aes256_decrypt(uint8_t * state, uint8_t * iv1, const uint8_t * key, int len);
 void crypto_aes256_encrypt(uint8_t * state, uint8_t * iv1, const uint8_t * key, int len);
-#define crypto_aes256_decrypt aes_gcm_decrypt2
-#define crypto_aes256_encrypt aes_gcm_encrypt2
+#define crypto_aes256_decrypt aes_cbc_decrypt
+#define crypto_aes256_encrypt aes_cbc_encrypt
 
 void crypto_reset_master_secret();
 void crypto_load_master_secret(uint8_t * key);

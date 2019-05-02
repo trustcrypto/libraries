@@ -22,6 +22,15 @@
 #ifndef SOLO_H_
 #define SOLO_H_
 
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+
 int16_t bridge_u2f_to_solo(uint8_t * output, uint8_t * keyh, int keylen);
 
+
+#ifdef __cplusplus
+}
+#endif
 #endif

@@ -13,11 +13,11 @@
  *    copyright notice, this list of conditions and the following
  *    disclaimer in the documentation and/or other materials provided
  *    with the distribution.
- *      
+ *
  * 3. All advertising materials mentioning features or use of this
  *    software must display the following acknowledgment:
  *    "This product includes software developed by CryptoTrust LLC. for
- *    the OnlyKey Project (http://www.crp.to/ok)" 
+ *    the OnlyKey Project (http://www.crp.to/ok)"
  *
  * 4. The names "OnlyKey" and "OnlyKey Project" must not be used to
  *    endorse or promote products derived from this software without
@@ -25,51 +25,51 @@
  *    admin@crp.to.
  *
  * 5. Products derived from this software may not be called "OnlyKey"
- *    nor may "OnlyKey" or "CryptoTrust" appear in their names without 
+ *    nor may "OnlyKey" or "CryptoTrust" appear in their names without
  *    specific prior written permission. For written permission, please
  *    contact admin@crp.to.
  *
  * 6. Redistributions of any form whatsoever must retain the following
  *    acknowledgment:
  *    "This product includes software developed by CryptoTrust LLC. for
- *    the OnlyKey Project (http://www.crp.to/ok)" 
+ *    the OnlyKey Project (http://www.crp.to/ok)"
  *
- * 7. Redistributions in any form must be accompanied by information on 
- *    how to obtain complete source code for this software and any 
- *    accompanying software that uses this software. The source code 
- *    must either be included in the distribution or be available for 
- *    no more than the cost of distribution plus a nominal fee, and must 
- *    be freely redistributable under reasonable conditions. For a 
- *    binary file, complete source code means the source code for all 
- *    modules it contains. 
+ * 7. Redistributions in any form must be accompanied by information on
+ *    how to obtain complete source code for this software and any
+ *    accompanying software that uses this software. The source code
+ *    must either be included in the distribution or be available for
+ *    no more than the cost of distribution plus a nominal fee, and must
+ *    be freely redistributable under reasonable conditions. For a
+ *    binary file, complete source code means the source code for all
+ *    modules it contains.
  *
  * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS
  * ARE GRANTED BY THIS LICENSE. IF SOFTWARE RECIPIENT INSTITUTES PATENT
  * LITIGATION AGAINST ANY ENTITY (INCLUDING A CROSS-CLAIM OR COUNTERCLAIM
- * IN A LAWSUIT) ALLEGING THAT THIS SOFTWARE (INCLUDING COMBINATIONS OF THE 
- * SOFTWARE WITH OTHER SOFTWARE OR HARDWARE) INFRINGES SUCH SOFTWARE 
- * RECIPIENT'S PATENT(S), THEN SUCH SOFTWARE RECIPIENT'S RIGHTS GRANTED BY 
+ * IN A LAWSUIT) ALLEGING THAT THIS SOFTWARE (INCLUDING COMBINATIONS OF THE
+ * SOFTWARE WITH OTHER SOFTWARE OR HARDWARE) INFRINGES SUCH SOFTWARE
+ * RECIPIENT'S PATENT(S), THEN SUCH SOFTWARE RECIPIENT'S RIGHTS GRANTED BY
  * THIS LICENSE SHALL TERMINATE AS OF THE DATE SUCH LITIGATION IS FILED. IF
- * ANY PROVISION OF THIS AGREEMENT IS INVALID OR UNENFORCEABLE UNDER 
- * APPLICABLE LAW, IT SHALL NOT AFFECT THE VALIDITY OR ENFORCEABILITY OF THE 
- * REMAINDER OF THE TERMS OF THIS AGREEMENT, AND WITHOUT FURTHER ACTION 
- * BY THE PARTIES HERETO, SUCH PROVISION SHALL BE REFORMED TO THE MINIMUM 
- * EXTENT NECESSARY TO MAKE SUCH PROVISION VALID AND ENFORCEABLE. ALL 
- * SOFTWARE RECIPIENT'S RIGHTS UNDER THIS AGREEMENT SHALL TERMINATE IF IT 
- * FAILS TO COMPLY WITH ANY OF THE MATERIAL TERMS OR CONDITIONS OF THIS 
- * AGREEMENT AND DOES NOT CURE SUCH FAILURE IN A REASONABLE PERIOD OF 
- * TIME AFTER BECOMING AWARE OF SUCH NONCOMPLIANCE. THIS SOFTWARE IS 
- * PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY 
- * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED 
- * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR  PURPOSE 
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS 
- * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,  EXEMPLARY, OR 
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF 
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR 
- * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, 
- * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR 
- * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF 
- * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * ANY PROVISION OF THIS AGREEMENT IS INVALID OR UNENFORCEABLE UNDER
+ * APPLICABLE LAW, IT SHALL NOT AFFECT THE VALIDITY OR ENFORCEABILITY OF THE
+ * REMAINDER OF THE TERMS OF THIS AGREEMENT, AND WITHOUT FURTHER ACTION
+ * BY THE PARTIES HERETO, SUCH PROVISION SHALL BE REFORMED TO THE MINIMUM
+ * EXTENT NECESSARY TO MAKE SUCH PROVISION VALID AND ENFORCEABLE. ALL
+ * SOFTWARE RECIPIENT'S RIGHTS UNDER THIS AGREEMENT SHALL TERMINATE IF IT
+ * FAILS TO COMPLY WITH ANY OF THE MATERIAL TERMS OR CONDITIONS OF THIS
+ * AGREEMENT AND DOES NOT CURE SUCH FAILURE IN A REASONABLE PERIOD OF
+ * TIME AFTER BECOMING AWARE OF SUCH NONCOMPLIANCE. THIS SOFTWARE IS
+ * PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
+ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR  PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS
+ * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,  EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
+ * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
+ * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 
@@ -127,6 +127,16 @@ int onlykey_eeget_wipemode (uint8_t *ptr) {
 void onlykey_eeset_wipemode (uint8_t *ptr) {
     onlykey_eeset_common(ptr, EEpos_wipemode, EElen_wipemode);
 }
+/*********************************/
+/*********************************/
+int onlykey_eeget_ctap_authstate (uint8_t *ptr) {
+    onlykey_eeget_common(ptr, EEpos_ctap_authstate, EElen_ctap_authstate);
+    return EElen_ctap_authstate;
+}
+void onlykey_eeset_ctap_authstate (uint8_t *ptr) {
+    onlykey_eeset_common(ptr, EEpos_ctap_authstate, EElen_ctap_authstate);
+}
+
 /*********************************/
 /*********************************/
 int onlykey_eeget_backupkeymode (uint8_t *ptr) {
@@ -1145,7 +1155,7 @@ void onlykey_eeset_public (uint8_t *ptr) {
 /*********************************/
 /*********************************/
 int onlykey_eeget_password (uint8_t *ptr, int slot) {
-    
+
 	switch (slot) {
 		uint8_t length;
 		int size;
@@ -1316,181 +1326,181 @@ int onlykey_eeget_password (uint8_t *ptr, int slot) {
 			if (size > EElen_password) size = EElen_password;
 			onlykey_eeget_common(ptr, EEpos_password24, EElen_password);
 			return size;
-            break;	
+            break;
 	}
-	
+
 	return 0;
 
 }
 /*********************************/
 /*********************************/
 void onlykey_eeset_password (uint8_t *ptr, int size, int slot) {
-    
+
 		switch (slot) {
 			uint8_t length;
         	case 1:
-		
+
 			if (size > EElen_password) size = EElen_password;
 			onlykey_eeset_common(ptr, EEpos_password1, EElen_password);
 			length = (uint8_t) size;
 			onlykey_eeset_passwordlen1(&length);
             break;
 		case 2:
-		
+
 			if (size > EElen_password) size = EElen_password;
 			onlykey_eeset_common(ptr, EEpos_password2, EElen_password);
 			length = (uint8_t) size;
 			onlykey_eeset_passwordlen2(&length);
             break;
 		case 3:
-		
+
 			if (size > EElen_password) size = EElen_password;
 			onlykey_eeset_common(ptr, EEpos_password3, EElen_password);
 			length = (uint8_t) size;
 			onlykey_eeset_passwordlen3(&length);
             break;
 		case 4:
-		
+
 			if (size > EElen_password) size = EElen_password;
 			onlykey_eeset_common(ptr, EEpos_password4, EElen_password);
 			length = (uint8_t) size;
 			onlykey_eeset_passwordlen4(&length);
             break;
 		case 5:
-		
+
 			if (size > EElen_password) size = EElen_password;
 			onlykey_eeset_common(ptr, EEpos_password5, EElen_password);
 			length = (uint8_t) size;
 			onlykey_eeset_passwordlen5(&length);
             break;
 		case 6:
-		
+
 			if (size > EElen_password) size = EElen_password;
 			onlykey_eeset_common(ptr, EEpos_password6, EElen_password);
 			length = (uint8_t) size;
 			onlykey_eeset_passwordlen6(&length);
             break;
 		case 7:
-		
+
 			if (size > EElen_password) size = EElen_password;
 			onlykey_eeset_common(ptr, EEpos_password7, EElen_password);
 			length = (uint8_t) size;
 			onlykey_eeset_passwordlen7(&length);
             break;
 		case 8:
-		
+
 			if (size > EElen_password) size = EElen_password;
 			onlykey_eeset_common(ptr, EEpos_password8, EElen_password);
 			length = (uint8_t) size;
 			onlykey_eeset_passwordlen8(&length);
             break;
 		case 9:
-		
+
 			if (size > EElen_password) size = EElen_password;
 			onlykey_eeset_common(ptr, EEpos_password9, EElen_password);
 			length = (uint8_t) size;
 			onlykey_eeset_passwordlen9(&length);
             break;
 		case 10:
-		
+
 			if (size > EElen_password) size = EElen_password;
 			onlykey_eeset_common(ptr, EEpos_password10, EElen_password);
 			length = (uint8_t) size;
 			onlykey_eeset_passwordlen10(&length);
             break;
 		case 11:
-		
+
 			if (size > EElen_password) size = EElen_password;
 			onlykey_eeset_common(ptr, EEpos_password11, EElen_password);
 			length = (uint8_t) size;
 			onlykey_eeset_passwordlen11(&length);
             break;
 		case 12:
-		
+
 			if (size > EElen_password) size = EElen_password;
 			onlykey_eeset_common(ptr, EEpos_password12, EElen_password);
 			length = (uint8_t) size;
 			onlykey_eeset_passwordlen12(&length);
             break;
             case 13:
-		
+
 			if (size > EElen_password) size = EElen_password;
 			onlykey_eeset_common(ptr, EEpos_password13, EElen_password);
 			length = (uint8_t) size;
 			onlykey_eeset_passwordlen13(&length);
             break;
 		case 14:
-		
+
 			if (size > EElen_password) size = EElen_password;
 			onlykey_eeset_common(ptr, EEpos_password14, EElen_password);
 			length = (uint8_t) size;
 			onlykey_eeset_passwordlen14(&length);
             break;
 		case 15:
-		
+
 			if (size > EElen_password) size = EElen_password;
 			onlykey_eeset_common(ptr, EEpos_password15, EElen_password);
 			length = (uint8_t) size;
 			onlykey_eeset_passwordlen15(&length);
             break;
 		case 16:
-		
+
 			if (size > EElen_password) size = EElen_password;
 			onlykey_eeset_common(ptr, EEpos_password16, EElen_password);
 			length = (uint8_t) size;
 			onlykey_eeset_passwordlen16(&length);
             break;
 		case 17:
-		
+
 			if (size > EElen_password) size = EElen_password;
 			onlykey_eeset_common(ptr, EEpos_password17, EElen_password);
 			length = (uint8_t) size;
 			onlykey_eeset_passwordlen17(&length);
             break;
 		case 18:
-		
+
 			if (size > EElen_password) size = EElen_password;
 			onlykey_eeset_common(ptr, EEpos_password18, EElen_password);
 			length = (uint8_t) size;
 			onlykey_eeset_passwordlen18(&length);
             break;
 		case 19:
-		
+
 			if (size > EElen_password) size = EElen_password;
 			onlykey_eeset_common(ptr, EEpos_password19, EElen_password);
 			length = (uint8_t) size;
 			onlykey_eeset_passwordlen19(&length);
             break;
 		case 20:
-		
+
 			if (size > EElen_password) size = EElen_password;
 			onlykey_eeset_common(ptr, EEpos_password20, EElen_password);
 			length = (uint8_t) size;
 			onlykey_eeset_passwordlen20(&length);
             break;
 		case 21:
-		
+
 			if (size > EElen_password) size = EElen_password;
 			onlykey_eeset_common(ptr, EEpos_password21, EElen_password);
 			length = (uint8_t) size;
 			onlykey_eeset_passwordlen21(&length);
             break;
 		case 22:
-		
+
 			if (size > EElen_password) size = EElen_password;
 			onlykey_eeset_common(ptr, EEpos_password22, EElen_password);
 			length = (uint8_t) size;
 			onlykey_eeset_passwordlen22(&length);
             break;
 		case 23:
-		
+
 			if (size > EElen_password) size = EElen_password;
 			onlykey_eeset_common(ptr, EEpos_password23, EElen_password);
 			length = (uint8_t) size;
 			onlykey_eeset_passwordlen23(&length);
             break;
 		case 24:
-		
+
 			if (size > EElen_password) size = EElen_password;
 			onlykey_eeset_common(ptr, EEpos_password24, EElen_password);
 			length = (uint8_t) size;
@@ -1502,7 +1512,7 @@ void onlykey_eeset_password (uint8_t *ptr, int size, int slot) {
 /*********************************/
 /*********************************/
 int onlykey_eeget_addchar (uint8_t *ptr, int slot) {
-    
+
 	switch (slot) {
         	case 1:
 			onlykey_eeget_common(ptr, EEpos_addchar_1, EElen_addchar);
@@ -1599,16 +1609,16 @@ int onlykey_eeget_addchar (uint8_t *ptr, int slot) {
 		case 24:
 			onlykey_eeget_common(ptr, EEpos_addchar_24, EElen_addchar);
 			return EElen_addchar;
-            break;	
+            break;
 	}
 
 	return 0;
-	
+
 }
 /*********************************/
 /*********************************/
 void onlykey_eeset_addchar (uint8_t *ptr, int slot) {
-    
+
 		switch (slot) {
 
         	case 1:
@@ -1689,7 +1699,7 @@ void onlykey_eeset_addchar (uint8_t *ptr, int slot) {
 /*********************************/
 /*********************************/
 int onlykey_eeget_delay1 (uint8_t *ptr, int slot) {
-    
+
 	switch (slot) {
         	case 1:
 			onlykey_eeget_common(ptr, EEpos_delay1_1, EElen_delay);
@@ -1786,16 +1796,16 @@ int onlykey_eeget_delay1 (uint8_t *ptr, int slot) {
 		case 24:
 			onlykey_eeget_common(ptr, EEpos_delay1_24, EElen_delay);
 			return EElen_delay;
-            break;	
+            break;
 	}
-	
+
 	return 0;
-	
+
 }
 /*********************************/
 /*********************************/
 void onlykey_eeset_delay1 (uint8_t *ptr, int slot) {
-    
+
 		switch (slot) {
 
         	case 1:
@@ -1876,7 +1886,7 @@ void onlykey_eeset_delay1 (uint8_t *ptr, int slot) {
 /*********************************/
 /*********************************/
 int onlykey_eeget_delay2 (uint8_t *ptr, int slot) {
-    
+
 	switch (slot) {
         case 1:
 			onlykey_eeget_common(ptr, EEpos_delay2_1, EElen_delay);
@@ -1974,16 +1984,16 @@ int onlykey_eeget_delay2 (uint8_t *ptr, int slot) {
 			onlykey_eeget_common(ptr, EEpos_delay2_24, EElen_delay);
 			return EElen_delay;
             break;
-			
+
 	}
 
 	return 0;
-	
+
 }
 /*********************************/
 /*********************************/
 void onlykey_eeset_delay2 (uint8_t *ptr, int slot) {
-    
+
 		switch (slot) {
 
         case 1:
@@ -2058,14 +2068,14 @@ void onlykey_eeset_delay2 (uint8_t *ptr, int slot) {
 		case 24:
 		onlykey_eeset_common(ptr, EEpos_delay2_24, EElen_delay);
             break;
-	
+
 	}
 
 }
 /*********************************/
 /*********************************/
 int onlykey_eeget_delay3 (uint8_t *ptr, int slot) {
-    
+
 	switch (slot) {
         case 1:
 			onlykey_eeget_common(ptr, EEpos_delay3_1, EElen_delay);
@@ -2163,16 +2173,16 @@ int onlykey_eeget_delay3 (uint8_t *ptr, int slot) {
 			onlykey_eeget_common(ptr, EEpos_delay3_24, EElen_delay);
 			return EElen_delay;
             break;
-			
+
 	}
 
 	return 0;
-	
+
 }
 /*********************************/
 /*********************************/
 void onlykey_eeset_delay3 (uint8_t *ptr, int slot) {
-    
+
 		switch (slot) {
 
         case 1:
@@ -2247,14 +2257,14 @@ void onlykey_eeset_delay3 (uint8_t *ptr, int slot) {
 		case 24:
 		onlykey_eeset_common(ptr, EEpos_delay3_24, EElen_delay);
             break;
-	
+
 	}
 
 }
 /*********************************/
 /*********************************/
 int onlykey_eeget_2FAtype (uint8_t *ptr, int slot) {
-    
+
 	switch (slot) {
         	case 1:
 			onlykey_eeget_common(ptr, EEpos_2FAtype1, EElen_2FAtype);
@@ -2352,16 +2362,16 @@ int onlykey_eeget_2FAtype (uint8_t *ptr, int slot) {
 			onlykey_eeget_common(ptr, EEpos_2FAtype24, EElen_2FAtype);
 			return EElen_2FAtype;
             break;
-			
+
 	}
-	
+
 	return 0;
 
 }
 /*********************************/
 /*********************************/
 void onlykey_eeset_2FAtype (uint8_t *ptr, int slot) {
-    
+
 		switch (slot) {
 
         case 1:
@@ -2442,7 +2452,7 @@ void onlykey_eeset_2FAtype (uint8_t *ptr, int slot) {
 /*********************************/
 /*********************************/
 int onlykey_eeget_ecckey (uint8_t *ptr, int slot) {
-    
+
 	switch (slot) {
         case 101:
 			onlykey_eeget_common(ptr, EEpos_ecckey1, EElen_ecckey);
@@ -2571,16 +2581,16 @@ int onlykey_eeget_ecckey (uint8_t *ptr, int slot) {
 		case 132:
 			onlykey_eeget_common(ptr, EEpos_ecckey32, EElen_ecckey);
 			return EElen_ecckey;
-            break;		
+            break;
 	}
-	
+
 	return 0;
 
 }
 /*********************************/
 /*********************************/
 void onlykey_eeset_ecckey (uint8_t *ptr, int slot) {
-    
+
 		switch (slot) {
 
         case 101:
@@ -2685,7 +2695,7 @@ void onlykey_eeset_ecckey (uint8_t *ptr, int slot) {
 /*********************************/
 /*********************************/
 int onlykey_eeget_rsakey (uint8_t *ptr, int slot) {
-    
+
 	switch (slot) {
 		case 1:
 			onlykey_eeget_common(ptr, EEpos_rsakey1, EElen_rsakey);
@@ -2704,14 +2714,14 @@ int onlykey_eeget_rsakey (uint8_t *ptr, int slot) {
 			return EElen_rsakey;
             break;
 	}
-	
+
 	return 0;
 
 }
 /*********************************/
 /*********************************/
 void onlykey_eeset_rsakey (uint8_t *ptr, int slot) {
-    
+
 		switch (slot) {
 
 		case 1:
@@ -2730,4 +2740,3 @@ void onlykey_eeset_rsakey (uint8_t *ptr, int slot) {
 
 }
 /*********************************/
-

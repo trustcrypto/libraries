@@ -5,7 +5,7 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 #include "wallet.h"
-#include APP_CONFIG
+//#include APP_CONFIG
 #include "ctap.h"
 #include "ctap_errors.h"
 #include "crypto.h"

@@ -7,11 +7,12 @@
 
 #include <stdint.h>
 #include "extensions.h"
+#include "solo.h"
 #include "u2f.h"
 #include "ctap.h"
 #include "wallet.h"
-#include "solo.h"
 #include "device.h"
+
 
 #include "log.h"
 
@@ -91,7 +92,7 @@ int16_t extend_fido2(CredentialId * credid, uint8_t * output)
     }
 }
 
-int16_t extend_u2f(APDU_HEADER * req, uint8_t * payload, uint32_t len)
+int extend_u2f(APDU_HEADER * req, uint8_t * payload, uint32_t len)
 {
 
     struct u2f_authenticate_request * auth = (struct u2f_authenticate_request *) payload;

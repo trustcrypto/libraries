@@ -8,8 +8,14 @@
 #define EXTENSIONS_H_
 #include "u2f.h"
 #include "apdu.h"
+#include "solo.h"
 
-int16_t extend_u2f(APDU_HEADER * req, uint8_t * payload, uint32_t len);
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+
+int extend_u2f(APDU_HEADER * req, uint8_t * payload, uint32_t len);
 
 int16_t extend_fido2(CredentialId * credid, uint8_t * output);
 
@@ -17,4 +23,7 @@ int bootloader_bridge(int klen, uint8_t * keyh);
 
 int is_extension_request(uint8_t * kh, int len);
 
+#ifdef __cplusplus
+}
+#endif
 #endif /* EXTENSIONS_H_ */
