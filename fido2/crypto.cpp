@@ -185,12 +185,10 @@ void crypto_ecc256_sign(uint8_t * data, int len, uint8_t * sig)
 {
 
 	//use deterministic signing
-	//uint8_t tmp[32 + 32 + 64];
-	//SHA256_HashContext ectx = {{&init_SHA256, &update_SHA256, &finish_SHA256, 64, 32, tmp}};
-  //if ( uECC_sign_deterministic(_signing_key, data, len, &ectx.uECC, sig, _es256_curve)== 0)
-  Serial.print("Data to sign ");
-  byteprint(data, len);
-  if ( uECC_sign(_signing_key, data, len, sig, _es256_curve) == 0)
+	uint8_t tmp[32 + 32 + 64];
+	SHA256_HashContext ectx = {{&init_SHA256, &update_SHA256, &finish_SHA256, 64, 32, tmp}};
+  if ( uECC_sign_deterministic(_signing_key, data, len, &ectx.uECC, sig, _es256_curve)== 0)
+  //if ( uECC_sign(_signing_key, data, len, sig, _es256_curve) == 0)
     {
         printf2(TAG_ERR,"error, uECC failed\n");
         exit(1);
@@ -210,10 +208,10 @@ void crypto_ecc256_load_key(uint8_t * data, int len, uint8_t * data2, int len2)
 void crypto_ecdsa_sign(uint8_t * data, int len, uint8_t * sig, int MBEDTLS_ECP_ID)
 {
 
-    const struct uECC_Curve_t * curve = NULL;
+  const struct uECC_Curve_t * curve = NULL;
 	//use deterministic signing
-	//uint8_t tmp[32 + 32 + 64];
-	//SHA256_HashContext ectx = {{&init_SHA256, &update_SHA256, &finish_SHA256, 64, 32, tmp}};
+	uint8_t tmp[32 + 32 + 64];
+	SHA256_HashContext ectx = {{&init_SHA256, &update_SHA256, &finish_SHA256, 64, 32, tmp}};
 
     switch(MBEDTLS_ECP_ID)
     {
@@ -237,10 +235,8 @@ void crypto_ecdsa_sign(uint8_t * data, int len, uint8_t * sig, int MBEDTLS_ECP_I
             printf2(TAG_ERR,"error, invalid ECDSA alg specifier\n");
             exit(1);
     }
-	  //if ( uECC_sign_deterministic(_signing_key, data, len, &ectx.uECC, sig, curve)== 0)
-    Serial.print("Data to sign ");
-    byteprint(data, len);
-    if ( uECC_sign(_signing_key, data, len, sig, curve) == 0)
+	  if ( uECC_sign_deterministic(_signing_key, data, len, &ectx.uECC, sig, curve)== 0)
+    //if ( uECC_sign(_signing_key, data, len, sig, curve) == 0)
     {
         printf2(TAG_ERR,"error, uECC failed\n");
         exit(1);
