@@ -110,8 +110,7 @@ end:
     byte = rcode & 0xff;
     u2f_response_writeback(&byte,1);
 
-    printf1(TAG_U2F,"u2f resp: ");
-	dump_hex1(TAG_U2F, _u2f_resp->data, _u2f_resp->length);
+    printf1(TAG_U2F,"u2f resp: "); dump_hex1(TAG_U2F, _u2f_resp->data, _u2f_resp->length);
 }
 
 void u2f_request_nfc(uint8_t * req, int len, CTAP_RESPONSE * resp)
@@ -187,24 +186,23 @@ int8_t u2f_new_keypair(struct u2f_key_handle * kh, uint8_t * appid, uint8_t * pu
 }
 
 
-
-static int8_t u2f_appid_eq(struct u2f_key_handle * kh, uint8_t * appid)
+// Return 1 if authenticate, 0 if not.
+int8_t u2f_authenticate_credential(struct u2f_key_handle * kh, uint8_t * appid)
 {
     uint8_t tag[U2F_KEY_HANDLE_TAG_SIZE];
     u2f_make_auth_tag(kh, appid, tag);
     if (memcmp(kh->tag, tag, U2F_KEY_HANDLE_TAG_SIZE) == 0)
     {
-        return 0;
+        return 1;
     }
     else
     {
         printf1(TAG_U2F, "key handle + appid not authentic\n");
         printf1(TAG_U2F, "calc tag: \n"); dump_hex1(TAG_U2F,tag, U2F_KEY_HANDLE_TAG_SIZE);
         printf1(TAG_U2F, "inp  tag: \n"); dump_hex1(TAG_U2F,kh->tag, U2F_KEY_HANDLE_TAG_SIZE);
-        return -1;
+        return 0;
     }
 }
-
 
 
 static int16_t u2f_authenticate(struct u2f_authenticate_request * req, uint8_t control)
@@ -219,7 +217,7 @@ static int16_t u2f_authenticate(struct u2f_authenticate_request * req, uint8_t c
     {
         printf1(TAG_U2F, "CHECK-ONLY\r\n");
 		//TODO does checking use private key, if so outer and inner encryption method
-        if (u2f_appid_eq(&req->kh, req->app) == 0)
+        if (u2f_authenticate_credential(&req->kh, req->app))
         {
             return U2F_SW_CONDITIONS_NOT_SATISFIED;
         }
@@ -231,7 +229,7 @@ static int16_t u2f_authenticate(struct u2f_authenticate_request * req, uint8_t c
     if (
             (control != U2F_AUTHENTICATE_SIGN && control != U2F_AUTHENTICATE_SIGN_NO_USER) ||
             req->khl != U2F_KEY_HANDLE_SIZE ||
-            u2f_appid_eq(&req->kh, req->app) != 0 ||     // Order of checks is important
+            (!u2f_authenticate_credential(&req->kh, req->app)) ||     // Order of checks is important
             u2f_load_key(&req->kh, req->app) != 0
 
         )
@@ -243,9 +241,9 @@ static int16_t u2f_authenticate(struct u2f_authenticate_request * req, uint8_t c
 	if (control == U2F_AUTHENTICATE_SIGN_NO_USER)
 		up = 0;
 
-	if(!device_is_nfc() && up)
+	if(up)
 	{
-		if (ctap_user_presence_test() == 0)
+		if (ctap_user_presence_test(750) == 0)
 		{
 			return U2F_SW_CONDITIONS_NOT_SATISFIED;
 		}
@@ -291,12 +289,9 @@ static int16_t u2f_register(struct u2f_register_request * req)
 
     const uint16_t attest_size = attestation_cert_der_size;
 
-	if(!device_is_nfc())
+		if ( ctap_user_presence_test(750) == 0)
 	{
-		if ( ! ctap_user_presence_test())
-		{
-			return U2F_SW_CONDITIONS_NOT_SATISFIED;
-		}
+		return U2F_SW_CONDITIONS_NOT_SATISFIED;
 	}
 
     if ( u2f_new_keypair(&key_handle, req->app, pubkey) == -1)
@@ -331,10 +326,8 @@ static int16_t u2f_register(struct u2f_register_request * req)
 
     dump_signature_der(sig);
 
-    /*printf1(TAG_U2F, "dersig: "); dump_hex1(TAG_U2F,sig,74);*/
 
-
-    return U2F_SW_NO_ERROR;
+   return U2F_SW_NO_ERROR;
 }
 #endif
 

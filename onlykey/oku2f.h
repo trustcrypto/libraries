@@ -135,7 +135,6 @@ extern "C"
 #define APPEND_SW_NO_ERROR(x) do { (*x++)=0x90; (*x++)=0x00;} while (0)
 
 /*************************************/
-extern void sendLargeResponse(uint8_t *request, int len);
 extern void fido_msg_timeout(uint8_t *buffer);
 extern void recv_fido_msg(uint8_t *buffer);
 extern void init_SHA256(const uECC_HashContext *base);
@@ -144,11 +143,7 @@ extern void update_SHA256(const uECC_HashContext *base,
                    unsigned message_size);
 extern void finish_SHA256(const uECC_HashContext *base, uint8_t *hash_result);
 extern void U2Finit();
-extern void store_U2F_response (uint8_t *data, int len, bool encrypt);
-extern void send_U2F_response(uint8_t *buffer);
-extern void custom_error (uint8_t code);
-extern void handle_firefox_u2f (uint8_t *msgid);
-extern int recv_custom_msg(uint8_t *data, uint8_t *buffer);
+extern void store_FIDO_response (uint8_t *data, int len, bool encrypt);
 
 #ifdef __cplusplus
 }

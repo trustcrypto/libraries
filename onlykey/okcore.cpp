@@ -202,6 +202,7 @@ char attestation_pub[66];
 char attestation_priv[33];
 char attestation_der[768];
 int outputU2F = 0;
+int16_t lasterror;
 /*************************************/
 //ECC assignments
 /*************************************/
@@ -1185,7 +1186,7 @@ uint8_t get_key_labels (uint8_t output)
 			if (keyid_match == 0) return i-24;
 		}
 	}
-	for (uint8_t i = 29; i<=60; i++) { //32 labels for ECC keys
+	for (uint8_t i = 29; i<=58; i++) { //30 labels for ECC keys
 	  onlykey_flashget_label(ptr, (offset + i));
 	  label[0] = (uint8_t)i; //101-132
 	  label[1] = (uint8_t)0x7C;
@@ -1211,11 +1212,6 @@ uint8_t get_key_labels (uint8_t output)
 			labeltype[4] = ((i-28-20)+'0');
 			labeltype[5] = 0x20;
 			memcpy(labeltype+6, labelchar+2, EElen_label+1);
-			} else {
-			labeltype[3] = ('3');
-			labeltype[4] = ((i-28-30)+'0');
-			labeltype[5] = 0x20;
-			memcpy(labeltype+6, labelchar+2, EElen_label+1);
 			}
 			keytype(labeltype);
 		} else if (!outputU2F && output == 2) {//Output via rawhid
@@ -1226,6 +1222,7 @@ uint8_t get_key_labels (uint8_t output)
 		  if (keyid_match == 0) return i+103;
 		}
 	}
+  if (output == 1) keytype("For additional OnlyKey info - https://docs.crp.to");
 	  #endif
       return 0;
 }
@@ -3409,6 +3406,7 @@ return;
 void onlykey_flashget_label (uint8_t *ptr, int slot) {
 	uintptr_t adr = (unsigned long)flashstorestart;
 	adr = adr + 6144; //4th free sector
+  if (slot>58 && slot<0) return;
 	adr=adr+((EElen_label*slot)-EElen_label);
 	onlykey_flashget_common(ptr, (unsigned long*)adr, EElen_label);
 }
@@ -3420,6 +3418,7 @@ void onlykey_flashset_label (uint8_t *ptr, int slot) {
     uint8_t temp[2048];
     uint8_t *tptr;
     tptr=temp;
+    if (slot>58 && slot<0) return;
     //Copy current flash contents to buffer
     onlykey_flashget_common(tptr, (unsigned long*)adr, 2048);
     //Add new flash contents to buffer
@@ -4472,7 +4471,7 @@ void ctap_flash (int index, uint8_t *buffer, int size, uint8_t mode) {
   } else {
     Serial.print("RK Index = ");
     Serial.print(index);
-    // Max size RK ~368
+    // Max size RK ~400
     // Support 5 RKs for now, 0-4
     if (index>4 || index<0) return;
     else index++;
@@ -4774,23 +4773,19 @@ uint32_t Wheel(uint8_t WheelPos) {
   return pixels.Color(WheelPos * 3, 255 - WheelPos * 3, 0);
 }
 
-void rainbowCycle(uint8_t wait, uint8_t cycle) {
-  uint16_t i, j;
-  for(j=0; j<256*cycle; j++) {
-    for(i=0; i< pixels.numPixels(); i++) {
-      pixels.setPixelColor(i, Wheel(((i * 256 / pixels.numPixels()) + j) & 255));
-    }
+void rainbowCycle() {
+  for(uint16_t j=0; j<300; j++) {
+    pixels.setPixelColor(0, Wheel( j & 255));
     pixels.show();
-    delay(wait);
-	if (calibratecaptouch(j)) j=300;
+	  if (calibratecaptouch(j)) j=20;
   }
 }
 
 int calibratecaptouch (uint16_t j) {
 	rngloop();
 	if (((touchread1+touchread4+touchread5)*1.0) / ((touchread2+touchread3+touchread6)*1.0) > .6 && ((touchread1+touchread4+touchread5)*1.0) / ((touchread2+touchread3+touchread6)*1.0) < 1.6) {
-	if (j>=400) {
-			if (j==400) {
+	if (j>=200) {
+			if (j==200) {
 			touchread1ref = touchread1;
 			touchread2ref = touchread2;
 			touchread3ref = touchread3;
@@ -5805,7 +5800,7 @@ void process_packets (uint8_t *buffer) {
 			return;
         }
 	}
-	if (outputU2F) custom_error(0); //ACK
+	if (outputU2F) custom_error(CTAP2_ERR_USER_ACTION_PENDING); //ACK
 	return;
 	#endif
 }
@@ -5893,4 +5888,11 @@ void process_setreport () {
 	fadeon(43);//Yellow
 	fadeoffafter20(); //Wipe and fadeoff after 20 seconds
 	memset(setBuffer, 0, 9);
+}
+
+int16_t custom_error (int16_t code) {
+  if (code) {
+    lasterror=code;
+  }
+	return code;
 }

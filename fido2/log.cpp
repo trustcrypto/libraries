@@ -11,7 +11,6 @@
 #include "util.h"
 #include "device.h"
 
-
 #if DEBUG_LEVEL > 0
 
 static uint32_t LOGMASK = TAG_FILENO;
@@ -65,13 +64,13 @@ void LOG(uint32_t tag, const char * filename, int num, const char * fmt, ...)
 
     if (((tag & 0x7fffffff) & LOGMASK) == 0)
     {
-		return;
+        return;
     }
     for (i = 0; i < sizeof(tagtable)/sizeof(struct logtag); i++)
     {
         if (tag & tagtable[i].tagn)
         {
-            if (tagtable[i].tag[0] && !(tag & TAG_NO_TAG)) Serial.printf("[%s] ", tagtable[i].tag);
+            if (tagtable[i].tag[0] && !(tag & TAG_NO_TAG)) printf("[%s] ", tagtable[i].tag);
             i = 0;
             break;
         }
@@ -85,19 +84,13 @@ void LOG(uint32_t tag, const char * filename, int num, const char * fmt, ...)
 #ifdef ENABLE_FILE_LOGGING
     if (tag & TAG_FILENO)
     {
-        Serial.printf("%s:%d: ", filename, num);
+        printf("%s:%d: ", filename, num);
     }
 #endif
-    //va_list args;
-    //va_start(args, fmt);
-    //vprintf(fmt, args);
-    //va_end(args);
-	char buffer[200]= {0};
     va_list args;
     va_start(args, fmt);
-    vsnprintf(buffer,200,fmt, args);
+    vprintf(fmt, args);
     va_end(args);
-    Serial.printf("%s",buffer);
 }
 
 void LOG_HEX(uint32_t tag, uint8_t * data, int length)

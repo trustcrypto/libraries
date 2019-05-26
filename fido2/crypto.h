@@ -46,11 +46,6 @@ void crypto_ecc256_shared_secret(const uint8_t * pubkey, const uint8_t * privkey
 #define CRYPTO_TRANSPORT_KEY            ((uint8_t*)1)
 #define CRYPTO_MASTER_KEY               ((uint8_t*)0)
 
-//void crypto_aes256_init(uint8_t * key, uint8_t * nonce);
-//void crypto_aes256_reset_iv(uint8_t * nonce);
-
-void crypto_aes256_decrypt(uint8_t * state, uint8_t * iv1, const uint8_t * key, int len);
-void crypto_aes256_encrypt(uint8_t * state, uint8_t * iv1, const uint8_t * key, int len);
 #define crypto_aes256_decrypt aes_cbc_decrypt
 #define crypto_aes256_encrypt aes_cbc_encrypt
 

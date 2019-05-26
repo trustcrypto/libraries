@@ -118,6 +118,8 @@ extern "C"
 #define CREDENTIAL_ENC_SIZE         176  // pad to multiple of 16 bytes
 
 #define PUB_KEY_CRED_PUB_KEY        0x01
+#define PUB_KEY_CRED_CTAP1          0x41
+#define PUB_KEY_CRED_CUSTOM         0x42
 #define PUB_KEY_CRED_UNKNOWN        0x3F
 
 #define CREDENTIAL_IS_SUPPORTED     1
@@ -134,6 +136,8 @@ extern "C"
 
 #define PIN_LOCKOUT_ATTEMPTS        8       // Number of attempts total
 #define PIN_BOOT_ATTEMPTS           3       // number of attempts per boot
+
+#define CTAP2_UP_DELAY_MS           5000
 
 typedef struct
 {
@@ -248,6 +252,11 @@ typedef struct
 
     uint8_t pinAuth[16];
     uint8_t pinAuthPresent;
+    // pinAuthEmpty is true iff an empty bytestring was provided as pinAuth.
+    // This is exclusive with |pinAuthPresent|. It exists because an empty
+    // pinAuth is a special signal to block for touch. See
+    // https://fidoalliance.org/specs/fido-v2.0-ps-20190130/fido-client-to-authenticator-protocol-v2.0-ps-20190130.html#using-pinToken-in-authenticatorMakeCredential
+    uint8_t pinAuthEmpty;
     int pinProtocol;
     CTAP_extensions extensions;
 
@@ -271,9 +280,14 @@ typedef struct
 
     uint8_t pinAuth[16];
     uint8_t pinAuthPresent;
+    // pinAuthEmpty is true iff an empty bytestring was provided as pinAuth.
+    // This is exclusive with |pinAuthPresent|. It exists because an empty
+    // pinAuth is a special signal to block for touch. See
+    // https://fidoalliance.org/specs/fido-v2.0-ps-20190130/fido-client-to-authenticator-protocol-v2.0-ps-20190130.html#using-pinToken-in-authenticatorGetAssertion
+    uint8_t pinAuthEmpty;
     int pinProtocol;
 
-    CTAP_credentialDescriptor creds[ALLOW_LIST_MAX_SIZE];
+    CTAP_credentialDescriptor * creds;
     uint8_t allowListPresent;
 
     CTAP_extensions extensions;
@@ -296,6 +310,19 @@ typedef struct
     _Bool getRetries;
 } CTAP_clientPin;
 
+
+struct _getAssertionState {
+    CTAP_authDataHeader authData;
+    uint8_t clientDataHash[CLIENT_DATA_HASH_SIZE];
+    CTAP_credentialDescriptor creds[ALLOW_LIST_MAX_SIZE];
+    uint8_t lastcmd;
+    uint32_t count;
+    uint32_t index;
+    uint32_t time;
+    uint8_t user_verified;
+    uint8_t customCredId[256];
+    uint8_t customCredIdSize;
+};
 
 void ctap_response_init(CTAP_RESPONSE * resp);
 
@@ -341,4 +368,6 @@ extern uint8_t KEY_AGREEMENT_PUB[64];
 #ifdef __cplusplus
 }
 #endif
+
+
 #endif

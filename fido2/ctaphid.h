@@ -16,6 +16,7 @@ extern "C"
 {
 #endif
 
+#define HID_MESSAGE_SIZE        64
 #define TYPE_INIT               0x80
 #define TYPE_CONT               0x00
 
@@ -48,9 +49,6 @@ extern "C"
 #define CTAPHID_STATUS_IDLE         0
 #define CTAPHID_STATUS_PROCESSING   1
 #define CTAPHID_STATUS_UPNEEDED     2
-
-// HID message size in bytes
-#define HID_MESSAGE_SIZE        64
 
 #define CTAPHID_INIT_PAYLOAD_SIZE  (HID_MESSAGE_SIZE-7)
 #define CTAPHID_CONT_PAYLOAD_SIZE  (HID_MESSAGE_SIZE-5)

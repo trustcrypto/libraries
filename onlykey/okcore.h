@@ -235,7 +235,7 @@ extern void fadeoffafter20();
 extern void cancelfadeoffafter20();
 extern void fadeoff(uint8_t color);
 extern void fadeon(uint8_t color);
-extern void rainbowCycle(uint8_t wait, uint8_t cycle);
+extern void rainbowCycle();
 extern void initColor();
 extern void setcolor (uint8_t Color);
 extern void backup();
@@ -250,6 +250,7 @@ extern int calibratecaptouch (uint16_t j);
 extern void process_setreport ();
 extern void generate_random_pin (uint8_t *buffer);
 extern void generate_random_passphrase (uint8_t *buffer);
+extern int16_t custom_error (int16_t code);
 
 #ifdef __cplusplus
 }

@@ -45,7 +45,6 @@ extern "C"
 #define U2F_AUTHENTICATE_SIGN               0x3
 #define U2F_AUTHENTICATE_SIGN_NO_USER       0x8
 
-
 // Command status responses
 #define U2F_SW_NO_ERROR                     0x9000
 #define U2F_SW_CONDITIONS_NOT_SATISFIED     0x6985
@@ -108,6 +107,7 @@ void u2f_request(struct u2f_request_apdu* req, CTAP_RESPONSE * resp);
 // @len data length
 void u2f_request_nfc(uint8_t * req, int len, CTAP_RESPONSE * resp);
 
+int8_t u2f_authenticate_credential(struct u2f_key_handle * kh, uint8_t * appid);
 
 int8_t u2f_response_writeback(const uint8_t * buf, uint16_t len);
 void u2f_reset_response();

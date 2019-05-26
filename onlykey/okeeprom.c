@@ -202,6 +202,15 @@ void onlykey_eeset_ledbrightness (uint8_t *ptr) {
 }
 /*********************************/
 /*********************************/
+int onlykey_eeget_autolockslot (uint8_t *ptr) {
+    onlykey_eeget_common(ptr, EEpos_autolockslot, EElen_autolockslot);
+    return EElen_autolockslot;
+}
+void onlykey_eeset_autolockslot (uint8_t *ptr) {
+    onlykey_eeset_common(ptr, EEpos_autolockslot, EElen_autolockslot);
+}
+/*********************************/
+/*********************************/
 int onlykey_eeget_sincelastregularlogin (uint8_t *ptr) {
     onlykey_eeget_common(ptr, EEpos_sincelastregularlogin, EElen_sincelastregularlogin);
     return EElen_sincelastregularlogin;

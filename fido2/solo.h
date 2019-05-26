@@ -22,12 +22,14 @@
 #ifndef SOLO_H_
 #define SOLO_H_
 
+#include "version.h"
+
 #ifdef __cplusplus
 extern "C"
 {
 #endif
 
-int16_t bridge_u2f_to_solo(uint8_t * output, uint8_t * keyh, int keylen);
+int16_t bridge_u2f_to_solo(uint8_t * _appid, uint8_t * output, uint8_t * keyh, int keylen);
 
 
 #ifdef __cplusplus

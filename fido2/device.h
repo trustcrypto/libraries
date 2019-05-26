@@ -22,6 +22,11 @@ void device_init();
 
 //void delay(uint32_t ms);
 
+// HID message size in bytes
+#define HID_MESSAGE_SIZE        64
+
+#define ENABLE_ONLYKEY
+
 //void usbhid_init();
 
 //int usbhid_recv(uint8_t * msg);
@@ -40,7 +45,7 @@ void authenticator_read_state(AuthenticatorState * );
 void authenticator_read_backup_state(AuthenticatorState * );
 
 // Return 1 yes backup is init'd, else 0
-void authenticator_initialize();
+//void authenticator_initialize()
 int authenticator_is_backup_initialized();
 
 void authenticator_write_state(AuthenticatorState *, int backup);
@@ -57,7 +62,7 @@ int device_is_button_pressed();
 
 // Test for user presence
 // Return 1 for user is present, 0 user not present, -1 if cancel is requested.
-extern int ctap_user_presence_test();
+extern int ctap_user_presence_test(uint32_t delay);
 
 // Generate @num bytes of random numbers to @dest
 // return 1 if success, error otherwise
@@ -103,9 +108,13 @@ void device_wink();
 // 2: fastest clock rate.  Generally for USB interface.
 //void device_set_clock_rate(DEVICE_CLOCK_RATE param);
 
-// Returns 1 if operating in NFC mode.
-// 0 otherwise.
-bool device_is_nfc();
+// Returns NFC_IS_NA, NFC_IS_ACTIVE, or NFC_IS_AVAILABLE
+#define NFC_IS_NA        0
+#define NFC_IS_ACTIVE    1
+#define NFC_IS_AVAILABLE 2
+int device_is_nfc();
+
+void device_init_button();
 
 #ifdef __cplusplus
 }

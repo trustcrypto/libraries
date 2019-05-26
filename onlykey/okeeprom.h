@@ -122,6 +122,7 @@ extern "C"
 #define EElen_typespeed	1
 #define EElen_keyboardlayout	1
 #define EElen_ledbrightness	1
+#define EElen_autolockslot	1
 #define EElen_ecckey	1
 #define EElen_rsakey	1
 #define EElen_pinmask	10
@@ -442,7 +443,9 @@ extern "C"
 #define EEpos_failedlogins	(EEpos_sincelastregularlogin + EElen_sincelastregularlogin)
 #define EEpos_pinmask	(EEpos_failedlogins + EElen_failedlogins)
 #define EEpos_ledbrightness	(EEpos_pinmask + EElen_pinmask)
-#define EEpos_ctap_authstate	(EEpos_ledbrightness + EEpos_ledbrightness)
+#define EEpos_autolockslot	(EEpos_ledbrightness + EElen_ledbrightness)
+#define EEpos_ctap_authstate	(EEpos_autolockslot + EElen_autolockslot)
+
 
 extern int  onlykey_eeget_ctap_authstate (uint8_t *ptr);
 extern void onlykey_eeset_ctap_authstate(uint8_t *ptr);
@@ -476,6 +479,9 @@ extern void onlykey_eeset_keyboardlayout(uint8_t *ptr);
 
 extern int  onlykey_eeget_ledbrightness (uint8_t *ptr);
 extern void onlykey_eeset_ledbrightness (uint8_t *ptr);
+
+extern int  onlykey_eeget_autolockslot (uint8_t *ptr);
+extern void onlykey_eeset_autolockslot (uint8_t *ptr);
 
 extern int  onlykey_eeget_failedlogins (uint8_t *ptr);
 extern void onlykey_eeset_failedlogins(uint8_t *ptr);

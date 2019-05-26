@@ -71,42 +71,21 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+#ifndef OK_EXTENSION_H_
+#define OK_EXTENSION_H_
 
-
-#ifndef ONLYKEY_H
-#define ONLYKEY_H
-
-#define DEBUG //Enable Serial Monitor
-#define US_VERSION //Define for US Version Firmare
-#define OK_Color //Color Version
-#define OKSOLO //Using FIDO2 from SOLO
-
-#ifndef OKCORE_H
-#include "okcore.h"
-#define OKCORE_H
-#endif
-
-#ifdef OK_Color
-#define OKversion "v0.2-beta.8c"
-#else
-#define OKversion "v0.2-beta.8o"
-#endif
-#define UNLOCKED "UNLOCKED" OKversion
-#define UNINITIALIZED "UNINITIALIZED" OKversion
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C"
 {
 #endif
 
-#include "okeeprom.h"
-#ifdef US_VERSION
-#include "okcrypto.h"
-#include "oku2f.h"
-#endif
-
+int16_t bridge_to_onlykey(uint8_t * _appid, uint8_t * client_handle, int handle_len);
+int16_t send_stored_response();
 
 #ifdef __cplusplus
 }
 #endif
-#endif
+
+#endif /* OK_EXTENSION_H_ */

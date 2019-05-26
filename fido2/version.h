@@ -1,11 +1,15 @@
 #ifndef _VERSION_H_
 #define _VERSION_H_
 
+#ifdef __cplusplus
+extern "C"
+{
+#endif
 
 #ifndef SOLO_VERSION_MAJ
 
-#define SOLO_VERSION_MAJ    0
-#define SOLO_VERSION_MIN    0
+#define SOLO_VERSION_MAJ    2
+#define SOLO_VERSION_MIN    3
 #define SOLO_VERSION_PATCH    0
 
 #endif
@@ -17,5 +21,8 @@
 #define SOLO_VERSION     __STR(SOLO_VERSION_MAJ) "." __STR(SOLO_VERSION_MIN) "." __STR(SOLO_VERSION_PATCH)
 #endif
 
+#ifdef __cplusplus
+}
+#endif
 
 #endif

@@ -138,7 +138,7 @@ void SIGN (uint8_t *buffer) {
 	features = onlykey_flashget_RSA ((int)buffer[5]);
 	if (type == 0) {
 		if (outputU2F) {
-			custom_error(3); //no key set in this slot
+			custom_error(CTAP2_ERR_NO_CREDENTIALS); //no key set in this slot
 		} else {
 		 fadeoff(0);
 		}
@@ -157,7 +157,7 @@ void SIGN (uint8_t *buffer) {
 			hidprint("Error key not set as signature key");
 			fadeoff(0);
 		} else {
-			custom_error(2); //key type not set as signature/decrypt
+			custom_error(CTAP2_ERR_NOT_ALLOWED); //key type not set as signature/decrypt
 		}
 		return;
 	}
@@ -169,7 +169,7 @@ void SIGN (uint8_t *buffer) {
 	}
 	if (type == 0) {
 		if (outputU2F) {
-			custom_error(3); //no key set in this slot
+			custom_error(CTAP2_ERR_NO_CREDENTIALS); //no key set in this slot
 		} else {
 		 fadeoff(0);
 		}
@@ -188,7 +188,7 @@ void SIGN (uint8_t *buffer) {
 			hidprint("Error key not set as signature key");
 			fadeoff(0);
 		} else {
-			custom_error(2); //key type not set as signature/decrypt
+			custom_error(CTAP2_ERR_NOT_ALLOWED); //key type not set as signature/decrypt
 		}
 		return;
 	}
@@ -212,8 +212,9 @@ void GETPUBKEY (uint8_t *buffer) {
 		temp[0] = get_key_labels(3);
 		if (temp[0] >= 1) {
 			if (outputU2F) {
-				store_U2F_response(temp, 1, true);
-				send_U2F_response(buffer);
+				//store_U2F_response(temp, 1, true);
+				//send_U2F_response(buffer);
+				// TODO support OKGETPUBKEY through FIDO2
 			} else {
 				RawHID.send(temp, 0);
 			}
@@ -232,7 +233,7 @@ void DECRYPT (uint8_t *buffer){
 	features = onlykey_flashget_RSA (buffer[5]);
 	if (type == 0) {
 		if (outputU2F) {
-			custom_error(3); //no key set in this slot
+			custom_error(CTAP2_ERR_NO_CREDENTIALS); //no key set in this slot
 		} else {
 		 fadeoff(0);
 		}
@@ -248,7 +249,7 @@ void DECRYPT (uint8_t *buffer){
 			hidprint("Error key not set as decryption key");
 			fadeoff(0);
 		} else {
-			custom_error(2); //key type not set as signature/decrypt
+			custom_error(CTAP2_ERR_NOT_ALLOWED); //key type not set as signature/decrypt
 		}
 		return;
 	}
@@ -258,7 +259,7 @@ void DECRYPT (uint8_t *buffer){
 		}
     if (type == 0) {
 		if (outputU2F) {
-			custom_error(3); //no key set in this slot
+			custom_error(CTAP2_ERR_NO_CREDENTIALS); //no key set in this slot
 		} else {
 		 fadeoff(0);
 		}
@@ -274,7 +275,7 @@ void DECRYPT (uint8_t *buffer){
 			hidprint("Error key not set as decryption key");
 			fadeoff(0);
 		} else {
-			custom_error(2); //key type not set as signature/decrypt
+			custom_error(CTAP2_ERR_NOT_ALLOWED); //key type not set as signature/decrypt
 		}
 		return;
 	}
@@ -404,7 +405,7 @@ void RSASIGN (uint8_t *buffer)
 		}
 	} else if (outputU2F) {
 	msgcount+=2;
-	store_U2F_response(rsa_signature, (type*128), true);
+	store_FIDO_response(rsa_signature, (type*128), true);
 	msgcount-=3;
 	}
 	} else {
@@ -473,7 +474,7 @@ void RSADECRYPT (uint8_t *buffer)
 		}
 	} else if (outputU2F) {
 	msgcount+=2;
-	store_U2F_response(large_buffer, plaintext_len, true);
+	store_FIDO_response(large_buffer, plaintext_len, true);
 	msgcount-=3;
 	}
 	} else {
@@ -656,7 +657,7 @@ void ECDSA_EDDSA(uint8_t *buffer)
 	byteprint(ecc_signature, 64);
 	#endif
 	if (outputU2F) {
-	store_U2F_response(ecc_signature, len, true);
+	store_FIDO_response(ecc_signature, len, true);
 	} else {
 		/*
 		if (type==0x03 || type==0x02) {
@@ -989,7 +990,7 @@ int rsa_sign (int mlen, const uint8_t *msg, uint8_t *out)
 	        Serial.printf("Error with key check =%d", ret);
 	        #endif
 			if (outputU2F) {
-				custom_error(4); //invalid key, key check failed
+				custom_error(CTAP2_ERR_INVALID_CREDENTIAL); //invalid key, key check failed
 			}
 		return -1;
 	}
@@ -1061,7 +1062,7 @@ int rsa_sign (int mlen, const uint8_t *msg, uint8_t *out)
     Serial.println(ret);
 	#endif
 	if (outputU2F) {
-		custom_error(5); //invalid data, or data does not match  key
+		custom_error(CTAP2_ERR_CREDENTIAL_NOT_VALID); //invalid data, or data does not match  key
 	}
     return -1;
     }
@@ -1108,7 +1109,7 @@ int rsa_decrypt (unsigned int *olen, const uint8_t *in, uint8_t *out)
 	  Serial.println (ret);
 	  #endif
 	  if (outputU2F) {
-		custom_error(4); //invalid key, key check failed
+		custom_error(CTAP2_ERR_INVALID_CREDENTIAL); //invalid key, key check failed
 	  }
 	}
   if (ret == 0)
@@ -1134,7 +1135,7 @@ int rsa_decrypt (unsigned int *olen, const uint8_t *in, uint8_t *out)
 	  Serial.println (ret);
 	  #endif
 	  if (outputU2F) {
-		custom_error(5); //invalid data, or data does not match  key
+		custom_error(CTAP2_ERR_CREDENTIAL_NOT_VALID); //invalid data, or data does not match  key
 	  }
       return -1;
     }

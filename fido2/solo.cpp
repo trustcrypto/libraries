@@ -28,18 +28,22 @@
 #include "ctap.h"
 #include "ctap_errors.h"
 #include "version.h"
+#include "ok_extension.h"
 
 #include "log.h"
 //#include APP_CONFIG
 
 // output must be at least 71 bytes
-int16_t bridge_u2f_to_solo(uint8_t * output, uint8_t * keyh, int keylen)
+int16_t bridge_u2f_to_solo(uint8_t * _appid, uint8_t * output, uint8_t * keyh, int keylen)
 {
     int8_t ret = 0;
 
     wallet_request * req = (wallet_request *) keyh;
+    extension_writeback_init(output, 71);
 
     printf1(TAG_WALLET, "u2f-solo [%d]: ", keylen); dump_hex1(TAG_WALLET, keyh, keylen);
+
+
 
     switch(req->operation)
     {
@@ -61,6 +65,22 @@ int16_t bridge_u2f_to_solo(uint8_t * output, uint8_t * keyh, int keylen)
             ret = 0;
 
             break;
+
+#ifdef ENABLE_WALLET
+        case WalletSign:
+        case WalletRegister:
+        case WalletPin:
+        case WalletReset:
+            return bridge_to_wallet(keyh, keylen);
+#endif
+#ifdef ENABLE_ONLYKEY
+       case OKDECRYPT:
+       case OKSIGN:
+       case OKGETPUBKEY:
+       case OKPING:
+       case OKSETTIME:
+          return bridge_to_onlykey( _appid, keyh+10, keylen);
+#endif
 
         default:
             printf2(TAG_ERR,"Invalid wallet command: %x\n",req->operation);
