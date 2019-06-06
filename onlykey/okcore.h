@@ -99,6 +99,7 @@ extern "C"
 #define LARGE_RESP_BUFFER_SIZE         1024
 #define LARGE_BUFFER_SIZE         1024
 #define PACKET_BUFFER_SIZE         768
+#define KEYBOARD_BUFFER_SIZE         80
 
 #define TYPE_INIT               0x80  // Initial frame identifier
 /*************************************/
@@ -144,7 +145,7 @@ extern void ByteToChar(uint8_t* bytes, char* chars, unsigned int count);
 extern void CharToByte(char* chars, uint8_t* bytes, unsigned int count);
 extern void ByteToChar2(uint8_t* bytes, char* chars, unsigned int count, unsigned int index);
 extern void CharToByte2(char* chars, uint8_t* bytes, unsigned int count, unsigned int index);
-extern void recvmsg();
+extern void recvmsg(int n);
 extern void blink(int times);
 extern void fadein();
 extern void fadeout();
@@ -192,7 +193,7 @@ extern bool configmode;
 extern bool PDmode;
 extern int pin_set;
 extern int u2f_button;
-extern int large_data_offset;
+extern int large_buffer_offset;
 
 extern void aes_gcm_encrypt (uint8_t * state, uint8_t slot, uint8_t value, const uint8_t * key, int len);
 extern void aes_gcm_decrypt (uint8_t * state, uint8_t slot, uint8_t value, const uint8_t * key, int len);
@@ -243,14 +244,17 @@ extern void rsa_priv_flash (uint8_t *buffer, bool wipe);
 extern void ecc_priv_flash (uint8_t *buffer);
 extern void flash_modify (int index, uint8_t *sector, uint8_t *data, int size, bool wipe);
 extern void RESTORE (uint8_t *buffer);
-extern void process_packets (uint8_t *buffer);
+extern void process_packets (uint8_t *buffer, int len, uint8_t *blocknum);
+extern void done_process_packets ();
+extern void done_process_single ();
+extern void send_transport_response (uint8_t* data, int len, uint8_t encrypt, uint8_t store);
+extern void apdu_data(uint8_t *data, int len, bool first);
 extern void temp_voltage ();
 extern int RNG2(uint8_t *dest, unsigned size);
 extern int calibratecaptouch (uint16_t j);
 extern void process_setreport ();
 extern void generate_random_pin (uint8_t *buffer);
 extern void generate_random_passphrase (uint8_t *buffer);
-extern int16_t custom_error (int16_t code);
 
 #ifdef __cplusplus
 }

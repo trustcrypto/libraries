@@ -391,7 +391,7 @@ static int ctaphid_buffer_packet(uint8_t * pkt_raw, uint8_t * cmd, uint32_t * ci
     printf1(TAG_HID, "Recv packet\n");
     printf1(TAG_HID, "  CID: %08x \n", pkt->cid);
     printf1(TAG_HID, "  cmd: %02x\n", pkt->pkt.init.cmd);
-    
+
     if (!is_cont_pkt(pkt)) {printf1(TAG_HID, "  length: %d\n", ctaphid_packet_len(pkt));}
 
 
@@ -525,8 +525,17 @@ static int ctaphid_buffer_packet(uint8_t * pkt_raw, uint8_t * cmd, uint32_t * ci
         else if (is_cont_pkt(pkt))
         {
             printf2(TAG_ERR,"ignoring unwarranted cont packet\n");
-
-            // Ignore
+            uint8_t *buffer = (uint8_t *)pkt;
+            if (buffer[2]==5) {
+              int datalen = 0;
+              if (buffer[3] + buffer[4] == 0) {
+                if (!buffer[5]) datalen=buffer[6];
+                else datalen=(256*buffer[5])+buffer[6];
+              }
+              extern int outputmode;
+              if (outputmode!=3) outputmode=2; //USB HID
+              process_packets(buffer, datalen, buffer+4);
+            }
             return HID_IGNORE;
         }
         else

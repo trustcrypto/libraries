@@ -85,13 +85,13 @@
 #include "ok_extension.h"
 #include "oku2f.h"
 
-extern int outputU2F;
 extern uint8_t* large_resp_buffer;
 extern int large_resp_buffer_offset;
 extern uint8_t profilemode;
 extern uint8_t isfade;
 extern uint8_t NEO_Color;
 extern uint8_t type;
+extern int outputmode;
 extern uint8_t ecc_public_key[(MAX_ECC_KEY_SIZE*2)+1];
 extern uint8_t ecc_private_key[MAX_ECC_KEY_SIZE];
 
@@ -156,13 +156,14 @@ int16_t bridge_to_onlykey(uint8_t * _appid, uint8_t * client_handle, int handle_
     byteprint(client_handle, handle_len);
 
     if (appid_match == 0) { // Only allow crp.to and localhost
+      outputmode=4; //Webauthn
+      //Todo add U2F support outputmode=1
       //Todo add localhost support
     	   if (client_handle[0] == 0xFF && client_handle[1] == 0xFF && client_handle[2] == 0xFF && client_handle[3] == 0xFF) {
     			if (client_handle[4] == OKSETTIME && !CRYPTO_AUTH) {
     				if(profilemode!=NONENCRYPTEDPROFILE) {
     				#ifdef US_VERSION
-    				outputU2F = 1;
-    				large_data_offset = 0;
+    				large_buffer_offset = 0;
     				set_time(client_handle);
     				memset(ecc_public_key, 0, sizeof(ecc_public_key));
     				crypto_box_keypair(ecc_public_key+sizeof(UNLOCKED), ecc_private_key); //Generate keys
@@ -171,13 +172,13 @@ int16_t bridge_to_onlykey(uint8_t * _appid, uint8_t * client_handle, int handle_
     				byteprint(ecc_public_key+sizeof(UNLOCKED), 32);
     				#endif
     				memcpy(ecc_public_key, UNLOCKED, sizeof(UNLOCKED));
-    				store_FIDO_response(ecc_public_key, (32+sizeof(UNLOCKED)), false);
+            send_transport_response (ecc_public_key, 32+sizeof(UNLOCKED), false, false); //Don't encrypt and send right away
     				memcpy(ecc_public_key, client_handle+9, 32); //Get app public key
     				#ifdef DEBUG
     				Serial.println("App public = ");
     				byteprint(ecc_public_key, 32);
     				#endif
-            extension_writeback(large_resp_buffer,large_resp_buffer_offset);
+
     				//send_U2F_response(buffer); //Send response with our public key
     				uint8_t shared[32];
     				type = 1;
@@ -202,7 +203,7 @@ int16_t bridge_to_onlykey(uint8_t * _appid, uint8_t * client_handle, int handle_
     				#endif
     				}
     			}
-    		large_data_offset = 0;
+    		large_buffer_offset = 0;
     		return ret;
     	   } else {
     		   //aes_crypto_box (client_handle, 64, true);
@@ -218,26 +219,24 @@ int16_t bridge_to_onlykey(uint8_t * _appid, uint8_t * client_handle, int handle_
     				if(profilemode!=NONENCRYPTEDPROFILE) {
     				#ifdef US_VERSION
     				NEO_Color = 128; //Turquoise
-    				outputU2F = 1;
-    				large_data_offset = 0;
+    				large_buffer_offset = 0;
     				DECRYPT(client_handle);
-            ret = custom_error(0);
+            ret = 0;
     				#endif
     				}
     			} else if (client_handle[4] == OKSIGN && !CRYPTO_AUTH) {
     				if(profilemode!=NONENCRYPTEDPROFILE) {
     				#ifdef US_VERSION
     				NEO_Color = 213; //Purple
-    				outputU2F = 1;
-    				large_data_offset = 0;
+    				large_buffer_offset = 0;
     				SIGN(client_handle);
-            ret = custom_error(0);
+            ret = 0;
     				#endif
     				}
     			} else if (client_handle[4] == OKPING) { //Ping
     				if(profilemode!=NONENCRYPTEDPROFILE) {
     				#ifdef US_VERSION
-    				large_data_offset = 0;
+    				large_buffer_offset = 0;
     				if  (CRYPTO_AUTH) {
     					//custom_error(0); //ACK
               ret = CTAP2_ERR_USER_ACTION_PENDING;
@@ -251,7 +250,7 @@ int16_t bridge_to_onlykey(uint8_t * _appid, uint8_t * client_handle, int handle_
               ret = CTAP2_ERR_PIN_INVALID;
               //custom_error(1); //incorrect challenge code entered
     				} else if (!CRYPTO_AUTH) {
-    					large_data_offset = 0;
+    					large_buffer_offset = 0;
     					ret = send_stored_response();
     					fadeoff(0);
     				}
@@ -260,12 +259,12 @@ int16_t bridge_to_onlykey(uint8_t * _appid, uint8_t * client_handle, int handle_
     				}
     			}
           if (!isfade) fadeon(NEO_Color);
-    			large_data_offset = 0;
+    			large_buffer_offset = 0;
     			return ret;
     		  } else {
             //invalid message or decrypt failed, IV out of sync
               ret = CTAP2_ERR_KEEPALIVE_CANCEL;
-              if (isfade)fadeoff(1);
+              if (isfade) fadeoff(1);
     			    return ret;
     		  }
     	  }
@@ -288,7 +287,6 @@ int16_t send_stored_response() {
 			//sendLargeResponse(buffer, large_resp_buffer_offset);
 			//memset(large_resp_buffer, 0, large_resp_buffer_offset);
 			memset(large_resp_buffer, 0, large_resp_buffer_offset);
-			outputU2F = 0;
 			#endif
 			return 0;
 		} else {
@@ -297,7 +295,6 @@ int16_t send_stored_response() {
 			#endif
 			//custom_error(6);
       ret = CTAP2_ERR_NO_OPERATION_PENDING;
-			outputU2F = 0;
 			if (!CRYPTO_AUTH) fadeoff(1);
 			return ret;
 		}

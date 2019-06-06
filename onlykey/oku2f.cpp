@@ -92,8 +92,7 @@ extern uint8_t attestation_cert_der[768];
 /*************************************/
 
 extern uint8_t expected_next_packet;
-extern int large_data_len;
-extern int large_data_offset;
+extern int large_buffer_offset;
 extern uint8_t* large_resp_buffer;
 int large_resp_buffer_offset;
 extern int packet_buffer_offset;
@@ -105,7 +104,6 @@ extern char attestation_pub[66];
 extern char attestation_priv[33];
 extern char attestation_der[768];
 extern uint8_t nonce[32];
-extern int outputU2F;
 extern uint8_t ecc_public_key[(MAX_ECC_KEY_SIZE*2)+1];
 extern uint8_t ecc_private_key[MAX_ECC_KEY_SIZE];
 extern uint8_t type;
