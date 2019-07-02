@@ -1,6 +1,8 @@
-/* Tim Steiner
- * Copyright (c) 2015-2018, CryptoTrust LLC.
+/* 
+ * Copyright (c) 2015-2019, CryptoTrust LLC.
  * All rights reserved.
+ * 
+ * Author : Tim Steiner <t@crp.to>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -17,9 +19,9 @@
  * 3. All advertising materials mentioning features or use of this
  *    software must display the following acknowledgment:
  *    "This product includes software developed by CryptoTrust LLC. for
- *    the OnlyKey Project (http://www.crp.to/ok)"
+ *    the OnlyKey Project (https://www.crp.to/ok)"
  *
- * 4. The names "OnlyKey" and "OnlyKey Project" must not be used to
+ * 4. The names "OnlyKey" and "CryptoTrust" must not be used to
  *    endorse or promote products derived from this software without
  *    prior written permission. For written permission, please contact
  *    admin@crp.to.
@@ -32,7 +34,7 @@
  * 6. Redistributions of any form whatsoever must retain the following
  *    acknowledgment:
  *    "This product includes software developed by CryptoTrust LLC. for
- *    the OnlyKey Project (http://www.crp.to/ok)"
+ *    the OnlyKey Project (https://www.crp.to/ok)"
  *
  * 7. Redistributions in any form must be accompanied by information on
  *    how to obtain complete source code for this software and any
@@ -99,6 +101,7 @@ extern "C"
 #define LARGE_RESP_BUFFER_SIZE         1024
 #define LARGE_BUFFER_SIZE         1024
 #define PACKET_BUFFER_SIZE         768
+#define ATTESTATION_DER_BUFFER_SIZE 768
 #define KEYBOARD_BUFFER_SIZE         80
 
 #define TYPE_INIT               0x80  // Initial frame identifier
@@ -125,6 +128,8 @@ extern "C"
 #define OKGETRESPONSE            (TYPE_INIT | 0x72)
 #define OKPING           (TYPE_INIT | 0x73)
 #define OKFWUPDATE           (TYPE_INIT | 0x74)
+#define OKHMAC           (TYPE_INIT | 0x75)
+#define OKWEBAUTHN           (TYPE_INIT | 0x76)
 
 /*************************************/
 //Types of second profile
@@ -138,6 +143,17 @@ extern "C"
 /*************************************/
 #define MANUAL_PIN_SET 1
 #define AUTO_PIN_SET 2
+
+/*************************************/
+// Output Modes
+/*************************************/
+
+#define RAW_USB 0
+#define WEBAUTHN 1
+
+#define KEYBOARD_USB 3
+#define DISCARD 4
+
 
 // Last vendor defined command
 
@@ -179,6 +195,8 @@ extern int initResponse(uint8_t *buffer);
 extern int allocate_channel(int channel_id);
 extern int allocate_new_channel();
 extern void cleanup_timeout();
+extern int touch_sense_loop ();
+extern uint32_t Wheel(uint8_t WheelPos);
 extern void rngloop();
 extern void printHex(const uint8_t *data, unsigned len);
 extern void hidprint(char const * chars);
@@ -248,7 +266,9 @@ extern void process_packets (uint8_t *buffer, int len, uint8_t *blocknum);
 extern void done_process_packets ();
 extern void done_process_single ();
 extern void send_transport_response (uint8_t* data, int len, uint8_t encrypt, uint8_t store);
-extern void apdu_data(uint8_t *data, int len, bool first);
+extern void apdu_data(uint8_t *data, int len);
+extern int store_keyboard_response();
+extern void changeoutputmode(uint8_t mode);
 extern void temp_voltage ();
 extern int RNG2(uint8_t *dest, unsigned size);
 extern int calibratecaptouch (uint16_t j);

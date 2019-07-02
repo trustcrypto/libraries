@@ -158,7 +158,7 @@ bool Password::profile1hashevaluate(){
 			Serial.print(p2mode);
 #endif
 			if (p2mode==STDPROFILE2) { //there are two profiles
-			#ifdef US_VERSION
+			#ifdef STD_VERSION
 			//Generate shared secret of p1hash private key and p2hash public key
 				Curve25519::eval(profilekey, temp, p2hash); //shared secret stored in profilekey			
 				#ifdef DEBUG
@@ -167,7 +167,7 @@ bool Password::profile1hashevaluate(){
 				#endif
 			#endif	
 			} else { //there is one profile
-			#ifdef US_VERSION
+			#ifdef STD_VERSION
 			//Generate shared secret of p1hash private key and p1hash public key
 				Curve25519::eval(profilekey, temp, p1hash); //Set this as profile key, used to encrypt profile 1 data
 			#endif
@@ -233,7 +233,7 @@ bool Password::profile2hashevaluate(){
 		if (i == 31 && pass2==guessed2){
 			onlykey_eeget_2ndprofilemode (&p2mode); //get 2nd profile mode
 			if (p2mode!=NONENCRYPTEDPROFILE) { //profile key not used for plausible deniability mode
-				#ifdef US_VERSION
+				#ifdef STD_VERSION
 				Curve25519::eval(profilekey, temp, p1hash); //Generate shared secret of p2hash private key and p1hash public key
 				#ifdef DEBUG
 				Serial.print("Shared Secret Profile 2"); 

@@ -7,19 +7,20 @@
 #ifndef _CTAP_PARSE_H
 #define _CTAP_PARSE_H
 
+#define check_ret(r)    _check_ret(r,__LINE__, __FILE__);\
+                        if ((r) != CborNoError) return CTAP2_ERR_CBOR_PARSING;
+#define check_ret2(r)    _check_ret2(r,__LINE__, __FILE__);\
+                        if ((r) != CborNoError) return CTAP2_ERR_CBOR_PARSING;
 
+#define check_retr(r)    _check_ret(r,__LINE__, __FILE__);\
+                        if ((r) != CborNoError) return r;
 
 #ifdef __cplusplus
 extern "C"
 {
 #endif
 
-#define check_ret(r)    _check_ret(r,__LINE__, __FILE__);\
-                        if ((r) != CborNoError) return CTAP2_ERR_CBOR_PARSING;
-
-#define check_retr(r)    _check_ret(r,__LINE__, __FILE__);\
-                        if ((r) != CborNoError) return r;
-
+extern void _check_ret2(CborError ret, int line, const char * filename);
 extern void _check_ret(int ret, int line, const char * filename);
 
 const char * cbor_value_get_type_string(const CborValue *value);

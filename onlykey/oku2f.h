@@ -1,6 +1,8 @@
-/* Tim Steiner
- * Copyright (c) 2015-2018, CryptoTrust LLC.
+/* 
+ * Copyright (c) 2015-2019, CryptoTrust LLC.
  * All rights reserved.
+ * 
+ * Author : Tim Steiner <t@crp.to>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -17,9 +19,9 @@
  * 3. All advertising materials mentioning features or use of this
  *    software must display the following acknowledgment:
  *    "This product includes software developed by CryptoTrust LLC. for
- *    the OnlyKey Project (http://www.crp.to/ok)"
+ *    the OnlyKey Project (https://www.crp.to/ok)"
  *
- * 4. The names "OnlyKey" and "OnlyKey Project" must not be used to
+ * 4. The names "OnlyKey" and "CryptoTrust" must not be used to
  *    endorse or promote products derived from this software without
  *    prior written permission. For written permission, please contact
  *    admin@crp.to.
@@ -32,7 +34,7 @@
  * 6. Redistributions of any form whatsoever must retain the following
  *    acknowledgment:
  *    "This product includes software developed by CryptoTrust LLC. for
- *    the OnlyKey Project (http://www.crp.to/ok)"
+ *    the OnlyKey Project (https://www.crp.to/ok)"
  *
  * 7. Redistributions in any form must be accompanied by information on
  *    how to obtain complete source code for this software and any
@@ -79,9 +81,9 @@
 #include "onlykey.h"
 #include "tweetnacl.h"
 
-#ifdef US_VERSION
+#ifdef STD_VERSION
 
-#ifdef OKSOLO
+#ifdef ONLYKEY_SOLO
 #include "ctap.h"
 #include "ctaphid.h"
 #include "cbor.h"
@@ -89,17 +91,6 @@
 #include "storage.h"
 #include "wallet.h"
 #include "extensions.h"
-#define NVIC_SystemReset CPU_RESTART
-// Storage of FIDO2 resident keys
-#define PAGE_SIZE		2048
-#define PAGES			2
-#define RK_NUM_PAGES    10
-#define RK_START_PAGE   (PAGES - 14)
-#define RK_END_PAGE     (PAGES - 14 + RK_NUM_PAGES)     // not included
-#define DEBUG_LEVEL 0
-#define ENABLE_U2F
-#define ENABLE_U2F_EXTENSIONS
-//#define BRIDGE_TO_WALLET
 #endif
 
 #ifndef OKU2F_H
@@ -135,7 +126,7 @@ extern "C"
 #define APPEND_SW_NO_ERROR(x) do { (*x++)=0x90; (*x++)=0x00;} while (0)
 
 /*************************************/
-extern void fido_msg_timeout(uint8_t *buffer);
+extern void fido_msg_timeout();
 extern void recv_fido_msg(uint8_t *buffer);
 extern void init_SHA256(const uECC_HashContext *base);
 extern void update_SHA256(const uECC_HashContext *base,

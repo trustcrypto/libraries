@@ -56,16 +56,40 @@ typedef enum
     TAG_FILENO   = (1UL << 31)
 } LOG_TAG;
 
+#define DEBUG_LEVEL 1
 #if DEBUG_LEVEL > 0
 
 void set_logging_mask(uint32_t mask);
-#define printf1(tag,fmt, ...) LOG(tag & ~(TAG_FILENO), NULL, 0, fmt, ##__VA_ARGS__)
-#define printf2(tag,fmt, ...) LOG(tag | TAG_FILENO,__FILE__, __LINE__, fmt, ##__VA_ARGS__)
-#define printf3(tag,fmt, ...) LOG(tag | TAG_FILENO,__FILE__, __LINE__, fmt, ##__VA_ARGS__)
 
-#define dump_hex1(tag,data,len) LOG_HEX(tag,data,len)
+#define printf1(tag,fmt, ...) do {\
+			Serial.println(tag);\
+            Serial.println(fmt);\
+           } while(0) 
+#define printf2(tag,fmt, ...) do {\
+			Serial.println(tag);\
+			Serial.println(fmt);\
+            Serial.println(__FILE__);\
+            Serial.println(__LINE__);\
+           } while(0) 
+#define printf3(tag,fmt, ...) do {\
+			Serial.println(tag);\
+			Serial.println(fmt);\
+            Serial.println(__FILE__);\
+            Serial.println(__LINE__);\
+           } while(0) 
+#define dump_hex1(tag,data,len) do {\
+            Serial.println(tag);\
+            byteprint(data,len);\
+           } while(0) 
 
-uint32_t timestamp();
+//#define printf1(tag,fmt, ...) LOG(tag & ~(TAG_FILENO), NULL, 0, fmt, ##__VA_ARGS__)
+//#define printf2(tag,fmt, ...) LOG(tag | TAG_FILENO,__FILE__, __LINE__, fmt, ##__VA_ARGS__)
+//#define printf3(tag,fmt, ...) LOG(tag | TAG_FILENO,__FILE__, __LINE__, fmt, ##__VA_ARGS__)
+
+//#define dump_hex1(tag,data,len) LOG_HEX(tag,data,len)
+
+//uint32_t timestamp();
+#define timestamp()
 
 #else
 

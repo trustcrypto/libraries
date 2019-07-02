@@ -13,22 +13,7 @@
 #include "crypto.h"
 #include "oku2f.h"
 #include "Time.h"
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+#include "Adafruit_NeoPixel.h"
 
 
 //#define LOW_FREQUENCY        1
@@ -182,14 +167,55 @@ void device_manage()
 }
 
 
-int ctap_user_presence_test(uint32_t delay)
+int ctap_user_presence_test(uint32_t wait)
 {
 	Serial.println("ctap_user_presence_test");
-	if(IS_BUTTON_PRESSED()) {
-		u2f_button=0;
-	return 1;
-	}
-else return 0;
+    extern Adafruit_NeoPixel pixels;
+    int ret = 0;
+    uint32_t t1 = millis();
+    uint8_t fadevalue = 0;
+
+    if (wait) {
+        do
+        {
+            if (t1 + (wait*2) < millis())
+            {
+            return 0;
+            }
+            delay(1);
+            if (touch_sense_loop()) u2f_button=1;
+            ret = handle_packets();
+            pixels.setPixelColor(0, Wheel(fadevalue & 255)); //Multicolor
+            pixels.show();
+            fadevalue++;
+            if (ret) return ret;
+        }
+        while (! IS_BUTTON_PRESSED());
+    }
+
+    if(IS_BUTTON_PRESSED()) {
+        u2f_button=0;
+        return 1;
+    } else return 0;
+}
+
+int handle_packets()
+{
+    uint8_t hidmsg[64];
+    memset(hidmsg,0, sizeof(hidmsg));
+    int n = RawHID.recv(hidmsg, 0); // 0 timeout = do not wait
+    if (n) {
+        if ( ctaphid_handle_packet(hidmsg) ==  CTAPHID_CANCEL)
+        {
+            printf1(TAG_GREEN, "CANCEL!\r\n");
+            return -1;
+        }
+        else
+        {
+            return 0;
+        }
+    }
+    return 0;
 }
 
 int ctap_generate_rng(uint8_t * dst, size_t num)
@@ -214,6 +240,7 @@ void ctap_reset_rk()
 
 uint32_t ctap_rk_size()
 {
+    Serial.println("ctap_rk_size support 5 RKs for now ");
     return 6; //support 5 RKs for now
 }
 

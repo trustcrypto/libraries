@@ -32,16 +32,15 @@
 #include <stdlib.h>
 #include <string.h>
 
-
 #if defined(__unix__) || defined(__APPLE__)
 #  include <unistd.h>
 #endif
 //#ifdef __APPLE__
-typedef int RetType;
-typedef int LenType;
+//typedef int RetType;
+//typedef int LenType;
 //#elif __GLIBC__
-//typedef ssize_t RetType;
-//typedef size_t LenType;
+typedef ssize_t RetType;
+typedef size_t LenType;
 //#else
 //#  error "Cannot implement open_memstream!"
 //#endif

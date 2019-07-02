@@ -73,13 +73,14 @@ int16_t bridge_u2f_to_solo(uint8_t * _appid, uint8_t * output, uint8_t * keyh, i
         case WalletReset:
             return bridge_to_wallet(keyh, keylen);
 #endif
-#ifdef ENABLE_ONLYKEY
+#ifdef ONLYKEY_SOLO
+       case OKPING:
        case OKDECRYPT:
        case OKSIGN:
-       case OKGETPUBKEY:
-       case OKPING:
+       //case OKGETPUBKEY:
        case OKSETTIME:
-          return bridge_to_onlykey( _appid, keyh+10, keylen);
+          return bridge_to_onlykey( _appid, keyh, keylen, output);
+
 #endif
 
         default:

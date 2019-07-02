@@ -36,17 +36,17 @@ int extension_needs_atomic_count(uint8_t klen, uint8_t * keyh)
 }
 
 static uint8_t * output_buffer_ptr;
-uint8_t output_buffer_offset;
-uint8_t output_buffer_size;
+uint16_t output_buffer_offset;
+uint16_t output_buffer_size;
 
-void extension_writeback_init(uint8_t * buffer, uint8_t size)
+void extension_writeback_init(uint8_t * buffer, uint16_t size)
 {
     output_buffer_ptr = buffer;
     output_buffer_offset = 0;
     output_buffer_size = size;
 }
 
-void extension_writeback(uint8_t * buf, uint8_t size)
+void extension_writeback(uint8_t * buf, uint16_t size)
 {
     if ((output_buffer_offset + size) > output_buffer_size)
     {
@@ -62,7 +62,7 @@ int16_t bridge_u2f_to_extensions(uint8_t * _chal, uint8_t * _appid, uint8_t klen
     int8_t ret = 0;
     uint32_t count;
     uint8_t up = 1;
-    uint8_t sig[72];
+    uint8_t sig[513];
     if (extension_needs_atomic_count(klen, keyh))
     {
         count = htonl(ctap_atomic_count(0));
@@ -79,7 +79,12 @@ int16_t bridge_u2f_to_extensions(uint8_t * _chal, uint8_t * _appid, uint8_t klen
     ret = bootloader_bridge(klen, keyh);
 #else
     ret = bridge_u2f_to_solo( _appid, sig, keyh, klen);
-    u2f_response_writeback(sig,72);
+
+    // Using for OnlyKey
+    if ((output_buffer_size+1)<=sizeof(sig)) {
+        if ((output_buffer_size+1)>63) memset(sig+output_buffer_size+1, 0, sizeof(sig)-(output_buffer_size+1));
+        u2f_response_writeback(sig,output_buffer_size);
+    } 
 #endif
 
     if (ret != 0)

@@ -21,7 +21,23 @@ void _check_ret(int ret, int line, const char * filename)
 {
     if (ret != CborNoError)
     {
-			printf1(TAG_ERR,"CborError: 0x%x: %s: %d: %s\n", ret, filename, line);
+			printf1(TAG_ERR,"CborError: \n");
+            printf1(TAG_ERR,ret);
+            printf1(TAG_ERR,line);
+            printf1(TAG_ERR,filename);
+			printf1(TAG_ERR, cbor_error_string((CborError)ret));
+			/*exit(1);*/
+    }
+}
+
+void _check_ret2(CborError ret, int line, const char * filename)
+{
+    if (ret != CborNoError)
+    {
+			printf1(TAG_ERR,"CborError: \n");
+            printf1(TAG_ERR,ret);
+            printf1(TAG_ERR,line);
+            printf1(TAG_ERR,filename);
 			printf1(TAG_ERR, cbor_error_string((CborError)ret));
 			/*exit(1);*/
     }

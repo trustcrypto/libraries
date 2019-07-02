@@ -1,6 +1,8 @@
-/* Tim Steiner
- * Copyright (c) 2015-2018, CryptoTrust LLC.
+/* 
+ * Copyright (c) 2015-2019, CryptoTrust LLC.
  * All rights reserved.
+ * 
+ * Author : Tim Steiner <t@crp.to>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -17,9 +19,9 @@
  * 3. All advertising materials mentioning features or use of this
  *    software must display the following acknowledgment:
  *    "This product includes software developed by CryptoTrust LLC. for
- *    the OnlyKey Project (http://www.crp.to/ok)"
+ *    the OnlyKey Project (https://www.crp.to/ok)"
  *
- * 4. The names "OnlyKey" and "OnlyKey Project" must not be used to
+ * 4. The names "OnlyKey" and "CryptoTrust" must not be used to
  *    endorse or promote products derived from this software without
  *    prior written permission. For written permission, please contact
  *    admin@crp.to.
@@ -32,7 +34,7 @@
  * 6. Redistributions of any form whatsoever must retain the following
  *    acknowledgment:
  *    "This product includes software developed by CryptoTrust LLC. for
- *    the OnlyKey Project (http://www.crp.to/ok)"
+ *    the OnlyKey Project (https://www.crp.to/ok)"
  *
  * 7. Redistributions in any form must be accompanied by information on
  *    how to obtain complete source code for this software and any
@@ -77,7 +79,7 @@
 #include <okcore.h>
 #include "Time.h"
 
-#ifdef US_VERSION
+#ifdef STD_VERSION
 
 /*************************************/
 //FIDO2 assignments
@@ -91,25 +93,17 @@ extern uint8_t attestation_cert_der[768];
 //U2F Assignments
 /*************************************/
 
-extern uint8_t expected_next_packet;
 extern int large_buffer_offset;
 extern uint8_t* large_resp_buffer;
-int large_resp_buffer_offset;
+extern int large_resp_buffer_offset;
 extern int packet_buffer_offset;
-extern uint8_t*  packet_buffer;
 extern uint8_t recv_buffer[64];
 extern uint8_t resp_buffer[64];
-uint8_t handle[64];
-extern char attestation_pub[66];
-extern char attestation_priv[33];
-extern char attestation_der[768];
 extern uint8_t nonce[32];
 extern uint8_t ecc_public_key[(MAX_ECC_KEY_SIZE*2)+1];
 extern uint8_t ecc_private_key[MAX_ECC_KEY_SIZE];
 extern uint8_t type;
-uint8_t times = 0;
-int msgcount = 0;
-bool isFirefox;
+
 extern uint8_t NEO_Color;
 
 // OLD U2F, FIDO2 uses different appid
@@ -151,7 +145,7 @@ void U2Finit()
 #endif
 }
 
-void fido_msg_timeout(uint8_t *buffer) {
+void fido_msg_timeout() {
 	ctaphid_check_timeouts();
 }
 
@@ -176,21 +170,18 @@ void finish_SHA256(const uECC_HashContext *base, uint8_t *hash_result) {
 }
 
 void store_FIDO_response (uint8_t *data, int len, bool encrypt) {
-	if (strcmp((char*)data, "Error")) CRYPTO_AUTH = 0;
 	cancelfadeoffafter20();
   if (len >= (int)LARGE_RESP_BUFFER_SIZE) return; //Double check buf overflow
-	large_resp_buffer_offset = len;
 	if (encrypt) {
 	//	aes_crypto_box (data, len, false);
-	}
-	if (len < 64) {
-		uint8_t tempdata[64];
-		memmove( tempdata, data, len);
-		data = tempdata+len;
-		RNG2(data, 64-len); //Store a random number in key handle empty space
-		data = tempdata;
-		len = 64;
-	}
+	} else {
+    // Unencrypted message, check if it's an error message
+    if (strcmp((char*)data, "Error")) {
+      memset(large_resp_buffer, 0, LARGE_RESP_BUFFER_SIZE);
+      CRYPTO_AUTH = 0;
+    } 
+  }
+  large_resp_buffer_offset = len;
   memmove(large_resp_buffer, data, len);
 #ifdef DEBUG
       Serial.print ("Stored Data for FIDO Response");

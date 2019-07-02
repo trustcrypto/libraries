@@ -1,6 +1,8 @@
-/* Tim Steiner
- * Copyright (c) 2015-2018, CryptoTrust LLC.
+/* 
+ * Copyright (c) 2015-2019, CryptoTrust LLC.
  * All rights reserved.
+ * 
+ * Author : Tim Steiner <t@crp.to>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -17,9 +19,9 @@
  * 3. All advertising materials mentioning features or use of this
  *    software must display the following acknowledgment:
  *    "This product includes software developed by CryptoTrust LLC. for
- *    the OnlyKey Project (http://www.crp.to/ok)"
+ *    the OnlyKey Project (https://www.crp.to/ok)"
  *
- * 4. The names "OnlyKey" and "OnlyKey Project" must not be used to
+ * 4. The names "OnlyKey" and "CryptoTrust" must not be used to
  *    endorse or promote products derived from this software without
  *    prior written permission. For written permission, please contact
  *    admin@crp.to.
@@ -32,7 +34,7 @@
  * 6. Redistributions of any form whatsoever must retain the following
  *    acknowledgment:
  *    "This product includes software developed by CryptoTrust LLC. for
- *    the OnlyKey Project (http://www.crp.to/ok)"
+ *    the OnlyKey Project (https://www.crp.to/ok)"
  *
  * 7. Redistributions in any form must be accompanied by information on
  *    how to obtain complete source code for this software and any
@@ -43,33 +45,33 @@
  *    binary file, complete source code means the source code for all
  *    modules it contains.
  *
- *
- * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
- * GRANTED BY THIS LICENSE. IF SOFTWARE RECIPIENT INSTITUTES PATENT LITIGATION
- * AGAINST ANY ENTITY (INCLUDING A CROSS-CLAIM OR COUNTERCLAIM IN A LAWSUIT)
- * ALLEGING THAT THIS SOFTWARE (INCLUDING COMBINATIONS OF THE SOFTWARE WITH
- * OTHER SOFTWARE OR HARDWARE) INFRINGES SUCH SOFTWARE RECIPIENT'S PATENT(S),
- * THEN SUCH SOFTWARE RECIPIENT'S RIGHTS GRANTED BY THIS LICENSE SHALL TERMINATE
- * AS OF THE DATE SUCH LITIGATION IS FILED. IF ANY PROVISION OF THIS AGREEMENT
- * IS INVALID OR UNENFORCEABLE UNDER APPLICABLE LAW, IT SHALL NOT AFFECT
- * THE VALIDITY OR ENFORCEABILITY OF THE REMAINDER OF THE TERMS OF THIS
- * AGREEMENT, AND WITHOUT FURTHER ACTION BY THE PARTIES HERETO, SUCH
- * PROVISION SHALL BE REFORMED TO THE MINIMUM EXTENT NECESSARY TO MAKE
- * SUCH PROVISION VALID AND ENFORCEABLE. ALL SOFTWARE RECIPIENT'S RIGHTS UNDER
- * THIS AGREEMENT SHALL TERMINATE IF IT FAILS TO COMPLY WITH ANY OF THE MATERIAL
- * TERMS OR CONDITIONS OF THIS AGREEMENT AND DOES NOT CURE SUCH FAILURE IN
- * A REASONABLE PERIOD OF TIME AFTER BECOMING AWARE OF SUCH NONCOMPLIANCE.
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
- * TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR
- * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
- * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
- * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
- * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
- * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
- * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
- * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS
+ * ARE GRANTED BY THIS LICENSE. IF SOFTWARE RECIPIENT INSTITUTES PATENT
+ * LITIGATION AGAINST ANY ENTITY (INCLUDING A CROSS-CLAIM OR COUNTERCLAIM
+ * IN A LAWSUIT) ALLEGING THAT THIS SOFTWARE (INCLUDING COMBINATIONS OF THE
+ * SOFTWARE WITH OTHER SOFTWARE OR HARDWARE) INFRINGES SUCH SOFTWARE
+ * RECIPIENT'S PATENT(S), THEN SUCH SOFTWARE RECIPIENT'S RIGHTS GRANTED BY
+ * THIS LICENSE SHALL TERMINATE AS OF THE DATE SUCH LITIGATION IS FILED. IF
+ * ANY PROVISION OF THIS AGREEMENT IS INVALID OR UNENFORCEABLE UNDER
+ * APPLICABLE LAW, IT SHALL NOT AFFECT THE VALIDITY OR ENFORCEABILITY OF THE
+ * REMAINDER OF THE TERMS OF THIS AGREEMENT, AND WITHOUT FURTHER ACTION
+ * BY THE PARTIES HERETO, SUCH PROVISION SHALL BE REFORMED TO THE MINIMUM
+ * EXTENT NECESSARY TO MAKE SUCH PROVISION VALID AND ENFORCEABLE. ALL
+ * SOFTWARE RECIPIENT'S RIGHTS UNDER THIS AGREEMENT SHALL TERMINATE IF IT
+ * FAILS TO COMPLY WITH ANY OF THE MATERIAL TERMS OR CONDITIONS OF THIS
+ * AGREEMENT AND DOES NOT CURE SUCH FAILURE IN A REASONABLE PERIOD OF
+ * TIME AFTER BECOMING AWARE OF SUCH NONCOMPLIANCE. THIS SOFTWARE IS
+ * PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
+ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR  PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS
+ * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,  EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
+ * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
+ * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 
@@ -95,7 +97,7 @@
 #include "memory_buffer_alloc.h"
 #endif
 
-#ifdef US_VERSION
+#ifdef STD_VERSION
 
 /*************************************/
 //RSA assignments
@@ -117,7 +119,6 @@ extern uint8_t Challenge_button1;
 extern uint8_t Challenge_button2;
 extern uint8_t Challenge_button3;
 extern uint8_t CRYPTO_AUTH;
-extern int outputmode;
 uint8_t type;
 extern int large_buffer_offset;
 extern uint8_t resp_buffer[64];
@@ -128,6 +129,8 @@ extern int msgcount;
 extern uint8_t profilekey[32];
 extern uint8_t packet_buffer_details[5];
 extern uint8_t* large_resp_buffer;
+extern uint8_t outputmode;
+extern uint8_t pending_operation;
 
 void SIGN (uint8_t *buffer) {
 	uECC_set_rng(&RNG2);
@@ -280,6 +283,7 @@ void GETRSAPUBKEY (uint8_t *buffer)
 void RSASIGN (uint8_t *buffer)
 {
 	uint8_t rsa_signature[(type*128)];
+	uint8_t rsa_signaturetemp[64];
 
     if(!CRYPTO_AUTH) process_packets (buffer, 0, 0);
 	else if (CRYPTO_AUTH == 4) {
@@ -301,19 +305,25 @@ void RSASIGN (uint8_t *buffer)
 	Serial.println();
 	byteprint(large_buffer, large_buffer_offset);
 #endif
-	// sign data in large_buffer
-  if (rsa_sign (large_buffer_offset, large_buffer, rsa_signature) == 0)
+  pending_operation=CTAP2_ERR_OPERATION_PENDING;
+  memcpy(rsa_signaturetemp, large_buffer, large_buffer_offset);
+  memset(large_buffer, 0, LARGE_BUFFER_SIZE);
+  if (rsa_sign (large_buffer_offset, rsa_signaturetemp, rsa_signature) == 0)
 	{
+		pending_operation=0;
 #ifdef DEBUG
 		Serial.print("Signature = ");
 	    byteprint(rsa_signature, sizeof(rsa_signature));
 #endif
+	outputmode=packet_buffer_details[2]; // Outputmode set at start of operation
 	send_transport_response(rsa_signature, (type*128), true, true);
 	} else {
+		pending_operation=0;
 		hidprint("Error with RSA signing");
 	}
 	fadeoff(85);
 	memset(rsa_signature, 0, sizeof(rsa_signature));
+	if (outputmode != WEBAUTHN) memset(large_resp_buffer, 0, LARGE_RESP_BUFFER_SIZE);
     return;
 	} else {
 #ifdef DEBUG
@@ -324,6 +334,7 @@ void RSASIGN (uint8_t *buffer)
 
 void RSADECRYPT (uint8_t *buffer)
 {
+
 	unsigned int plaintext_len = 0;
     if(!CRYPTO_AUTH) process_packets (buffer, 0, 0);
 	else if (CRYPTO_AUTH == 4) {
@@ -346,8 +357,13 @@ void RSADECRYPT (uint8_t *buffer)
 	byteprint(large_buffer, large_buffer_offset);
 #endif
 	// decrypt ciphertext in large_buffer to temp_buffer
-  if (rsa_decrypt (&plaintext_len, large_buffer, large_resp_buffer) == 0)
+  pending_operation=CTAP2_ERR_OPERATION_PENDING;
+  uint8_t rsa_decrypttemp[(type*128)];
+  memcpy(rsa_decrypttemp, large_buffer, large_buffer_offset);
+  memset(large_buffer, 0, LARGE_BUFFER_SIZE);
+  if (rsa_decrypt (&plaintext_len, rsa_decrypttemp, large_resp_buffer) == 0)
 	{
+		pending_operation=0;
 #ifdef DEBUG
 		Serial.println();
 		Serial.print("Plaintext len = ");
@@ -356,14 +372,14 @@ void RSADECRYPT (uint8_t *buffer)
 		byteprint(large_resp_buffer, plaintext_len);
 		Serial.println();
 #endif
+	outputmode=packet_buffer_details[2]; // Outputmode set at start of operation
 	send_transport_response(large_resp_buffer, plaintext_len,  true, true);
 	} else {
+		pending_operation=0;
 		hidprint("Error with RSA decryption");
 	}
 	fadeoff(85);
-    // Reset the buffer offset
-	memset(large_buffer, 0, LARGE_BUFFER_SIZE);
-	memset(large_resp_buffer, 0, LARGE_RESP_BUFFER_SIZE);
+	if (outputmode != WEBAUTHN) memset(large_resp_buffer, 0, LARGE_RESP_BUFFER_SIZE);
 
     return;
 	} else {
@@ -536,9 +552,11 @@ void ECDSA_EDDSA(uint8_t *buffer)
 	Serial.print("Signature=");
 	byteprint(ecc_signature, 64);
 	#endif
-	send_transport_response (ecc_signature, len, false, false);
+	outputmode=packet_buffer_details[2]; // Outputmode set at start of operation
+	send_transport_response (ecc_signature, len, true, true);
   // Stop the fade in
-  fadeoff(85);
+  	fadeoff(85);
+    memset(large_buffer, 0, LARGE_BUFFER_SIZE);
 	memset(ecc_public_key, 0, sizeof(ecc_public_key)); //wipe buffer
 	memset(ecc_private_key, 0, sizeof(ecc_private_key)); //wipe buffer
     return;
@@ -552,12 +570,13 @@ void ECDSA_EDDSA(uint8_t *buffer)
 
 void ECDH(uint8_t *buffer)
 {
+	// This function currently is not used, it generates shared secret and returns no data
     uint8_t ephemeral_pub[MAX_ECC_KEY_SIZE*2];
 	uint8_t secret[64] = {0};
-#ifdef DEBUG
+	#ifdef DEBUG
     Serial.println();
     Serial.println("OKECDH MESSAGE RECEIVED");
-#endif
+	#endif
     if(!CRYPTO_AUTH) process_packets (buffer, 0, 0);
 	else if (CRYPTO_AUTH == 4) {
 	memcpy (ephemeral_pub, large_buffer, MAX_ECC_KEY_SIZE*2);
@@ -565,7 +584,7 @@ void ECDH(uint8_t *buffer)
 		hidprint("Error with ECC Shared Secret");
 		return;
 	}
-#ifdef DEBUG
+	#ifdef DEBUG
     Serial.println();
     Serial.print("Public key to generate shared secret for");
 	byteprint(ephemeral_pub, 64);
@@ -573,8 +592,8 @@ void ECDH(uint8_t *buffer)
     Serial.print("ECDH Secret is ");
 	for (uint8_t i = 0; i< 32; i++) {
 		Serial.print(secret[i],HEX);
-		}
-#endif
+	}
+	#endif
   //	if (outputU2F) {
 	//store_U2F_response(secret, 32);
 	//} else{
@@ -656,7 +675,14 @@ void ECDH(uint8_t *buffer)
 #endif
     RawHID.send(hash, 0);
 	*/
+
+	// TODO finish PGP/GPG compatible ECDH, return decrypted data
+	//outputmode=packet_buffer_details[2]; // Outputmode set at start of operation
+	//send_transport_response (decrypteddata, len, true, true);
+
     fadeoff(85);
+
+	memset(large_buffer, 0, LARGE_BUFFER_SIZE);
 	memset(secret, 0, sizeof(secret)); //wipe buffer
 	memset(ecc_public_key, 0, sizeof(ecc_public_key)); //wipe buffer
 	memset(ecc_private_key, 0, sizeof(ecc_private_key)); //wipe buffer
@@ -744,10 +770,10 @@ void HMACSHA1 () {
 	keyboard_buffer[15] = 0xC1; //Part 2 of HMAC
 	memcpy(keyboard_buffer+16, temp+14, 6);
 	keyboard_buffer[23] = 0xC2; //Part 3 of HMAC
-	memset(keyboard_buffer +24, 0, 7);
+	memset(keyboard_buffer +24, 0, KEYBOARD_BUFFER_SIZE-24);
     // CRC Bytes expected are CRC-16/X-25 but yubikey_crc16 generates CRC-16/MCRF4XX,
     // Weird that firmware uses a different CRC-16 than https://github.com/Yubico/yubikey-personalization/blob/master/ykcore/
-	// Possibly intentional obfuscation, We can XOR CRC-16/MCRF4XX output to convert to CRC-16/X-25
+	// We can XOR CRC-16/MCRF4XX output to convert to CRC-16/X-25
 	crc ^= 0xFFFF;
 	keyboard_buffer[22] = crc & 0xFF;
 	keyboard_buffer[24] = crc >> 8;

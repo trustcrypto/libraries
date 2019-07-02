@@ -73,7 +73,7 @@
  */
 
 
-#ifdef US_VERSION
+#ifdef STD_VERSION
 
 
 #ifndef OKCRYPTO_H

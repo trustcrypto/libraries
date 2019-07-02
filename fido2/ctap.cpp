@@ -70,6 +70,7 @@ uint8_t ctap_get_info(CborEncoder * encoder)
     CborEncoder options;
     CborEncoder pins;
 
+printf1(TAG_GREEN, "Get Info");
     ret = cbor_encoder_create_map(encoder, &map, 6);
     check_ret(ret);
     {
@@ -88,7 +89,7 @@ uint8_t ctap_get_info(CborEncoder * encoder)
             ret = cbor_encoder_close_container(&map, &array);
             check_ret(ret);
         }
-
+        
         ret = cbor_encode_uint(&map, RESP_extensions);
         check_ret(ret);
         {
@@ -108,24 +109,42 @@ uint8_t ctap_get_info(CborEncoder * encoder)
             ret = cbor_encode_byte_string(&map, CTAP_AAGUID, 16);
             check_ret(ret);
         }
-
-        ret = cbor_encode_uint(&map, RESP_maxMsgSize);
+        
+        ret = cbor_encode_uint(&map, RESP_options);
         check_ret(ret);
+        printf1(TAG_GREEN, "Options");
+        
         {
             ret = cbor_encoder_create_map(&map, &options,4);
+            printf1(TAG_GREEN, "ret");
+            printf1(TAG_GREEN, ret);
+
             check_ret(ret);
+            
             {
                 ret = cbor_encode_text_string(&options, "rk", 2);
+                 printf1(TAG_GREEN, "ret");
+                 printf1(TAG_GREEN, ret);
+                 dump_hex1(TAG_ERR,(uint8_t*)&options,4);
                 check_ret(ret);
                 {
                     ret = cbor_encode_boolean(&options, 1);     // Capable of storing keys locally
+                                     printf1(TAG_GREEN, "ret");
+                 printf1(TAG_GREEN, ret);
+                 dump_hex1(TAG_ERR,(uint8_t*)&options,4);
                     check_ret(ret);
                 }
 
                 ret = cbor_encode_text_string(&options, "up", 2);
+                                 printf1(TAG_GREEN, "ret");
+                 printf1(TAG_GREEN, ret);
+                 dump_hex1(TAG_ERR,(uint8_t*)&options,4);
                 check_ret(ret);
                 {
                     ret = cbor_encode_boolean(&options, 1);     // Capable of testing user presence
+                                     printf1(TAG_GREEN, "ret");
+                 printf1(TAG_GREEN, ret);
+                 dump_hex1(TAG_ERR,(uint8_t*)&options,4);
                     check_ret(ret);
                 }
 
@@ -472,10 +491,12 @@ static int ctap_make_auth_data(struct rpId * rp, CborEncoder * map, uint8_t * au
 
     if (!but)
     {
+        printf1(TAG_ERR,"CTAP2_ERR_OPERATION_DENIED");
         return CTAP2_ERR_OPERATION_DENIED;
     }
     else if (but < 0)   // Cancel
     {
+        printf1(TAG_ERR,"CTAP2_ERR_KEEPALIVE_CANCEL");
         return CTAP2_ERR_KEEPALIVE_CANCEL;
     }
     device_set_status(CTAPHID_STATUS_PROCESSING);
@@ -773,6 +794,8 @@ uint8_t ctap_make_credential(CborEncoder * encoder, uint8_t * request, int lengt
 
     uint32_t auth_data_sz = sizeof(auth_data_buf);
 
+    
+
     ret = ctap_make_auth_data(&MC.rp, &map, auth_data_buf, &auth_data_sz,
             &MC.credInfo);
     check_retr(ret);
@@ -782,7 +805,7 @@ uint8_t ctap_make_credential(CborEncoder * encoder, uint8_t * request, int lengt
         uint8_t * ext_encoder_buf = auth_data_buf + auth_data_sz;
 
         ret = ctap_make_extensions(&MC.extensions, ext_encoder_buf, &ext_encoder_buf_size);
-        check_retr(ret);
+        check_retr((CborError)ret);
         if (ext_encoder_buf_size)
         {
             ((CTAP_authData *)auth_data_buf)->head.flags |= (1 << 7);
@@ -802,7 +825,7 @@ uint8_t ctap_make_credential(CborEncoder * encoder, uint8_t * request, int lengt
     printf1(TAG_MC,"der sig [%d]: ", sigder_sz); dump_hex1(TAG_MC, sigder, sigder_sz);
 
     ret = ctap_add_attest_statement(&map, sigder, sigder_sz);
-    check_retr(ret);
+    check_retr((CborError)ret);
 
     ret = cbor_encoder_close_container(encoder, &map);
     check_ret(ret);
@@ -1041,7 +1064,7 @@ uint8_t ctap_end_get_assertion(CborEncoder * map, CTAP_credentialDescriptor * cr
     int sigder_sz;
 
     ret = ctap_add_credential_descriptor(map, cred);  // 1
-    check_retr(ret);
+    check_retr((CborError)ret);
 
     {
         ret = cbor_encode_int(map,RESP_authData);  // 2
@@ -1075,7 +1098,7 @@ uint8_t ctap_end_get_assertion(CborEncoder * map, CTAP_credentialDescriptor * cr
     {
         printf1(TAG_GREEN, "adding user details to output\r\n");
         ret = ctap_add_user_entity(map, &cred->credential.user);  // 4
-        check_retr(ret);
+        check_retr((CborError)ret);
     }
 
 
@@ -1119,7 +1142,7 @@ uint8_t ctap_get_next_assertion(CborEncoder * encoder)
     }
 
     ret = ctap_end_get_assertion(&map, cred, (uint8_t *)&authData, sizeof(CTAP_authDataHeader), getAssertionState.clientDataHash);
-    check_retr(ret);
+    check_retr((CborError)ret);
 
     ret = cbor_encoder_close_container(encoder, &map);
     check_ret(ret);
@@ -1151,7 +1174,7 @@ uint8_t ctap_get_assertion(CborEncoder * encoder, uint8_t * request, int length)
     if (GA.pinAuthPresent)
     {
         ret = verify_pin_auth(GA.pinAuth, GA.clientDataHash);
-        check_retr(ret);
+        check_retr((CborError)ret);
         getAssertionState.user_verified = 1;
     }
     else
@@ -1230,7 +1253,7 @@ uint8_t ctap_get_assertion(CborEncoder * encoder, uint8_t * request, int length)
     {
 
         ret = ctap_make_auth_data(&GA.rp, &map, auth_data_buf, &auth_data_buf_sz, NULL);
-        check_retr(ret);
+        check_retr((CborError)ret);
 
         ((CTAP_authDataHeader *)auth_data_buf)->flags &= ~(1 << 2);
         ((CTAP_authDataHeader *)auth_data_buf)->flags |= (getAssertionState.user_verified << 2);
@@ -1240,7 +1263,7 @@ uint8_t ctap_get_assertion(CborEncoder * encoder, uint8_t * request, int length)
             uint8_t * ext_encoder_buf = auth_data_buf + auth_data_buf_sz;
 
             ret = ctap_make_extensions(&GA.extensions, ext_encoder_buf, &ext_encoder_buf_size);
-            check_retr(ret);
+            check_retr((CborError)ret);
             if (ext_encoder_buf_size)
             {
                 ((CTAP_authDataHeader *)auth_data_buf)->flags |= (1 << 7);
@@ -1253,7 +1276,7 @@ uint8_t ctap_get_assertion(CborEncoder * encoder, uint8_t * request, int length)
     save_credential_list((CTAP_authDataHeader*)auth_data_buf, GA.clientDataHash, GA.creds, validCredCount-1);   // skip last one
 
     ret = ctap_end_get_assertion(&map, cred, auth_data_buf, auth_data_buf_sz, GA.clientDataHash);  // 1,2,3,4
-    check_retr(ret);
+    check_retr((CborError)ret);
 
     if (validCredCount > 1)
     {
@@ -1489,7 +1512,7 @@ uint8_t ctap_client_pin(CborEncoder * encoder, uint8_t * request, int length)
             ret = cbor_encode_int(&map, RESP_keyAgreement);
             check_ret(ret);
             ret = ctap_add_cose_key(&map, KEY_AGREEMENT_PUB, KEY_AGREEMENT_PUB+32, PUB_KEY_CRED_PUB_KEY, COSE_ALG_ECDH_ES_HKDF_256);
-            check_retr(ret);
+            check_retr((CborError)ret);
 
             break;
         case CP_cmdSetPin:
@@ -1505,7 +1528,7 @@ uint8_t ctap_client_pin(CborEncoder * encoder, uint8_t * request, int length)
             }
 
             ret = ctap_update_pin_if_verified(CP.newPinEnc, CP.newPinEncSize, (uint8_t*)&CP.keyAgreement.pubkey, CP.pinAuth, NULL);
-            check_retr(ret);
+            check_retr((CborError)ret);
             break;
         case CP_cmdChangePin:
             printf1(TAG_CP,"CP_cmdChangePin\n");
@@ -1521,7 +1544,7 @@ uint8_t ctap_client_pin(CborEncoder * encoder, uint8_t * request, int length)
             }
 
             ret = ctap_update_pin_if_verified(CP.newPinEnc, CP.newPinEncSize, (uint8_t*)&CP.keyAgreement.pubkey, CP.pinAuth, CP.pinHashEnc);
-            check_retr(ret);
+            check_retr((CborError)ret);
             break;
         case CP_cmdGetPinToken:
             if (!ctap_is_pin_set())
@@ -1543,7 +1566,7 @@ uint8_t ctap_client_pin(CborEncoder * encoder, uint8_t * request, int length)
 
             /*ret = ctap_add_pin_if_verified(&map, (uint8_t*)&CP.keyAgreement.pubkey, CP.pinHashEnc);*/
             ret = ctap_add_pin_if_verified(pinTokenEnc, (uint8_t*)&CP.keyAgreement.pubkey, CP.pinHashEnc);
-            check_retr(ret);
+            check_retr((CborError)ret);
 
             ret = cbor_encode_byte_string(&map, pinTokenEnc, PIN_TOKEN_SIZE);
             check_ret(ret);
@@ -1854,16 +1877,19 @@ uint8_t ctap_decrement_pin_attempts()
 
 int8_t ctap_device_locked()
 {
+    printf1(TAG_CP, "Checking if device locked: %d\n", STATE.remaining_tries);
     return STATE.remaining_tries <= 0;
 }
 
 int8_t ctap_device_boot_locked()
 {
+        printf1(TAG_CP, "Checking if device boot locked: %d\n", PIN_BOOT_ATTEMPTS_LEFT);
     return PIN_BOOT_ATTEMPTS_LEFT <= 0;
 }
 
 int8_t ctap_leftover_pin_attempts()
 {
+    printf1(TAG_CP, "Checking ctap_leftover_pin_attempts: %d\n", STATE.remaining_tries);
     return STATE.remaining_tries;
 }
 
@@ -1883,6 +1909,7 @@ uint16_t ctap_keys_stored()
 {
     int total = 0;
     int i;
+    printf1(TAG_CP, "Checking ctap_leftover_pin_attempts: %d\n", STATE.remaining_tries);
     for (i = 0; i < MAX_KEYS; i++)
     {
         if (STATE.key_lens[i] != 0xffff)
@@ -1894,6 +1921,7 @@ uint16_t ctap_keys_stored()
             break;
         }
     }
+    printf1(TAG_CP, "Checking ctap_keys_stored: %d\n", total);
     return total;
 }
 
@@ -1905,6 +1933,7 @@ static uint16_t key_addr_offset(int index)
     {
         if (STATE.key_lens[i] != 0xffff) offset += STATE.key_lens[i];
     }
+    printf1(TAG_CP, "Checking key_addr_offset: %d\n", offset);
     return offset;
 }
 
@@ -1915,6 +1944,7 @@ uint16_t ctap_key_len(uint8_t index)
     {
         return 0;
     }
+    printf1(TAG_CP, "Checking ctap_key_len: %d\n", STATE.key_lens[index]);
     if (STATE.key_lens[index] == 0xffff) return 0;
     return STATE.key_lens[index];
 
@@ -1924,13 +1954,16 @@ int8_t ctap_store_key(uint8_t index, uint8_t * key, uint16_t len)
 {
     int i = ctap_keys_stored();
     uint16_t offset;
+    printf1(TAG_CP, "Checking ctap_store_key: %d\n", i);
     if (i >= MAX_KEYS || index >= MAX_KEYS || !len)
     {
+        printf1(TAG_CP, "ERR_NO_KEY_SPACE");
         return ERR_NO_KEY_SPACE;
     }
 
     if (STATE.key_lens[index] != 0xffff)
     {
+        printf1(TAG_CP, "ERR_KEY_SPACE_TAKEN");
         return ERR_KEY_SPACE_TAKEN;
     }
 
@@ -1938,6 +1971,7 @@ int8_t ctap_store_key(uint8_t index, uint8_t * key, uint16_t len)
 
     if ((offset + len) > KEY_SPACE_BYTES)
     {
+        printf1(TAG_CP, "ERR_NO_KEY_SPACE");
         return ERR_NO_KEY_SPACE;
     }
 
@@ -1955,13 +1989,16 @@ int8_t ctap_load_key(uint8_t index, uint8_t * key)
     int i = ctap_keys_stored();
     uint16_t offset;
     uint16_t len;
+    printf1(TAG_CP, "Checking ctap_load_key: %d\n", i);
     if (index >= i || index >= MAX_KEYS)
     {
+        printf1(TAG_CP, "ERR_NO_KEY_SPACE 1");
         return ERR_NO_KEY_SPACE;
     }
 
     if (STATE.key_lens[index] == 0xffff)
     {
+        printf1(TAG_CP, "ERR_KEY_SPACE_EMPTY");
         return ERR_KEY_SPACE_EMPTY;
     }
 
@@ -1970,6 +2007,7 @@ int8_t ctap_load_key(uint8_t index, uint8_t * key)
 
     if ((offset + len) > KEY_SPACE_BYTES)
     {
+        printf1(TAG_CP, "ERR_NO_KEY_SPACE 2");
         return ERR_NO_KEY_SPACE;
     }
 
@@ -1980,11 +2018,13 @@ int8_t ctap_load_key(uint8_t index, uint8_t * key)
 
 static void ctap_reset_key_agreement()
 {
+    printf1(TAG_CP, "ctap_reset_key_agreement");
     crypto_ecc256_make_key_pair(KEY_AGREEMENT_PUB, KEY_AGREEMENT_PRIV);
 }
 
 void ctap_reset()
 {
+    printf1(TAG_CP, "ctap_reset");
     ctap_state_init();
 
     authenticator_write_state(&STATE, 0);
@@ -2000,5 +2040,5 @@ void ctap_reset()
     memset(PIN_CODE_HASH,0,sizeof(PIN_CODE_HASH));
     ctap_reset_key_agreement();
 
-    crypto_reset_master_secret();
+    crypto_load_master_secret(STATE.key_space);
 }

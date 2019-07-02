@@ -22,10 +22,20 @@ void device_init();
 
 //void delay(uint32_t ms);
 
+#define NVIC_SystemReset CPU_RESTART
+// Storage of FIDO2 resident keys
+#define PAGE_SIZE		2048
+#define PAGES			2
+//#define RK_NUM_PAGES    1
+//#define RK_START_PAGE   (PAGES - 14)
+//#define RK_END_PAGE     (PAGES - 14 + RK_NUM_PAGES)     // not included
+#define DEBUG_LEVEL 0
+#define ENABLE_U2F
+#define ENABLE_U2F_EXTENSIONS
+#define BRIDGE_TO_WALLET
 // HID message size in bytes
 #define HID_MESSAGE_SIZE        64
-
-#define ENABLE_ONLYKEY
+#define ONLYKEY_SOLO
 
 //void usbhid_init();
 
@@ -79,6 +89,8 @@ extern int ctap_user_verification(uint8_t arg);
 // Must be implemented by application
 // data is HID_MESSAGE_SIZE long in bytes
 extern void ctaphid_write_block(uint8_t * data);
+
+extern int handle_packets();
 
 
 // Resident key

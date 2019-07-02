@@ -372,7 +372,8 @@ void ctaphid_check_timeouts()
 void ctaphid_update_status(int8_t status)
 {
     CTAPHID_WRITE_BUFFER wb;
-    printf1(TAG_HID, "Send device update %d!\n",status);
+    printf1(TAG_HID, "Send device update");
+    Serial.print(status);
     ctaphid_write_buffer_init(&wb);
 
 
@@ -525,6 +526,8 @@ static int ctaphid_buffer_packet(uint8_t * pkt_raw, uint8_t * cmd, uint32_t * ci
         else if (is_cont_pkt(pkt))
         {
             printf2(TAG_ERR,"ignoring unwarranted cont packet\n");
+            // Testing transport
+            /*
             uint8_t *buffer = (uint8_t *)pkt;
             if (buffer[2]==5) {
               int datalen = 0;
@@ -535,7 +538,7 @@ static int ctaphid_buffer_packet(uint8_t * pkt_raw, uint8_t * cmd, uint32_t * ci
               extern int outputmode;
               if (outputmode!=3) outputmode=2; //USB HID
               process_packets(buffer, datalen, buffer+4);
-            }
+            } */ 
             return HID_IGNORE;
         }
         else

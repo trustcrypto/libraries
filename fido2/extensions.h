@@ -29,8 +29,8 @@ int bootloader_bridge(int klen, uint8_t * keyh);
 int is_extension_request(uint8_t * kh, int len);
 
 
-void extension_writeback_init(uint8_t * buffer, uint8_t size);
-void extension_writeback(uint8_t * buf, uint8_t size);
+void extension_writeback_init(uint8_t * buffer, uint16_t size);
+void extension_writeback(uint8_t * buf, uint16_t size);
 
 #ifdef __cplusplus
 }

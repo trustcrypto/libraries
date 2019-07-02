@@ -62,6 +62,8 @@
 //#define mbedtls_calloc calloc
 //#define mbedtls_free   free
 #endif
+#include "device.h"
+
 
 
 /*
@@ -410,20 +412,42 @@ int mbedtls_rsa_private( mbedtls_rsa_context *ctx,
      * T1 = input ^ dP mod P
      * T2 = input ^ dQ mod Q
      */
-    MBEDTLS_MPI_CHK( mbedtls_mpi_exp_mod( &T1, &T, &ctx->DP, &ctx->P, &ctx->RP ) );
-    MBEDTLS_MPI_CHK( mbedtls_mpi_exp_mod( &T2, &T, &ctx->DQ, &ctx->Q, &ctx->RQ ) );
 
+    // Private key operations take 8+ seconds, FIDO2 requests timeout
+    // Recvmsg in between to respond to FIDO requests.
+    handle_packets();
+    handle_packets();
+    handle_packets();
+    MBEDTLS_MPI_CHK( mbedtls_mpi_exp_mod( &T1, &T, &ctx->DP, &ctx->P, &ctx->RP ) );
+    handle_packets();
+    handle_packets();
+    handle_packets();
+    MBEDTLS_MPI_CHK( mbedtls_mpi_exp_mod( &T2, &T, &ctx->DQ, &ctx->Q, &ctx->RQ ) );
+    handle_packets();
+    handle_packets();
+    handle_packets();
     /*
      * T = (T1 - T2) * (Q^-1 mod P) mod P
      */
     MBEDTLS_MPI_CHK( mbedtls_mpi_sub_mpi( &T, &T1, &T2 ) );
+    handle_packets();
+    handle_packets();
+    handle_packets();
     MBEDTLS_MPI_CHK( mbedtls_mpi_mul_mpi( &T1, &T, &ctx->QP ) );
+    handle_packets();
+    handle_packets();
+    handle_packets();
     MBEDTLS_MPI_CHK( mbedtls_mpi_mod_mpi( &T, &T1, &ctx->P ) );
-
+    handle_packets();
+    handle_packets();
+    handle_packets();
     /*
      * T = T2 + T * Q
      */
     MBEDTLS_MPI_CHK( mbedtls_mpi_mul_mpi( &T1, &T, &ctx->Q ) );
+    handle_packets();
+    handle_packets();
+    handle_packets();
     MBEDTLS_MPI_CHK( mbedtls_mpi_add_mpi( &T, &T2, &T1 ) );
 #endif /* MBEDTLS_RSA_NO_CRT */
 
