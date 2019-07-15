@@ -129,34 +129,26 @@ printf1(TAG_GREEN, "Get Info");
                 check_ret(ret);
                 {
                     ret = cbor_encode_boolean(&options, 1);     // Capable of storing keys locally
-                                     printf1(TAG_GREEN, "ret");
-                 printf1(TAG_GREEN, ret);
-                 dump_hex1(TAG_ERR,(uint8_t*)&options,4);
                     check_ret(ret);
                 }
 
                 ret = cbor_encode_text_string(&options, "up", 2);
-                                 printf1(TAG_GREEN, "ret");
-                 printf1(TAG_GREEN, ret);
-                 dump_hex1(TAG_ERR,(uint8_t*)&options,4);
+                printf1(TAG_GREEN, "ret");
                 check_ret(ret);
                 {
                     ret = cbor_encode_boolean(&options, 1);     // Capable of testing user presence
-                                     printf1(TAG_GREEN, "ret");
-                 printf1(TAG_GREEN, ret);
-                 dump_hex1(TAG_ERR,(uint8_t*)&options,4);
                     check_ret(ret);
                 }
 
                 // NOT [yet] capable of verifying user
                 // Do not add option if UV isn't supported.
                 //
-                // ret = cbor_encode_text_string(&options, "uv", 2);
-                // check_ret(ret);
-                // {
+                //ret = cbor_encode_text_string(&options, "uv", 2);
+                //check_ret(ret);
+                //{
                 //     ret = cbor_encode_boolean(&options, 0);
                 //     check_ret(ret);
-                // }
+                //}
 
                 ret = cbor_encode_text_string(&options, "plat", 4);
                 check_ret(ret);

@@ -75,15 +75,11 @@ void ctaphid_write_block(uint8_t * data)
 	RawHID.send(data, 100);
 }
 
-static int wink_time = 0;
-static uint32_t winkt1 = 0;
-#ifdef LED_WINK_VALUE
-static uint32_t winkt2 = 0;
-#endif
+
 void device_wink()
 {
-    wink_time = 10;
-    winkt1 = 0;
+    setcolor(170); //blue
+    delay(500);
 }
 
 void authenticator_read_state(AuthenticatorState * a)
@@ -173,37 +169,46 @@ int ctap_user_presence_test(uint32_t wait)
     extern Adafruit_NeoPixel pixels;
     int ret = 0;
     uint32_t t1 = millis();
-    uint8_t fadevalue = 0;
+    uint8_t blink = 0;
+    extern uint8_t isfade;
+    
 
     if (wait) {
+        fadeon(170);
+
         do
         {
-            if (t1 + (wait*2) < millis())
+            if (t1 + (wait) < millis())
             {
+            fadeoff(1);
             return 0;
             }
-            delay(1);
             if (touch_sense_loop()) u2f_button=1;
             ret = handle_packets();
-            pixels.setPixelColor(0, Wheel(fadevalue & 255)); //Multicolor
-            pixels.show();
-            fadevalue++;
+            if (blink==0) setcolor(170);
+            if (blink==128) setcolor(0);
+            blink++;
             if (ret) return ret;
         }
         while (! IS_BUTTON_PRESSED());
+        
     }
 
     if(IS_BUTTON_PRESSED()) {
+        fadeoff(0);
         u2f_button=0;
         return 1;
-    } else return 0;
+    } else {
+        return 0;
+    }
+
 }
 
 int handle_packets()
 {
     uint8_t hidmsg[64];
     memset(hidmsg,0, sizeof(hidmsg));
-    int n = RawHID.recv(hidmsg, 0); // 0 timeout = do not wait
+    int n = RawHID.recv(hidmsg, 0); 
     if (n) {
         if ( ctaphid_handle_packet(hidmsg) ==  CTAPHID_CANCEL)
         {
@@ -263,7 +268,22 @@ void ctap_overwrite_rk(int index,CTAP_residentKey * rk)
 	ctap_store_rk(index, rk);
 }
 
-
+void ctap_backup_rk(int index,CTAP_residentKey * rk)
+{
+    /*
+        unsigned int index = STATE.rk_stored;
+        unsigned int i;
+        for (i = 0; i < index; i++)
+        {
+            ctap_load_rk(i, &rk2);
+            if (is_matching_rk(&rk, &rk2))
+            {
+                ctap_overwrite_rk(i, &rk);
+                goto done_rk;
+            }
+        }
+         */
+}
 
 void _Error_Handler(char *file, int line)
 {
