@@ -23,7 +23,6 @@
 #include "storage.h"
 #include "wallet.h"
 #include "extensions.h"
-#include "okcore.h"
 
 
 uint8_t PIN_TOKEN[PIN_TOKEN_SIZE];

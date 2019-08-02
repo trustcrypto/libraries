@@ -10,7 +10,7 @@
 //#include APP_CONFIG
 #include <stdint.h>
 #include "Arduino.h"
-#include "okcore.h"
+#include "onlykey.h"
 
 #ifdef __cplusplus
 extern "C"

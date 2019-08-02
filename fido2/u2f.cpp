@@ -11,8 +11,6 @@
 #include "log.h"
 #include "device.h"
 #include "apdu.h"
-#include "oku2f.h"
-#include "okcore.h"
 #include "wallet.h"
 #ifdef ENABLE_U2F_EXTENSIONS
 #include "extensions.h"

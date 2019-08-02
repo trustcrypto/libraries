@@ -8,7 +8,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "oku2f.h"
 #include "WProgram.h"
 #include "arduino.h"
 #include "device.h"

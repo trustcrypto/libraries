@@ -275,6 +275,7 @@ extern int calibratecaptouch (uint16_t j);
 extern void process_setreport ();
 extern void generate_random_pin (uint8_t *buffer);
 extern void generate_random_passphrase (uint8_t *buffer);
+extern int check_crc(uint8_t* buffer);
 
 #ifdef __cplusplus
 }

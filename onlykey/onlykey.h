@@ -104,7 +104,6 @@ extern "C"
 #include "okeeprom.h"
 #ifdef STD_VERSION
 #include "okcrypto.h"
-#include "oku2f.h"
 #endif
 
 

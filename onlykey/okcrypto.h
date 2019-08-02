@@ -106,7 +106,6 @@ extern void RSADECRYPT(uint8_t *buffer);
 extern void RSASIGN (uint8_t *buffer);
 extern void ECDSA_EDDSA (uint8_t *buffer);
 extern void HMACSHA1 ();
-extern int check_crc(uint8_t* buffer);
 extern uint8_t Challenge_button1;
 extern uint8_t Challenge_button2;
 extern uint8_t Challenge_button3;

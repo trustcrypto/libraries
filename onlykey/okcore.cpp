@@ -118,6 +118,34 @@ uint8_t NEO_Brightness[1];
 #include "ok_extension.h"
 #endif
 
+#ifndef STD_VERSION
+// Parts of some libraries required for international travel edition 
+// not including full libraries as those libraries include crypto 
+
+#define CTAPHID_BUFFER_SIZE         7609
+
+uint16_t
+yubikey_crc16 (const uint8_t * buf, size_t buf_size)
+{
+  uint16_t m_crc = 0xffff;
+
+  while (buf_size--)
+    {
+      int i, j;
+      m_crc ^= (uint8_t) * buf++ & 0xFF;
+      for (i = 0; i < 8; i++)
+	{
+	  j = m_crc & 1;
+	  m_crc >>= 1;
+	  if (j)
+	    m_crc ^= 0x8408;
+	}
+    }
+
+  return m_crc;
+}
+#endif
+
 /*************************************/
 //Global assignments
 /*************************************/
@@ -196,7 +224,7 @@ int button_selected = 0;
 /*************************************/
 uint8_t setBuffer[9] = {0};
 uint8_t getBuffer[9] = {0, 2, 2, 3, 3, 3, 5, 0, 0};
-extern uint8_t keyboard_buffer[KEYBOARD_BUFFER_SIZE];
+uint8_t keyboard_buffer[KEYBOARD_BUFFER_SIZE] = {0};
 
 /*************************************/
 //ECC key assignments
@@ -218,6 +246,7 @@ extern uint16_t attestation_cert_der_size;
 extern uint16_t attestation_key_size;
 extern uint8_t attestation_key[33];
 extern uint8_t attestation_cert_der[768];
+#endif
 int large_buffer_len;
 int large_buffer_offset;
 int packet_buffer_offset = 0;
@@ -233,7 +262,7 @@ uint8_t recv_buffer[64];
 uint8_t resp_buffer[64];
 int outputmode = 0;
 uint8_t pending_operation;
-#endif
+
 
 /*************************************/
 //Crypto Challenge assignments
@@ -264,8 +293,13 @@ void recvmsg(int n)
     //byteprint(large_resp_buffer, 64);
 
 	// FIDO2 operation processing
-	if (pending_operation==CTAP2_ERR_OPERATION_PENDING) {
-		return;
+	if (profilemode != NONENCRYPTEDPROFILE)
+	{
+#ifdef STD_VERSION
+		if (pending_operation==CTAP2_ERR_OPERATION_PENDING) {
+			return;
+		}
+#endif
 	}
 
 	if (setBuffer[7] >= 0x80)
@@ -676,14 +710,14 @@ void keyboard_mode_config(uint8_t step)
 	Serial.println("Keyboard-config OnlyKey");
 #endif
 	uint8_t buffer[33] = {0};
+	KeyboardLayout[0] = 0;
+	update_keyboard_layout();
 	if (step == 0)
 	{ //Manual/Auto
-		KeyboardLayout[0] = 0;
-		update_keyboard_layout();
 		keytype("*** WELCOME TO ONLYKEY QUICK SETUP ***");
 		keytype("RUN THIS SETUP FROM A TRUSTED COMPUTER AND CAREFULLY WRITE DOWN");
 		keytype("PINs AND PASSPHRASE. STORE IN A SECURE LOCATION SUCH AS A SAFE");
-		keytype("WHEN FINISHED DELETE THIS TEXT.");
+		keytype("WHEN FINISHED DELETE THIS TEXT");
 		Keyboard.println();
 		keytype("Three different PIN codes will be set up on your OnlyKey");
 		keytype("The first PIN unlocks your primary profile (i.e Personal Accounts)"); 
@@ -757,7 +791,7 @@ void keyboard_mode_config(uint8_t step)
 	keytype("To start using OnlyKey enter your primary or secondary PIN on the OnlyKey 6 button keypad");
 	keytype("OnlyKey is ready for use as a security key (FIDO2/U2F) and for challenge-response");
 	keytype("For additional features install the OnlyKey desktop app - https://onlykey.io/app");
-
+	keytype("*** SETUP COMPLETE, DELETE THIS TEXT ***");
 	CPU_RESTART();
 }
 
@@ -771,14 +805,19 @@ void generate_random_pin(uint8_t *buffer)
 	buffer[7] = 0;
 }
 
+// Generate a random 25 char alpha-numeric passphrase 
+// passphrase strength roughly 2.5x stronger than AES-128 key
+// 256^16 = ~3E38, 36^25 = ~8E38
 void generate_random_passphrase(uint8_t *buffer)
 {
-	RNG2(buffer, 28);
-	for (int i = 0; i < 28; i++)
+	RNG2(buffer, 25);
+	byteprint(buffer, 25);
+	for (int i = 0; i < 25; i++)
 	{
-		buffer[i] = ((buffer[i] % 25) + 1) + '`';
-	}
-	buffer[28] = 0;
+		buffer[i] = ((buffer[i] % 35) + 1) + 96; //Alpha
+		if (buffer[i] > 122) buffer[i] = buffer[i] - 75; //Numeric
+	} 
+	buffer[25] = 0;
 }
 
 void set_primary_pin(uint8_t *buffer, uint8_t keyboard_mode)
@@ -883,8 +922,6 @@ void set_primary_pin(uint8_t *buffer, uint8_t keyboard_mode)
 				Serial.println("Generating NONCE");
 #endif
 				onlykey_flashset_noncehash(ptr); //Store in flash
-				memcpy(nonce, ptr, 32);
-				initialized = true;
 				sha256_update(&pinhash, temp, 32); //Add nonce to hash
 				//Copy characters to byte array
 				if (keyboard_mode == AUTO_PIN_SET)
@@ -1180,6 +1217,7 @@ void set_secondary_pin(uint8_t *buffer, uint8_t keyboard_mode)
 				SHA256_CTX pinhash;
 				sha256_init(&pinhash);
 				ptr = pinmask;
+
 				onlykey_eeget_pinmask((uint8_t *)pinmask);
 				ptr = temp;
 				if (!onlykey_flashget_noncehash(ptr, 32))
@@ -1198,11 +1236,18 @@ void set_secondary_pin(uint8_t *buffer, uint8_t keyboard_mode)
 				}
 				sha256_update(&pinhash, temp, 32); //Add nonce to hash
 				//Copy characters to byte array
-				if (keyboard_mode == AUTO_PIN_SET)
-					memcpy(password.guess, buffer, 7);
+				if (keyboard_mode == AUTO_PIN_SET) memcpy(password.guess, buffer, 7);
 				for (unsigned int i = 0; i <= strlen(password.guess); i++)
 				{
 					temp[i] = (uint8_t)password.guess[i] ^ (ID[i] ^ (nonce[i] ^ pinmask[i])); //Mask PIN Number with nonce (flash), pinmask (eeprom), and chip ID (ROM)
+				Serial.print("ID Char ");
+		Serial.println(ID[i]);
+				Serial.print("PINmask Char ");
+		Serial.println(pinmask[i]);
+				Serial.print("nonce Char ");
+		Serial.println(nonce[i]);
+		Serial.print("PIN Char ");
+		Serial.println(temp[i]);
 				}
 				sha256_update(&pinhash, temp, strlen(password.guess)); //Add new PIN to hash
 				sha256_final(&pinhash, temp);						   //Create hash and store in temp
@@ -1891,6 +1936,24 @@ void set_slot(uint8_t *buffer)
 		pixels.setBrightness(NEO_Brightness[0] * 22);
 		hidprint("Successfully set LED brightness");
 		break;
+	case 25:
+#ifdef DEBUG
+	Serial.println(); //newline
+	Serial.println("Writing lock button to EEPROM...");
+#endif
+	uint8_t temp;
+	onlykey_eeget_autolockslot(&temp);
+		if (profilemode) {
+			temp &= 0x0F;
+			temp += (buffer[7] << 4);
+			onlykey_eeset_autolockslot(&temp);
+		} else {
+			temp &= 0xF0;
+			temp += buffer[7];
+			onlykey_eeset_autolockslot(&temp);
+		}
+	hidprint("Successfully set lock button");
+	break;
 	case 13:
 #ifdef DEBUG
 		Serial.println(); //newline
@@ -2304,10 +2367,12 @@ void send_transport_response(uint8_t *data, int len, uint8_t encrypt, uint8_t st
 			RawHID.send(data + i, 0);
 		}
 	}
-	else if (outputmode == WEBAUTHN)
+	else if (profilemode != NONENCRYPTEDPROFILE && outputmode == WEBAUTHN)
 	{ //Webauthn
+#ifdef STD_VERSION
 		store_FIDO_response(data, len, encrypt);
 		return;
+#endif
 	}
 	/* This is for sending data in apdu format i.e. Ledger transport, not currently used
   else if (outputmode==2) { //USB HID
@@ -2927,6 +2992,8 @@ void onlykey_flashset_noncehash(uint8_t *ptr)
 	uint8_t temp[255];
 	uint8_t *tptr;
 	tptr = temp;
+	memcpy(nonce, ptr, 32);
+	initialized = true;
 	//Get current flash contents
 	onlykey_flashget_common(tptr, (unsigned long *)adr, 254);
 	//Add new flash contents
@@ -7096,4 +7163,22 @@ void process_setreport()
 		recvmsg(1);
 		return;
 	}
+}
+
+int check_crc(uint8_t* buffer) {
+	uint16_t crc;
+	uint8_t temp[2];
+	//Check CRC of Input
+	crc = yubikey_crc16 (buffer, 64);
+	temp[0] = crc & 0xFF;
+	temp[1] = crc >> 8;
+	if (buffer[65] != temp[0] || buffer[66] != temp[1]) {
+		//CRC Check failed
+	#ifdef DEBUG
+			Serial.print("HMACSHA1 Input CRC Check Failed");
+			Serial.println(crc);
+	#endif
+	return 0;
+	}
+	return 1;
 }

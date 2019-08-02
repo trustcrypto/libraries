@@ -35,6 +35,7 @@
 #include <EEPROM.h>
 #include "flashkinetis.h"
 #include "onlykey.h"
+#include "T3MacLib.h"
 #include <Curve25519.h>
 
 uint8_t profilekey[32];
@@ -208,6 +209,14 @@ bool Password::profile2hashevaluate(){
 	onlykey_eeget_pinmask((uint8_t*)pinmask);
 	for (int i =0; i <= guesslen; i++) {
 		temp[i] = (uint8_t)guess[i] ^ (ID[i] ^ (nonce[i] ^ pinmask[i])); //Mask PIN Number with nonce (flash), pinmask (eeprom), and chip ID (ROM)
+				Serial.print("ID Char ");
+		Serial.println(ID[i]);
+				Serial.print("PINmask Char ");
+		Serial.println(pinmask[i]);
+				Serial.print("nonce Char ");
+		Serial.println(nonce[i]);
+		Serial.print("PIN Char ");
+		Serial.println(temp[i]);
 	}
 	sha256_update(&pinhash, temp, guesslen); //Add new PIN to hash
 	sha256_final(&pinhash, profilekey); //Create hash and store in profilekey
@@ -248,7 +257,7 @@ bool Password::profile2hashevaluate(){
 			}
 			integrityctr2++;
 			return true; //both strings ended and all previous characters are equal 
-		}else if (pass2!=guessed2){
+		} else if (pass2!=guessed2){
 			integrityctr2++;
 			return false; //difference 
 		}

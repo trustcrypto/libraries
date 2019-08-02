@@ -71,19 +71,24 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+
+#include "device.h"
+#include "onlykey.h"
+#ifdef STD_VERSION
+#include "log.h"
 #include "wallet.h"
 //#include APP_CONFIG
+#include "util.h"
+#include "storage.h"
 #include "ctap.h"
 #include "ctap_errors.h"
 #include "crypto.h"
 #include "u2f.h"
-#include "log.h"
-#include "util.h"
-#include "storage.h"
-#include "device.h"
 #include "extensions.h"
 #include "ok_extension.h"
-#include "oku2f.h"
+
+
+
 
 extern uint8_t* large_resp_buffer;
 extern int large_resp_buffer_offset;
@@ -91,6 +96,7 @@ extern uint8_t profilemode;
 extern uint8_t isfade;
 extern uint8_t NEO_Color;
 extern uint8_t type;
+extern uint8_t CRYPTO_AUTH;
 extern int outputmode;
 extern uint8_t ecc_public_key[(MAX_ECC_KEY_SIZE*2)+1];
 extern uint8_t ecc_private_key[MAX_ECC_KEY_SIZE];
@@ -123,8 +129,6 @@ int16_t bridge_to_onlykey(uint8_t * _appid, uint8_t * keyh, int handle_len, uint
       outputmode=DISCARD; // Discard output 
       //Todo add localhost support
 		if (cmd == OKSETTIME && !CRYPTO_AUTH) {
-			if(profilemode!=NONENCRYPTEDPROFILE) {
-			#ifdef STD_VERSION
 			large_buffer_offset = 0;
 			set_time(client_handle);
 			memset(ecc_public_key, 0, sizeof(ecc_public_key));
@@ -160,8 +164,6 @@ int16_t bridge_to_onlykey(uint8_t * _appid, uint8_t * keyh, int handle_len, uint
 			Serial.println("AES Key = ");
 			byteprint(ecc_private_key, 32);
 			#endif
-			#endif
-			}
 		} else {
 			//aes_crypto_box (client_handle, 64, true);
 			#ifdef DEBUG
@@ -170,8 +172,6 @@ int16_t bridge_to_onlykey(uint8_t * _appid, uint8_t * keyh, int handle_len, uint
 			Serial.println("Received FIDO2 request to send data to OnlyKey");
 			#endif
 
-			if(profilemode!=NONENCRYPTEDPROFILE) {
-			#ifdef STD_VERSION
 			if (cmd == OKPING) { //Ping
 				outputmode=WEBAUTHN;
 				if(!CRYPTO_AUTH && !large_resp_buffer_offset) {
@@ -213,8 +213,6 @@ int16_t bridge_to_onlykey(uint8_t * _appid, uint8_t * keyh, int handle_len, uint
 				}
 				ret = 0;
 				}
-			#endif
-			}
 		}
 		ret = send_stored_response(output);
 		return ret;
@@ -242,11 +240,9 @@ int16_t send_stored_response(uint8_t * output) {
 			#endif
 			ret = CTAP2_ERR_OPERATION_PENDING;
 		} else if (large_resp_buffer_offset) {
-			#ifdef STD_VERSION
 			extension_writeback_init(output, large_resp_buffer_offset);
 			extension_writeback(large_resp_buffer, large_resp_buffer_offset);
 			memset(large_resp_buffer, 0, LARGE_RESP_BUFFER_SIZE);
-			#endif
 		} else if (CRYPTO_AUTH || packet_buffer_offset) {
 			Serial.println("Ping success");
 			memset(large_resp_buffer, 0, LARGE_RESP_BUFFER_SIZE);
@@ -262,3 +258,5 @@ int16_t send_stored_response(uint8_t * output) {
 		return ret; 
 	}
 }
+
+#endif

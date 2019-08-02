@@ -6,12 +6,13 @@
 // copied, modified, or distributed except according to those terms.
 
 #include "device.h"
+#include "onlykey.h"
+#ifdef STD_VERSION
 #include "util.h"
 #include "log.h"
 #include "ctaphid.h"
 #include "ctap.h"
 #include "crypto.h"
-#include "oku2f.h"
 #include "Time.h"
 #include "Adafruit_NeoPixel.h"
 
@@ -30,6 +31,91 @@ static bool haveNFC = 0;
 //static bool isLowFreq = 0;
 
 #define IS_BUTTON_PRESSED()         (u2f_button == 1)
+
+extern uint8_t profilemode;
+extern int large_buffer_offset;
+extern uint8_t* large_resp_buffer;
+extern int large_resp_buffer_offset;
+extern int packet_buffer_offset;
+extern uint8_t recv_buffer[64];
+extern uint8_t resp_buffer[64];
+extern uint8_t CRYPTO_AUTH;
+
+int u2f_button = 0;
+const char stored_appid[] = "\xEB\xAE\xE3\x29\x09\x0A\x5B\x51\x92\xE0\xBD\x13\x2D\x5C\x22\xC6\xD1\x8A\x4D\x23\xFC\x8E\xFD\x4A\x21\xAF\xA8\xE4\xC8\xFD\x93\x54";
+
+void U2Finit()
+{
+  uint8_t length[2];
+  device_init();
+  onlykey_eeget_U2Fcertlen(length);
+  int length2 = length[0] << 8 | length[1];
+  if (length2 != 0) {
+  extern uint16_t attestation_cert_der_size;
+  attestation_cert_der_size=length2;
+  onlykey_flashget_U2F();
+  } else {
+  byteprint((uint8_t*)attestation_key,sizeof(attestation_key));
+  byteprint((uint8_t*)attestation_cert_der,sizeof(attestation_cert_der));
+  }
+  //DERIVEKEY(0 , (uint8_t*)attestation_key); //Derive key from default key in slot 32
+  //memcpy(handlekey, ecc_private_key, 32); // Copy derived key to handlekey
+  //SHA256_CTX APPKEY;
+  //sha256_init(&APPKEY);
+  //sha256_update(&APPKEY, (uint8_t*)attestation_cert_der+(profilemode*32), 32); //Separate U2F key for profile 1 and 2
+  //sha256_update(&APPKEY, (uint8_t*)attestation_key, 32);
+  //sha256_update(&APPKEY, handlekey, 32);
+  //sha256_final(&APPKEY, apphandlekey); // Derivation key for app IDs
+#ifdef DEBUG
+  //Serial.println("HANDLE KEY =");
+  //byteprint(handlekey, 32);
+#endif
+}
+
+void fido_msg_timeout() {
+	ctaphid_check_timeouts();
+}
+
+void recv_fido_msg(uint8_t *buffer) {
+	ctaphid_handle_packet(buffer);
+    memset(recv_buffer, 0, sizeof(recv_buffer));
+}
+
+void init_SHA256(const uECC_HashContext *base) {
+    SHA256_HashContext *context = (SHA256_HashContext *)base;
+    sha256_init(&context->ctx);
+}
+void update_SHA256(const uECC_HashContext *base,
+                   const uint8_t *message,
+                   unsigned message_size) {
+    SHA256_HashContext *context = (SHA256_HashContext *)base;
+    sha256_update(&context->ctx, message, message_size);
+}
+void finish_SHA256(const uECC_HashContext *base, uint8_t *hash_result) {
+    SHA256_HashContext *context = (SHA256_HashContext *)base;
+    sha256_final(&context->ctx, hash_result);
+}
+
+void store_FIDO_response (uint8_t *data, int len, bool encrypt) {
+	cancelfadeoffafter20();
+  if (len >= (int)LARGE_RESP_BUFFER_SIZE) return; //Double check buf overflow
+	if (encrypt) {
+	//	aes_crypto_box (data, len, false);
+	} else {
+    // Unencrypted message, check if it's an error message
+    if (strcmp((char*)data, "Error")) {
+      memset(large_resp_buffer, 0, LARGE_RESP_BUFFER_SIZE);
+      CRYPTO_AUTH = 0;
+    } 
+  }
+  large_resp_buffer_offset = len;
+  memmove(large_resp_buffer, data, len);
+#ifdef DEBUG
+      Serial.print ("Stored Data for FIDO Response");
+	  byteprint(large_resp_buffer, large_resp_buffer_offset);
+#endif
+	 wipedata(); //Data will wait 5 seconds to be retrieved
+}
 
 void device_set_status(uint32_t status)
 {
@@ -292,3 +378,5 @@ void _Error_Handler(char *file, int line)
     {
     }
 }
+
+#endif

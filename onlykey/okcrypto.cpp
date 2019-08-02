@@ -74,18 +74,16 @@
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-
-#include "okcrypto.h"
-#include <SoftTimer.h>
 #include <cstring>
 #include "Arduino.h"
 #include "onlykey.h"
+#ifdef STD_VERSION
 #include <SoftTimer.h>
 #include <RNG.h>
 #include "sha1.h"
 #include "yubikey.h"
-
-
+#include "device.h"
+#include "okcrypto.h"
 
 #if !defined(MBEDTLS_CONFIG_FILE)
 #include "config.h"
@@ -97,7 +95,6 @@
 #include "memory_buffer_alloc.h"
 #endif
 
-#ifdef STD_VERSION
 
 /*************************************/
 //RSA assignments
@@ -112,7 +109,7 @@ uint8_t ecc_private_key[MAX_ECC_KEY_SIZE];
 /*************************************/
 //HMACSHA1 assignments
 /*************************************/
-uint8_t keyboard_buffer[KEYBOARD_BUFFER_SIZE] = {0};
+extern uint8_t keyboard_buffer[KEYBOARD_BUFFER_SIZE];
 /*************************************/
 
 extern uint8_t Challenge_button1;
@@ -692,24 +689,6 @@ void ECDH(uint8_t *buffer)
     Serial.println("Waiting for challenge buttons to be pressed");
 #endif
 	}
-}
-
-int check_crc(uint8_t* buffer) {
-	uint16_t crc;
-	uint8_t temp[2];
-	//Check CRC of Input
-	crc = yubikey_crc16 (buffer, 64);
-	temp[0] = crc & 0xFF;
-	temp[1] = crc >> 8;
-	if (buffer[65] != temp[0] || buffer[66] != temp[1]) {
-		//CRC Check failed
-	#ifdef DEBUG
-			Serial.print("HMACSHA1 Input CRC Check Failed");
-			Serial.println(crc);
-	#endif
-	return 0;
-	}
-	return 1;
 }
 
 void HMACSHA1 () {
