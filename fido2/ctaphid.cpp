@@ -9,7 +9,7 @@
 #include <string.h>
 
 #include "WProgram.h"
-#include "arduino.h"
+#include "Arduino.h"
 #include "device.h"
 #include "ctaphid.h"
 #include "ctap.h"
