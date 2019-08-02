@@ -231,7 +231,7 @@ static int buffer_status()
     }
     else if (ctap_buffer_offset == ctap_buffer_bcnt)
     {
-		Serial.println("BUFFERED");
+		printf1(TAG_HID, "BUFFERED");
         return BUFFERED;
     }
     else
@@ -371,8 +371,8 @@ void ctaphid_check_timeouts()
 void ctaphid_update_status(int8_t status)
 {
     CTAPHID_WRITE_BUFFER wb;
-    printf1(TAG_HID, "Send device update");
-    Serial.print(status);
+    printf1(TAG_HID, "Send device update %08x \n", status);
+
     ctaphid_write_buffer_init(&wb);
 
 

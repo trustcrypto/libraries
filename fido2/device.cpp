@@ -156,7 +156,7 @@ int device_is_nfc()
 
 void ctaphid_write_block(uint8_t * data)
 {
-	Serial.println("Sending FIDO response block");
+    printf1(TAG_GREEN, "Sending FIDO response block");
 	byteprint(data, 64);
 	RawHID.send(data, 100);
 }
@@ -171,7 +171,7 @@ void device_wink()
 void authenticator_read_state(AuthenticatorState * a)
 {
    	uint8_t buffer[sizeof(AuthenticatorState)];
-	Serial.println("authenticator_read_state");
+    printf1(TAG_GREEN, "authenticator_read_state");
 	ctap_flash (0, buffer, sizeof(AuthenticatorState), 3);
 	memcpy((uint8_t*)a, buffer, sizeof(AuthenticatorState));
 	byteprint(buffer,sizeof(AuthenticatorState));
@@ -180,14 +180,14 @@ void authenticator_read_state(AuthenticatorState * a)
 void authenticator_read_backup_state(AuthenticatorState * a)
 {
    	//This function is unnecessary, using EEPROM
-   	Serial.println("authenticator_read_backup_state");
+    printf1(TAG_GREEN, "authenticator_read_backup_state");
 }
 
 // Return 1 yes backup is init'd, else 0
 int authenticator_is_backup_initialized()
 {
     //This function is unnecessary, using EEPROM
-	Serial.println("authenticator_is_backup_initialized");
+    printf1(TAG_GREEN, "authenticator_is_backup_initialized");
 	return 0;
 }
 
@@ -195,10 +195,9 @@ void authenticator_write_state(AuthenticatorState * a, int backup)
 {
 
 	uint8_t buffer[sizeof(AuthenticatorState)];
-	Serial.println("authenticator_write_state");
+    printf1(TAG_GREEN, "authenticator_write_state");
 	memcpy(buffer, (uint8_t*)a, sizeof(AuthenticatorState));
-    Serial.println("authenticator_write_state size");
-    Serial.println(sizeof(AuthenticatorState));
+    printf1(TAG_GREEN, "authenticator_write_state size %d\n", sizeof(AuthenticatorState));
     ctap_flash (0, buffer, sizeof(AuthenticatorState), 4);
 	byteprint(buffer,sizeof(AuthenticatorState));
 }
@@ -223,7 +222,7 @@ uint32_t ctap_atomic_count(int sel)
 
 void device_manage()
 {
-	Serial.println("device_manage");
+    printf1(TAG_GREEN, "device_manage");
 #if NON_BLOCK_PRINTING
     int i = 10;
     uint8_t c;
@@ -251,7 +250,7 @@ void device_manage()
 
 int ctap_user_presence_test(uint32_t wait)
 {
-	Serial.println("ctap_user_presence_test");
+    printf1(TAG_GREEN, "ctap_user_presence_test");
     extern Adafruit_NeoPixel pixels;
     int ret = 0;
     uint32_t t1 = millis();
@@ -312,26 +311,25 @@ int handle_packets()
 int ctap_generate_rng(uint8_t * dst, size_t num)
 {
     RNG2(dst, num);
-	Serial.println("ctap_generate_rng");
+    printf1(TAG_GREEN, "ctap_generate_rng");
     return 1;
 }
 
 
 int ctap_user_verification(uint8_t arg)
 {
-	Serial.println("ctap_user_verification");
+    printf1(TAG_GREEN, "ctap_user_verification");
     return 1;
 }
 
 void ctap_reset_rk()
 {
-	Serial.println("ctap_reset_rk");
-	//TODO determine if we need a function that wipes all rks
+    printf1(TAG_GREEN, "ctap_reset_rk");
 }
 
 uint32_t ctap_rk_size()
 {
-    Serial.println("ctap_rk_size support 5 RKs for now ");
+    printf1(TAG_GREEN, "ctap_rk_size support 5 RKs for now");
     return 6; //support 5 RKs for now
 }
 

@@ -118,12 +118,14 @@ int16_t bridge_to_onlykey(uint8_t * _appid, uint8_t * keyh, int handle_len, uint
 	uint8_t opt3 = keyh[3];
 
     appid_match = memcmp (stored_appid, _appid, 32);
+	#ifdef DEBUG
     Serial.println("App ID:");
     byteprint(_appid, 32);
     Serial.println("Stored App ID:");
     byteprint((uint8_t*)stored_appid, 32);
     Serial.println("Keyhandle:");
     byteprint(client_handle, handle_len);
+	#endif
 
     if (appid_match == 0) { // Only allow crp.to and localhost
       outputmode=DISCARD; // Discard output 
@@ -175,10 +177,14 @@ int16_t bridge_to_onlykey(uint8_t * _appid, uint8_t * keyh, int handle_len, uint
 			if (cmd == OKPING) { //Ping
 				outputmode=WEBAUTHN;
 				if(!CRYPTO_AUTH && !large_resp_buffer_offset) {
+					#ifdef DEBUG
 					Serial.println("Error incorrect challenge was entered");
+					#endif
 					hidprint("Error incorrect challenge was entered");
 				} else {
+					#ifdef DEBUG
 					Serial.println("Sending stored data from ping request");
+					#endif
 				}
 			}
 			// Break the FIDO message into packets
@@ -197,15 +203,19 @@ int16_t bridge_to_onlykey(uint8_t * _appid, uint8_t * keyh, int handle_len, uint
 						NEO_Color = 128; //Turquoise
 						large_buffer_offset = 0;
 						outputmode=WEBAUTHN;
+						#ifdef DEBUG
 						Serial.println("OKDECRYPT Chunk");
 						byteprint(recv_buffer, 64);
+						#endif
 						DECRYPT(recv_buffer);
 					} else if (cmd == OKSIGN) {
 						NEO_Color = 213; //Purple
 						large_buffer_offset = 0;
 						outputmode=WEBAUTHN;
+						#ifdef DEBUG
 						Serial.println("OKSIGN Chunk");
 						byteprint(recv_buffer, 64);
+						#endif
 						SIGN(recv_buffer);
 					}
 					handle_len-=57;
@@ -244,7 +254,9 @@ int16_t send_stored_response(uint8_t * output) {
 			extension_writeback(large_resp_buffer, large_resp_buffer_offset);
 			memset(large_resp_buffer, 0, LARGE_RESP_BUFFER_SIZE);
 		} else if (CRYPTO_AUTH || packet_buffer_offset) {
+			#ifdef DEBUG
 			Serial.println("Ping success");
+			#endif
 			memset(large_resp_buffer, 0, LARGE_RESP_BUFFER_SIZE);
 			ret = CTAP2_ERR_USER_ACTION_PENDING;
 		} else if (!CRYPTO_AUTH) {

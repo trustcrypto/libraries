@@ -113,8 +113,8 @@ void crypto_sha256_hmac_init(uint8_t * key, uint32_t klen, uint8_t * hmac)
     {
         key = master_secret;
         klen = sizeof(master_secret);
-        Serial.println("using master secret");
-        byteprint(master_secret, 64);
+        //Serial.println("using master secret");
+        //byteprint(master_secret, 64);
     }
     // Check if klen, it might be possible for key to
     // have a 1 or 0 as first byte
@@ -122,8 +122,8 @@ void crypto_sha256_hmac_init(uint8_t * key, uint32_t klen, uint8_t * hmac)
     {
         key = transport_secret;
         klen = 32;
-        Serial.println("using transport secret");
-        byteprint(transport_secret, 32);
+        //Serial.println("using transport secret");
+        //byteprint(transport_secret, 32);
     }
 
     if(klen > 64)
@@ -205,8 +205,8 @@ void crypto_ecc256_sign(uint8_t * data, int len, uint8_t * sig)
         printf2(TAG_ERR,"error, uECC failed\n");
         exit(1);
     }
-    Serial.print("Sig");
-    byteprint(sig, 64);
+    //Serial.print("Sig");
+    //byteprint(sig, 64);
 }
 
 void crypto_ecc256_load_key(uint8_t * data, int len, uint8_t * data2, int len2)
@@ -253,8 +253,8 @@ void crypto_ecdsa_sign(uint8_t * data, int len, uint8_t * sig, int MBEDTLS_ECP_I
         printf2(TAG_ERR,"error, uECC failed\n");
         exit(1);
     }
-    Serial.print("Sig");
-    byteprint(sig, 64);
+    //Serial.print("Sig");
+    //byteprint(sig, 64);
     return;
 
 fail:
@@ -280,7 +280,7 @@ void crypto_ecc256_derive_public_key(uint8_t * data, int len, uint8_t * x, uint8
     uint8_t pubkey[64];
 
     generate_private_key(data,len,NULL,0,privkey);
-	Serial.println("crypto_ecc256_derive_public_key start");
+	//Serial.println("crypto_ecc256_derive_public_key start");
     memset(pubkey,0,sizeof(pubkey));
 	//const struct uECC_Curve_t * curve = uECC_secp256r1();
     uECC_compute_public_key(privkey, pubkey, _es256_curve);
@@ -288,14 +288,14 @@ void crypto_ecc256_derive_public_key(uint8_t * data, int len, uint8_t * x, uint8
       //memset(privkey, 0, sizeof(privkey));
       //uECC_make_key(pubkey, privkey, _es256_curve);
 
-      Serial.println(F("Public K"));
-	  byteprint(pubkey, sizeof(pubkey));
-      Serial.println();
-      Serial.println(F("Private K"));
-	  byteprint(privkey, sizeof(privkey));
-      Serial.println();
+      //Serial.println(F("Public K"));
+	  //byteprint(pubkey, sizeof(pubkey));
+      //Serial.println();
+      //Serial.println(F("Private K"));
+	  //byteprint(privkey, sizeof(privkey));
+      //Serial.println();
 
-	Serial.println("crypto_ecc256_derive_public_key finish");
+	//Serial.println("crypto_ecc256_derive_public_key finish");
     memmove(x,pubkey,32);
     memmove(y,pubkey+32,32);
 }

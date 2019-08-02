@@ -302,6 +302,8 @@ void recvmsg(int n)
 #endif
 	}
 
+	// Debug for get and setBuffer
+	/* 
 	if (setBuffer[7] >= 0x80)
 	{
 		Serial.println("setbuffer = ");
@@ -310,6 +312,7 @@ void recvmsg(int n)
 		byteprint(getBuffer, 9);
 		byteprint(keyboard_buffer, KEYBOARD_BUFFER_SIZE);
 	}
+	*/
 
 	// This is for staging large response via keyboard, not currently used
 	//if (store_keyboard_response()) return;
@@ -1240,14 +1243,6 @@ void set_secondary_pin(uint8_t *buffer, uint8_t keyboard_mode)
 				for (unsigned int i = 0; i <= strlen(password.guess); i++)
 				{
 					temp[i] = (uint8_t)password.guess[i] ^ (ID[i] ^ (nonce[i] ^ pinmask[i])); //Mask PIN Number with nonce (flash), pinmask (eeprom), and chip ID (ROM)
-				Serial.print("ID Char ");
-		Serial.println(ID[i]);
-				Serial.print("PINmask Char ");
-		Serial.println(pinmask[i]);
-				Serial.print("nonce Char ");
-		Serial.println(nonce[i]);
-		Serial.print("PIN Char ");
-		Serial.println(temp[i]);
 				}
 				sha256_update(&pinhash, temp, strlen(password.guess)); //Add new PIN to hash
 				sha256_final(&pinhash, temp);						   //Create hash and store in temp
@@ -2356,9 +2351,11 @@ void hidprint(char const *chars)
 
 void send_transport_response(uint8_t *data, int len, uint8_t encrypt, uint8_t store)
 {
+	#ifdef DEBUG
 	Serial.println("Sending transport response data");
 	byteprint(data, len);
 	Serial.println(outputmode);
+	#endif
 
 	if (!outputmode)
 	{ //USB
@@ -2417,8 +2414,10 @@ void send_transport_response(uint8_t *data, int len, uint8_t encrypt, uint8_t st
 		keyboard_buffer[73] = crc & 0xFF;
 		keyboard_buffer[74] = crc >> 8;
 		keyboard_buffer[76] = 0x4B;
+		#ifdef DEBUG
 		Serial.println("Sending keyboard response");
 		byteprint(keyboard_buffer, 80);
+		#endif
 		wipedata(); //Wait 5 seconds for this to be retreived
 	}
 	else if (outputmode == DISCARD)
@@ -2536,7 +2535,7 @@ void keytype(char const *chars)
 			chars++; //Empty flash sector is 0xFF
 		else
 		{
-			Serial.print(*chars);
+			//Serial.print(*chars);
 			Keyboard.press(*chars);
 			delay((TYPESPEED[0] * TYPESPEED[0] / 3) * 8);
 			Keyboard.releaseAll();
@@ -5365,12 +5364,12 @@ void rsa_priv_flash(uint8_t *buffer, bool wipe)
 		}
 		onlykey_eeset_rsakey(&buffer[6], (int)buffer[5]); //Key Type (1-4) and slot (1-4)
 														  //Write buffer to flash
-#ifdef DEBUG
+		#ifdef DEBUG
 		Serial.print("Received RSA Key of size ");
 		Serial.print(keysize * 8);
 		Serial.print("RSA Key value =");
 		byteprint((uint8_t *)rsa_private_key, keysize);
-#endif
+		#endif
 		aes_gcm_encrypt(rsa_private_key, buffer[5], buffer[6], profilekey, keysize);
 		//Copy current flash contents to buffer
 		onlykey_flashget_common(tptr, (unsigned long *)adr, 2048);
@@ -5380,18 +5379,18 @@ void rsa_priv_flash(uint8_t *buffer, bool wipe)
 			temp[z + ((buffer[5] * MAX_RSA_KEY_SIZE) - MAX_RSA_KEY_SIZE)] = rsa_private_key[z];
 		}
 		//Erase flash sector
-#ifdef DEBUG
+		#ifdef DEBUG
 		Serial.printf("Erase Sector 0x%X ", adr);
-#endif
+		#endif
 		if (flashEraseSector((unsigned long *)adr))
 		{
-#ifdef DEBUG
+		#ifdef DEBUG
 			Serial.printf("NOT ");
-#endif
+		#endif
 		}
-#ifdef DEBUG
+		#ifdef DEBUG
 		Serial.printf("successful\r\n");
-#endif
+		#endif
 		//Write buffer to flash
 		onlykey_flashset_common(tptr, (unsigned long *)adr, 2048);
 
@@ -5411,10 +5410,12 @@ void ctap_flash(int index, uint8_t *buffer, int size, uint8_t mode)
 	uint8_t temp[2048]; //last part of 9th sector usable?
 	uint8_t *tptr;
 	tptr = temp;
+	#ifdef DEBUG
 	Serial.println("CTAP Flash mode= ");
 	Serial.print(mode);
 	Serial.println("Buffer Size= ");
 	Serial.print(size);
+	#endif
 	if (mode == 3)
 	{ // read auth state from EEPROM
 		onlykey_eeget_ctap_authstate(buffer);
@@ -5427,8 +5428,10 @@ void ctap_flash(int index, uint8_t *buffer, int size, uint8_t mode)
 	}
 	else
 	{
+		#ifdef DEBUG
 		Serial.print("RK Index = ");
 		Serial.print(index);
+		#endif
 		// Max size RK ~400
 		// Support 5 RKs for now, 0-4
 		if (index > 4 || index < 0)
@@ -5454,21 +5457,21 @@ void ctap_flash(int index, uint8_t *buffer, int size, uint8_t mode)
 
 		if (flashEraseSector((unsigned long *)adr))
 		{
-#ifdef DEBUG
+			#ifdef DEBUG
 			Serial.println("NOT ");
-#endif
+			#endif
 		}
-#ifdef DEBUG
+		#ifdef DEBUG
 		Serial.println("successful");
-#endif
+		#endif
 		//Write buffer to flash
 		onlykey_flashset_common(tptr, (unsigned long *)adr, sizeof(temp));
-#ifdef DEBUG
+		#ifdef DEBUG
 		Serial.print("CTAP address =");
 		Serial.println(adr, HEX);
 		Serial.print("CTAP value =");
 		byteprint(buffer, size);
-#endif
+		#endif
 		//hidprint("Successfully set CTAP Value");
 	}
 }
@@ -5491,7 +5494,7 @@ void yubikeyinit()
 {
 	if (profilemode == NONENCRYPTEDPROFILE)
 		return;
-#ifdef STD_VERSION
+	#ifdef STD_VERSION
 	uint32_t seed;
 	uint8_t *ptr = (uint8_t *)&seed;
 	RNG2(ptr, 32); //Seed the onlyKey with random data
@@ -5505,9 +5508,9 @@ void yubikeyinit()
 	char public_id[32 + 1];
 	char private_id[12 + 1];
 
-#ifdef DEBUG
+	#ifdef DEBUG
 	Serial.println("Initializing YubiKey OTP...");
-#endif
+	#endif
 	memset(temp, 0, 32); //Clear temp buffer
 
 	ptr = temp;
@@ -5520,35 +5523,35 @@ void yubikeyinit()
 	onlykey_eeget_aeskey(ptr);
 
 	aes_gcm_decrypt(temp, 0, 10, profilekey, (EElen_aeskey + EElen_private + EElen_public));
-#ifdef DEBUG
+	#ifdef DEBUG
 	Serial.println("public_id");
-#endif
+	#endif
 	for (int i = 0; i < EElen_public; i++)
 	{
 		pubID[i] = temp[i];
-#ifdef DEBUG
+	#ifdef DEBUG
 		Serial.print(pubID[i], HEX);
-#endif
+	#endif
 	}
-#ifdef DEBUG
+	#ifdef DEBUG
 	Serial.println("private_id");
-#endif
+	#endif
 	for (int i = 0; i < EElen_private; i++)
 	{
 		privID[i] = temp[i + EElen_public];
-#ifdef DEBUG
+	#ifdef DEBUG
 		Serial.print(privID[i], HEX);
-#endif
+	#endif
 	}
-#ifdef DEBUG
+	#ifdef DEBUG
 	Serial.println("aes key");
-#endif
+	#endif
 	for (int i = 0; i < EElen_aeskey; i++)
 	{
 		yaeskey[i] = temp[i + EElen_public + EElen_private];
-#ifdef DEBUG
+	#ifdef DEBUG
 		Serial.print(yaeskey[i], HEX);
-#endif
+	#endif
 	}
 
 	memset(temp, 0, 32); //Clear temp buffer
@@ -5558,14 +5561,14 @@ void yubikeyinit()
 
 	yubikey_hex_encode(private_id, (char *)privID, 6);
 	yubikey_hex_encode(public_id, (char *)pubID, 6);
-#ifdef DEBUG
+	#ifdef DEBUG
 	Serial.println("public_id");
 	Serial.println(public_id);
 	Serial.println("private_id");
 	Serial.println(private_id);
 	Serial.println("counter");
 	Serial.println(counter);
-#endif
+	#endif
 	uint32_t time = 0x010203;
 
 	yubikey_init1(&ctx, yaeskey, public_id, private_id, counter, time, seed);
@@ -5575,7 +5578,7 @@ void yubikeyinit()
 	ctr[1] = ctx.counter & 0xFF;
 
 	yubikey_eeset_counter(ctr);
-#endif
+	#endif
 }
 /*************************************/
 //Generate Yubico OTP
@@ -5584,10 +5587,10 @@ void yubikeysim(char *ptr)
 {
 	if (profilemode == NONENCRYPTEDPROFILE)
 		return;
-#ifdef STD_VERSION
+	#ifdef STD_VERSION
 	yubikey_simulate1(ptr, &ctx);
 	yubikey_incr_usage(&ctx);
-#endif
+	#endif
 }
 /*************************************/
 //Increment Yubico timestamp
@@ -5596,16 +5599,16 @@ void yubikey_incr_time()
 {
 	if (profilemode == NONENCRYPTEDPROFILE)
 		return;
-#ifdef STD_VERSION
+	#ifdef STD_VERSION
 	yubikey_incr_timestamp(&ctx);
-#endif
+	#endif
 }
 
 void increment(Task *me)
 {
-#ifndef OK_Color
+	#ifndef OK_Color
 	analogWrite(BLINKPIN, fade);
-#else
+	#else
 	if (NEO_Color == 1)
 		pixels.setPixelColor(0, pixels.Color(fade, 0, 0)); //Red
 	else if (NEO_Color < 44)
@@ -5619,7 +5622,7 @@ void increment(Task *me)
 	else if (NEO_Color < 214)
 		pixels.setPixelColor(0, pixels.Color((fade / 2), 0, (fade / 2))); //Purple
 	pixels.show();														  // This sends the updated pixel color to the hardware.
-#endif
+	#endif
 	fade += 8;
 	if (fade == 0)
 	{
@@ -5632,9 +5635,9 @@ void increment(Task *me)
 void decrement(Task *me)
 {
 	fade -= 8;
-#ifndef OK_Color
+	#ifndef OK_Color
 	analogWrite(BLINKPIN, fade);
-#else
+	#else
 	if (NEO_Color == 1)
 		pixels.setPixelColor(0, pixels.Color(fade, 0, 0)); //Red
 	else if (NEO_Color < 44)
@@ -5648,7 +5651,7 @@ void decrement(Task *me)
 	else if (NEO_Color < 214)
 		pixels.setPixelColor(0, pixels.Color((fade / 2), 0, (fade / 2))); //Purple
 	pixels.show();														  // This sends the updated pixel color to the hardware.
-#endif
+	#endif
 	if (fade == 0)
 	{
 		// -- Floor reached.
@@ -6979,29 +6982,9 @@ void done_process_packets()
 {
 	uint8_t temp[32];
 	SoftTimer.remove(&Wipedata); //Cancel this we got all packets
+	#ifdef DEBUG
 	Serial.println("done_process_packets");
-	/*
-  if (packet_buffer_details[0] == OKSETPRIV || packet_buffer_details[0] == OKSETU2FCERT) {
-    if (large_buffer_offset<LARGE_BUFFER_SIZE+6) {
-      if (packet_buffer_details[2]) {
-        memmove (large_buffer+7, large_buffer, large_buffer_offset);
-        large_buffer[6] = packet_buffer_details[2]; //Key type
-      } else {
-        memmove (large_buffer+6, large_buffer, large_buffer_offset);
-      }
-    large_buffer[0] = 0xBA;
-    memset(large_buffer+1, 0xFF, 3);
-    large_buffer[4] = packet_buffer_details[0];
-    recv_buffer[4] = packet_buffer_details[0];
-    large_buffer[5] = packet_buffer_details[1]; //Slot, not used for u2fcert
-    Serial.println("sending recvmsg");
-    byteprint(large_buffer, large_buffer_offset);
-    recvmsg(2);
-    }
-    memset(large_buffer, 0, LARGE_BUFFER_SIZE);
-    return;
-  }
-  */
+	#endif
 	isfade = 1;
 	sshchallengemode = 0;
 	pgpchallengemode = 0;
@@ -7021,7 +7004,6 @@ void done_process_packets()
 	}
 	else
 	{
-
 		SHA256_CTX msg_hash;
 		sha256_init(&msg_hash);
 		sha256_update(&msg_hash, packet_buffer, packet_buffer_offset); //add data to sign

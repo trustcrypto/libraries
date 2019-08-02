@@ -17,7 +17,9 @@ extern "C"
 {
 #endif
 
-#ifndef DEBUG_LEVEL
+#ifdef DEBUG
+#define DEBUG_LEVEL 1
+#else
 #define DEBUG_LEVEL 0
 #endif
 
@@ -56,7 +58,6 @@ typedef enum
     TAG_FILENO   = (1UL << 31)
 } LOG_TAG;
 
-#define DEBUG_LEVEL 1
 #if DEBUG_LEVEL > 0
 
 void set_logging_mask(uint32_t mask);
@@ -89,24 +90,16 @@ void set_logging_mask(uint32_t mask);
 //#define dump_hex1(tag,data,len) LOG_HEX(tag,data,len)
 
 //uint32_t timestamp();
+#define dump_hex1(tag,data,len) byteprint(data,len)
 #define timestamp()
 
 #else
 
 #define set_logging_mask(mask)
-#define printf1(tag,fmt, ...) do {\
-			Serial.println(tag);\
-            Serial.println(fmt);\
-           } while(0) 
-#define printf2(tag,fmt, ...) do {\
-			Serial.println(tag);\
-			Serial.println(fmt);\
-           } while(0) 
-#define printf3(tag,fmt, ...) do {\
-			Serial.println(tag);\
-			Serial.println(fmt);\
-           } while(0) 
-#define dump_hex1(tag,data,len) byteprint(data,len)
+#define printf1(tag,fmt, ...) 
+#define printf2(tag,fmt, ...)
+#define printf3(tag,fmt, ...)
+#define dump_hex1(tag,data,len) 
 #define timestamp()
 
 #endif
