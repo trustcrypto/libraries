@@ -25,6 +25,7 @@
 #include "extensions.h"
 
 
+
 uint8_t PIN_TOKEN[PIN_TOKEN_SIZE];
 uint8_t KEY_AGREEMENT_PUB[64];
 static uint8_t KEY_AGREEMENT_PRIV[32];
@@ -68,8 +69,7 @@ uint8_t ctap_get_info(CborEncoder * encoder)
     CborEncoder map;
     CborEncoder options;
     CborEncoder pins;
-
-printf1(TAG_GREEN, "Get Info");
+	printf1(TAG_GREEN, "Get Info");
     ret = cbor_encoder_create_map(encoder, &map, 6);
     check_ret(ret);
     {
@@ -110,29 +110,19 @@ printf1(TAG_GREEN, "Get Info");
         }
         
         ret = cbor_encode_uint(&map, RESP_options);
-        check_ret(ret);
-        printf1(TAG_GREEN, "Options");
-        
+        check_ret(ret); //printf1(TAG_GREEN, "Options");
         {
-            ret = cbor_encoder_create_map(&map, &options,4);
-            printf1(TAG_GREEN, "ret");
-            printf1(TAG_GREEN, ret);
-
+            ret = cbor_encoder_create_map(&map, &options,4); //printf1(TAG_GREEN, "ret"); printf1(TAG_GREEN, ret);
             check_ret(ret);
-            
             {
-                ret = cbor_encode_text_string(&options, "rk", 2);
-                 printf1(TAG_GREEN, "ret");
-                 printf1(TAG_GREEN, ret);
-                 dump_hex1(TAG_ERR,(uint8_t*)&options,4);
+                ret = cbor_encode_text_string(&options, "rk", 2); //printf1(TAG_GREEN, "ret");printf1(TAG_GREEN, ret);dump_hex1(TAG_ERR,(uint8_t*)&options,4);
                 check_ret(ret);
                 {
                     ret = cbor_encode_boolean(&options, 1);     // Capable of storing keys locally
                     check_ret(ret);
                 }
 
-                ret = cbor_encode_text_string(&options, "up", 2);
-                printf1(TAG_GREEN, "ret");
+                ret = cbor_encode_text_string(&options, "up", 2);//printf1(TAG_GREEN, "ret");
                 check_ret(ret);
                 {
                     ret = cbor_encode_boolean(&options, 1);     // Capable of testing user presence
@@ -365,35 +355,30 @@ static int ctap_make_extensions(CTAP_extensions * ext, uint8_t * ext_encoder_buf
         }
 
         // Generate credRandom
-        crypto_sha256_hmac_init(CRYPTO_TRANSPORT_KEY, 0, credRandom);
+        crypto_sha256_hmac_init(CRYPTO_TRANSPORT_KEY2, 0, credRandom);
         crypto_sha256_update((uint8_t*)&ext->hmac_secret.credential->id, sizeof(CredentialId));
-        crypto_sha256_hmac_final(CRYPTO_TRANSPORT_KEY, 0, credRandom);
+        crypto_sha256_hmac_final(CRYPTO_TRANSPORT_KEY2, 0, credRandom);
 
         // Decrypt saltEnc
         //crypto_aes256_init(shared_secret, NULL);
         //crypto_aes256_decrypt(ext->hmac_secret.saltEnc, ext->hmac_secret.saltLen);
 		//Replacing SOLO AES-CBC with OnlyKey AES-CBC
 		crypto_aes256_decrypt(ext->hmac_secret.saltEnc, shared_secret, ext->hmac_secret.saltLen);
-
         // Generate outputs
         crypto_sha256_hmac_init(credRandom, 32, output);
         crypto_sha256_update(ext->hmac_secret.saltEnc, 32);
         crypto_sha256_hmac_final(credRandom, 32, output);
-
         if (ext->hmac_secret.saltLen == 64)
         {
             crypto_sha256_hmac_init(credRandom, 32, output + 32);
             crypto_sha256_update(ext->hmac_secret.saltEnc + 32, 32);
             crypto_sha256_hmac_final(credRandom, 32, output + 32);
         }
-
         // Encrypt for final output
         //crypto_aes256_init(shared_secret, NULL);
         //crypto_aes256_encrypt(output, ext->hmac_secret.saltLen);
 		//Replacing SOLO AES-CBC with OnlyKey AES-CBC
 		crypto_aes256_encrypt(output, shared_secret, ext->hmac_secret.saltLen);
-
-        // output
         printf1(TAG_GREEN, "have %d bytes for Extenstions encoder\r\n",*ext_encoder_buf_size);
         cbor_encoder_init(&extensions, ext_encoder_buf, *ext_encoder_buf_size, 0);
         {
@@ -447,6 +432,12 @@ static unsigned int get_credential_id_size(CTAP_credentialDescriptor * cred)
     return sizeof(CredentialId);
 }
 
+static int ctap2_user_presence_test()
+{
+    device_set_status(CTAPHID_STATUS_UPNEEDED);
+    return ctap_user_presence_test(CTAP2_UP_DELAY_MS);
+}
+
 static int ctap_make_auth_data(struct rpId * rp, CborEncoder * map, uint8_t * auth_data_buf, uint32_t * len, CTAP_credInfo * credInfo)
 {
     CborEncoder cose_key;
@@ -474,12 +465,9 @@ static int ctap_make_auth_data(struct rpId * rp, CborEncoder * map, uint8_t * au
 
     count = auth_data_update_count(&authData->head);
 
-    device_set_status(CTAPHID_STATUS_UPNEEDED);
-
     int but;
 
-    but = ctap_user_presence_test(CTAP2_UP_DELAY_MS);
-
+    but = ctap2_user_presence_test();
     if (!but)
     {
         printf1(TAG_ERR,"CTAP2_ERR_OPERATION_DENIED");
@@ -622,7 +610,6 @@ int ctap_calculate_signature(uint8_t * data, int datalen, uint8_t * clientDataHa
     crypto_sha256_final(hashbuf);
 
     crypto_ecc256_sign(hashbuf, 32, sigbuf);
-
     return ctap_encode_der_sig(sigbuf,sigder);
 }
 
@@ -718,11 +705,11 @@ uint8_t ctap_make_credential(CborEncoder * encoder, uint8_t * request, int lengt
     }
     if (MC.pinAuthEmpty)
     {
-        if (!ctap_user_presence_test(CTAP2_UP_DELAY_MS))
+        if (!ctap2_user_presence_test())
         {
                 return CTAP2_ERR_OPERATION_DENIED;
         }
-        return ctap_is_pin_set() == 1 ? CTAP2_ERR_PIN_INVALID : CTAP2_ERR_PIN_NOT_SET;
+        return ctap_is_pin_set() == 1 ? CTAP2_ERR_PIN_AUTH_INVALID : CTAP2_ERR_PIN_NOT_SET;
     }
     if ((MC.paramsParsed & MC_requiredMask) != MC_requiredMask)
     {
@@ -784,8 +771,6 @@ uint8_t ctap_make_credential(CborEncoder * encoder, uint8_t * request, int lengt
     }
 
     uint32_t auth_data_sz = sizeof(auth_data_buf);
-
-    
 
     ret = ctap_make_auth_data(&MC.rp, &map, auth_data_buf, &auth_data_sz,
             &MC.credInfo);
@@ -1075,7 +1060,7 @@ uint8_t ctap_end_get_assertion(CborEncoder * map, CTAP_credentialDescriptor * cr
     else
 #endif
     {
-        sigder_sz = ctap_calculate_signature(auth_data_buf, sizeof(CTAP_authDataHeader), clientDataHash, auth_data_buf, sigbuf, sigder);
+        sigder_sz = ctap_calculate_signature(auth_data_buf, auth_data_buf_sz, clientDataHash, auth_data_buf, sigbuf, sigder);
     }
 
     {
@@ -1156,11 +1141,11 @@ uint8_t ctap_get_assertion(CborEncoder * encoder, uint8_t * request, int length)
 
     if (GA.pinAuthEmpty)
     {
-        if (!ctap_user_presence_test(CTAP2_UP_DELAY_MS))
+        if (!ctap2_user_presence_test())
         {
                 return CTAP2_ERR_OPERATION_DENIED;
         }
-        return ctap_is_pin_set() == 1 ? CTAP2_ERR_PIN_INVALID : CTAP2_ERR_PIN_NOT_SET;
+        return ctap_is_pin_set() == 1 ? CTAP2_ERR_PIN_AUTH_INVALID : CTAP2_ERR_PIN_NOT_SET;
     }
     if (GA.pinAuthPresent)
     {
@@ -1339,7 +1324,6 @@ uint8_t ctap_update_pin_if_verified(uint8_t * pinEnc, int len, uint8_t * platfor
         dump_hex1(TAG_ERR, pinAuth,16);
         return CTAP2_ERR_PIN_AUTH_INVALID;
     }
-
     //crypto_aes256_init(shared_secret, NULL);
 	//Replacing SOLO AES-cbc with OnlyKey AES-CBC
 
@@ -1350,6 +1334,7 @@ uint8_t ctap_update_pin_if_verified(uint8_t * pinEnc, int len, uint8_t * platfor
     //crypto_aes256_decrypt(pinEnc, len);
 	//Replacing SOLO AES-CBC with OnlyKey AES-CBC
 	crypto_aes256_decrypt(pinEnc, shared_secret, len);
+
 
     ret = trailing_zeros(pinEnc, NEW_PIN_ENC_MIN_SIZE - 1);
     ret = NEW_PIN_ENC_MIN_SIZE  - ret;
@@ -1375,12 +1360,8 @@ uint8_t ctap_update_pin_if_verified(uint8_t * pinEnc, int len, uint8_t * platfor
         {
             return CTAP2_ERR_PIN_AUTH_BLOCKED;
         }
-        //crypto_aes256_reset_iv(NULL);
-        //crypto_aes256_decrypt(pinHashEnc, 16);
-		//Replacing SOLO AES-CBC with OnlyKey AES-CBC
+        //crypto_aes256_reset_iv(NULL); //Replacing SOLO AES-CBC with OnlyKey AES-CBC //crypto_aes256_decrypt(pinHashEnc, 16);
 		crypto_aes256_decrypt(pinHashEnc, shared_secret, 16);
-
-
         if (memcmp(pinHashEnc, PIN_CODE_HASH, 16) != 0)
         {
             ctap_reset_key_agreement();
@@ -1412,9 +1393,7 @@ uint8_t ctap_add_pin_if_verified(uint8_t * pinTokenEnc, uint8_t * platform_pubke
     crypto_sha256_update(shared_secret, 32);
     crypto_sha256_final(shared_secret);
 
-
     //crypto_aes256_init(shared_secret, NULL);
-
     //crypto_aes256_decrypt(pinHashEnc, 16);
 	//Replacing SOLO AES-CBC with OnlyKey AES-CBC
 	crypto_aes256_decrypt(pinHashEnc, shared_secret, 16);
@@ -1441,10 +1420,8 @@ uint8_t ctap_add_pin_if_verified(uint8_t * pinTokenEnc, uint8_t * platform_pubke
     //crypto_aes256_reset_iv(NULL);
 
     memmove(pinTokenEnc, PIN_TOKEN, PIN_TOKEN_SIZE);
-    //crypto_aes256_encrypt(pinTokenEnc, PIN_TOKEN_SIZE);
-	//Replacing SOLO AES-CBC with OnlyKey AES-CBC
+    //crypto_aes256_encrypt(pinTokenEnc, PIN_TOKEN_SIZE); //Replacing SOLO AES-CBC with OnlyKey AES-CBC
 	crypto_aes256_encrypt(pinTokenEnc, shared_secret, PIN_TOKEN_SIZE);
-
     return 0;
 }
 
@@ -1631,23 +1608,19 @@ uint8_t ctap_request(uint8_t * pkt_raw, int length, CTAP_RESPONSE * resp)
     switch(cmd)
     {
         case CTAP_MAKE_CREDENTIAL:
-            device_set_status(CTAPHID_STATUS_PROCESSING);
             printf1(TAG_CTAP,"CTAP_MAKE_CREDENTIAL\n");
             //timestamp();
             status = ctap_make_credential(&encoder, pkt_raw, length);
             printf1(TAG_TIME,"make_credential time: %d ms\n", timestamp());
-
             resp->length = cbor_encoder_get_buffer_size(&encoder, buf);
             dump_hex1(TAG_DUMP, buf, resp->length);
 
             break;
         case CTAP_GET_ASSERTION:
-            device_set_status(CTAPHID_STATUS_PROCESSING);
             printf1(TAG_CTAP,"CTAP_GET_ASSERTION\n");
             //timestamp();
             status = ctap_get_assertion(&encoder, pkt_raw, length);
             printf1(TAG_TIME,"get_assertion time: %d ms\n", timestamp());
-
             resp->length = cbor_encoder_get_buffer_size(&encoder, buf);
 
             printf1(TAG_DUMP,"cbor [%d]: \n",  resp->length);
@@ -1674,7 +1647,7 @@ uint8_t ctap_request(uint8_t * pkt_raw, int length, CTAP_RESPONSE * resp)
             break;
         case CTAP_RESET:
             printf1(TAG_CTAP,"CTAP_RESET\n");
-            if (ctap_user_presence_test(CTAP2_UP_DELAY_MS))
+            if (ctap2_user_presence_test())
             {
                 ctap_reset();
             }
@@ -1871,19 +1844,16 @@ int8_t ctap_device_locked()
     printf1(TAG_CP, "Checking if device locked: %d\n", STATE.remaining_tries);
     return STATE.remaining_tries <= 0;
 }
-
 int8_t ctap_device_boot_locked()
 {
         printf1(TAG_CP, "Checking if device boot locked: %d\n", PIN_BOOT_ATTEMPTS_LEFT);
     return PIN_BOOT_ATTEMPTS_LEFT <= 0;
 }
-
 int8_t ctap_leftover_pin_attempts()
 {
     printf1(TAG_CP, "Checking ctap_leftover_pin_attempts: %d\n", STATE.remaining_tries);
     return STATE.remaining_tries;
 }
-
 void ctap_reset_pin_attempts()
 {
     STATE.remaining_tries = PIN_LOCKOUT_ATTEMPTS;
@@ -1895,7 +1865,6 @@ void ctap_reset_state()
 {
     memset(&getAssertionState, 0, sizeof(getAssertionState));
 }
-
 uint16_t ctap_keys_stored()
 {
     int total = 0;
@@ -1915,7 +1884,6 @@ uint16_t ctap_keys_stored()
     printf1(TAG_CP, "Checking ctap_keys_stored: %d\n", total);
     return total;
 }
-
 static uint16_t key_addr_offset(int index)
 {
     uint16_t offset = 0;
@@ -1927,7 +1895,6 @@ static uint16_t key_addr_offset(int index)
     printf1(TAG_CP, "Checking key_addr_offset: %d\n", offset);
     return offset;
 }
-
 uint16_t ctap_key_len(uint8_t index)
 {
     int i = ctap_keys_stored();
@@ -1940,7 +1907,6 @@ uint16_t ctap_key_len(uint8_t index)
     return STATE.key_lens[index];
 
 }
-
 int8_t ctap_store_key(uint8_t index, uint8_t * key, uint16_t len)
 {
     int i = ctap_keys_stored();
@@ -1951,21 +1917,17 @@ int8_t ctap_store_key(uint8_t index, uint8_t * key, uint16_t len)
         printf1(TAG_CP, "ERR_NO_KEY_SPACE");
         return ERR_NO_KEY_SPACE;
     }
-
     if (STATE.key_lens[index] != 0xffff)
     {
         printf1(TAG_CP, "ERR_KEY_SPACE_TAKEN");
         return ERR_KEY_SPACE_TAKEN;
     }
-
     offset = key_addr_offset(index);
-
     if ((offset + len) > KEY_SPACE_BYTES)
     {
         printf1(TAG_CP, "ERR_NO_KEY_SPACE");
         return ERR_NO_KEY_SPACE;
     }
-
     STATE.key_lens[index] = len;
 
     memmove(STATE.key_space + offset, key, len);
@@ -1974,7 +1936,6 @@ int8_t ctap_store_key(uint8_t index, uint8_t * key, uint16_t len)
 
     return 0;
 }
-
 int8_t ctap_load_key(uint8_t index, uint8_t * key)
 {
     int i = ctap_keys_stored();
@@ -1986,13 +1947,11 @@ int8_t ctap_load_key(uint8_t index, uint8_t * key)
         printf1(TAG_CP, "ERR_NO_KEY_SPACE 1");
         return ERR_NO_KEY_SPACE;
     }
-
     if (STATE.key_lens[index] == 0xffff)
     {
         printf1(TAG_CP, "ERR_KEY_SPACE_EMPTY");
         return ERR_KEY_SPACE_EMPTY;
     }
-
     offset = key_addr_offset(index);
     len = ctap_key_len(index);
 
@@ -2001,7 +1960,6 @@ int8_t ctap_load_key(uint8_t index, uint8_t * key)
         printf1(TAG_CP, "ERR_NO_KEY_SPACE 2");
         return ERR_NO_KEY_SPACE;
     }
-
     memmove(key, STATE.key_space + offset, len);
 
     return 0;
@@ -2012,12 +1970,10 @@ static void ctap_reset_key_agreement()
     printf1(TAG_CP, "ctap_reset_key_agreement");
     crypto_ecc256_make_key_pair(KEY_AGREEMENT_PUB, KEY_AGREEMENT_PRIV);
 }
-
 void ctap_reset()
 {
     printf1(TAG_CP, "ctap_reset");
     ctap_state_init();
-
     authenticator_write_state(&STATE, 0);
     //authenticator_write_state(&STATE, 1);
 

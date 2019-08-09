@@ -317,12 +317,6 @@ void recvmsg(int n)
 	// This is for staging large response via keyboard, not currently used
 	//if (store_keyboard_response()) return;
 
-	if (setBuffer[8] == 1 && !isfade)
-	{									//Done receiving packets
-		if (outputmode != KEYBOARD_USB) changeoutputmode(KEYBOARD_USB); //Keyboard USB
-		process_setreport();
-	}
-
 	if (!n)
 	{
 		n = RawHID.recv(recv_buffer, 0); // 0 timeout = do not wait
@@ -712,7 +706,7 @@ void keyboard_mode_config(uint8_t step)
 #ifdef DEBUG
 	Serial.println("Keyboard-config OnlyKey");
 #endif
-	uint8_t buffer[33] = {0};
+	uint8_t buffer[64] = {0};
 	KeyboardLayout[0] = 0;
 	update_keyboard_layout();
 	if (step == 0)
@@ -789,7 +783,7 @@ void keyboard_mode_config(uint8_t step)
 	sha256_init(&hash);
 	sha256_update(&hash, buffer + 7, 25);
 	sha256_final(&hash, buffer + 7);
-	ecc_priv_flash(buffer);
+	set_private(buffer); //set backup ECC key
 
 	keytype("To start using OnlyKey enter your primary or secondary PIN on the OnlyKey 6 button keypad");
 	keytype("OnlyKey is ready for use as a security key (FIDO2/U2F) and for challenge-response");
@@ -1357,7 +1351,7 @@ void set_time(uint8_t *buffer)
 			Serial.println("Time Already Set");
 #endif
 		}
-	}
+	}	
 	return;
 }
 
@@ -7142,7 +7136,8 @@ void process_setreport()
 			return;
 		}
 		memmove(recv_buffer, keyboard_buffer, 64);
-		recvmsg(1);
+		if (initialized && !unlocked) hidprint("INITIALIZED");
+		else recvmsg(1);
 		return;
 	}
 }

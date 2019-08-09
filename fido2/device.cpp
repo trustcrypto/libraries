@@ -27,8 +27,9 @@ uint32_t __90_ms = 0;
 uint32_t __device_status = 0;
 uint32_t __last_update = 0;
 //extern PCD_HandleTypeDef hpcd;
-static bool haveNFC = 0;
+//static int _NFC_status = 0;
 //static bool isLowFreq = 0;
+//static bool _RequestComeFromNFC = false;
 
 #define IS_BUTTON_PRESSED()         (u2f_button == 1)
 
@@ -150,7 +151,8 @@ void device_init()
 
 int device_is_nfc()
 {
-    return haveNFC;
+    //return haveNFC;
+    return 0;
 }
 
 
@@ -258,7 +260,7 @@ int ctap_user_presence_test(uint32_t wait)
     extern uint8_t isfade;
     
 
-    if (wait) {
+    if (wait > 750) {
         fadeon(170);
 
         do

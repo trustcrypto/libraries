@@ -23,9 +23,7 @@
 // and the following headers too
 //#include "sha2.h"
 #include "crypto.h"
-
 //#include APP_CONFIG
-
 typedef enum
 {
     IDLE = 0,
@@ -239,7 +237,6 @@ static int buffer_status()
         return BUFFERING;
     }
 }
-
 static int buffer_cmd()
 {
     return ctap_buffer_cmd;
@@ -372,9 +369,7 @@ void ctaphid_update_status(int8_t status)
 {
     CTAPHID_WRITE_BUFFER wb;
     printf1(TAG_HID, "Send device update %08x \n", status);
-
     ctaphid_write_buffer_init(&wb);
-
 
     wb.cid = buffer_cid();
     wb.cmd = CTAPHID_KEEPALIVE;
@@ -391,10 +386,7 @@ static int ctaphid_buffer_packet(uint8_t * pkt_raw, uint8_t * cmd, uint32_t * ci
     printf1(TAG_HID, "Recv packet\n");
     printf1(TAG_HID, "  CID: %08x \n", pkt->cid);
     printf1(TAG_HID, "  cmd: %02x\n", pkt->pkt.init.cmd);
-
     if (!is_cont_pkt(pkt)) {printf1(TAG_HID, "  length: %d\n", ctaphid_packet_len(pkt));}
-
-
 
     int ret;
     uint32_t oldcid;

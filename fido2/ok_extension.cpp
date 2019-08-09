@@ -105,10 +105,12 @@ extern uint8_t pending_operation;
 extern int packet_buffer_offset;
 
 const char stored_appid[] = "\xEB\xAE\xE3\x29\x09\x0A\x5B\x51\x92\xE0\xBD\x13\x2D\x5C\x22\xC6\xD1\x8A\x4D\x23\xFC\x8E\xFD\x4A\x21\xAF\xA8\xE4\xC8\xFD\x93\x54";
+const char stored_appid_u2f[] = "\x23\xCD\xF4\x07\xFD\x90\x4F\xEE\x8B\x96\x40\x08\xB0\x49\xC5\x5E\xA8\x81\x13\x36\xA3\xA5\x17\x1B\x58\xD6\x6A\xEC\xF3\x79\xE7\x4A";
 
 int16_t bridge_to_onlykey(uint8_t * _appid, uint8_t * keyh, int handle_len, uint8_t * output)
 {
-    int appid_match;
+    int appid_match1;
+	int appid_match2;
     int8_t ret = 0;
 	uint8_t *client_handle = keyh+10;
 	handle_len-=10;
@@ -117,7 +119,8 @@ int16_t bridge_to_onlykey(uint8_t * _appid, uint8_t * keyh, int handle_len, uint
 	uint8_t opt2 = keyh[2];
 	uint8_t opt3 = keyh[3];
 
-    appid_match = memcmp (stored_appid, _appid, 32);
+    appid_match1 = memcmp (stored_appid, _appid, 32);
+	appid_match2 = memcmp (stored_appid_u2f, _appid, 32);
 	#ifdef DEBUG
     Serial.println("App ID:");
     byteprint(_appid, 32);
@@ -127,7 +130,7 @@ int16_t bridge_to_onlykey(uint8_t * _appid, uint8_t * keyh, int handle_len, uint
     byteprint(client_handle, handle_len);
 	#endif
 
-    if (appid_match == 0) { // Only allow crp.to and localhost
+    if (appid_match1 == 0 || appid_match2 == 0) { // Only allow crp.to and localhost
       outputmode=DISCARD; // Discard output 
       //Todo add localhost support
 		if (cmd == OKSETTIME && !CRYPTO_AUTH) {

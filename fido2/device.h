@@ -31,6 +31,7 @@ extern void update_SHA256(const uECC_HashContext *base,
                    const uint8_t *message,
                    unsigned message_size);
 extern void finish_SHA256(const uECC_HashContext *base, uint8_t *hash_result);
+
 extern void U2Finit();
 extern void store_FIDO_response (uint8_t *data, int len, bool encrypt);
 

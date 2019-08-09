@@ -118,6 +118,9 @@ extern int mbedtls_rand( void *rng_state, unsigned char *output, size_t len);
 extern int rsa_encrypt (int len, const uint8_t *in, uint8_t *out);
 extern int shared_secret (uint8_t *pub, uint8_t *secret);
 extern void aes_crypto_box (uint8_t *buffer, int len, bool open);
+extern void crypto_sha512_init();
+extern void crypto_sha512_update(const uint8_t * data, size_t len);
+extern void crypto_sha512_final(uint8_t * hash);
 
 #ifdef __cplusplus
 }

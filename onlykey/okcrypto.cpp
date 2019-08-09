@@ -81,6 +81,7 @@
 #include <SoftTimer.h>
 #include <RNG.h>
 #include "sha1.h"
+#include "sha512.h"
 #include "yubikey.h"
 #include "device.h"
 #include "okcrypto.h"
@@ -111,6 +112,7 @@ uint8_t ecc_private_key[MAX_ECC_KEY_SIZE];
 /*************************************/
 extern uint8_t keyboard_buffer[KEYBOARD_BUFFER_SIZE];
 /*************************************/
+
 
 extern uint8_t Challenge_button1;
 extern uint8_t Challenge_button2;
@@ -796,6 +798,23 @@ int shared_secret (uint8_t *pub, uint8_t *secret) {
 		hidprint("Error ECC type incorrect");
 		return 1;
 	}
+}
+
+mbedtls_md_context_t sha512_ctx;
+
+void crypto_sha512_init() {
+	mbedtls_md_type_t md_type = MBEDTLS_MD_SHA512;
+	mbedtls_md_init (&sha512_ctx);
+	mbedtls_md_setup(&sha512_ctx, mbedtls_md_info_from_type(md_type), 0); // 0 = not using HMAC
+}
+
+void crypto_sha512_update(const uint8_t * data, size_t len) {
+	mbedtls_md_update (&sha512_ctx, data, len);
+}
+
+void crypto_sha512_final(uint8_t * hash) {
+	mbedtls_md_finish (&sha512_ctx, hash);
+	mbedtls_md_free (&sha512_ctx);
 }
 
 void aes_crypto_box (uint8_t *buffer, int len, bool open) {

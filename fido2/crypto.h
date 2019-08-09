@@ -24,11 +24,6 @@ void crypto_sha256_final(uint8_t * hash);
 void crypto_sha256_hmac_init(uint8_t * key, uint32_t klen, uint8_t * hmac);
 void crypto_sha256_hmac_final(uint8_t * key, uint32_t klen, uint8_t * hmac);
 
-void crypto_sha512_init();
-void crypto_sha512_update(const uint8_t * data, size_t len);
-void crypto_sha512_final(uint8_t * hash);
-
-
 void crypto_ecc256_init();
 void crypto_ecc256_derive_public_key(uint8_t * data, int len, uint8_t * x, uint8_t * y);
 
@@ -43,6 +38,7 @@ void generate_private_key(uint8_t * data, int len, uint8_t * data2, int len2, ui
 void crypto_ecc256_make_key_pair(uint8_t * pubkey, uint8_t * privkey);
 void crypto_ecc256_shared_secret(const uint8_t * pubkey, const uint8_t * privkey, uint8_t * shared_secret);
 
+#define CRYPTO_TRANSPORT_KEY2            ((uint8_t*)2)
 #define CRYPTO_TRANSPORT_KEY            ((uint8_t*)1)
 #define CRYPTO_MASTER_KEY               ((uint8_t*)0)
 

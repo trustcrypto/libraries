@@ -15,6 +15,7 @@
 #ifdef ENABLE_U2F_EXTENSIONS
 #include "extensions.h"
 #endif
+
 //#include APP_CONFIG
 
 // void u2f_response_writeback(uint8_t * buf, uint8_t len);
@@ -96,6 +97,8 @@ void u2f_request_ex(APDU_HEADER *req, uint8_t *payload, uint32_t len, CTAP_RESPO
 #endif
     }
 
+	device_set_status(CTAPHID_STATUS_IDLE);
+
 end:
     if (rcode != U2F_SW_NO_ERROR)
     {
@@ -110,17 +113,17 @@ end:
 
     printf1(TAG_U2F,"u2f resp: "); dump_hex1(TAG_U2F, _u2f_resp->data, _u2f_resp->length);
 }
-
-void u2f_request_nfc(uint8_t * req, int len, CTAP_RESPONSE * resp)
+/* 
+void u2f_request_nfc(uint8_t * header, uint8_t * data, int datalen, CTAP_RESPONSE * resp)
 {
-	if (len < 5 || !req)
+	if (!header)
 		return;
 
-    uint32_t alen = req[4];
-
-	u2f_request_ex((APDU_HEADER *)req, &req[5], alen, resp);
+    request_from_nfc(true);  // disable presence test
+	u2f_request_ex((APDU_HEADER *)header, data, datalen, resp);
+    request_from_nfc(false); // enable presence test
 }
-
+*/
 void u2f_request(struct u2f_request_apdu* req, CTAP_RESPONSE * resp)
 {
     uint32_t len = ((req->LC3) | ((uint32_t)req->LC2 << 8) | ((uint32_t)req->LC1 << 16));
@@ -241,7 +244,7 @@ static int16_t u2f_authenticate(struct u2f_authenticate_request * req, uint8_t c
 
 	if(up)
 	{
-		if (ctap_user_presence_test(0) == 0)
+		if (ctap_user_presence_test(750) == 0)
 		{
 			return U2F_SW_CONDITIONS_NOT_SATISFIED;
 		}
@@ -287,7 +290,7 @@ static int16_t u2f_register(struct u2f_register_request * req)
 
     const uint16_t attest_size = attestation_cert_der_size;
 
-		if ( ctap_user_presence_test(0) == 0)
+		if ( ! ctap_user_presence_test(750))
 	{
 		return U2F_SW_CONDITIONS_NOT_SATISFIED;
 	}

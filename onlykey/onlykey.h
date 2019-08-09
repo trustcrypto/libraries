@@ -78,7 +78,7 @@
 #ifndef ONLYKEY_H
 #define ONLYKEY_H
 
-//#define DEBUG //Enable Serial Monitor
+#define DEBUG //Enable Serial Monitor
 #define STD_VERSION //Define for US Version Firmare
 #define OK_Color //Color Version
 #define ONLYKEY_SOLO //Using FIDO2 from SOLO
