@@ -124,7 +124,7 @@ extern uint8_t resp_buffer[64];
 extern uint8_t* large_buffer;
 extern uint8_t recv_buffer[64];
 extern int large_buffer_len;
-extern int msgcount;
+//extern int msgcount;
 extern uint8_t profilekey[32];
 extern uint8_t packet_buffer_details[5];
 extern uint8_t* large_resp_buffer;
@@ -309,7 +309,7 @@ void RSASIGN (uint8_t *buffer)
   memset(large_buffer, 0, LARGE_BUFFER_SIZE);
   if (rsa_sign (large_buffer_offset, rsa_signaturetemp, rsa_signature) == 0)
 	{
-		pending_operation=0;
+		pending_operation=CTAP2_ERR_DATA_READY;
 #ifdef DEBUG
 		Serial.print("Signature = ");
 	    byteprint(rsa_signature, sizeof(rsa_signature));
@@ -328,6 +328,7 @@ void RSASIGN (uint8_t *buffer)
 #ifdef DEBUG
     Serial.println("Waiting for challenge buttons to be pressed");
 #endif
+	pending_operation=CTAP2_ERR_USER_ACTION_PENDING;
 	}
 }
 
@@ -362,7 +363,7 @@ void RSADECRYPT (uint8_t *buffer)
   memset(large_buffer, 0, LARGE_BUFFER_SIZE);
   if (rsa_decrypt (&plaintext_len, rsa_decrypttemp, large_resp_buffer) == 0)
 	{
-		pending_operation=0;
+		pending_operation=CTAP2_ERR_DATA_READY;
 #ifdef DEBUG
 		Serial.println();
 		Serial.print("Plaintext len = ");
@@ -385,6 +386,7 @@ void RSADECRYPT (uint8_t *buffer)
 #ifdef DEBUG
     Serial.println("Waiting for challenge buttons to be pressed");
 #endif
+	pending_operation=CTAP2_ERR_USER_ACTION_PENDING;
 	}
 }
 
@@ -563,6 +565,7 @@ void ECDSA_EDDSA(uint8_t *buffer)
 #ifdef DEBUG
     Serial.println("Waiting for challenge buttons to be pressed");
 #endif
+	pending_operation=CTAP2_ERR_USER_ACTION_PENDING;
 	}
 }
 
@@ -820,12 +823,12 @@ void crypto_sha512_final(uint8_t * hash) {
 void aes_crypto_box (uint8_t *buffer, int len, bool open) {
 	uint8_t iv[12];
 	memset(iv, 0, 12);
-	msgcount++;
-	int ctr = ((msgcount>>24)&0xff) | // move byte 3 to byte 0
-	  ((msgcount<<8)&0xff0000) | // move byte 1 to byte 2
-	  ((msgcount>>8)&0xff00) | // move byte 2 to byte 1
-	  ((msgcount<<24)&0xff000000); // byte 0 to byte 3
-	memcpy(iv, &ctr, 4);
+	//msgcount++;
+	//int ctr = ((msgcount>>24)&0xff) | // move byte 3 to byte 0
+	//  ((msgcount<<8)&0xff0000) | // move byte 1 to byte 2
+	//  ((msgcount>>8)&0xff00) | // move byte 2 to byte 1
+	//  ((msgcount<<24)&0xff000000); // byte 0 to byte 3
+	//memcpy(iv, &ctr, 4);
 	#ifdef DEBUG
 	Serial.print("IV");
 	byteprint(iv, 12);

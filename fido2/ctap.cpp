@@ -315,9 +315,10 @@ static void ctap_increment_rk_store()
 
 static int is_matching_rk(CTAP_residentKey * rk, CTAP_residentKey * rk2)
 {
-    return (memcmp(rk->id.rpIdHash, rk2->id.rpIdHash, 32) == 0) &&
-           (memcmp(rk->user.id, rk2->user.id, rk->user.id_size) == 0) &&
-           (rk->user.id_size == rk2->user.id_size);
+    if ((memcmp(rk->id.rpIdHash, rk2->id.rpIdHash, 32) == 0) &&
+        (memcmp(rk->user.id, rk2->user.id, rk->user.id_size) == 0) &&
+        (rk->user.id_size == rk2->user.id_size)) return 1;
+    else return 0;
 }
 
 static int ctap_make_extensions(CTAP_extensions * ext, uint8_t * ext_encoder_buf, unsigned int * ext_encoder_buf_size)
@@ -1002,6 +1003,7 @@ int ctap_filter_invalid_credentials(CTAP_getAssertion * GA)
 
 static void save_credential_list(CTAP_authDataHeader * head, uint8_t * clientDataHash, CTAP_credentialDescriptor * creds, uint32_t count)
 {
+   
     if(count)
     {
         if (count > ALLOW_LIST_MAX_SIZE-1)
@@ -1036,26 +1038,35 @@ uint8_t ctap_end_get_assertion(CborEncoder * map, CTAP_credentialDescriptor * cr
 {
     int ret;
     uint8_t sigbuf[64];
-    uint8_t sigder[72];
+    uint8_t sigder[514];
     int sigder_sz;
 
     ret = ctap_add_credential_descriptor(map, cred);  // 1
+      
     check_retr((CborError)ret);
 
     {
         ret = cbor_encode_int(map,RESP_authData);  // 2
         check_ret(ret);
+          
         ret = cbor_encode_byte_string(map, auth_data_buf, auth_data_buf_sz);
+   
         check_ret(ret);
     }
-
+    
     unsigned int cred_size = get_credential_id_size(cred);
     crypto_ecc256_load_key((uint8_t*)&cred->credential.id, cred_size, NULL, 0);
 
 #ifdef ENABLE_U2F_EXTENSIONS
-    if ( extend_fido2(&cred->credential.id, sigder) )
+    if ( extend_fido2(&cred->credential.id, &cred->type, sigder) )
     {
-        sigder_sz = 72;
+        extern int large_resp_buffer_offset;
+        extern uint8_t pending_operation;
+        if ((pending_operation==CTAP2_ERR_DATA_READY || pending_operation==CTAP2_ERR_DATA_WIPE) && large_resp_buffer_offset+1< sizeof(sigder)) {
+            sigder_sz=large_resp_buffer_offset+1;
+            printf1(TAG_GA,"sigder");
+            dump_hex1(TAG_GA, sigder,large_resp_buffer_offset);
+        } else sigder_sz = 72;
     }
     else
 #endif
@@ -1067,14 +1078,17 @@ uint8_t ctap_end_get_assertion(CborEncoder * map, CTAP_credentialDescriptor * cr
         ret = cbor_encode_int(map, RESP_signature);  // 3
         check_ret(ret);
         ret = cbor_encode_byte_string(map, sigder, sigder_sz);
+
         check_ret(ret);
     }
 
     if (cred->credential.user.id_size)
     {
         printf1(TAG_GREEN, "adding user details to output\r\n");
+       
         ret = ctap_add_user_entity(map, &cred->credential.user);  // 4
         check_retr((CborError)ret);
+   
     }
 
 
@@ -1131,7 +1145,18 @@ uint8_t ctap_get_assertion(CborEncoder * encoder, uint8_t * request, int length)
     CTAP_getAssertion GA;
 
     uint8_t auth_data_buf[sizeof(CTAP_authDataHeader) + 80];
+
+    printf1(TAG_GA,"Raw Request");
+    dump_hex1(TAG_GA, request,256);
+
+    printf1(TAG_GA,"Saved Stack");
+    dump_hex1(TAG_GA, (uint8_t*)getAssertionState.creds,256);
+
     int ret = ctap_parse_get_assertion(&GA,request,length);
+
+    printf1(TAG_GA,"parsed &GA,request");
+    dump_hex1(TAG_GA, (uint8_t*)GA.creds,256);
+ 
 
     if (ret != 0)
     {
@@ -1192,8 +1217,11 @@ uint8_t ctap_get_assertion(CborEncoder * encoder, uint8_t * request, int length)
     ret = cbor_encoder_create_map(encoder, &map, map_size);
     check_ret(ret);
 
+    // Check if its PUB_KEY_CRED_CUSTOM, if it is nulling out the user details causes an invalid response
+    CTAP_credentialDescriptor * cred = &GA.creds[validCredCount - 1];
+
     // if only one account for this RP, null out the user details
-    if (validCredCount < 2 || !getAssertionState.user_verified)
+    if ((validCredCount < 2 || !getAssertionState.user_verified) && cred->type != PUB_KEY_CRED_CUSTOM)
     {
         printf1(TAG_GREEN, "Only one account, nulling out user details on response\r\n");
         memset(&GA.creds[0].credential.user.name, 0, USER_NAME_LIMIT);
@@ -1205,16 +1233,27 @@ uint8_t ctap_get_assertion(CborEncoder * encoder, uint8_t * request, int length)
     {
         printf1(TAG_GA,"CRED ID (# %d)\n", GA.creds[j].credential.id.count);
     }
+    cred = &GA.creds[validCredCount - 1];
 
-    CTAP_credentialDescriptor * cred = &GA.creds[validCredCount - 1];
-
+    if (cred->type == PUB_KEY_CRED_CUSTOM) {
+        cred = &getAssertionState.creds[validCredCount - 1];
+        printf1(TAG_DUMP,"getAssertionState.creds[validCredCount - 1]"); dump_hex1(TAG_DUMP, (uint8_t *)&getAssertionState.creds[validCredCount - 1], 256);
+                printf1(TAG_DUMP,"GA.creds"); dump_hex1(TAG_DUMP, (uint8_t *)GA.creds, 256);
+                   printf1(TAG_DUMP,"getAssertionState.creds"); dump_hex1(TAG_DUMP, (uint8_t *)getAssertionState.creds, 256);
+   }
+    else {
+        printf1(TAG_DUMP,"GA.creds"); dump_hex1(TAG_DUMP, (uint8_t *)&GA.creds[validCredCount - 1], 256);
+    } 
     GA.extensions.hmac_secret.credential = &cred->credential;
 
     uint32_t auth_data_buf_sz = sizeof(auth_data_buf);
 
 #ifdef ENABLE_U2F_EXTENSIONS
+printf1(TAG_GA,"Checking if extension request");
+
     if ( is_extension_request((uint8_t*)&GA.creds[validCredCount - 1].credential.id, sizeof(CredentialId)) )
     {
+
         auth_data_buf_sz = sizeof(CTAP_authDataHeader);
 
         crypto_sha256_init();
@@ -1227,7 +1266,7 @@ uint8_t ctap_get_assertion(CborEncoder * encoder, uint8_t * request, int length)
     else
 #endif
     {
-
+        printf1(TAG_GA,"not extension request");
         ret = ctap_make_auth_data(&GA.rp, &map, auth_data_buf, &auth_data_buf_sz, NULL);
         check_retr((CborError)ret);
 
@@ -1250,8 +1289,8 @@ uint8_t ctap_get_assertion(CborEncoder * encoder, uint8_t * request, int length)
     }
 
     save_credential_list((CTAP_authDataHeader*)auth_data_buf, GA.clientDataHash, GA.creds, validCredCount-1);   // skip last one
-
     ret = ctap_end_get_assertion(&map, cred, auth_data_buf, auth_data_buf_sz, GA.clientDataHash);  // 1,2,3,4
+   
     check_retr((CborError)ret);
 
     if (validCredCount > 1)
@@ -1262,8 +1301,11 @@ uint8_t ctap_get_assertion(CborEncoder * encoder, uint8_t * request, int length)
         check_ret(ret);
     }
 
+   
     ret = cbor_encoder_close_container(encoder, &map);
     check_ret(ret);
+
+        
 
     return 0;
 }
@@ -1588,6 +1630,9 @@ uint8_t ctap_request(uint8_t * pkt_raw, int length, CTAP_RESPONSE * resp)
     printf1(TAG_CTAP,"cbor input structure: %d bytes\n", length);
     printf1(TAG_DUMP,"cbor req: "); dump_hex1(TAG_DUMP, pkt_raw, length);
 
+    printf1(TAG_GA,"Saved Stack");
+    dump_hex1(TAG_GA, (uint8_t*)getAssertionState.creds,128);
+
     switch(cmd)
     {
         case CTAP_MAKE_CREDENTIAL:
@@ -1620,6 +1665,7 @@ uint8_t ctap_request(uint8_t * pkt_raw, int length, CTAP_RESPONSE * resp)
             printf1(TAG_CTAP,"CTAP_GET_ASSERTION\n");
             //timestamp();
             status = ctap_get_assertion(&encoder, pkt_raw, length);
+            
             printf1(TAG_TIME,"get_assertion time: %d ms\n", timestamp());
             resp->length = cbor_encoder_get_buffer_size(&encoder, buf);
 

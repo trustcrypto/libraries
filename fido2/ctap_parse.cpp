@@ -907,9 +907,10 @@ uint8_t parse_credential_descriptor(CborValue * arr, CTAP_credentialDescriptor *
         return CTAP2_ERR_INVALID_CBOR_TYPE;
     }
 
+    extern struct _getAssertionState getAssertionState;
+
     ret = cbor_value_map_find_value(arr, "id", &val);
     check_ret(ret);
-
     if (cbor_value_get_type(&val) != CborByteStringType)
     {
         printf2(TAG_ERR,"Error, No valid ID field (%s)\n", cbor_value_get_type_string(&val));
@@ -917,6 +918,7 @@ uint8_t parse_credential_descriptor(CborValue * arr, CTAP_credentialDescriptor *
     }
 
     buflen = sizeof(CredentialId);
+
     ret = cbor_value_copy_byte_string(&val, (uint8_t*)&cred->credential.id, &buflen, NULL);
 
     if (buflen == U2F_KEY_HANDLE_SIZE)
@@ -926,16 +928,21 @@ uint8_t parse_credential_descriptor(CborValue * arr, CTAP_credentialDescriptor *
     }
     else if (buflen != sizeof(CredentialId))
     {
+        
         printf2(TAG_ERR,"Ignoring credential is incorrect length, treating as custom\n");
         cred->type = PUB_KEY_CRED_CUSTOM;
         buflen = 256;
+        ret = cbor_value_copy_byte_string(&val, (uint8_t*)&cred->credential.id, &buflen, NULL);
+        getAssertionState.customCredIdSize = buflen;
         ret = cbor_value_copy_byte_string(&val, getAssertionState.customCredId, &buflen, NULL);
         getAssertionState.customCredIdSize = buflen;
+
     }
     check_ret(ret);
 
     ret = cbor_value_map_find_value(arr, "type", &val);
     check_ret(ret);
+
 
     if (cbor_value_get_type(&val) != CborTextStringType)
     {
@@ -945,6 +952,7 @@ uint8_t parse_credential_descriptor(CborValue * arr, CTAP_credentialDescriptor *
 
     buflen = sizeof(type);
     ret = cbor_value_copy_text_string(&val, type, &buflen, NULL);
+
     if (ret == CborErrorOutOfMemory)
     {
         cred->type = PUB_KEY_CRED_UNKNOWN;
@@ -979,6 +987,8 @@ uint8_t parse_allow_list(CTAP_getAssertion * GA, CborValue * it)
     unsigned int i;
     CTAP_credentialDescriptor * cred;
 
+    extern struct _getAssertionState getAssertionState;
+
     if (cbor_value_get_type(it) != CborArrayType)
     {
         printf2(TAG_ERR,"Error, expecting cbor array\n");
@@ -1003,7 +1013,6 @@ uint8_t parse_allow_list(CTAP_getAssertion * GA, CborValue * it)
 
         GA->credLen += 1;
         cred = &GA->creds[i];
-
         ret = parse_credential_descriptor(&arr,cred);
         check_retr(ret);
 
@@ -1026,6 +1035,7 @@ uint8_t ctap_parse_get_assertion(CTAP_getAssertion * GA, uint8_t * request, int 
 
     memset(GA, 0, sizeof(CTAP_getAssertion));
     GA->creds = getAssertionState.creds;     // Save stack memory
+
 
     ret = cbor_parser_init(request, length, CborValidateCanonicalFormat, &parser, &it);
     check_ret(ret);
@@ -1084,7 +1094,6 @@ uint8_t ctap_parse_get_assertion(CTAP_getAssertion * GA, uint8_t * request, int 
                 ret = parse_allow_list(GA, &map);
                 check_ret(ret);
                 GA->allowListPresent = 1;
-
                 break;
             case GA_extensions:
                 printf1(TAG_GA,"GA_extensions\n");
@@ -1145,6 +1154,7 @@ uint8_t ctap_parse_get_assertion(CTAP_getAssertion * GA, uint8_t * request, int 
             printf2(TAG_ERR,"error, parsing failed\n");
             return ret;
         }
+
 
         cbor_value_advance(&map);
         check_ret(ret);

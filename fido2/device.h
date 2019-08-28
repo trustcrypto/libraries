@@ -19,6 +19,7 @@ typedef struct SHA256_HashContext{
     SHA256_CTX ctx;
 } SHA256_HashContext;
 
+
 #ifdef __cplusplus
 extern "C"
 {
