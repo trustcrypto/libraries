@@ -100,7 +100,7 @@ void store_FIDO_response (uint8_t *data, int len, bool encrypt) {
 	cancelfadeoffafter20();
   if (len >= (int)LARGE_RESP_BUFFER_SIZE) return; //Double check buf overflow
 	if (encrypt) {
-	//	aes_crypto_box (data, len, false);
+		aes_crypto_box (data, len, false);
 	} else {
     // Unencrypted message, check if it's an error message
     if (strcmp((char*)data, "Error")) {
@@ -326,30 +326,31 @@ int ctap_user_verification(uint8_t arg)
 void ctap_reset_rk()
 {
     printf1(TAG_GREEN, "ctap_reset_rk");
+    ctap_flash(NULL, NULL, NULL, 5);
 }
 
 uint32_t ctap_rk_size()
 {
-    printf1(TAG_GREEN, "ctap_rk_size support 5 RKs for now");
-    return 6; //support 5 RKs for now
+    printf1(TAG_GREEN, "15 RKs for now");
+    return 16; //support 15 RKs for now
 }
 
 void ctap_store_rk(int index,CTAP_residentKey * rk)
 {
-	printf1(TAG_GREEN, "storing RK %d \r\n", index);
+	printf1(TAG_GREEN, "store RK %d \r\n", index);
 	ctap_flash(index, (uint8_t*)rk, sizeof(CTAP_residentKey), 2);
 }
 
 void ctap_load_rk(int index,CTAP_residentKey * rk)
 {
-	 printf1(TAG_GREEN, "reading RK %d \r\n", index);
+	 printf1(TAG_GREEN, "read RK %d \r\n", index);
 	ctap_flash(index, (uint8_t*)rk, sizeof(CTAP_residentKey), 1);
 }
 
 void ctap_overwrite_rk(int index,CTAP_residentKey * rk)
 {
 
-	printf1(TAG_GREEN, "overwriting RK %d \r\n", index);
+	printf1(TAG_GREEN, "OVWR RK %d \r\n", index);
 	ctap_store_rk(index, rk);
 }
 

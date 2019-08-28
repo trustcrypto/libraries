@@ -1339,7 +1339,8 @@ void set_time(uint8_t *buffer)
 			Serial.println(unixTimeStamp, HEX);
 #endif
 			setTime(t2);
-			setCounter(unixTimeStamp-0x5D2BA76E); 
+			uint32_t counter1 = getCounter();
+			if (unixTimeStamp>0x5D2BA76E && ((unixTimeStamp-0x5D2BA76E)/5)>counter1) setCounter((unixTimeStamp-0x5D2BA76E)/5); 
 #ifdef DEBUG
 			Serial.println("Current Time Set to: ");
 #endif
@@ -2954,6 +2955,7 @@ int onlykey_flashget_noncehash(uint8_t *ptr, int size)
 {
 	int set = 0;
 	uintptr_t adr = (unsigned long)flashstorestart;
+	adr = adr + 2048; //2nd free sector
 #ifdef DEBUG
 	Serial.printf("Reading nonce from Sector 0x%X ", adr);
 #endif
@@ -2982,6 +2984,7 @@ void onlykey_flashset_noncehash(uint8_t *ptr)
 {
 
 	uintptr_t adr = (unsigned long)flashstorestart;
+	adr = adr + 2048; //2nd free sector
 	uint8_t temp[255];
 	uint8_t *tptr;
 	tptr = temp;
@@ -3007,6 +3010,7 @@ int onlykey_flashget_pinhashpublic(uint8_t *ptr, int size)
 {
 
 	uintptr_t adr = (unsigned long)flashstorestart;
+	adr = adr + 2048; //2nd free sector
 	adr = adr + EElen_noncehash;
 	onlykey_flashget_common(ptr, (unsigned long *)adr, EElen_pinhash);
 	if (*ptr == 255 && *(ptr + 1) == 255 && *(ptr + 2) == 255)
@@ -3031,6 +3035,7 @@ void onlykey_flashset_pinhashpublic(uint8_t *ptr)
 {
 
 	uintptr_t adr = (unsigned long)flashstorestart;
+	adr = adr + 2048; //2nd free sector
 	uint8_t temp[255];
 	uint8_t tempkey[32];
 	uint8_t *tptr;
@@ -3076,6 +3081,7 @@ int onlykey_flashget_selfdestructhash(uint8_t *ptr)
 {
 
 	uintptr_t adr = (unsigned long)flashstorestart;
+	adr = adr + 2048; //2nd free sector
 	adr = adr + EElen_noncehash + EElen_pinhash;
 	onlykey_flashget_common(ptr, (unsigned long *)adr, EElen_selfdestructhash);
 
@@ -3102,6 +3108,7 @@ void onlykey_flashset_selfdestructhash(uint8_t *ptr)
 {
 
 	uintptr_t adr = (unsigned long)flashstorestart;
+	adr = adr + 2048; //2nd free sector
 	uint8_t temp[255];
 	uint8_t *tptr;
 	tptr = temp;
@@ -3129,6 +3136,7 @@ int onlykey_flashget_2ndpinhashpublic(uint8_t *ptr)
 {
 
 	uintptr_t adr = (unsigned long)flashstorestart;
+	adr = adr + 2048; //2nd free sector
 	adr = adr + EElen_noncehash + EElen_pinhash + EElen_selfdestructhash;
 	onlykey_flashget_common(ptr, (unsigned long *)adr, EElen_2ndpinhash);
 
@@ -3154,6 +3162,7 @@ void onlykey_flashset_2ndpinhashpublic(uint8_t *ptr)
 
 	uint8_t p2mode;
 	uintptr_t adr = (unsigned long)flashstorestart;
+	adr = adr + 2048; //2nd free sector
 	uint8_t temp[255];
 	uint8_t tempkey[32];
 	uint8_t *tptr;
@@ -3212,7 +3221,7 @@ int onlykey_flashget_url(uint8_t *ptr, int slot)
 {
 
 	uintptr_t adr = (unsigned long)flashstorestart;
-	adr = adr + 2048; //2nd free sector
+	adr = adr + 4096; //3rd free sector
 	switch (slot)
 	{
 		uint8_t length;
@@ -3417,7 +3426,7 @@ void onlykey_flashset_url(uint8_t *ptr, int size, int slot)
 {
 
 	uintptr_t adr = (unsigned long)flashstorestart;
-	adr = adr + 2048; //2nd free sector
+	adr = adr + 4096; //3rd free sector
 	uint8_t temp[2048];
 	uint8_t *tptr;
 	tptr = temp;
@@ -3690,7 +3699,7 @@ int onlykey_flashget_username(uint8_t *ptr, int slot)
 {
 
 	uintptr_t adr = (unsigned long)flashstorestart;
-	adr = adr + 4096; //3rd free sector
+	adr = adr + 6144; //4th free sector
 	switch (slot)
 	{
 		uint8_t length;
@@ -3915,7 +3924,7 @@ void onlykey_flashset_username(uint8_t *ptr, int size, int slot)
 {
 
 	uintptr_t adr = (unsigned long)flashstorestart;
-	adr = adr + 4096; //3rd free sector
+	adr = adr + 6144; //4th free sector
 	uint8_t temp[2048];
 	uint8_t *tptr;
 	tptr = temp;
@@ -4187,7 +4196,7 @@ void onlykey_flashset_username(uint8_t *ptr, int size, int slot)
 void onlykey_flashget_label(uint8_t *ptr, int slot)
 {
 	uintptr_t adr = (unsigned long)flashstorestart;
-	adr = adr + 6144; //4th free sector
+	adr = adr + 8192; //5th free sector
 	if (slot > 58 && slot < 0)
 		return;
 	adr = adr + ((EElen_label * slot) - EElen_label);
@@ -4198,7 +4207,7 @@ void onlykey_flashset_label(uint8_t *ptr, int slot)
 {
 
 	uintptr_t adr = (unsigned long)flashstorestart;
-	adr = adr + 6144; //4th free sector
+	adr = adr + 8192; //5th free sector
 	uint8_t temp[2048];
 	uint8_t *tptr;
 	tptr = temp;
@@ -4238,7 +4247,7 @@ int onlykey_flashget_totpkey(uint8_t *ptr, int slot)
 {
 
 	uintptr_t adr = (unsigned long)flashstorestart;
-	adr = adr + 8192; //5th free sector
+	adr = adr + 10240; //6th flash sector
 	switch (slot)
 	{
 		uint8_t length;
@@ -4466,7 +4475,7 @@ void onlykey_flashset_totpkey(uint8_t *ptr, int size, int slot)
 {
 
 	uintptr_t adr = (unsigned long)flashstorestart;
-	adr = adr + 8192;
+	adr = adr + 10240; //6th flash sector
 	uint8_t temp[2048];
 	uint8_t *tptr;
 	tptr = temp;
@@ -4746,7 +4755,7 @@ void onlykey_flashget_U2F()
 #endif
 	uint8_t length[2];
 	uintptr_t adr = (unsigned long)flashstorestart;
-	adr = adr + 10240; //6th flash sector
+	adr = adr + 12288; //7th flash sector
 	onlykey_flashget_common((uint8_t *)attestation_key, (unsigned long *)adr, 32);
 #ifdef DEBUG
 	Serial.print("attestation_key =");
@@ -4785,7 +4794,7 @@ void set_u2f_priv(uint8_t *buffer)
 	Serial.println("OKSETU2FPRIV MESSAGE RECEIVED");
 #endif
 	uintptr_t adr = (unsigned long)flashstorestart;
-	adr = adr + 10240; //6th flash sector
+	adr = adr + 12288; //7th flash sector
 	uint8_t *ptr;
 	uint8_t temp[2048];
 	uint8_t *tptr;
@@ -4846,7 +4855,7 @@ void wipe_u2f_priv(uint8_t *buffer)
 	Serial.println("OKWIPEU2FPRIV MESSAGE RECEIVED");
 #endif
 	uintptr_t adr = (unsigned long)flashstorestart;
-	adr = adr + 10240; //6th flash sector
+	adr = adr + 12288; //7th flash sector
 					   //Erase flash sector
 #ifdef DEBUG
 	Serial.printf("Erase Sector 0x%X ", adr);
@@ -4877,7 +4886,7 @@ void set_u2f_cert(uint8_t *buffer)
 #endif
 	uint8_t length[2];
 	uintptr_t adr = (unsigned long)flashstorestart;
-	adr = adr + 10240; //6th flash sector
+	adr = adr + 12288; //7th flash sector
 	uint8_t *ptr;
 	uint8_t temp[2048];
 	uint8_t *tptr;
@@ -4963,7 +4972,7 @@ void wipe_u2f_cert(uint8_t *buffer)
 #endif
 	uint8_t length[2] = {0x00, 0x00};
 	uintptr_t adr = (unsigned long)flashstorestart;
-	adr = adr + 10240; //6th flash sector
+	adr = adr + 12288; //7th flash sector
 					   //Erase flash sector
 #ifdef DEBUG
 	Serial.printf("Erase Sector 0x%X ", adr);
@@ -5065,7 +5074,7 @@ int onlykey_flashget_ECC(uint8_t slot)
 		return 0;
 	}
 	uintptr_t adr = (unsigned long)flashstorestart;
-	adr = adr + 12288;				   //7th flash sector
+	adr = adr + 14336; //8th free flash sector
 	onlykey_eeget_ecckey(&type, slot); //Key Type (1-3) and slot (101-132)
 #ifdef DEBUG
 	Serial.print("Type of ECC KEY with features is ");
@@ -5132,7 +5141,7 @@ void ecc_priv_flash(uint8_t *buffer)
 	Serial.println("OKSETECCPRIV MESSAGE RECEIVED");
 #endif
 	uintptr_t adr = (unsigned long)flashstorestart;
-	adr = adr + 12288; //7th free flash sector
+	adr = adr + 14336; //8th free flash sector
 	//Write ID to EEPROM
 	if (buffer[5] < 101 || buffer[5] > 132)
 	{
@@ -5224,7 +5233,7 @@ int onlykey_flashget_RSA(uint8_t slot)
 		return 0;
 	}
 	uintptr_t adr = (unsigned long)flashstorestart;
-	adr = adr + 14336;				   //8th free flash sector
+	adr = adr + 16384; //9th free flash sector
 	onlykey_eeget_rsakey(&type, slot); //Key Type (1-4) and slot (1-4)
 	features = type;
 	if (type == 0x00)
@@ -5280,7 +5289,7 @@ void rsa_priv_flash(uint8_t *buffer, bool wipe)
 	uint8_t *tptr;
 	tptr = temp;
 	uintptr_t adr = (unsigned long)flashstorestart;
-	adr = adr + 14336; //8th free flash sector
+	adr = adr + 16384; //9th free flash sector
 	if (wipe)
 	{
 		//Copy current flash contents to buffer
@@ -5397,20 +5406,32 @@ void rsa_priv_flash(uint8_t *buffer, bool wipe)
 	return;
 }
 
+// Store auth state in EEPROM, RKs 1-5 in 10th flash sector, RKs 6-10 in 1st flash sector
 void ctap_flash(int index, uint8_t *buffer, int size, uint8_t mode)
 {
 	uintptr_t adr = (unsigned long)flashstorestart;
-	adr = adr + 16384;
-	uint8_t temp[2048]; //last part of 9th sector usable?
+	uint8_t temp[2048]; 
 	uint8_t *tptr;
 	tptr = temp;
 	#ifdef DEBUG
 	Serial.println("CTAP Flash mode= ");
 	Serial.print(mode);
-	Serial.println("Buffer Size= ");
-	Serial.print(size);
+	Serial.print("Buffer Size= ");
+	Serial.println(size);
 	#endif
-	if (mode == 3)
+	if (mode == 5)
+	{ // wipe RKs
+		flashEraseSector((unsigned long *)adr); //1st free flash sector
+		delay(10);
+		adr = adr + 18432; //10th free flash sector
+		flashEraseSector((unsigned long *)adr);
+		delay(10);
+		adr = adr + 2048; //11th free flash sector
+		flashEraseSector((unsigned long *)adr);
+		delay(10);
+		return;
+	}
+	else if (mode == 3)
 	{ // read auth state from EEPROM
 		onlykey_eeget_ctap_authstate(buffer);
 		return;
@@ -5420,18 +5441,26 @@ void ctap_flash(int index, uint8_t *buffer, int size, uint8_t mode)
 		onlykey_eeset_ctap_authstate(buffer);
 		return;
 	}
-	else
-	{
-		#ifdef DEBUG
-		Serial.print("RK Index = ");
-		Serial.print(index);
-		#endif
-		// Max size RK ~400
-		// Support 5 RKs for now, 0-4
-		if (index > 4 || index < 0)
-			return;
-		else
-			index++;
+	#ifdef DEBUG
+	Serial.print("RK Index = ");
+	Serial.println(index);
+	#endif
+	// Max size RK 393
+	// Support 15 RKs for now, 0-14
+	if (index > 14 || index < 0)
+		return;
+	else 
+		index++; // 1-15 instead of 0-14
+
+	if (index<6) {
+	} //1st free flash sector
+	else if (index<11) {
+		adr = adr + 18432; //10th free flash sector
+		index-=5;
+	}
+	else {
+		adr = adr + 20480; //11th free flash sector
+		index-=10;
 	}
 	//Copy current flash contents to buffer
 	onlykey_flashget_common(tptr, (unsigned long *)adr, sizeof(temp));
@@ -5447,6 +5476,9 @@ void ctap_flash(int index, uint8_t *buffer, int size, uint8_t mode)
 	}
 	else if (mode == 2)
 	{
+		
+		Serial.print("CTAP value =");
+		byteprint(buffer, size);
 		flash_modify(index, temp, buffer, size, 0); //write RK
 
 		if (flashEraseSector((unsigned long *)adr))
@@ -5678,13 +5710,23 @@ void decrement(Task *me)
 
 bool wipebuffersafter5sec(Task *me)
 {
+	if (pending_operation==CTAP2_ERR_USER_ACTION_PENDING || pending_operation==CTAP2_ERR_DATA_READY){
+		fadeoffafter20(); 
+		//Wait up to 25 seconds for user to enter challenge, required for Android support
+		//Wait up to 25 seconds for encrypted data to be retrived, required for Android support
+		pending_operation=CTAP2_ERR_DATA_WIPE;
+		return false;
+	}
+
 #ifdef DEBUG
 	Serial.println("wipe buffers after 5 sec");
 #endif
+
 	if (configmode == false)
 	{
 		packet_buffer_offset = 0;
-		memset(ctap_buffer, 0, CTAPHID_BUFFER_SIZE);
+		memset(large_resp_buffer, 0, LARGE_RESP_BUFFER_SIZE);
+		memset(large_buffer, 0, LARGE_BUFFER_SIZE);
 		memset(keyboard_buffer, 0, KEYBOARD_BUFFER_SIZE);
 		memset(packet_buffer_details, 0, sizeof(packet_buffer_details));
 		setBuffer[7] = 0;
@@ -5695,6 +5737,7 @@ bool wipebuffersafter5sec(Task *me)
 		Challenge_button3 = 0;
 		sshchallengemode = 0;
 		pgpchallengemode = 0;
+		pending_operation = 0;
 		if (isfade || CRYPTO_AUTH)
 			fadeoff(1); //Fade Red, failed to complete within 5 seconds
 	}
@@ -5706,8 +5749,9 @@ bool fadeoffafter20sec(Task *me)
 #ifdef DEBUG
 	Serial.println("wipe buffers after 20 sec");
 #endif
-	if (isfade || CRYPTO_AUTH)
+	if (isfade || CRYPTO_AUTH || pending_operation==CTAP2_ERR_DATA_WIPE) {
 		fadeoff(1); //Fade Red, failed to enter PIN in 20 Seconds
+	}
 	//Below used for keyboard OnlyKey setup
 	if (!initcheck || configmode)
 	{
@@ -6845,7 +6889,6 @@ void RESTORE(uint8_t *buffer)
 		memset(temp, 0, sizeof(temp)); //Wipe all data from temp
 		memset(large_temp, 0, 12323);  //Wipe all data from largebuffer
 		offset = 0;
-		free(large_temp);
 		delay(1000);
 		hidprint("Remove and Reinsert OnlyKey to complete restore");
 		fadeoff(0);
@@ -6866,6 +6909,7 @@ void RESTORE(uint8_t *buffer)
 void process_packets(uint8_t *buffer, int len, uint8_t *blocknum)
 {
 	wipedata(); //Wait 5 seconds to receive packets
+	pending_operation=CTAP2_ERR_NO_OPERATION_PENDING;
 	//Receive APDU Data
 	/* Not currently using this, Ledger APDU format 
     if (blocknum[0]) { //Not first packet, up to 59 bytes

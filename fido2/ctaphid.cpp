@@ -229,7 +229,7 @@ static int buffer_status()
     }
     else if (ctap_buffer_offset == ctap_buffer_bcnt)
     {
-		printf1(TAG_HID, "BUFFERED");
+        printf1(TAG_HID, "BUFFERED");
         return BUFFERED;
     }
     else
@@ -393,6 +393,7 @@ static int ctaphid_buffer_packet(uint8_t * pkt_raw, uint8_t * cmd, uint32_t * ci
     uint32_t newcid;
 
 
+
     *cid = pkt->cid;
 
     if (is_init_pkt(pkt))
@@ -540,6 +541,7 @@ static int ctaphid_buffer_packet(uint8_t * pkt_raw, uint8_t * cmd, uint32_t * ci
         }
     }
 
+
     *len = buffer_len();
     *cmd = buffer_cmd();
     return buffer_status();
@@ -656,6 +658,7 @@ uint8_t ctaphid_handle_packet(uint8_t * pkt_raw)
             ctaphid_write(&wb, NULL, 0);
             printf1(TAG_TIME,"CBOR writeback: %d ms\n",timestamp());
             is_busy = 0;
+            
             break;
 #endif
         case CTAPHID_MSG:
@@ -675,6 +678,7 @@ uint8_t ctaphid_handle_packet(uint8_t * pkt_raw)
             }
             is_busy = 1;
             ctap_response_init(&ctap_resp);
+
             u2f_request((struct u2f_request_apdu*)ctap_buffer, &ctap_resp);
 
             ctaphid_write_buffer_init(&wb);
@@ -683,6 +687,7 @@ uint8_t ctaphid_handle_packet(uint8_t * pkt_raw)
             wb.bcnt = (ctap_resp.length);
 
             ctaphid_write(&wb, ctap_resp.data, ctap_resp.length);
+            
             ctaphid_write(&wb, NULL, 0);
             is_busy = 0;
             break;

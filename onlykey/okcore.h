@@ -88,9 +88,11 @@ extern "C"
 #include "base64.h"
 
 // Start of firmware
+// 0x0000_6060 - 0x0003_A05F used for firmware (13 blocks of 16384 = 212992 bytes max size fw)
 #define fwstartadr 0x6060
 // Start of flash storage
-#define flashstorestart 0x3B000
+// 0x0003_A800 - 0x0003_FFFF used for data storage 22528 bytes (11 sectors)
+#define flashstorestart 0x3A800
 // End of flash storage
 #define flashend 0x3FFFF
 #define CPU_RESTART_ADDR (uint32_t *)0xE000ED0C

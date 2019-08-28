@@ -103,17 +103,32 @@ int16_t bridge_u2f_to_extensions(uint8_t * _chal, uint8_t * _appid, uint8_t klen
 
 // Returns 1 if this is a extension request.
 // Else 0 if nothing is done.
-int16_t extend_fido2(CredentialId * credid, uint8_t * output)
+int16_t extend_fido2(CredentialId * credid, uint8_t * type, uint8_t * output)
 {
-    if (is_extension_request((uint8_t*)credid, sizeof(CredentialId)))
-    {
-        printf1(TAG_EXT,"IS EXT REQ\r\n");
-        output[0] = bridge_u2f_to_solo(NULL, output+1, (uint8_t*)credid, sizeof(CredentialId));
-        return 1;
-    }
-    else
-    {
+    if (*type == PUB_KEY_CRED_CUSTOM) {
+        if (is_extension_request((uint8_t*)credid, sizeof(CredentialId)))
+        {
+            printf1(TAG_EXT,"IS EXT REQ\r\n");
+            extern struct _getAssertionState getAssertionState;
+            output[0] = bridge_u2f_to_solo(NULL, output+1, (uint8_t*)getAssertionState.customCredId, getAssertionState.customCredIdSize);
+            return 1;
+        }    
+        else
+        {
         return 0;
+        }
+    }
+    else {
+        if (is_extension_request((uint8_t*)credid, sizeof(CredentialId)))
+        {
+            printf1(TAG_EXT,"IS EXT REQ\r\n");
+            output[0] = bridge_u2f_to_solo(NULL, output+1, (uint8_t*)credid, sizeof(CredentialId));
+            return 1;  
+        }
+        else
+        {
+        return 0;
+        }
     }
 }
 

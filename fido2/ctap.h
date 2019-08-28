@@ -26,8 +26,7 @@ extern "C"
 #define CTAP_VENDOR_LAST            0xBF
 
 // AAGUID For Onlykey
-#define CTAP_AAGUID                 ((uint8_t*)"\x88\x76\x63\x1b\xd4\xa0\x42\x7f\x57\x73\x0e\xc7\x1c\x9e\x02\x7a")
-
+#define CTAP_AAGUID                 ((uint8_t*)"\x79\xd6\x99\xdf\x01\x91\x4b\x10\xb9\x03\x54\x67\xe7\xce\x82\x31")
 #define MC_clientDataHash         0x01
 #define MC_rp                     0x02
 #define MC_user                   0x03

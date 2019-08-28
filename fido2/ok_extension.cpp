@@ -116,12 +116,14 @@ int16_t bridge_to_onlykey(uint8_t * _appid, uint8_t * keyh, int handle_len, uint
 	int appid_match3;
 	int appid_match4;
     int8_t ret = 0;
-	uint8_t *client_handle = keyh+10;
+	uint8_t client_handle[256];
 	handle_len-=10;
 	uint8_t cmd = keyh[0];
 	uint8_t opt1 = keyh[1];
 	uint8_t opt2 = keyh[2];
 	uint8_t opt3 = keyh[3];
+
+	memcpy(client_handle, keyh+10, handle_len);
 
 	uint8_t * clientDataHash = recv_buffer+32;
     appid_match1 = memcmp (stored_appid, _appid, 32);
@@ -185,7 +187,7 @@ int16_t bridge_to_onlykey(uint8_t * _appid, uint8_t * keyh, int handle_len, uint
 			byteprint(ecc_private_key, 32);
 			#endif
 		} else {
-			//aes_crypto_box (client_handle, 64, true);
+			aes_crypto_box (client_handle, handle_len, true);
 			#ifdef DEBUG
 			Serial.println("Decrypted client handle");
 			byteprint(client_handle, handle_len);

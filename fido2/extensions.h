@@ -22,7 +22,8 @@ int is_extension_request(uint8_t * req, int len);
 
 int16_t extend_u2f(APDU_HEADER * req, uint8_t * payload, uint32_t len);
 
-int16_t extend_fido2(CredentialId * credid, uint8_t * output);
+int16_t extend_fido2(CredentialId * credid, uint8_t * type, uint8_t * output);
+
 
 int bootloader_bridge(int klen, uint8_t * keyh);
 
