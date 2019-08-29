@@ -1518,8 +1518,8 @@ void set_slot(uint8_t *buffer)
 	uint8_t mask;
 	uint8_t mode;
 	int length = 0;
-#ifdef DEBUG
 	char cmd = buffer[4]; //cmd or continuation
+#ifdef DEBUG
 	Serial.print("OKSETSLOT MESSAGE RECEIVED:");
 	Serial.println((int)cmd - 0x80, HEX);
 	Serial.print("Setting Slot #");
@@ -1980,8 +1980,8 @@ void wipe_slot(uint8_t *buffer)
 {
 	int slot = buffer[5];
 	int value = buffer[6];
-#ifdef DEBUG
 	char cmd = buffer[4]; //cmd or continuation
+#ifdef DEBUG
 	Serial.print("OKWIPESLOT MESSAGE RECEIVED:");
 	Serial.println((int)cmd - 0x80, HEX);
 	Serial.print("Wiping Slot #");
@@ -5477,8 +5477,6 @@ void ctap_flash(int index, uint8_t *buffer, int size, uint8_t mode)
 	else if (mode == 2)
 	{
 		
-		Serial.print("CTAP value =");
-		byteprint(buffer, size);
 		flash_modify(index, temp, buffer, size, 0); //write RK
 
 		if (flashEraseSector((unsigned long *)adr))
