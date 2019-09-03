@@ -385,7 +385,7 @@ void recvmsg(int n)
 			}
 			else
 			{
-				hidprint("ERROR DEVICE LOCKED");
+				hidprint("Error device locked");
 				return;
 			}
 			return;
@@ -410,7 +410,7 @@ void recvmsg(int n)
 			}
 			else
 			{
-				hidprint("ERROR DEVICE LOCKED");
+				hidprint("Error device locked");
 				return;
 			}
 			return;
@@ -426,7 +426,7 @@ void recvmsg(int n)
 			}
 			else
 			{
-				hidprint("ERROR DEVICE LOCKED");
+				hidprint("Error device locked");
 				return;
 			}
 			return;
@@ -447,7 +447,7 @@ void recvmsg(int n)
 			}
 			else
 			{
-				hidprint("ERROR DEVICE LOCKED");
+				hidprint("Error device lockedD");
 				return;
 			}
 			return;
@@ -468,7 +468,7 @@ void recvmsg(int n)
 			}
 			else
 			{
-				hidprint("ERROR DEVICE LOCKED");
+				hidprint("Error device locked");
 				return;
 			}
 			return;
@@ -490,7 +490,7 @@ void recvmsg(int n)
 			}
 			else
 			{
-				hidprint("ERROR DEVICE LOCKED");
+				hidprint("Error device locked");
 				return;
 			}
 			return;
@@ -511,7 +511,7 @@ void recvmsg(int n)
 			}
 			else
 			{
-				hidprint("ERROR DEVICE LOCKED");
+				hidprint("Error device locked");
 				return;
 			}
 			return;
@@ -528,11 +528,11 @@ void recvmsg(int n)
 			}
 			else if (initialized == true && unlocked == true && FTFL_FSEC == 0x44 && integrityctr1 == integrityctr2 && configmode == false)
 			{
-				hidprint("ERROR NOT IN CONFIG MODE, HOLD BUTTON 6 DOWN FOR 5 SEC");
+				hidprint("Error not in config mode, hold button 6 down for 5 sec");
 			}
 			else
 			{
-				hidprint("ERROR DEVICE LOCKED");
+				hidprint("Error device locked");
 				return;
 			}
 			return;
@@ -553,7 +553,7 @@ void recvmsg(int n)
 			}
 			else
 			{
-				hidprint("ERROR DEVICE LOCKED");
+				hidprint("Error device locked");
 				return;
 			}
 			return;
@@ -575,7 +575,7 @@ void recvmsg(int n)
 			}
 			else
 			{
-				hidprint("ERROR DEVICE LOCKED");
+				hidprint("Error device locked");
 				return;
 			}
 			return;
@@ -597,7 +597,7 @@ void recvmsg(int n)
 			}
 			else
 			{
-				hidprint("ERROR DEVICE LOCKED");
+				hidprint("Error device locked");
 				return;
 			}
 			return;
@@ -618,7 +618,7 @@ void recvmsg(int n)
 			}
 			else
 			{
-				hidprint("ERROR DEVICE LOCKED");
+				hidprint("Error device locked");
 				return;
 			}
 			return;
@@ -639,11 +639,11 @@ void recvmsg(int n)
 			}
 			else if (initialized == true && unlocked == true && FTFL_FSEC == 0x44 && integrityctr1 == integrityctr2 && configmode == false)
 			{
-				hidprint("ERROR NOT IN CONFIG MODE, HOLD BUTTON 6 DOWN FOR 5 SEC");
+				hidprint("Error not in config mode, hold button 6 down for 5 sec");
 			}
 			else
 			{
-				hidprint("ERROR DEVICE LOCKED");
+				hidprint("Error device locked");
 				return;
 			}
 			return;
@@ -658,11 +658,11 @@ void recvmsg(int n)
 			}
 			else if (initialized == true && unlocked == true && FTFL_FSEC == 0x44 && integrityctr1 == integrityctr2 && configmode == false)
 			{
-				hidprint("ERROR NOT IN CONFIG MODE, HOLD BUTTON 6 DOWN FOR 5 SEC");
+				hidprint("Error not in config mode, hold button 6 down for 5 sec");
 			}
 			else
 			{
-				hidprint("ERROR DEVICE LOCKED");
+				hidprint("Error device locked");
 				return;
 			}
 			return;
@@ -1878,7 +1878,7 @@ void set_slot(uint8_t *buffer)
 		}
 		else
 		{
-			hidprint("ERROR NOT IN CONFIG MODE, HOLD BUTTON 6 DOWN FOR 5 SEC");
+			hidprint("Error not in config mode, hold button 6 down for 5 sec");
 		}
 		break;
 	case 22:
@@ -1894,7 +1894,7 @@ void set_slot(uint8_t *buffer)
 		}
 		else
 		{
-			hidprint("ERROR NOT IN CONFIG MODE, HOLD BUTTON 6 DOWN FOR 5 SEC");
+			hidprint("Error not in config mode, hold button 6 down for 5 sec");
 		}
 		break;
 	case 23:
@@ -5008,7 +5008,7 @@ void set_private(uint8_t *buffer)
 	//Serial.println(backupkeymode);
 	if ((buffer[6] > 0x80 && backupkeymode && initcheck) || (backupkeymode && backupkeyslot == buffer[5] && initcheck))
 	{
-		hidprint("ERROR BACKUP KEY MODE SET TO LOCKED");
+		hidprint("Error backup key mode set to locked");
 		integrityctr1++;
 		return;
 	}
@@ -5736,8 +5736,9 @@ bool wipebuffersafter5sec(Task *me)
 		sshchallengemode = 0;
 		pgpchallengemode = 0;
 		pending_operation = 0;
-		if (isfade || CRYPTO_AUTH)
+		if (isfade || CRYPTO_AUTH) {
 			fadeoff(1); //Fade Red, failed to complete within 5 seconds
+		}
 	}
 	return false;
 }
@@ -5811,6 +5812,7 @@ void fadeon(uint8_t color)
 
 void wipedata()
 {
+	SoftTimer.remove(&Wipedata);
 	Wipedata.startDelayed();
 }
 
@@ -5926,7 +5928,7 @@ void backup()
 		return;
 #ifdef STD_VERSION
 	uint8_t temp[MAX_RSA_KEY_SIZE];
-	uint8_t large_temp[14283];
+	uint8_t large_temp[17624];
 	int urllength;
 	int usernamelength;
 	int passwordlength;
@@ -6330,33 +6332,33 @@ void backup()
     }
 
 	//Copy U2F key/Cert to buffer
-	onlykey_eeget_U2Fcertlen(length);
-	int length2 = length[0] << 8 | length[1];
-	if (length2 != 0)
-	{
-		large_temp[large_buffer_offset] = 0xFD; //delimiter
-		memcpy(large_temp + large_buffer_offset + 1, attestation_key, 32);
-		large_buffer_offset = large_buffer_offset + 32 + 1;
-		large_temp[large_buffer_offset] = 0; //Backward compatability used to backup U2F counter
-		large_buffer_offset++;
-		large_temp[large_buffer_offset] = 0;
-		large_buffer_offset++;
-		large_temp[large_buffer_offset] = length[0];
-		large_buffer_offset++;
-		large_temp[large_buffer_offset] = length[1];
-		large_buffer_offset++;
-		memcpy(large_temp + large_buffer_offset, attestation_cert_der, length2);
-		large_buffer_offset = large_buffer_offset + length2;
+	//onlykey_eeget_U2Fcertlen(length);
+	//int length2 = length[0] << 8 | length[1];
+	//if (length2 != 0)
+	//{
+		//large_temp[large_buffer_offset] = 0xFD; //delimiter
+		//memcpy(large_temp + large_buffer_offset + 1, attestation_key, 32);
+		//large_buffer_offset = large_buffer_offset + 32 + 1;
+		//large_temp[large_buffer_offset] = 0; //Backward compatability used to backup U2F counter
+		//large_buffer_offset++;
+		//large_temp[large_buffer_offset] = 0;
+		//large_buffer_offset++;
+		//large_temp[large_buffer_offset] = length[0];
+		//large_buffer_offset++;
+		//large_temp[large_buffer_offset] = length[1];
+		//large_buffer_offset++;
+		//memcpy(large_temp + large_buffer_offset, attestation_cert_der, length2);
+		//large_buffer_offset = large_buffer_offset + length2;
 #ifdef DEBUG
-		Serial.print("Found U2F Certificate to backup");
+		//Serial.print("Found U2F Certificate to backup");
 #endif
-	}
-	else
-	{
+	//}
+	//else
+	//{
 #ifdef DEBUG
-		Serial.print("No U2F Certificate to backup");
+		//Serial.print("No U2F Certificate to backup");
 #endif
-	}
+	//}
 
 #ifdef DEBUG
 	Serial.println();
@@ -6524,7 +6526,7 @@ void RESTORE(uint8_t *buffer)
 	static uint8_t *large_temp;
 	static unsigned int offset = 0;
 	if (offset == 0)
-		large_temp = (uint8_t *)malloc(14283); //Max size for slots 7715 max size for keys 3072 + 768 + 32 + headers + Max RSA key size + 1960 for RKs
+		large_temp = (uint8_t *)malloc(17624); //Max size for slots 7715 max size for keys 3072 + headers + Max RSA key size + 5895 for RKs + 208 Authenticator state
 	uint8_t *ptr;
 	uint8_t slot;
 
@@ -6535,8 +6537,8 @@ void RESTORE(uint8_t *buffer)
 		{
 			memcpy(large_temp + offset, buffer + 6, 57);
 #ifdef DEBUG
-			Serial.print("Restore packet received =");
-			byteprint(large_temp + offset, 57);
+			//Serial.print("Restore packet received =");
+			//byteprint(large_temp + offset, 57);
 #endif
 			offset = offset + 57;
 		}
@@ -6555,8 +6557,8 @@ void RESTORE(uint8_t *buffer)
 		{
 			memcpy(large_temp + offset, buffer + 6, buffer[5]);
 #ifdef DEBUG
-			Serial.print("Restore packet received =");
-			byteprint(large_temp + offset, buffer[5]);
+			//Serial.print("Restore packet received =");
+			//byteprint(large_temp + offset, buffer[5]);
 #endif
 			offset = offset + buffer[5];
 		}
@@ -6840,40 +6842,40 @@ void RESTORE(uint8_t *buffer)
 			}
 			else if (*ptr == 0xFD)
 			{
-				int temp2;
-				memset(temp, 0, sizeof(temp));
-				temp[0] = 0xBA;
-				temp[1] = 0xFF;
-				temp[2] = 0xFF;
-				temp[3] = 0xFF;
-				temp[4] = OKSETU2FPRIV;
+				//int temp2;
+				//memset(temp, 0, sizeof(temp));
+				//temp[0] = 0xBA;
+				//temp[1] = 0xFF;
+				//temp[2] = 0xFF;
+				//temp[3] = 0xFF;
+				//temp[4] = OKSETU2FPRIV;
 				ptr++;
 				offset--;
-				memcpy(temp + 5, ptr, 32);
-				set_u2f_priv(temp);
+				//memcpy(temp + 5, ptr, 32);
+				//set_u2f_priv(temp);
 				ptr = ptr + 32;
 				offset = offset - 32;
 				// For backward compatability with older versions, used to backup U2F counter
 				offset = offset - 2;
 				ptr = ptr + 2;
-				memcpy(temp, ptr, 2);
-				temp2 = temp[0] << 8 | temp[1];
+				//memcpy(temp, ptr, 2);
+				//temp2 = temp[0] << 8 | temp[1];
 				//Set U2F Certificate size
-				onlykey_eeset_U2Fcertlen(temp);
+				//onlykey_eeset_U2Fcertlen(temp);
 				offset = offset - 2;
 				ptr = ptr + 2;
-				large_temp[0] = 0xBA;
-				large_temp[1] = 0xFF;
-				large_temp[2] = 0xFF;
-				large_temp[3] = 0xFF;
-				large_temp[4] = OKSETU2FCERT;
-				large_temp[5] = 0xBA;
-				if (temp2 < 769)
-				{
-					memcpy(large_temp + 6, ptr, temp2);
-					large_buffer_len = temp2;
-					set_u2f_cert(large_temp);
-				}
+				//large_temp[0] = 0xBA;
+				//large_temp[1] = 0xFF;
+				//large_temp[2] = 0xFF;
+				//large_temp[3] = 0xFF;
+				//large_temp[4] = OKSETU2FCERT;
+				//large_temp[5] = 0xBA;
+				//if (temp2 < 769)
+				//{
+				//	memcpy(large_temp + 6, ptr, temp2);
+				//	large_buffer_len = temp2;
+				//	set_u2f_cert(large_temp);
+				//}
 			}
 			else
 			{
@@ -6884,17 +6886,10 @@ void RESTORE(uint8_t *buffer)
 #ifdef DEBUG
 		Serial.print("Successfully loaded backup");
 #endif
-		memset(temp, 0, sizeof(temp)); //Wipe all data from temp
-		memset(large_temp, 0, 12323);  //Wipe all data from largebuffer
-		offset = 0;
 		delay(1000);
 		hidprint("Remove and Reinsert OnlyKey to complete restore");
 		fadeoff(0);
-		large_buffer_len = 0;
-#ifdef OK_Color
-		NEO_Color = 85; //Green
-#endif
-		delay(100);
+		delay(500);
 		CPU_RESTART();
 		while (1 == 1)
 		{

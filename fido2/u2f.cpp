@@ -60,7 +60,10 @@ void u2f_request_ex(APDU_HEADER *req, uint8_t *payload, uint32_t len, CTAP_RESPO
                 else
                 {
                     timestamp();
-					fadeon(170);//Blue
+                    
+                    fadeon(170);//Blue
+                    wipedata();
+                    
                     rcode = u2f_register((struct u2f_register_request*)payload);
                     printf1(TAG_TIME,"u2f_register time: %d ms\n", timestamp());
 
@@ -69,7 +72,11 @@ void u2f_request_ex(APDU_HEADER *req, uint8_t *payload, uint32_t len, CTAP_RESPO
             case U2F_AUTHENTICATE:
                 printf1(TAG_U2F, "U2F_AUTHENTICATE\n");
                 timestamp();
-				fadeon(170);//Blue
+
+                fadeon(170);//Blue
+                wipedata();
+
+
 				rcode = u2f_authenticate((struct u2f_authenticate_request*)payload, req->p1);
                 printf1(TAG_TIME,"u2f_authenticate time: %d ms\n", timestamp());
                 break;
