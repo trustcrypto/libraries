@@ -5723,8 +5723,7 @@ bool wipebuffersafter5sec(Task *me)
 	if (configmode == false)
 	{
 		packet_buffer_offset = 0;
-		memset(large_resp_buffer, 0, LARGE_RESP_BUFFER_SIZE);
-		memset(large_buffer, 0, LARGE_BUFFER_SIZE);
+		memset(ctap_buffer, 0, CTAPHID_BUFFER_SIZE);
 		memset(keyboard_buffer, 0, KEYBOARD_BUFFER_SIZE);
 		memset(packet_buffer_details, 0, sizeof(packet_buffer_details));
 		setBuffer[7] = 0;
@@ -6522,24 +6521,29 @@ void RESTORE(uint8_t *buffer)
 	if (profilemode == NONENCRYPTEDPROFILE)
 		return;
 #ifdef STD_VERSION
-	uint8_t temp[MAX_RSA_KEY_SIZE + 7];
 	static uint8_t *large_temp;
 	static unsigned int offset = 0;
-	if (offset == 0)
+	
+	if (offset == 0) {
+		//free(large_temp);
 		large_temp = (uint8_t *)malloc(17624); //Max size for slots 7715 max size for keys 3072 + headers + Max RSA key size + 5895 for RKs + 208 Authenticator state
-	uint8_t *ptr;
-	uint8_t slot;
+		memset(large_temp, 0, 17624);
+	}
 
 	//Slot restore
 	if (buffer[5] == 0xFF) //Not last packet
 	{
-		if (offset <= (sizeof(large_temp) - 57))
+		if (offset <= (17624 - 57))
 		{
-			memcpy(large_temp + offset, buffer + 6, 57);
-#ifdef DEBUG
-			//Serial.print("Restore packet received =");
-			//byteprint(large_temp + offset, 57);
-#endif
+			#ifdef DEBUG
+			Serial.print("Restore packet received =");
+		    byteprint(buffer + 6, 57);
+			#endif
+			// Issue with memcpy, MCU can't keep up
+			for (int i = 0; i<57; i++) {
+				large_temp[offset+i] = buffer[6+i];
+			}
+
 			offset = offset + 57;
 		}
 		else
@@ -6553,13 +6557,14 @@ void RESTORE(uint8_t *buffer)
 	}
 	else
 	{ //last packet
-		if (offset <= (sizeof(large_temp) - 57) && buffer[5] <= 57)
+		if (offset <= (17624 - 57) && buffer[5] <= 57)
 		{
+			#ifdef DEBUG
+			Serial.print("Restore packet received =");
+			byteprint(buffer + 6, buffer[5]);
+			#endif
 			memcpy(large_temp + offset, buffer + 6, buffer[5]);
-#ifdef DEBUG
-			//Serial.print("Restore packet received =");
-			//byteprint(large_temp + offset, buffer[5]);
-#endif
+
 			offset = offset + buffer[5];
 		}
 		else
@@ -6573,6 +6578,10 @@ void RESTORE(uint8_t *buffer)
 		Serial.print("Length of backup file = ");
 		Serial.println(offset);
 #endif
+
+		uint8_t temp[MAX_RSA_KEY_SIZE + 7];
+		uint8_t *ptr;
+		uint8_t slot;
 
 		if (offset == 0)
 		{

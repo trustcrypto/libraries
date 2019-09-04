@@ -78,7 +78,7 @@ int16_t bridge_u2f_to_extensions(uint8_t * _chal, uint8_t * _appid, uint8_t klen
 #ifdef IS_BOOTLOADER
     ret = bootloader_bridge(klen, keyh);
 #else
-    ret = bridge_u2f_to_solo( _appid, sig, keyh, klen);
+    ret = bridge_u2f_to_solo(_appid, sig, keyh, klen);
 
     // Using for OnlyKey
     if ((output_buffer_size+1)<=sizeof(sig)) {

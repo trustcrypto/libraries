@@ -79,7 +79,7 @@ int16_t bridge_u2f_to_solo(uint8_t * _appid, uint8_t * output, uint8_t * keyh, i
        case OKSIGN:
        //case OKGETPUBKEY:
        case OKSETTIME:
-          return bridge_to_onlykey( _appid, keyh, keylen, output);
+          return bridge_to_onlykey(_appid, keyh, keylen, output);
 
 #endif
 
