@@ -81,7 +81,6 @@
 #define DEBUG //Enable Serial Monitor
 #define STD_VERSION //Define for US Version Firmare
 #define OK_Color //Color Version
-#define ONLYKEY_SOLO //Using FIDO2 from SOLO
 
 #ifndef OKCORE_H
 #include "okcore.h"

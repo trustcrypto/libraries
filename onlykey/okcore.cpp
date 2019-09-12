@@ -90,6 +90,7 @@
 #include "T3MacLib.h"
 #include "base64.h"
 #include <Curve25519.h>
+#include "ctap_errors.h"
 
 /*************************************/
 //Neopixel color LED
@@ -338,7 +339,7 @@ void recvmsg(int n)
 		byteprint(recv_buffer, 64);
 #endif
 
-		if (configmode == true && recv_buffer[4] != OKSETSLOT && recv_buffer[4] != OKSETPRIV && recv_buffer[4] != OKRESTORE && recv_buffer[4] != OKFWUPDATE && recv_buffer[4] != OKWIPEPRIV && recv_buffer[4] != OKGETLABELS)
+		if (configmode == true && recv_buffer[4] != OKSETSLOT && recv_buffer[4] != OKSETPRIV && recv_buffer[4] != OKRESTORE && recv_buffer[4] != OKFWUPDATE && recv_buffer[4] != OKWIPEPRIV && recv_buffer[4] != OKGETLABELS && recv_buffer[4] != OKSETPIN && recv_buffer[4] != OKSETPIN2 && recv_buffer[4] != OKSETSDPIN)
 		{
 #ifdef DEBUG
 			Serial.println("ERROR NOT SUPPORTED IN CONFIG MODE");
@@ -351,21 +352,18 @@ void recvmsg(int n)
 		case OKSETPIN:
 			if (profilemode != NONENCRYPTEDPROFILE)
 			{
-				if (!initcheck)
-					set_primary_pin(recv_buffer, 0);
+				if (!initcheck || configmode == true) set_primary_pin(recv_buffer, 0);
 			}
 			else
 			{
-				if (!initcheck)
-					set_secondary_pin(recv_buffer, 0);
+				if (!initcheck || configmode == true) set_secondary_pin(recv_buffer, 0);
 			}
 			return;
 		case OKSETSDPIN:
-			set_sd_pin(recv_buffer, 0);
+			if (!initcheck || configmode == true) set_sd_pin(recv_buffer, 0);
 			return;
-		case OKSETPDPIN:
-			if (!initcheck)
-				set_secondary_pin(recv_buffer, 0);
+		case OKSETPIN2:
+			if (!initcheck || configmode == true) set_secondary_pin(recv_buffer, 0);
 			return;
 		case OKSETTIME:
 			set_time(recv_buffer);
@@ -903,38 +901,36 @@ void set_primary_pin(uint8_t *buffer, uint8_t keyboard_mode)
 #endif
 				//hidprint("Both PINs Match");
 				uint8_t temp[32];
-				uint8_t pinmask[10];
+				uint8_t nonce2[32];
 				uint8_t *ptr;
 
-				ptr = pinmask;
-				RNG2(ptr, 10); //Fill temp with random data
-				onlykey_eeset_pinmask(ptr);
+				ptr = nonce2;
+				RNG2(ptr, 32); //Fill temp with random data
+				onlykey_eeset_nonce2(ptr);
 
 				ptr = temp;
 
+				//Hash PIN and Nonce
 				SHA256_CTX pinhash;
 				sha256_init(&pinhash);
-				RNG2(ptr, 32); //Fill temp with random data
-#ifdef DEBUG
-				Serial.println("Generating NONCE");
-#endif
-				onlykey_flashset_noncehash(ptr); //Store in flash
-				sha256_update(&pinhash, temp, 32); //Add nonce to hash
-				//Copy characters to byte array
-				if (keyboard_mode == AUTO_PIN_SET)
-					memcpy(password.guess, buffer, 7);
-				for (unsigned int i = 0; i <= strlen(password.guess); i++)
-				{
-					temp[i] = (uint8_t)password.guess[i] ^ (ID[i] ^ (nonce[i] ^ pinmask[i])); //Mask PIN Number with nonce (flash), pinmask (eeprom), and chip ID (ROM)
-#ifdef DEBUG
-					Serial.println("Masked PIN Number");
-					Serial.print(temp[i]);
-#endif
+				if (keyboard_mode == AUTO_PIN_SET) memcpy(password.guess, buffer, 7);
+				sha256_update(&pinhash, (uint8_t *)password.guess, strlen(password.guess)); //Add new PIN to hash
+				// Set new nonce if none is set
+				ptr=nonce;
+				if (!initcheck) {				
+					RNG2(ptr, 32); //Fill temp with random data
+					onlykey_flashset_noncehash(ptr); //Store in flash
+					#ifdef DEBUG
+					Serial.println("Generating NONCE");
+					byteprint(nonce, 32);
+					#endif
 				}
-				sha256_update(&pinhash, temp, strlen(password.guess)); //Add new PIN to hash
-				sha256_final(&pinhash, temp);						   //Create hash and store in temp
+				ptr = temp;
+				sha256_update(&pinhash, nonce, 32); //Add nonce to hash
+				sha256_final(&pinhash, temp); //Create hash and store in temp
 
 				onlykey_flashset_pinhashpublic(ptr);
+				
 #ifdef DEBUG
 				Serial.println();
 				Serial.println("Successfully set PIN");
@@ -1078,9 +1074,8 @@ void set_sd_pin(uint8_t *buffer, uint8_t keyboard_mode)
 #ifdef DEBUG
 				Serial.println("Getting NONCE");
 #endif
-				onlykey_flashget_noncehash(ptr, 32);
 
-				sha256_update(&pinhash, temp, 32); //Add nonce to hash
+				sha256_update(&pinhash, nonce, 16); //Add nonce to hash
 				sha256_final(&pinhash, temp);	  //Create hash and store in temp
 #ifdef DEBUG
 				Serial.println("Hashing SDPIN and storing to Flash");
@@ -1128,7 +1123,7 @@ void set_sd_pin(uint8_t *buffer, uint8_t keyboard_mode)
 void set_secondary_pin(uint8_t *buffer, uint8_t keyboard_mode)
 {
 #ifdef DEBUG
-	Serial.println("OKSETPDPIN MESSAGE RECEIVED");
+	Serial.println("OKSETPIN2 MESSAGE RECEIVED");
 #endif
 	if (pin_set < 7)
 		pin_set = 0;
@@ -1207,42 +1202,25 @@ void set_secondary_pin(uint8_t *buffer, uint8_t keyboard_mode)
 				Serial.println("Both PINs Match");
 #endif
 				//hidprint("Both PINs Match");
+
 				uint8_t temp[32];
-				uint8_t pinmask[10];
+				uint8_t nonce2[32];
 				uint8_t *ptr;
 
+				ptr = nonce2;
+				RNG2(ptr, 32); //Fill temp with random data
+				onlykey_eeset_nonce2(ptr);
+
+				ptr = temp;
+
+				//Hash PIN and Nonce
 				SHA256_CTX pinhash;
 				sha256_init(&pinhash);
-				ptr = pinmask;
-
-				onlykey_eeget_pinmask((uint8_t *)pinmask);
-				ptr = temp;
-				if (!onlykey_flashget_noncehash(ptr, 32))
-				{
-
-					ptr = pinmask;
-					RNG2(ptr, 10); //Fill temp with random data
-					onlykey_eeset_pinmask(ptr);
-
-					ptr = temp;
-					RNG2(ptr, 32); //Fill temp with random data
-#ifdef DEBUG
-					Serial.println("Generating NONCE");
-#endif
-					onlykey_flashset_noncehash(ptr); //Store in flash
-				}
-				sha256_update(&pinhash, temp, 32); //Add nonce to hash
-				//Copy characters to byte array
 				if (keyboard_mode == AUTO_PIN_SET) memcpy(password.guess, buffer, 7);
-				for (unsigned int i = 0; i <= strlen(password.guess); i++)
-				{
-					temp[i] = (uint8_t)password.guess[i] ^ (ID[i] ^ (nonce[i] ^ pinmask[i])); //Mask PIN Number with nonce (flash), pinmask (eeprom), and chip ID (ROM)
-				}
-				sha256_update(&pinhash, temp, strlen(password.guess)); //Add new PIN to hash
-				sha256_final(&pinhash, temp);						   //Create hash and store in temp
-#ifdef DEBUG
-				Serial.println("Hashing PIN and storing to Flash");
-#endif
+				sha256_update(&pinhash, (uint8_t *)password.guess, strlen(password.guess)); //Add new PIN to hash
+				sha256_update(&pinhash, nonce, 32); //Add nonce to hash
+				sha256_final(&pinhash, temp); //Create hash and store in temp
+
 				onlykey_flashset_2ndpinhashpublic(ptr);
 #ifdef DEBUG
 				Serial.println();
@@ -2356,7 +2334,7 @@ void send_transport_response(uint8_t *data, int len, uint8_t encrypt, uint8_t st
 	{ //USB
 		for (int i = 0; i < len; i += 64)
 		{
-			RawHID.send(data + i, 0);
+			RawHID.send2(data + i, 0);
 		}
 	}
 	else if (profilemode != NONENCRYPTEDPROFILE && outputmode == WEBAUTHN)
@@ -2987,11 +2965,12 @@ void onlykey_flashset_noncehash(uint8_t *ptr)
 	adr = adr + 2048; //2nd free sector
 	uint8_t temp[255];
 	uint8_t *tptr;
+	int set = 0;
 	tptr = temp;
-	memcpy(nonce, ptr, 32);
 	initialized = true;
 	//Get current flash contents
 	onlykey_flashget_common(tptr, (unsigned long *)adr, 254);
+	memcpy(nonce, ptr, 32);
 	//Add new flash contents
 	for (int z = 0; z <= 31; z++)
 	{
@@ -3033,26 +3012,28 @@ int onlykey_flashget_pinhashpublic(uint8_t *ptr, int size)
 
 void onlykey_flashset_pinhashpublic(uint8_t *ptr)
 {
-
+	uint8_t p2mode;
 	uintptr_t adr = (unsigned long)flashstorestart;
 	adr = adr + 2048; //2nd free sector
 	uint8_t temp[255];
-	uint8_t tempkey[32];
+	uint8_t secret[32];
 	uint8_t *tptr;
 	tptr = temp;
 	ptr[0] &= 0xF8;
 	ptr[31] = (ptr[31] & 0x7F) | 0x40;
-	//Generate public key of pinhash in temp
-	Curve25519::eval(temp, ptr, 0);
+	//Generate public key of pinhash 
+	Curve25519::eval(p1hash, ptr, 0);
 #ifdef DEBUG
 	Serial.print("Storing public key of PIN hash =");
-	byteprint(temp, 32);
+	byteprint(p1hash, 32);
 #endif
-	//Generate shared secret in profile key
-	memcpy(tempkey, ptr, 32);
-	Curve25519::eval(profilekey, tempkey, temp);
+	//Generate shared secret 
+	onlykey_eeget_2ndprofilemode(&p2mode);
+	if (p2mode==STDPROFILE2) Curve25519::eval(secret, ptr, p2hash);
+	else Curve25519::eval(secret, ptr, p1hash);
+	onlykey_flashset_profilekey((uint8_t*)secret);
 	//Copy public key to ptr for writing to flash
-	memcpy(ptr, temp, 32);
+	memcpy(ptr, p1hash, 32);
 	//Copy current flash contents to buffer
 	onlykey_flashget_common(tptr, (unsigned long *)adr, 254);
 	//Add new flash contents to buffer
@@ -3065,13 +3046,15 @@ void onlykey_flashset_pinhashpublic(uint8_t *ptr)
 	Serial.print("Pin hash address =");
 	Serial.println(adr, HEX);
 #endif
-	// Generate and encrypt default key
-	recv_buffer[4] = 0xEF;
-	recv_buffer[5] = 0x84;
-	recv_buffer[6] = 0x61;
-	RNG2(recv_buffer + 7, 32);
-	set_private(recv_buffer); //set default ECC key
-	memset(tempkey, 0, 32);
+	if (!initcheck) { // First time use
+		// Generate and encrypt default key
+		recv_buffer[4] = 0xEF;
+		recv_buffer[5] = 0x84;
+		recv_buffer[6] = 0x61;
+		RNG2(recv_buffer + 7, 32);
+		set_private(recv_buffer); //set default ECC key
+		memset(recv_buffer, 0, sizeof(recv_buffer));
+	}
 	onlykey_flashget_common(ptr, (unsigned long *)adr, EElen_pinhash);
 }
 /*********************************/
@@ -3164,30 +3147,29 @@ void onlykey_flashset_2ndpinhashpublic(uint8_t *ptr)
 	uintptr_t adr = (unsigned long)flashstorestart;
 	adr = adr + 2048; //2nd free sector
 	uint8_t temp[255];
-	uint8_t tempkey[32];
+	uint8_t secret[32];
 	uint8_t *tptr;
 	tptr = temp;
-
 	ptr[0] &= 0xF8;
 	ptr[31] = (ptr[31] & 0x7F) | 0x40;
-	//Generate public key of pinhash in temp
-	Curve25519::eval(temp, ptr, 0);
+	//Generate public key of pinhash
+	Curve25519::eval(p2hash, ptr, 0);
 #ifdef DEBUG
 	Serial.print("Storing public key of PIN 2 hash =");
-	byteprint(temp, 32);
+	byteprint(p2hash, 32);
 #endif
 	onlykey_eeget_2ndprofilemode(&p2mode);
 	if (p2mode != NONENCRYPTEDPROFILE)
 	{ //profile key not used for plausible deniability mode or international fw
 #ifdef STD_VERSION
 		//Generate shared secret in profile key
-		memcpy(tempkey, ptr, 32);
 		onlykey_flashget_pinhashpublic(p1hash, 32);	//store PIN hash
-		Curve25519::eval(profilekey, tempkey, p1hash); //Generate shared secret of p2hash private key and p1hash public key
+		Curve25519::eval(secret, ptr, p1hash); //Generate shared secret of p2hash private key and p1hash public key
+		onlykey_flashset_profilekey((uint8_t*)secret);
 #endif
 	}
 	//Copy public key to ptr for writing to flash
-	memcpy(ptr, temp, 32);
+	memcpy(ptr, p2hash, 32);
 	//Copy current flash contents to buffer
 	onlykey_flashget_common(tptr, (unsigned long *)adr, 254);
 
@@ -3202,7 +3184,7 @@ void onlykey_flashset_2ndpinhashpublic(uint8_t *ptr)
 	Serial.println(adr, HEX);
 	Serial.print("PIN hash value =");
 #endif
-	if (p2mode != NONENCRYPTEDPROFILE)
+	if (p2mode != NONENCRYPTEDPROFILE && !initcheck) // First time use
 	{
 #ifdef STD_VERSION
 		// Generate and encrypt default key
@@ -3211,10 +3193,84 @@ void onlykey_flashset_2ndpinhashpublic(uint8_t *ptr)
 		recv_buffer[6] = 0x61;
 		RNG2(recv_buffer + 7, 32);
 		set_private(recv_buffer); //set default ECC key
-		memset(tempkey, 0, 32);
+		memset(recv_buffer, 0, sizeof(recv_buffer));
 #endif
 	}
 	onlykey_flashget_common(ptr, (unsigned long *)adr, EElen_2ndpinhash);
+}
+
+int onlykey_flashget_profilekey(uint8_t *ptr)
+{
+	int set = 0;
+	uintptr_t adr = (unsigned long)flashstorestart;
+	adr = adr + 2048; //2nd free sector
+	adr = adr + EElen_noncehash + EElen_pinhash + EElen_selfdestructhash + EElen_2ndpinhash;
+
+#ifdef DEBUG
+	Serial.printf("Reading profilekey from Sector 0x%X ", adr);
+#endif
+	onlykey_flashget_common(ptr, (unsigned long *)adr, EElen_profilekey);
+	for (int i = 0; i < 32; i++)
+	{
+		set = *(ptr + i) + set;
+	}
+#ifdef DEBUG
+	Serial.println(set);
+#endif
+	if (set == 8160)
+	{ //0xFF * 32
+#ifdef DEBUG
+		Serial.printf("There is no Profilekey hash set");
+#endif
+		return 0;
+	}
+	else
+	{
+		return 1;
+	}
+}
+
+void onlykey_flashset_profilekey(uint8_t *secret)
+{
+	uintptr_t adr = (unsigned long)flashstorestart;
+	adr = adr + 2048; //2nd free sector
+	uint8_t temp[255];
+	uint8_t nonce2[32];
+	uint8_t *ptr;
+	uint8_t *tptr;
+	tptr = temp;
+	SHA256_CTX pinhash;
+
+	sha256_init(&pinhash); 
+	onlykey_eeget_nonce2((uint8_t*)nonce2);
+	sha256_update(&pinhash, nonce2, sizeof(nonce2)); //Add mask (eeprom)
+	sha256_update(&pinhash, (uint8_t*)ID, 16); //Add chip ID (ROM)
+	sha256_update(&pinhash, secret, 32); //Add generated shared secret
+	sha256_update(&pinhash, nonce, 32); //Add nonce to hash
+	sha256_final(&pinhash, temp); //Create hash and store in temp
+	if (!initcheck) { //first time use, set random profilekey
+		RNG2(profilekey, 32);
+	} 
+	
+	memcpy(secret, profilekey, 32);
+	aes_gcm_encrypt2(secret, (uint8_t*)ID, temp, 32);
+	ptr=secret;
+	
+	//Get current flash contents
+	onlykey_flashget_common(tptr, (unsigned long *)adr, 254);
+	//Add new flash contents
+	//Add new flash contents to buffer
+	for (int z = 0; z <= 31; z++)
+	{
+		temp[z + EElen_noncehash + EElen_pinhash + EElen_selfdestructhash + EElen_2ndpinhash] = ((uint8_t) * (ptr + z));
+	}
+	#ifdef DEBUG
+	Serial.print("profilekey hash address =");
+	Serial.println(adr, HEX);
+	Serial.print("profilekey hash value =");
+	#endif
+	onlykey_flashsector(tptr, (unsigned long *)adr, 254);
+	onlykey_flashget_common(ptr, (unsigned long *)adr, EElen_profilekey);
 }
 
 int onlykey_flashget_url(uint8_t *ptr, int slot)

@@ -113,76 +113,128 @@ bool Password::evaluate(){
 bool Password::profile1hashevaluate(){ 
 	uint8_t p2mode;
 	uint8_t temp[32];
-	uint8_t pinmask[10];
+	uint8_t KEK[32];
+	uint8_t nonce2[32];
 	size_t guesslen = strlen(guess);
 	if (guesslen < 7) {
-		delay (30); //Simulate time taken to hash
+		delay (30); //Simulate time taken to hash to decrease attack emanation surface
 		return false; //PIN length must be 7 - 10 digits
 	}
-//Hash values
+	//Hash PIN and Nonce
 	SHA256_CTX pinhash;
 	sha256_init(&pinhash);
-#ifdef DEBUG
+	sha256_update(&pinhash, (uint8_t *)guess, guesslen); //Add new PIN to hash
+	#ifdef DEBUG
 	Serial.print("NONCE HASH:"); 
 	byteprint(nonce, 32);
-#endif
+	#endif
+	  
 	sha256_update(&pinhash, nonce, 32); //Add nonce to hash
-	onlykey_eeget_pinmask((uint8_t*)pinmask);
-	for (int i =0; i <= guesslen; i++) {
-		temp[i] = (uint8_t)guess[i] ^ (ID[i] ^ (nonce[i] ^ pinmask[i])); //Mask PIN Number with nonce (flash), pinmask (eeprom), and chip ID (ROM)
-	}
-	sha256_update(&pinhash, temp, guesslen); //Add new PIN to hash
+	sha256_final(&pinhash, KEK); //Create hash and store in KEK
+	//Generate public key of pinhash
+	KEK[0] &= 0xF8;
+  KEK[31] = (KEK[31] & 0x7F) | 0x40;
+	//Generate public key of pinhash
+	Curve25519::eval(profilekey, KEK, 0); //Generate public in profilekey
+	#ifdef DEBUG
+	Serial.print("Public key of PIN hash:");
+	byteprint(profilekey, 32);
+	#endif
+	
+	//Hash generated public with mask (eeprom), and chip ID (ROM)
+	sha256_init(&pinhash); 
+	onlykey_eeget_nonce2((uint8_t*)nonce2);
+	sha256_update(&pinhash, nonce2, 16); //Add mask (eeprom)
+	sha256_update(&pinhash, (uint8_t*)(ID+16), 16); //Add chip ID (ROM)
+	sha256_update(&pinhash, profilekey, sizeof(profilekey)); //Add generated public to hash
 	sha256_final(&pinhash, profilekey); //Create hash and store in profilekey
-	//Generate public key of pinhash
-	memcpy(temp, profilekey, 32);
-	temp[0] &= 0xF8;
-    temp[31] = (temp[31] & 0x7F) | 0x40;
-	//Generate public key of pinhash
-	Curve25519::eval(profilekey, temp, 0); //Generate public in profilekey
 
-#ifdef DEBUG
+	//Do the same with stored public
+	sha256_init(&pinhash); 
+	sha256_update(&pinhash, nonce2, 16); //Add mask (eeprom)
+	sha256_update(&pinhash, (uint8_t*)(ID+16), 16); //Add chip ID (ROM)
+	sha256_update(&pinhash, p1hash, sizeof(p1hash)); //Add generated public to hash
+	sha256_final(&pinhash, temp); //Create hash and store in profilekey
+
+	#ifdef DEBUG
 	Serial.print("Guessed Hash/PublicKey:"); 
-    byteprint(profilekey, 32);
-	Serial.print("PIN Hash/PublicKey:"); 
-	byteprint(p1hash, 32);
-#endif
-	char pass2 = p1hash[0];
+  byteprint(profilekey, 32);
+	Serial.print("Stored PIN Hash/PublicKey:"); 
+	byteprint(temp, 32);
+	#endif
+	char pass2 = temp[0];
 	char guessed2 = profilekey[0];
+		
 	for (byte i=1; i<32; i++){
-
 		//check if guessed char is equal to the password char
 		integrityctr1++;
 		if (i == 31 && pass2==guessed2){
 			onlykey_eeget_2ndprofilemode (&p2mode); //get 2nd profile mode
-#ifdef DEBUG
+			#ifdef DEBUG
 			Serial.print("Profile Mode"); 
 			Serial.print(p2mode);
-#endif
+			#endif
 			if (p2mode==STDPROFILE2) { //there are two profiles
 			#ifdef STD_VERSION
-			//Generate shared secret of p1hash private key and p2hash public key
-				Curve25519::eval(profilekey, temp, p2hash); //shared secret stored in profilekey			
+				//Generate shared secret of p1hash private key and p2hash public key
+				if (!onlykey_flashget_profilekey(profilekey)) { // Backwards support for old key method, KEK used as master, PIN changes not supported
+				Curve25519::eval(profilekey, KEK, p2hash); //shared secret stored in profilekey			
+				} else { // Using new method, PIN changes supported 
+				//Create KEK - Hash with nonce (flash), mask (eeprom), and chip ID (ROM)
+				Curve25519::eval(temp, KEK, p2hash); //shared secret stored in profilekey			
 				#ifdef DEBUG
-				Serial.print("Shared Secret Profile 1"); 
-				byteprint(profilekey, 32);
+				Serial.print("Shared Secret Profile 1");
+				byteprint(temp, 32);
 				#endif
+								#ifdef DEBUG
+				Serial.print("nonce2");
+				byteprint(nonce2, 32);
+				#endif	
+								#ifdef DEBUG
+				Serial.print("ID");
+				byteprint((uint8_t*)ID, 16);
+				#endif	
+				sha256_init(&pinhash); 
+				sha256_update(&pinhash, nonce2, sizeof(nonce2)); //Add mask (eeprom)
+				sha256_update(&pinhash, (uint8_t*)ID, 16); //Add chip ID (ROM)
+				sha256_update(&pinhash, temp, sizeof(temp)); //Add generated shared secret
+				sha256_update(&pinhash, nonce, 32); //Add nonce to hash
+				sha256_final(&pinhash, KEK); //Create hash and store in KEK
+				aes_gcm_decrypt2(profilekey, (uint8_t*)ID, KEK, 32);
+				}
 			#endif	
 			} else { //there is one profile
 			#ifdef STD_VERSION
-			//Generate shared secret of p1hash private key and p1hash public key
-				Curve25519::eval(profilekey, temp, p1hash); //Set this as profile key, used to encrypt profile 1 data
+				//Generate shared secret of p1hash private key and p2hash public key
+				if (!onlykey_flashget_profilekey(profilekey)) { // Backwards support for old key method, KEK used as master, PIN changes not supported
+				Curve25519::eval(profilekey, KEK, p1hash); //shared secret stored in profilekey			
+				} else { // Using new method, PIN changes supported 
+				//Create KEK - Hash with nonce (flash), mask (eeprom), and chip ID (ROM)
+				Curve25519::eval(temp, KEK, p1hash); //shared secret stored in profilekey			
+				#ifdef DEBUG
+				Serial.print("Shared Secret Profile 1");
+				byteprint(temp, 32);
+				#endif	
+				sha256_init(&pinhash); 
+				sha256_update(&pinhash, nonce2, sizeof(nonce2)); //Add mask (eeprom)
+				sha256_update(&pinhash, (uint8_t*)ID, 16); //Add chip ID (ROM)
+				sha256_update(&pinhash, temp, sizeof(temp)); //Add generated shared secret
+				sha256_update(&pinhash, nonce, 32); //Add nonce to hash
+				sha256_final(&pinhash, KEK); //Create hash and store in KEK
+				aes_gcm_decrypt2(profilekey, (uint8_t*)ID, KEK, 32);
+				}		
 			#endif
 			}
 			integrityctr2++;
 			profilemode=STDPROFILE1;
 			return true; //both strings ended and all previous characters are equal 
-		}else if (pass2!=guessed2){
+		} else if (pass2!=guessed2){
 			integrityctr2++;
 			return false; //difference 
 		}
 		
 		//read next char
-		pass2 = p1hash[i];
+		pass2 = temp[i];
 		guessed2 = profilekey[i];
 		integrityctr2++;
 	}
@@ -192,40 +244,52 @@ bool Password::profile1hashevaluate(){
 bool Password::profile2hashevaluate(){ 
 	uint8_t p2mode;
 	uint8_t temp[32];
-	uint8_t pinmask[10];
+	uint8_t KEK[32];
+	uint8_t nonce2[32];
 	size_t guesslen = strlen(guess);
 	if (guesslen < 7) {
-		delay (30); //Simulate time taken to hash
+		delay (30); //Simulate time taken to hash to decrease emanation attack surface
 		return false; //PIN length must be 7 - 10 digits
 	}
-//Hash values
+//Hash PIN and Nonce
 	SHA256_CTX pinhash;
 	sha256_init(&pinhash);
+	sha256_update(&pinhash, (uint8_t *)guess, guesslen); //Add new PIN to hash
 #ifdef DEBUG
 	Serial.print("NONCE HASH:"); 
 	byteprint(nonce, 32);
 #endif
+	  
 	sha256_update(&pinhash, nonce, 32); //Add nonce to hash
-	onlykey_eeget_pinmask((uint8_t*)pinmask);
-	for (int i =0; i <= guesslen; i++) {
-		temp[i] = (uint8_t)guess[i] ^ (ID[i] ^ (nonce[i] ^ pinmask[i])); //Mask PIN Number with nonce (flash), pinmask (eeprom), and chip ID (ROM)
-	}
-	sha256_update(&pinhash, temp, guesslen); //Add new PIN to hash
+	sha256_final(&pinhash, KEK); //Create hash and store in KEK
+	//Generate public key of pinhash
+	KEK[0] &= 0xF8;
+    KEK[31] = (KEK[31] & 0x7F) | 0x40;
+	//Generate public key of pinhash
+	Curve25519::eval(profilekey, KEK, 0); //Generate public in profilekey
+	
+	//Hash generated public with mask (eeprom), and chip ID (ROM)
+	sha256_init(&pinhash); 
+	onlykey_eeget_nonce2((uint8_t*)nonce2);
+	sha256_update(&pinhash, nonce2, 16); //Add mask (eeprom)
+	sha256_update(&pinhash, (uint8_t*)(ID+16), 16); //Add chip ID (ROM)
+	sha256_update(&pinhash, profilekey, sizeof(profilekey)); //Add generated public to hash
 	sha256_final(&pinhash, profilekey); //Create hash and store in profilekey
-	//Generate public key of pinhash
-	memcpy(temp, profilekey, 32);
-	temp[0] &= 0xF8;
-    temp[31] = (temp[31] & 0x7F) | 0x40;
-	//Generate public key of pinhash
-	Curve25519::eval(profilekey, temp, 0); //Generate public in profilekey
 
+	//Do the same with stored public
+	sha256_init(&pinhash); 
+	sha256_update(&pinhash, nonce2, 16); //Add mask (eeprom)
+	sha256_update(&pinhash, (uint8_t*)(ID+16), 16); //Add chip ID (ROM)
+	sha256_update(&pinhash, p2hash, sizeof(p2hash)); //Add generated public to hash
+	sha256_final(&pinhash, temp); //Create hash and store in profilekey
+	
 #ifdef DEBUG
 	Serial.print("Guessed Hash/PublicKey:"); 
     byteprint(profilekey, 32);
 	Serial.print("2nd Profile PIN Hash/PublicKey:"); 
-	byteprint(p2hash, 32);
+	byteprint(temp, 32);
 #endif
-	char pass2 = p2hash[0];
+	char pass2 = temp[0];
 	char guessed2 = profilekey[0];
 	for (byte i=1; i<32; i++){
 		
@@ -235,11 +299,24 @@ bool Password::profile2hashevaluate(){
 			onlykey_eeget_2ndprofilemode (&p2mode); //get 2nd profile mode
 			if (p2mode!=NONENCRYPTEDPROFILE) { //profile key not used for plausible deniability mode
 				#ifdef STD_VERSION
-				Curve25519::eval(profilekey, temp, p1hash); //Generate shared secret of p2hash private key and p1hash public key
+				//Generate shared secret of p1hash private key and p2hash public key
+				if (!onlykey_flashget_profilekey(profilekey)) { // Backwards support for old key method, KEK used as master, PIN changes not supported
+				Curve25519::eval(profilekey, KEK, p1hash); //shared secret stored in profilekey			
+				} else { // Using new method, PIN changes supported 
+				//Create KEK - Hash with nonce (flash), mask (eeprom), and chip ID (ROM)
+				Curve25519::eval(temp, KEK, p1hash); //shared secret stored in profilekey			
 				#ifdef DEBUG
-				Serial.print("Shared Secret Profile 2"); 
-				byteprint(profilekey, 32);
+				Serial.print("Shared Secret Profile 2");
+				byteprint(temp, 32);
 				#endif
+				sha256_init(&pinhash); 
+				sha256_update(&pinhash, nonce2, sizeof(nonce2)); //Add mask (eeprom)
+				sha256_update(&pinhash, (uint8_t*)ID, 16); //Add chip ID (ROM)
+				sha256_update(&pinhash, temp, sizeof(temp)); //Add generated shared secret
+				sha256_update(&pinhash, nonce, 32); //Add nonce to hash
+				sha256_final(&pinhash, KEK); //Create hash and store in KEK
+				aes_gcm_decrypt2(profilekey, (uint8_t*)ID, KEK, 32);
+				}
 				//Set this as profile key, used to encrypt profile 2 data
 				profilemode=STDPROFILE2;
 				#endif
@@ -255,7 +332,7 @@ bool Password::profile2hashevaluate(){
 		}
 		
 		//read next char
-		pass2 = p2hash[i];
+		pass2 = temp[i];
 		guessed2 = profilekey[i];
 		integrityctr2++;
 	}
@@ -275,10 +352,10 @@ bool Password::sdhashevaluate(){
 	sha256_update(&pinhash, (uint8_t *)guess, guesslen); //Add new PIN to hash
 #ifdef DEBUG
 	Serial.print("NONCE HASH:"); 
-	byteprint(nonce, 32);
+	byteprint(nonce, 16);
 #endif
 	  
-	sha256_update(&pinhash, nonce, 32); //Add nonce to hash
+	sha256_update(&pinhash, nonce, 16); //Add nonce to hash
 	sha256_final(&pinhash, profilekey); //Create hash and store in profilekey
 #ifdef DEBUG
 	Serial.println();

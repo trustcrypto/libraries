@@ -112,7 +112,7 @@ extern "C"
 /*************************************/
 #define OKSETPIN 			(TYPE_INIT | 0x61)  // First vendor defined command
 #define OKSETSDPIN 			(TYPE_INIT | 0x62)
-#define OKSETPDPIN 			(TYPE_INIT | 0x63)
+#define OKSETPIN2 			(TYPE_INIT | 0x63)
 #define OKSETTIME 			(TYPE_INIT | 0x64)
 #define OKGETLABELS 		(TYPE_INIT | 0x65)
 #define OKSETSLOT  			(TYPE_INIT | 0x66)
@@ -229,6 +229,8 @@ extern void onlykey_flashset_pinhashpublic (uint8_t *ptr);
 extern int onlykey_flashget_pinhashpublic (uint8_t *ptr, int size);
 extern void onlykey_flashset_noncehash (uint8_t *ptr);
 extern int onlykey_flashget_noncehash (uint8_t *ptr, int size);
+extern int onlykey_flashget_profilekey(uint8_t *ptr);
+extern void onlykey_flashset_profilekey(uint8_t *secret);
 extern void onlykey_flashset_common (uint8_t *ptr, uintptr_t adr, int len);
 extern void onlykey_flashget_common (uint8_t *ptr, uintptr_t adr, int len);
 extern int onlykey_flashget_totpkey (uint8_t *ptr, int slot);

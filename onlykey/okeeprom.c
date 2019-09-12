@@ -233,12 +233,12 @@ void onlykey_eeset_failedlogins (uint8_t *ptr) {
 
 /*********************************/
 /*********************************/
-int onlykey_eeget_pinmask (uint8_t *ptr) {
-    onlykey_eeget_common(ptr, EEpos_pinmask, EElen_pinmask);
-    return EElen_pinmask;
+int onlykey_eeget_nonce2 (uint8_t *ptr) {
+    onlykey_eeget_common(ptr, EEpos_nonce2, EElen_nonce2);
+    return EElen_nonce2;
 }
-void onlykey_eeset_pinmask (uint8_t *ptr) {
-    onlykey_eeset_common(ptr, EEpos_pinmask, EElen_pinmask);
+void onlykey_eeset_nonce2 (uint8_t *ptr) {
+    onlykey_eeset_common(ptr, EEpos_nonce2, EElen_nonce2);
 }
 
 /*********************************/
