@@ -187,11 +187,11 @@ void SIGN (uint8_t *buffer) {
 }
 
 void GETPUBKEY (uint8_t *buffer) {
-	uint8_t temp[64] = {0};
 	#ifdef DEBUG
 	Serial.println();
 	Serial.println("OKGETPUBKEY MESSAGE RECEIVED");
 	#endif
+	/* Not used yet
 	if (buffer[5] < 5 && !buffer[6]) { //Slot 101-132 are for ECC, 1-4 are for RSA
 		if (onlykey_flashget_RSA ((int)buffer[5])) GETRSAPUBKEY(buffer);
 	} else if (buffer[5] < 130 && !buffer[6]) { //132 and 131 and 130 are reserved
@@ -200,6 +200,7 @@ void GETPUBKEY (uint8_t *buffer) {
 	DERIVEKEY(buffer[6], buffer+7);
 	send_transport_response(ecc_public_key, 64, false, false);
 	}
+	*/
 }
 
 void DECRYPT (uint8_t *buffer){
@@ -250,8 +251,8 @@ void DECRYPT (uint8_t *buffer){
 
 void GENERATE_KEY (uint8_t *buffer) {
 	uECC_set_rng(&RNG2);
-	uint8_t backupslot;
-	uint8_t temp[64];
+	//uint8_t backupslot;
+	//uint8_t temp[64];
 	#ifdef DEBUG
 	Serial.println();
 	Serial.println("GENERATE KEY MESSAGE RECEIVED");

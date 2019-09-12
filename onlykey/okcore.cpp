@@ -2965,7 +2965,6 @@ void onlykey_flashset_noncehash(uint8_t *ptr)
 	adr = adr + 2048; //2nd free sector
 	uint8_t temp[255];
 	uint8_t *tptr;
-	int set = 0;
 	tptr = temp;
 	initialized = true;
 	//Get current flash contents
@@ -5995,7 +5994,6 @@ void backup()
 	uint8_t ctr[2];
 	bool backupyubikey = false;
 	uint8_t slot;
-	uint8_t length[2];
 	uint8_t addchar1;
 	uint8_t addchar2;
 	uint8_t addchar3;

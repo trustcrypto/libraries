@@ -987,8 +987,6 @@ uint8_t parse_allow_list(CTAP_getAssertion * GA, CborValue * it)
     unsigned int i;
     CTAP_credentialDescriptor * cred;
 
-    extern struct _getAssertionState getAssertionState;
-
     if (cbor_value_get_type(it) != CborArrayType)
     {
         printf2(TAG_ERR,"Error, expecting cbor array\n");
