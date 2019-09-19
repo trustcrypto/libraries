@@ -51,12 +51,16 @@ void U2Finit()
   onlykey_eeget_U2Fcertlen(length);
   int length2 = length[0] << 8 | length[1];
   if (length2 != 0) {
-  extern uint16_t attestation_cert_der_size;
-  attestation_cert_der_size=length2;
-  onlykey_flashget_U2F();
+    extern uint16_t attestation_cert_der_size;
+    attestation_cert_der_size=length2;
+    onlykey_flashget_U2F();
   } else {
-  byteprint((uint8_t*)attestation_key,sizeof(attestation_key));
-  byteprint((uint8_t*)attestation_cert_der,sizeof(attestation_cert_der));
+      // Future feature, built in attestation key
+      // Add checking here for built-in attestation key
+    #ifdef DEBUG
+    byteprint((uint8_t*)attestation_key,sizeof(attestation_key));
+    byteprint((uint8_t*)attestation_cert_der,sizeof(attestation_cert_der));
+    #endif
   }
   //DERIVEKEY(0 , (uint8_t*)attestation_key); //Derive key from default key in slot 32
   //memcpy(handlekey, ecc_private_key, 32); // Copy derived key to handlekey
@@ -158,7 +162,9 @@ int device_is_nfc()
 void ctaphid_write_block(uint8_t * data)
 {
     printf1(TAG_GREEN, "Sending FIDO response block");
+    #ifdef DEBUG
 	byteprint(data, 64);
+    #endif
 	RawHID.send(data, 100);
 }
 
@@ -175,7 +181,9 @@ void authenticator_read_state(AuthenticatorState * a)
     printf1(TAG_GREEN, "authenticator_read_state");
 	ctap_flash (0, buffer, sizeof(AuthenticatorState), 3);
 	memcpy((uint8_t*)a, buffer, sizeof(AuthenticatorState));
+    #ifdef DEBUG
 	byteprint(buffer,sizeof(AuthenticatorState));
+    #endif
 }
 
 void authenticator_read_backup_state(AuthenticatorState * a)
@@ -200,7 +208,9 @@ void authenticator_write_state(AuthenticatorState * a, int backup)
 	memcpy(buffer, (uint8_t*)a, sizeof(AuthenticatorState));
     printf1(TAG_GREEN, "authenticator_write_state size %d\n", sizeof(AuthenticatorState));
     ctap_flash (0, buffer, sizeof(AuthenticatorState), 4);
+    #ifdef DEBUG
 	byteprint(buffer,sizeof(AuthenticatorState));
+    #endif
 }
 
 uint32_t ctap_atomic_count(int sel)
