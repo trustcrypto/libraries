@@ -133,7 +133,7 @@ bool Password::profile1hashevaluate(){
 	sha256_final(&pinhash, KEK); //Create hash and store in KEK
 	//Generate public key of pinhash
 	KEK[0] &= 0xF8;
-  KEK[31] = (KEK[31] & 0x7F) | 0x40;
+  	KEK[31] = (KEK[31] & 0x7F) | 0x40;
 	//Generate public key of pinhash
 	Curve25519::eval(profilekey, KEK, 0); //Generate public in profilekey
 	#ifdef DEBUG
@@ -376,10 +376,10 @@ bool Password::sdhashevaluate(){
 	sha256_update(&pinhash, (uint8_t *)guess, guesslen); //Add new PIN to hash
 #ifdef DEBUG
 	Serial.print("NONCE HASH:"); 
-	byteprint(nonce, 16);
+	byteprint(nonce, 32);
 #endif
 	  
-	sha256_update(&pinhash, nonce, 16); //Add nonce to hash
+	sha256_update(&pinhash, nonce, 32); //Add nonce to hash
 	sha256_final(&pinhash, profilekey); //Create hash and store in profilekey
 #ifdef DEBUG
 	Serial.println();

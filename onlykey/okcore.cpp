@@ -1075,7 +1075,7 @@ void set_sd_pin(uint8_t *buffer, uint8_t keyboard_mode)
 				Serial.println("Getting NONCE");
 #endif
 
-				sha256_update(&pinhash, nonce, 16); //Add nonce to hash
+				sha256_update(&pinhash, nonce, 32); //Add nonce to hash
 				sha256_final(&pinhash, temp);	  //Create hash and store in temp
 #ifdef DEBUG
 				Serial.println("Hashing SDPIN and storing to Flash");
