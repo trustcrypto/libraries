@@ -117,6 +117,7 @@ uint8_t NEO_Brightness[1];
 #include <CBC.h>
 #include "ctaphid.h"
 #include "ok_extension.h"
+#include <usb_dev.h>
 #endif
 
 #ifndef STD_VERSION
@@ -160,6 +161,7 @@ uint8_t TIMEOUT[1] = {30};  //Default 30 Min
 uint8_t TYPESPEED[1] = {3}; //Default
 extern uint8_t KeyboardLayout[1];
 elapsedMillis idletimer;
+uint8_t useinterface = 0;
 
 /*************************************/
 //Softtimer assignments
@@ -438,9 +440,9 @@ void recvmsg(int n)
 			{
 				if (profilemode != NONENCRYPTEDPROFILE)
 				{
-#ifdef STD_VERSION
+					#ifdef STD_VERSION
 					set_u2f_priv(recv_buffer);
-#endif
+					#endif
 				}
 			}
 			else
@@ -459,9 +461,9 @@ void recvmsg(int n)
 			{
 				if (profilemode != NONENCRYPTEDPROFILE)
 				{
-#ifdef STD_VERSION
+					#ifdef STD_VERSION
 					wipe_u2f_priv(recv_buffer);
-#endif
+					#endif
 				}
 			}
 			else
@@ -480,10 +482,10 @@ void recvmsg(int n)
 			{
 				if (profilemode != NONENCRYPTEDPROFILE)
 				{
-#ifdef STD_VERSION
+					#ifdef STD_VERSION
 					if (recv_buffer[0] != 0xBA)
 						set_u2f_cert(recv_buffer);
-#endif
+					#endif
 				}
 			}
 			else
@@ -502,9 +504,9 @@ void recvmsg(int n)
 			{
 				if (profilemode != NONENCRYPTEDPROFILE)
 				{
-#ifdef STD_VERSION
+					#ifdef STD_VERSION
 					wipe_u2f_cert(recv_buffer);
-#endif
+					#endif
 				}
 			}
 			else
@@ -518,10 +520,10 @@ void recvmsg(int n)
 			{
 				if (profilemode != NONENCRYPTEDPROFILE)
 				{
-#ifdef STD_VERSION
+					#ifdef STD_VERSION
 					if (recv_buffer[0] != 0xBA)
 						set_private(recv_buffer);
-#endif
+					#endif
 				}
 			}
 			else if (initialized == true && unlocked == true && FTFL_FSEC == 0x44 && integrityctr1 == integrityctr2 && configmode == false)
@@ -544,9 +546,9 @@ void recvmsg(int n)
 			{
 				if (profilemode != NONENCRYPTEDPROFILE)
 				{
-#ifdef STD_VERSION
+					#ifdef STD_VERSION
 					wipe_private(recv_buffer);
-#endif
+					#endif
 				}
 			}
 			else
@@ -565,10 +567,10 @@ void recvmsg(int n)
 			{
 				if (profilemode != NONENCRYPTEDPROFILE)
 				{
-#ifdef STD_VERSION
+					#ifdef STD_VERSION
 					fadeon(213); //Purple
 					SIGN(recv_buffer);
-#endif
+					#endif
 				}
 			}
 			else
@@ -587,10 +589,10 @@ void recvmsg(int n)
 			{
 				if (profilemode != NONENCRYPTEDPROFILE)
 				{
-#ifdef STD_VERSION
+					#ifdef STD_VERSION
 					fadeon(128); //Turquoise
 					DECRYPT(recv_buffer);
-#endif
+					#endif
 				}
 			}
 			else
@@ -609,9 +611,9 @@ void recvmsg(int n)
 			{
 				if (profilemode != NONENCRYPTEDPROFILE)
 				{
-#ifdef STD_VERSION
+					#ifdef STD_VERSION
 					GETPUBKEY(recv_buffer);
-#endif
+					#endif
 				}
 			}
 			else
@@ -630,9 +632,9 @@ void recvmsg(int n)
 			{
 				if (profilemode != NONENCRYPTEDPROFILE)
 				{
-#ifdef STD_VERSION
+					#ifdef STD_VERSION
 					RESTORE(recv_buffer);
-#endif
+					#endif
 				}
 			}
 			else if (initialized == true && unlocked == true && FTFL_FSEC == 0x44 && integrityctr1 == integrityctr2 && configmode == false)
@@ -667,9 +669,19 @@ void recvmsg(int n)
 		default:
 			if (profilemode != NONENCRYPTEDPROFILE && initialized == true && unlocked == true && FTFL_FSEC == 0x44 && integrityctr1 == integrityctr2)
 			{
-#ifdef STD_VERSION
-				recv_fido_msg(recv_buffer);
-#endif
+				#ifdef STD_VERSION
+				if (!useinterface) {
+					// Android bug, Android selects random interface for FIDO if there are 
+					// multiple interfaces, doesn't even check if the interface has usage page 0xf1d0
+					delay(100);
+					useinterface=n;
+					n = RawHID.recv(recv_buffer, 0);
+					if (n) useinterface=n;
+					recv_fido_msg(recv_buffer);	
+				} else {
+				recv_fido_msg(recv_buffer);	
+				}
+				#endif
 			}
 			return;
 		}
@@ -678,9 +690,9 @@ void recvmsg(int n)
 	{
 		if (profilemode != NONENCRYPTEDPROFILE && initialized == true && unlocked == true && FTFL_FSEC == 0x44 && integrityctr1 == integrityctr2)
 		{
-#ifdef STD_VERSION
+			#ifdef STD_VERSION
 			fido_msg_timeout();
-#endif
+			#endif
 		}
 	}
 }

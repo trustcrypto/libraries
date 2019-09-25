@@ -165,7 +165,13 @@ void ctaphid_write_block(uint8_t * data)
     #ifdef DEBUG
 	byteprint(data, 64);
     #endif
-	RawHID.send(data, 100);
+    extern uint8_t useinterface;
+
+    if (useinterface == 2) {
+        RawHID.send2(data, 100);
+    } else {
+        RawHID.send(data, 100);
+    }
 }
 
 
