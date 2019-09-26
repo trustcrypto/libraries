@@ -678,7 +678,7 @@ void recvmsg(int n)
 					n = RawHID.recv(recv_buffer, 0);
 					if (n) useinterface=n;
 					recv_fido_msg(recv_buffer);	
-				} else {
+				} else if (useinterface == n) {
 				recv_fido_msg(recv_buffer);	
 				}
 				#endif

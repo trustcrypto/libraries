@@ -918,16 +918,18 @@ static void add_existing_user_info(CTAP_credentialDescriptor * cred)
     CTAP_residentKey rk;
     int index = STATE.rk_stored;
     int i;
-    for (i = 0; i < index; i++)
-    {
-        ctap_load_rk(i, &rk);
-        if (is_matching_rk(&rk, (CTAP_residentKey *)&cred->credential))
+    if (!webcryptcheck(NULL)) {
+        for (i = 0; i < index; i++)
         {
-            printf1(TAG_GREEN, "found rk match for allowList item (%d)\r\n", i);
-            memmove(&cred->credential.user, &rk.user, sizeof(CTAP_userEntity));
-            return;
-        }
+            ctap_load_rk(i, &rk);
+            if (is_matching_rk(&rk, (CTAP_residentKey *)&cred->credential))
+            {
+                printf1(TAG_GREEN, "found rk match for allowList item (%d)\r\n", i);
+                memmove(&cred->credential.user, &rk.user, sizeof(CTAP_userEntity));
+                return;
+            }
 
+        }
     }
     printf1(TAG_GREEN, "NO rk match for allowList item \r\n");
 }

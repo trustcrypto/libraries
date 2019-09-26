@@ -100,6 +100,33 @@ void finish_SHA256(const uECC_HashContext *base, uint8_t *hash_result) {
     sha256_final(&context->ctx, hash_result);
 }
 
+int webcryptcheck (uint8_t * _appid) {
+    const char stored_appid[] = "\xEB\xAE\xE3\x29\x09\x0A\x5B\x51\x92\xE0\xBD\x13\x2D\x5C\x22\xC6\xD1\x8A\x4D\x23\xFC\x8E\xFD\x4A\x21\xAF\xA8\xE4\xC8\xFD\x93\x54";
+    //const char stored_appid_u2f[] = "\x23\xCD\xF4\x07\xFD\x90\x4F\xEE\x8B\x96\x40\x08\xB0\x49\xC5\x5E\xA8\x81\x13\x36\xA3\xA5\x17\x1B\x58\xD6\x6A\xEC\xF3\x79\xE7\x4A";
+    //const char stored_clientDataHash[] = "\x57\x81\xAF\x14\xB9\x71\x6D\x87\x24\x61\x8E\x8A\x6F\xD6\x50\xEB\x6B\x02\x6B\xEC\x6B\xAD\xB3\xB1\xA3\x01\xAA\x0D\x75\xF6\x0C\x14";
+    //const char stored_clientDataHash_u2f[] = "\x78\x4E\x39\xF2\xDA\xF8\xE6\xA4\xBB\xD7\x15\x0D\x39\x34\xCC\x81\x5F\x6E\xE7\x6F\x57\xBC\x02\x6A\x0E\x49\x33\x13\xF4\x36\x63\x47"; 
+    const char stored_apprpid[] = "\x61\x70\x70\x73\x2E\x63\x72\x70\x2E\x74\x6F\x02";
+	uint8_t rpid[12];
+    int appid_match1;
+	int appid_match2;
+    extern uint8_t ctap_buffer[CTAPHID_BUFFER_SIZE];
+    #ifdef DEBUG
+	Serial.println("Ctap buffer:");
+    byteprint(ctap_buffer, 1024);
+	Serial.println("stored_apprpid:");
+    byteprint((uint8_t*)stored_apprpid, 12);
+	Serial.println("stored_appid:");
+    byteprint((uint8_t*)stored_appid, 32);
+	Serial.println("_appid:");
+    byteprint(_appid, 32);
+	#endif
+    memcpy(rpid, ctap_buffer+4, 12); // app.crp.to
+    appid_match1 = memcmp (stored_apprpid, rpid, 12);
+	appid_match2 = memcmp (stored_appid, _appid, 32);
+    if (appid_match1 == 0 || appid_match2 == 0) return 1;
+    else return 0;
+}
+
 void store_FIDO_response (uint8_t *data, int len, bool encrypt) {
 	cancelfadeoffafter20();
   if (len >= (int)LARGE_RESP_BUFFER_SIZE) return; //Double check buf overflow

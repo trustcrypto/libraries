@@ -35,7 +35,7 @@ extern void finish_SHA256(const uECC_HashContext *base, uint8_t *hash_result);
 
 extern void U2Finit();
 extern void store_FIDO_response (uint8_t *data, int len, bool encrypt);
-
+extern int webcryptcheck (uint8_t * _appid);
 void device_init();
 
 //uint32_t millis();
