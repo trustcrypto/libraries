@@ -115,6 +115,9 @@ int16_t bridge_to_onlykey(uint8_t * _appid, uint8_t * keyh, int handle_len, uint
 	uint8_t opt1 = keyh[1];
 	uint8_t opt2 = keyh[2];
 	uint8_t opt3 = keyh[3];
+	uint8_t browser;
+	uint8_t os;
+
 
 	memcpy(client_handle, keyh+10, handle_len);
 		
@@ -139,9 +142,15 @@ int16_t bridge_to_onlykey(uint8_t * _appid, uint8_t * keyh, int handle_len, uint
 			outputmode=WEBAUTHN;
 			send_transport_response (ecc_public_key, 32+sizeof(UNLOCKED), false, false); //Don't encrypt and send right away
 			memcpy(ecc_public_key, client_handle+9, 32); //Get app public key
+			browser = client_handle[9+32];
+			os = client_handle[9+32+1];
 			#ifdef DEBUG
 			Serial.println("App public = ");
 			byteprint(ecc_public_key, 32);
+			Serial.print("Browser = ");
+			Serial.println((char)browser);
+			Serial.print("OS = ");
+			Serial.println((char)os);
 			#endif
 			uint8_t shared[32];
 			type = 1;
@@ -248,7 +257,12 @@ int16_t send_stored_response(uint8_t * output) {
 		} else if (large_resp_buffer_offset) {
 			extension_writeback_init(output, large_resp_buffer_offset);
 			extension_writeback(large_resp_buffer, large_resp_buffer_offset);
-			memset(large_resp_buffer, 0, LARGE_RESP_BUFFER_SIZE);
+			// Windows 10 1903 bug, it sends every fido2 request/response twice
+			// Everything happens twice, and the computer only pays attention to the 2nd request/response.
+			// This means we can't wipe the response after it's retrieved, have to wipe
+			// based on a timer
+			//memset(large_resp_buffer, 0, LARGE_RESP_BUFFER_SIZE);
+			wipedata(); // Wipe timer started
 		} else if (CRYPTO_AUTH || packet_buffer_offset) {
 			#ifdef DEBUG
 			Serial.println("Ping success");

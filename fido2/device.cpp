@@ -110,17 +110,20 @@ int webcryptcheck (uint8_t * _appid) {
     int appid_match1;
 	int appid_match2;
     extern uint8_t ctap_buffer[CTAPHID_BUFFER_SIZE];
+    memcpy(rpid, ctap_buffer+4, 12); // app.crp.to
     #ifdef DEBUG
 	Serial.println("Ctap buffer:");
     byteprint(ctap_buffer, 1024);
 	Serial.println("stored_apprpid:");
     byteprint((uint8_t*)stored_apprpid, 12);
+    Serial.println("rpid:");
+    byteprint((uint8_t*)rpid, 12);
 	Serial.println("stored_appid:");
     byteprint((uint8_t*)stored_appid, 32);
 	Serial.println("_appid:");
     byteprint(_appid, 32);
 	#endif
-    memcpy(rpid, ctap_buffer+4, 12); // app.crp.to
+    
     appid_match1 = memcmp (stored_apprpid, rpid, 12);
 	appid_match2 = memcmp (stored_appid, _appid, 32);
     if (appid_match1 == 0 || appid_match2 == 0) return 1;
