@@ -298,7 +298,7 @@ void RSASIGN (uint8_t *buffer)
 		memset(large_buffer, 0, LARGE_BUFFER_SIZE); //wipe buffer
 		return;
 	}
-	aes_gcm_decrypt(large_buffer, packet_buffer_details[3], packet_buffer_details[4], profilekey, large_buffer_offset);
+	aes_gcm_decrypt(large_buffer, packet_buffer_details[0], packet_buffer_details[1], profilekey, large_buffer_offset);
 #ifdef DEBUG
     Serial.println();
     Serial.printf("RSA data to sign size=%d", large_buffer_offset);
@@ -350,7 +350,7 @@ void RSADECRYPT (uint8_t *buffer)
 		memset(large_buffer, 0, LARGE_BUFFER_SIZE); //wipe buffer
 		return;
 	}
-	aes_gcm_decrypt(large_buffer, packet_buffer_details[3], packet_buffer_details[4], profilekey, large_buffer_offset);
+	aes_gcm_decrypt(large_buffer, packet_buffer_details[0], packet_buffer_details[1], profilekey, large_buffer_offset);
 #ifdef DEBUG
     Serial.println();
     Serial.printf("RSA ciphertext blob size=%d", large_buffer_offset);
@@ -458,7 +458,7 @@ void ECDSA_EDDSA(uint8_t *buffer)
 #endif
     if(!CRYPTO_AUTH) process_packets (buffer, 0, 0);
 	else if (CRYPTO_AUTH == 4) {
-	aes_gcm_decrypt(large_buffer, packet_buffer_details[3], packet_buffer_details[4], profilekey, large_buffer_offset);
+	aes_gcm_decrypt(large_buffer, packet_buffer_details[0], packet_buffer_details[1], profilekey, large_buffer_offset);
 #ifdef DEBUG
     Serial.println();
     Serial.printf("ECC challenge blob size=%d", large_buffer_offset);

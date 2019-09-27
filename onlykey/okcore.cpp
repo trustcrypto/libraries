@@ -7195,7 +7195,7 @@ void done_process_packets()
 	Serial.println("Received Message");
 	byteprint(packet_buffer, packet_buffer_offset);
 #endif
-	aes_gcm_encrypt(packet_buffer, packet_buffer_details[3], packet_buffer_details[4], profilekey, packet_buffer_offset);
+	aes_gcm_encrypt(packet_buffer, packet_buffer_details[0], packet_buffer_details[1], profilekey, packet_buffer_offset);
 	// Just in case there is still a response stored
 	large_resp_buffer_offset = 0;
 	memset(large_resp_buffer, 0, large_resp_buffer_offset);

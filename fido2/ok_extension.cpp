@@ -103,6 +103,8 @@ extern uint8_t ecc_private_key[MAX_ECC_KEY_SIZE];
 extern uint8_t recv_buffer[64];
 extern uint8_t pending_operation;
 extern int packet_buffer_offset;
+extern uint8_t packet_buffer_details[5];
+
 
 
 int16_t bridge_to_onlykey(uint8_t * _appid, uint8_t * keyh, int handle_len, uint8_t * output)
@@ -203,8 +205,11 @@ int16_t bridge_to_onlykey(uint8_t * _appid, uint8_t * keyh, int handle_len, uint
 					recv_buffer[4] = cmd;
 					recv_buffer[5] = opt1; //slot
 					recv_buffer[6] = 0xFF;
-					if (opt2 && handle_len<=57) recv_buffer[6] = handle_len;
+					if (opt2 && handle_len<=57) {
+						recv_buffer[6] = handle_len;
+					} else if (opt3 <= packet_buffer_details[3]) return 0;
 					if (cmd == OKDECRYPT) {
+						packet_buffer_details[3] = opt3;
 						NEO_Color = 128; //Turquoise
 						large_buffer_offset = 0;
 						outputmode=WEBAUTHN;
@@ -214,6 +219,7 @@ int16_t bridge_to_onlykey(uint8_t * _appid, uint8_t * keyh, int handle_len, uint
 						#endif
 						DECRYPT(recv_buffer);
 					} else if (cmd == OKSIGN) {
+						packet_buffer_details[3] = opt3;
 						NEO_Color = 213; //Purple
 						large_buffer_offset = 0;
 						outputmode=WEBAUTHN;
