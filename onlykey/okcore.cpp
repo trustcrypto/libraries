@@ -6423,7 +6423,7 @@ void backup()
         if (rk.user.id_size)
         {
 			large_temp[large_buffer_offset] = 0xFE; //delimiter
-			large_temp[large_buffer_offset + 1] = index+200; // Use 0 for auth state 200+index for RKs
+			large_temp[large_buffer_offset + 1] = ii+200; // Use 0 for auth state 200+index for RKs
 			memcpy(large_temp + large_buffer_offset + 2, &rk, sizeof(rk));
 			large_buffer_offset = large_buffer_offset + sizeof(rk) + 2;
         }
@@ -6876,17 +6876,26 @@ void RESTORE(uint8_t *buffer)
 			else if (*ptr == 0xFE)
 			{ //Finished slot restore
 				if (*(ptr+1)== 0) { //Authenticator state
-				ptr+=2;
-				//set auth state
-				ctap_flash (0, ptr, sizeof(AuthenticatorState), 4);
-				ptr = ptr + sizeof(AuthenticatorState);
-				offset = offset - (sizeof(AuthenticatorState) + 2);
+					ptr+=2;
+					//set auth state
+					#ifdef DEBUG
+					Serial.print("Restore auth state");
+					byteprint(ptr, sizeof(AuthenticatorState));
+					#endif
+					ctap_flash (0, ptr, sizeof(AuthenticatorState), 4);
+					ptr = ptr + sizeof(AuthenticatorState);
+					offset = offset - (sizeof(AuthenticatorState) + 2);
 				} else if (*(ptr+1)>= 200) { //Resident Keys
-				ptr++;
-				//set rk # ptr - 200 
-				ctap_flash((*ptr-200), ptr+1, sizeof(CTAP_residentKey), 2);
-				ptr = ptr + sizeof(CTAP_residentKey) + 1;
-				offset = offset - (sizeof(CTAP_residentKey) + 2);
+					ptr++;
+					//set rk # ptr - 200 
+					#ifdef DEBUG
+					Serial.print("Restore rk num = ");
+					Serial.print(*ptr);
+					byteprint(ptr+1, sizeof(CTAP_residentKey));
+					#endif
+					ctap_flash((*ptr-200), ptr+1, sizeof(CTAP_residentKey), 2);
+					ptr = ptr + sizeof(CTAP_residentKey) + 1;
+					offset = offset - (sizeof(CTAP_residentKey) + 2);
 				}
 				else {
 					memset(temp, 0, sizeof(temp));
