@@ -197,6 +197,9 @@ int16_t bridge_to_onlykey(uint8_t * _appid, uint8_t * keyh, int handle_len, uint
 			// Break the FIDO message into packets
 			else if (!CRYPTO_AUTH) {
 				int i=0;
+				if (!packet_buffer_details[3]) packet_buffer_details[3] = opt3; // first packet
+				else if (opt3 <= packet_buffer_details[3]) return 0; // duplicate packet, thanks to win 10 1903 sending all FIDO2 messages twice
+
 				while(handle_len>0) { // Max size packet minus header
 					memset(recv_buffer, 0, sizeof(recv_buffer));
 					if (handle_len>=57) memmove(recv_buffer+7, client_handle+(i*57), 57);
@@ -205,9 +208,7 @@ int16_t bridge_to_onlykey(uint8_t * _appid, uint8_t * keyh, int handle_len, uint
 					recv_buffer[4] = cmd;
 					recv_buffer[5] = opt1; //slot
 					recv_buffer[6] = 0xFF;
-					if (!packet_buffer_details[3]) packet_buffer_details[3] = opt3; // first packet
-					else if (opt3 <= packet_buffer_details[3]) return 0; // duplicate packet, thanks to win 10 1903 sending all FIDO2 messages twice
-					else if (opt2 && handle_len<=57) recv_buffer[6] = handle_len; // last packet
+					if (opt2 && handle_len<=57) recv_buffer[6] = handle_len; // last packet
 					if (cmd == OKDECRYPT) {
 						packet_buffer_details[3] = opt3;
 						NEO_Color = 128; //Turquoise
