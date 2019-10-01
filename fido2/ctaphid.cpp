@@ -643,6 +643,13 @@ uint8_t ctaphid_handle_packet(uint8_t * pkt_raw)
                 return 0;
             }
             is_busy = 1;
+
+           // if (webcryptcheck(NULL) && ctap_resp.length > 300) {
+            //    ctaphid_send_error(cid, CTAP2_ERR_KEY_STORE_FULL);
+           //     is_busy = 0;
+           //     return 0;
+           // }
+
             ctap_response_init(&ctap_resp);
             status = ctap_request(ctap_buffer, len, &ctap_resp);
 

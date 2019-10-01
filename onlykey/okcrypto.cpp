@@ -555,7 +555,7 @@ void ECDSA_EDDSA(uint8_t *buffer)
 	byteprint(ecc_signature, 64);
 	#endif
 	outputmode=packet_buffer_details[2]; // Outputmode set at start of operation
-	send_transport_response (ecc_signature, len, true, true);
+	send_transport_response (ecc_signature, 64, false, false);
   // Stop the fade in
   	fadeoff(85);
     memset(large_buffer, 0, LARGE_BUFFER_SIZE);
