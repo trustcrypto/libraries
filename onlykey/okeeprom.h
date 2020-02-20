@@ -1,5 +1,5 @@
 /* 
- * Copyright (c) 2015-2019, CryptoTrust LLC.
+ * Copyright (c) 2015-2020, CryptoTrust LLC.
  * All rights reserved.
  * 
  * Author : Tim Steiner <t@crp.to>
@@ -19,7 +19,7 @@
  * 3. All advertising materials mentioning features or use of this
  *    software must display the following acknowledgment:
  *    "This product includes software developed by CryptoTrust LLC. for
- *    the OnlyKey Project (https://www.crp.to/ok)"
+ *    the OnlyKey Project (https://crp.to/ok)"
  *
  * 4. The names "OnlyKey" and "CryptoTrust" must not be used to
  *    endorse or promote products derived from this software without
@@ -34,7 +34,7 @@
  * 6. Redistributions of any form whatsoever must retain the following
  *    acknowledgment:
  *    "This product includes software developed by CryptoTrust LLC. for
- *    the OnlyKey Project (https://www.crp.to/ok)"
+ *    the OnlyKey Project (https://crp.to/ok)"
  *
  * 7. Redistributions in any form must be accompanied by information on
  *    how to obtain complete source code for this software and any

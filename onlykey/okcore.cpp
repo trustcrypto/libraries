@@ -1,5 +1,5 @@
 /* 
- * Copyright (c) 2015-2019, CryptoTrust LLC.
+ * Copyright (c) 2015-2020, CryptoTrust LLC.
  * All rights reserved.
  * 
  * Author : Tim Steiner <t@crp.to>
@@ -19,7 +19,7 @@
  * 3. All advertising materials mentioning features or use of this
  *    software must display the following acknowledgment:
  *    "This product includes software developed by CryptoTrust LLC. for
- *    the OnlyKey Project (https://www.crp.to/ok)"
+ *    the OnlyKey Project (https://crp.to/ok)"
  *
  * 4. The names "OnlyKey" and "CryptoTrust" must not be used to
  *    endorse or promote products derived from this software without
@@ -34,7 +34,7 @@
  * 6. Redistributions of any form whatsoever must retain the following
  *    acknowledgment:
  *    "This product includes software developed by CryptoTrust LLC. for
- *    the OnlyKey Project (https://www.crp.to/ok)"
+ *    the OnlyKey Project (https://crp.to/ok)"
  *
  * 7. Redistributions in any form must be accompanied by information on
  *    how to obtain complete source code for this software and any
@@ -367,7 +367,7 @@ void recvmsg(int n)
 		case OKSETPIN2:
 			if (!initcheck || configmode == true) set_secondary_pin(recv_buffer, 0);
 			return;
-		case OKSETTIME:
+		case OKCONNECT:
 			set_time(recv_buffer);
 			return;
 		case OKGETLABELS:
@@ -1291,7 +1291,7 @@ void set_time(uint8_t *buffer)
 {
 #ifdef DEBUG
 	Serial.println();
-	Serial.println("OKSETTIME MESSAGE RECEIVED");
+	Serial.println("OKCONNECT MESSAGE RECEIVED");
 #endif
 	if ((initialized == false && unlocked == true) || (initialized == true && unlocked == true && !initcheck))
 	{
@@ -2245,37 +2245,39 @@ int touch_sense_loop () {
 /*************************************/
 void rngloop()
 {
-	//Get temperature reading
-	//analogReference(INTERNAL);
-	//analogReadResolution(12);
-	//temperaturev = analogRead(38)+temperaturev;
-	//temperaturev = temperaturev/2;
-	//Serial.print(temperaturev);
-	//Serial.println (" Internal Temp");
-	//Stir in temperature reading
-	//RNG.stir((uint8_t *)((int)temperaturev), sizeof(temperaturev), sizeof(temperaturev));
 	// Stir the touchread and analog read values into the entropy pool.
+	//Serial.println("analog 1");
 	unsigned int analog1 = analogRead(ANALOGPIN1);
-	RNG.stir((uint8_t *)analog1, sizeof(analog1), sizeof(analog1) * 4);
+	RNG.stir((uint8_t *)&analog1, 2, 4);
+	//Serial.println("touchread 1");
 	touchread1 = touchRead(TOUCHPIN1);
-	RNG.stir((uint8_t *)touchread1, sizeof(touchread1), sizeof(touchread1));
-	delay((analog1 % 3) + ((touchread1 + touchread2 + touchread3) % 3)); //delay 0 - 6 ms
-	integrityctr1++;
+	RNG.stir((uint8_t *)touchread1, 4, 2);
 	touchread2 = touchRead(TOUCHPIN2);
-	RNG.stir((uint8_t *)touchread2, sizeof(touchread2), sizeof(touchread2));
+	delay((analog1 % 3) + ((touchread1 + touchread2) % 3)); //delay 0 - 4 ms
+	integrityctr1++;
+	//Serial.println("touchread 2");
+	RNG.stir((uint8_t *)touchread2, 4, 2);
 	touchread3 = touchRead(TOUCHPIN3);
-	RNG.stir((uint8_t *)touchread3, sizeof(touchread3), sizeof(touchread3));
+	//Serial.println("touchread 3");
+	RNG.stir((uint8_t *)touchread3, 4, 2);
 	touchread4 = touchRead(TOUCHPIN4);
-	RNG.stir((uint8_t *)touchread4, sizeof(touchread4), sizeof(touchread4));
+	//Serial.println("touchread 4");
+	RNG.stir((uint8_t *)touchread4, 4, 2);
 	touchread5 = touchRead(TOUCHPIN5);
-	RNG.stir((uint8_t *)touchread5, sizeof(touchread5), sizeof(touchread5));
+	//Serial.println("touchread 5");
+	RNG.stir((uint8_t *)touchread5, 4, 2);
 	touchread6 = touchRead(TOUCHPIN6);
-	RNG.stir((uint8_t *)touchread6, sizeof(touchread6), sizeof(touchread6));
+	//Serial.println("touchread 6");
+	RNG.stir((uint8_t *)touchread6, 4, 2);
+	//Serial.println("analog 2");
 	unsigned int analog2 = analogRead(ANALOGPIN2);
-	RNG.stir((uint8_t *)analog2, sizeof(analog2), sizeof(analog2) * 4);
+	RNG.stir((uint8_t *)&analog2, 2, 4);
+	//Serial.println("sumofall");
+	sumofall = (analog2 + touchread6 + touchread5 + touchread4 + analog1 + touchread3 + touchread2 + touchread1);
+	RNG.stir((uint8_t *)&sumofall, 2, 4);
 	// Perform regular housekeeping on the random number generator.
 	RNG.loop();
-	delay((analog2 % 3) + ((touchread6 + touchread5 + touchread4) % 3)); //delay 0 - 6 ms
+	delay((analog2 % 3) + ((touchread6 + touchread5 + touchread4) % 3)); //delay 0 - 4 ms
 	integrityctr2++;
 	if (integrityctr1 != integrityctr2)
 	{ //Integrity Check
@@ -2283,7 +2285,6 @@ void rngloop()
 		CPU_RESTART();
 		return;
 	}
-	sumofall = analog2 ^ (analog1 + touchread6 + touchread5 + touchread4 + touchread3 + touchread2 + touchread1);
 }
 
 void printHex(const uint8_t *data, unsigned len)
@@ -2362,6 +2363,10 @@ void send_transport_response(uint8_t *data, int len, uint8_t encrypt, uint8_t st
 	else if (profilemode != NONENCRYPTEDPROFILE && outputmode == WEBAUTHN)
 	{ //Webauthn
 #ifdef STD_VERSION
+  #ifdef DEBUG
+      Serial.print ("FIDO Response");
+	  byteprint(data, len);
+#endif
 		store_FIDO_response(data, len, encrypt);
 		return;
 #endif

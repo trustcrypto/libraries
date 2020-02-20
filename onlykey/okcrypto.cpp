@@ -1,5 +1,5 @@
 /* 
- * Copyright (c) 2015-2019, CryptoTrust LLC.
+ * Copyright (c) 2015-2020, CryptoTrust LLC.
  * All rights reserved.
  * 
  * Author : Tim Steiner <t@crp.to>
@@ -19,7 +19,7 @@
  * 3. All advertising materials mentioning features or use of this
  *    software must display the following acknowledgment:
  *    "This product includes software developed by CryptoTrust LLC. for
- *    the OnlyKey Project (https://www.crp.to/ok)"
+ *    the OnlyKey Project (https://crp.to/ok)"
  *
  * 4. The names "OnlyKey" and "CryptoTrust" must not be used to
  *    endorse or promote products derived from this software without
@@ -34,7 +34,7 @@
  * 6. Redistributions of any form whatsoever must retain the following
  *    acknowledgment:
  *    "This product includes software developed by CryptoTrust LLC. for
- *    the OnlyKey Project (https://www.crp.to/ok)"
+ *    the OnlyKey Project (https://crp.to/ok)"
  *
  * 7. Redistributions in any form must be accompanied by information on
  *    how to obtain complete source code for this software and any
@@ -197,7 +197,7 @@ void GETPUBKEY (uint8_t *buffer) {
 	} else if (buffer[5] < 130 && !buffer[6]) { //132 and 131 and 130 are reserved
 		if (onlykey_flashget_ECC ((int)buffer[5])) GETECCPUBKEY(buffer);
 	} else if (buffer[6] <= 3) { // Generate key using provided data, return public
-	DERIVEKEY(buffer[6], buffer+7);
+	DERIVEKEY(buffer[6], buffer+7, NULL);
 	send_transport_response(ecc_public_key, 64, false, false);
 	}
 
@@ -415,9 +415,10 @@ void GENPUBKEY (uint8_t *buffer)
 	memcpy(buffer, pk, 32);
 }
 
-void DERIVEKEY (uint8_t ktype, uint8_t *data)
+void DERIVEKEY (uint8_t ktype, uint8_t *data, uint8_t slot)
 {
-  onlykey_flashget_ECC (132); //Default Key stored in ECC slot 32
+  if (!slot) onlykey_flashget_ECC (132); //Default Key stored in ECC slot 32
+  else if (slot<125) onlykey_flashget_ECC (slot); 
   memset(ecc_public_key, 0, sizeof(ecc_public_key));
   SHA256_CTX ekey;
   sha256_init(&ekey);
@@ -469,15 +470,15 @@ void ECDSA_EDDSA(uint8_t *buffer)
 	SHA256_HashContext ectx = {{&init_SHA256, &update_SHA256, &finish_SHA256, 64, 32, tmp}};
 	if (buffer[5] == 201) {
 		//Used by SSH, old version used 132, new version uses 201 for type 1
-		DERIVEKEY(1, large_buffer+(large_buffer_offset-32));
+		DERIVEKEY(1, large_buffer+(large_buffer_offset-32), NULL);
 		type = 1;
 	}
 	else if (buffer[5] == 202) {
-		DERIVEKEY(2, large_buffer+(large_buffer_offset-32));
+		DERIVEKEY(2, large_buffer+(large_buffer_offset-32), NULL);
 		type = 2;
 	}
 	else if (buffer[5] == 203) {
-		DERIVEKEY(3, large_buffer+(large_buffer_offset-32));
+		DERIVEKEY(3, large_buffer+(large_buffer_offset-32), NULL);
 		type = 3;
 	}
 
@@ -713,13 +714,18 @@ void HMACSHA1 () {
 			memset(keyboard_buffer, 0, KEYBOARD_BUFFER_SIZE);
 			return;
 		}
-		onlykey_flashget_ECC (130); // Slot 130 reserved for HMACSHA1 key
-		if (type == 0 || (keyboard_buffer[64] & 0x0f) != 0x00 ) { //Generate a key if there is no key set or if slot 2 is selected, 0x08 for slot 2, 0x00 for slot 1
+		if ((keyboard_buffer[64] & 0x0f) == 0x08 ) { //HMAC Slot 2 selected, 0x08 for slot 2, 0x00 for slot 1
+			onlykey_flashget_ECC (129); //ECC slot 129 reserved for HMAC Slot 2 custom key 
+		} else {
+			onlykey_flashget_ECC (130); 
+		}
+		if (type == 0) { //Generate a key using the default key in slot 130 if there is no key set
+		 onlykey_flashget_ECC (130);
 		 // Derive key from SHA256 hash of default key and added data temp
 			for(int i=0; i<32; i++) {
 				temp[i] = i + (keyboard_buffer[64] & 0x0f);
 			}
-			DERIVEKEY(0, temp);
+			DERIVEKEY(0, temp, NULL);
 		}
 		//Variable buffer size
 		if (keyboard_buffer[57] == 0x20 && keyboard_buffer[58] == 0x20 && keyboard_buffer[59] == 0x20 && keyboard_buffer[60] == 0x20 && keyboard_buffer[61] == 0x20 && keyboard_buffer[62] == 0x20 && keyboard_buffer[63] == 0x20) {

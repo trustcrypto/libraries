@@ -100,7 +100,7 @@ void finish_SHA256(const uECC_HashContext *base, uint8_t *hash_result) {
     sha256_final(&context->ctx, hash_result);
 }
 
-int webcryptcheck (uint8_t * _appid) {
+int webcryptcheck (uint8_t * _appid, uint8_t * buffer) {
     const char stored_appid[] = "\xEB\xAE\xE3\x29\x09\x0A\x5B\x51\x92\xE0\xBD\x13\x2D\x5C\x22\xC6\xD1\x8A\x4D\x23\xFC\x8E\xFD\x4A\x21\xAF\xA8\xE4\xC8\xFD\x93\x54";
     //const char stored_appid_u2f[] = "\x23\xCD\xF4\x07\xFD\x90\x4F\xEE\x8B\x96\x40\x08\xB0\x49\xC5\x5E\xA8\x81\x13\x36\xA3\xA5\x17\x1B\x58\xD6\x6A\xEC\xF3\x79\xE7\x4A";
     //const char stored_clientDataHash[] = "\x57\x81\xAF\x14\xB9\x71\x6D\x87\x24\x61\x8E\x8A\x6F\xD6\x50\xEB\x6B\x02\x6B\xEC\x6B\xAD\xB3\xB1\xA3\x01\xAA\x0D\x75\xF6\x0C\x14";
@@ -126,12 +126,16 @@ int webcryptcheck (uint8_t * _appid) {
     
     appid_match1 = memcmp (stored_apprpid, rpid, 12);
 	appid_match2 = memcmp (stored_appid, _appid, 32);
-    if (appid_match1 == 0 || appid_match2 == 0) return 1;
+    if (appid_match1 == 0 || appid_match2 == 0) {
+        return 2;
+    } else if (buffer[0]==0xFF && buffer[1]==0xFF && buffer[2]==0xFF && buffer[3]==0xFF && buffer[4]==OKCONNECT) {
+        return 1;
+    }
     else return 0;
 }
 
 void store_FIDO_response (uint8_t *data, int len, bool encrypt) {
-	cancelfadeoffafter20();
+    cancelfadeoffafter20();
   if (len >= (int)LARGE_RESP_BUFFER_SIZE) return; //Double check buf overflow
 	if (encrypt) {
 		aes_crypto_box (data, len, false);
@@ -143,6 +147,7 @@ void store_FIDO_response (uint8_t *data, int len, bool encrypt) {
     } 
   }
   large_resp_buffer_offset = len;
+
   memmove(large_resp_buffer, data, len);
 #ifdef DEBUG
       Serial.print ("Stored Data for FIDO Response");

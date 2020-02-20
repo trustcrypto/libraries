@@ -918,7 +918,7 @@ static void add_existing_user_info(CTAP_credentialDescriptor * cred)
     CTAP_residentKey rk;
     int index = STATE.rk_stored;
     int i;
-    if (!webcryptcheck(NULL)) {
+    if (!webcryptcheck(NULL, NULL)) {
         for (i = 0; i < index; i++)
         {
             ctap_load_rk(i, &rk);

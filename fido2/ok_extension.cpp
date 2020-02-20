@@ -87,8 +87,10 @@
 #include "extensions.h"
 #include "ok_extension.h"
 
-
-
+#define DERIVE_PUBLIC_KEY 1
+#define DERIVE_SHARED_SECRET 2
+#define NO_ENCRYPT_RESP 0
+#define ENCRYPT_RESP 1
 
 extern uint8_t* large_resp_buffer;
 extern int large_resp_buffer_offset;
@@ -106,7 +108,6 @@ extern int packet_buffer_offset;
 extern uint8_t packet_buffer_details[5];
 
 
-
 int16_t bridge_to_onlykey(uint8_t * _appid, uint8_t * keyh, int handle_len, uint8_t * output)
 {
 
@@ -119,7 +120,7 @@ int16_t bridge_to_onlykey(uint8_t * _appid, uint8_t * keyh, int handle_len, uint
 	uint8_t opt3 = keyh[3];
 	uint8_t browser;
 	uint8_t os;
-
+	uint8_t temp[256];
 
 	memcpy(client_handle, keyh+10, handle_len);
 		
@@ -128,21 +129,46 @@ int16_t bridge_to_onlykey(uint8_t * _appid, uint8_t * keyh, int handle_len, uint
     byteprint(client_handle, handle_len);
 	#endif
 
-    if (webcryptcheck(_appid)) { // Only allow crp.to and localhost
+    if (webcryptcheck(_appid, client_handle)) {
       outputmode=DISCARD; // Discard output 
-      //Todo add localhost support
-		if (cmd == OKSETTIME && !CRYPTO_AUTH) {
+		if (cmd == OKCONNECT && !CRYPTO_AUTH) {
 			large_buffer_offset = 0;
 			set_time(client_handle);
 			memset(ecc_public_key, 0, sizeof(ecc_public_key));
+			// crypto_box_keypair uses RNG2 to create random 32 byte private
+			// crypto_box_keypair puts generated private in ecc_private_key and public in ecc_public_key along with OnlyKey version info
 			crypto_box_keypair(ecc_public_key+sizeof(UNLOCKED), ecc_private_key); //Generate keys
 			#ifdef DEBUG
 			Serial.println("OnlyKey public = ");
 			byteprint(ecc_public_key+sizeof(UNLOCKED), 32);
 			#endif
 			memcpy(ecc_public_key, UNLOCKED, sizeof(UNLOCKED));
+			// Response goes out via WEBAUTHN
 			outputmode=WEBAUTHN;
-			send_transport_response (ecc_public_key, 32+sizeof(UNLOCKED), false, false); //Don't encrypt and send right away
+			memcpy(temp, ecc_public_key, sizeof(ecc_public_key));
+			// Check opt1 to see if additional info goes in response
+			if (opt1==DERIVE_PUBLIC_KEY) {
+				//TODO HKDF
+				// Test public key value all 1s
+				memset(temp+sizeof(ecc_public_key), 1, 32);
+				send_transport_response(temp, sizeof(ecc_public_key)+32, false, false); //Encrypt if opt3 and send right away
+			} else if (opt1==DERIVE_SHARED_SECRET) {
+				//TODO HKDF
+				//Input RPID, Derivation Private, Optional additional data
+				//if (shared_secret (ecc_public_key, shared)) {
+				//	ret = CTAP2_ERR_OPERATION_DENIED;
+				//	printf2(TAG_ERR,"Error with ECC Shared Secret\n");
+				//	return ret;
+				//}
+
+				// Test public key value all 1s
+				memset(temp+sizeof(ecc_public_key), 1, 32);
+				// Test shared secret value all 2s
+				memset(temp+sizeof(ecc_public_key)+32, 2, 32);
+				send_transport_response(temp, sizeof(ecc_public_key)+32+32, opt3, false); //Encrypt if opt3 and send right away
+			} else {
+				send_transport_response (ecc_public_key, 32+sizeof(UNLOCKED), opt3, false); //Don't encrypt and send right away
+			}
 			memcpy(ecc_public_key, client_handle+9, 32); //Get app public key
 			browser = client_handle[9+32];
 			os = client_handle[9+32+1];
@@ -173,7 +199,9 @@ int16_t bridge_to_onlykey(uint8_t * _appid, uint8_t * keyh, int handle_len, uint
 			Serial.println("AES Key = ");
 			byteprint(ecc_private_key, 32);
 			#endif
-		} else {
+			pending_operation=CTAP2_ERR_DATA_READY;
+		} else if (webcryptcheck(_appid, client_handle)>1) {  // Protected mode, only allow crp.to and localhost
+			//Todo add localhost support
 			aes_crypto_box (client_handle, handle_len, true);
 			#ifdef DEBUG
 			Serial.println("Decrypted client handle");
