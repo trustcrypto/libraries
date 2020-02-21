@@ -702,7 +702,7 @@ void HMACSHA1 () {
 	uint8_t temp[32];
 	uint8_t inputlen;
 	uint16_t crc;
-	extern uint8_t setBuffer[8];
+	extern uint8_t setBuffer[9];
 	uint8_t *ptr;
 #ifdef DEBUG
 	Serial.println();
