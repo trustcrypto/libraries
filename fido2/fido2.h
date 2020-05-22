@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 
+
 #include "cbor.h"
 //#include "device.h"
 #include "ctaphid.h"
@@ -16,4 +17,3 @@
 #include "log.h"
 #include "ctap.h"
 #include APP_CONFIG
-

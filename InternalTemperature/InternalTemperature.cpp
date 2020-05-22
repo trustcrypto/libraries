@@ -37,7 +37,8 @@
 #if defined(__MK64FX512__) || defined(__MK66FX1M0__)   // 3.5, 3.6
   #define TEMPERATURE_PIN 70
 #else
-  #define TEMPERATURE_PIN 38
+  #define TEMPERATURE_PIN 38 
+  // #define CORE_PIN38_CONFIG	PORTC_PCR11
 #endif
 
 // Constructor
@@ -73,21 +74,37 @@ bool InternalTemperature::begin (bool lowPowerMode) {
   return true;
 }
 
+bool InternalTemperature::getHwModel () {
+  if (SIM_SDID_PINID == 9) {
+    return 1; //
+  } else {
+    return 0;
+  }
+}
+
 float InternalTemperature::readRawVoltage () {
 
-#if defined(__MKL26Z64__)   // Teensy LC 
-  const float vRef = 3.3;
-#else
-  const float vRef = 1.195;
-#endif
+  float vRef;
+  if (getHwModel ()) {
+    vRef = 3.3;
+  } else {
+    vRef = 1.195;
+  }
+
+  Serial.println("vRef");
+  Serial.println(vRef);
 
   int analogValue;
   float volts;
 
   analogValue = analogRead(TEMPERATURE_PIN);
+  Serial.println("Temp PIN");
+  Serial.println(analogValue);
 
-  // analog value of 0x10000 = Vref in volts
-  volts = (vRef / 0x10000) * analogValue;
+  // analog value of 0x10000 = Vref in volts 
+  volts = (vRef / 0x100) * analogValue;
+  Serial.println("volts");
+  Serial.println(volts);
 
   return volts;
 }

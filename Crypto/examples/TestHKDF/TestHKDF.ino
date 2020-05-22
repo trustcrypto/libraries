@@ -6,7 +6,7 @@
  */
 
 #include <Crypto.h>
-#include <SHA256.h>
+#include <SHA256_2.h>
 #include <HKDF.h>
 #include <string.h>
 

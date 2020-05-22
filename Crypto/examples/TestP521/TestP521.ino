@@ -29,7 +29,7 @@ AVR platforms with 32K or less of flash memory.
 
 #include <Crypto.h>
 #include <P521.h>
-#include <SHA256.h>
+#include <SHA256_2.h>
 #include <SHA512.h>
 #include <RNG.h>
 #include <RNG.h>

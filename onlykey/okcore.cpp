@@ -75,56 +75,57 @@
  */
 
 /*************************************/
-//Firmware includes
+//Standard Libraries 
 /*************************************/
 #include "sha256.h"
-#include <string.h>
-#include <EEPROM.h>
-#include <SoftTimer.h>
-#include <DelayRun.h>
-#include <password.h>
+#include "string.h"
+#include "EEPROM.h"
+#include "SoftTimer.h"
+#include "DelayRun.h"
+#include "T3MacLib.h"
+#include "password.h"
 #include "Time.h"
 #include "onlykey.h"
 #include "flashkinetis.h"
-#include <RNG.h>
-#include "T3MacLib.h"
+#include "RNG.h"
 #include "base64.h"
-#include <Curve25519.h>
-#include "ctap_errors.h"
+#include "Curve25519.h"
 
 /*************************************/
-//Neopixel color LED
+//Color LED Libraries 
 /*************************************/
 #ifdef OK_Color
 #include "Adafruit_NeoPixel.h"
 #define NEOPIN 10
+// #define CORE_PIN10_CONFIG	PORTC_PCR4
 #define NUMPIXELS 1
 Adafruit_NeoPixel pixels = Adafruit_NeoPixel(NUMPIXELS, NEOPIN, NEO_GRB + NEO_KHZ800);
 #endif
 uint8_t NEO_Color;
 uint8_t NEO_Brightness[1];
-
+uint8_t Profile_Offset = 0;
 /*************************************/
-//Firmware version specific includes
+//Additional Libraries to Load for STD firmware version
+//These libraries will only be used if STD_VERSION is defined
 /*************************************/
 #ifdef STD_VERSION
+#include "ctap_errors.h"
 #include "yksim.h"
 #include "uECC.h"
 #include "ykcore.h"
-#include <Crypto.h>
-#include <AES.h>
-#include <GCM.h>
-#include <CBC.h>
 #include "ctaphid.h"
 #include "ok_extension.h"
-#include <usb_dev.h>
+#include "usb_dev.h"
 #endif
-
 #ifndef STD_VERSION
 // Parts of some libraries required for international travel edition 
 // not including full libraries as those libraries include crypto 
 
 #define CTAPHID_BUFFER_SIZE         7609
+#define CTAP2_ERR_NO_OPERATION_PENDING      0x2A
+#define CTAP2_ERR_USER_ACTION_PENDING       0x23
+#define CTAP2_ERR_DATA_READY                0xF6
+#define CTAP2_ERR_DATA_WIPE                 0xF7
 
 uint16_t
 yubikey_crc16 (const uint8_t * buf, size_t buf_size)
@@ -147,7 +148,6 @@ yubikey_crc16 (const uint8_t * buf, size_t buf_size)
   return m_crc;
 }
 #endif
-
 /*************************************/
 //Global assignments
 /*************************************/
@@ -162,9 +162,9 @@ uint8_t TYPESPEED[1] = {3}; //Default
 extern uint8_t KeyboardLayout[1];
 elapsedMillis idletimer;
 uint8_t useinterface = 0;
-
+extern uint8_t onlykeygohw;
 /*************************************/
-//Softtimer assignments
+//SoftTimer Tasks
 /*************************************/
 Task FadeinTask(15, increment);
 Task FadeoutTask(10, decrement);
@@ -174,14 +174,12 @@ DelayRun Endfade(2500, fadeendafter2sec);		//delay to prevent inadvertent button
 uint8_t fade = 0;
 uint8_t isfade = 0;
 #define THRESHOLD   .5
-
 /*************************************/
 //Yubikey core assignments
 /*************************************/
 #ifdef STD_VERSION
 yubikey_ctx_st ctx;
 #endif
-
 /*************************************/
 //Password.cpp assignments
 /*************************************/
@@ -194,7 +192,6 @@ extern uint8_t nonce[32];
 extern int integrityctr1;
 extern int integrityctr2;
 int initcheck;
-
 /*************************************/
 //Touch button assignments
 /*************************************/
@@ -209,9 +206,9 @@ uint8_t ANALOGPIN1;
 uint8_t ANALOGPIN2;
 unsigned int touchread1;
 unsigned int touchread2;
-unsigned int touchread3;
+unsigned int touchread3; // OnlyKey Go Button #1
 unsigned int touchread4;
-unsigned int touchread5;
+unsigned int touchread5; // OnlyKey Go Button #2
 unsigned int touchread6;
 unsigned int touchread1ref = 1350;
 unsigned int touchread2ref = 1350;
@@ -221,27 +218,23 @@ unsigned int touchread5ref = 1350;
 unsigned int touchread6ref = 1450;
 unsigned int sumofall;
 int button_selected = 0; 
-
 /*************************************/
 //HMCAC SHA1 Assignments
 /*************************************/
 uint8_t setBuffer[9] = {0};
 uint8_t getBuffer[9] = {0, 2, 2, 3, 3, 3, 5, 0, 0};
 uint8_t keyboard_buffer[KEYBOARD_BUFFER_SIZE] = {0};
-
 /*************************************/
 //ECC key assignments
 /*************************************/
 #ifdef STD_VERSION
 extern uint8_t ecc_public_key[(MAX_ECC_KEY_SIZE * 2) + 1];
 extern uint8_t ecc_private_key[MAX_ECC_KEY_SIZE];
-
 /*************************************/
 //RSA key assignments
 /*************************************/
 extern uint8_t rsa_private_key[MAX_RSA_KEY_SIZE];
 extern uint8_t type;
-
 /*************************************/
 //FIDO2 assignments
 /*************************************/
@@ -265,8 +258,6 @@ uint8_t recv_buffer[64];
 uint8_t resp_buffer[64];
 int outputmode = 0;
 uint8_t pending_operation;
-
-
 /*************************************/
 //Crypto Challenge assignments
 /*************************************/
@@ -276,12 +267,6 @@ uint8_t Challenge_button3 = 0;
 uint8_t CRYPTO_AUTH = 0;
 uint8_t sshchallengemode = 0;
 uint8_t pgpchallengemode = 0;
-
-/*************************************/
-//built-in temperature sensor
-/*************************************/
-float temperaturev;
-
 /*************************************/
 //RNG Assignments
 /*************************************/
@@ -341,7 +326,7 @@ void recvmsg(int n)
 		byteprint(recv_buffer, 64);
 #endif
 
-		if (configmode == true && recv_buffer[4] != OKSETSLOT && recv_buffer[4] != OKSETPRIV && recv_buffer[4] != OKRESTORE && recv_buffer[4] != OKFWUPDATE && recv_buffer[4] != OKWIPEPRIV && recv_buffer[4] != OKGETLABELS && recv_buffer[4] != OKSETPIN && recv_buffer[4] != OKSETPIN2 && recv_buffer[4] != OKSETSDPIN)
+		if (configmode == true && recv_buffer[4] != OKSETSLOT && recv_buffer[4] != OKSETPRIV && recv_buffer[4] != OKRESTORE && recv_buffer[4] != OKFWUPDATE && recv_buffer[4] != OKWIPEPRIV && recv_buffer[4] != OKGETLABELS && recv_buffer[4] != OKPIN && recv_buffer[4] != OKPINSEC && recv_buffer[4] != OKPINSD)
 		{
 #ifdef DEBUG
 			Serial.println("ERROR NOT SUPPORTED IN CONFIG MODE");
@@ -351,20 +336,25 @@ void recvmsg(int n)
 
 		switch (recv_buffer[4])
 		{
-		case OKSETPIN:
+		case OKPIN:
 			if (profilemode != NONENCRYPTEDPROFILE)
 			{
-				if (!initcheck || configmode == true) set_primary_pin(recv_buffer, 0);
+				if (!initcheck || configmode == true) {
+					if (recv_buffer[5]>'0') okcore_quick_setup(SETUP_MANUAL); // Received request to set PINs/passphrase OnlyKey (Go)
+					else if (HW_ID!=OK_GO) set_primary_pin(recv_buffer, 0); // Received request to enter primary PIN on OnlyKey (not Go)
+				} else if (recv_buffer[5]>'0' && initialized == true && unlocked == false && HW_ID==OK_GO) {
+					if (recv_buffer[5]>'0') okcore_pin_login(); // Received PIN Login Attempt for OnlyKey Go
+				}
 			}
 			else
 			{
 				if (!initcheck || configmode == true) set_secondary_pin(recv_buffer, 0);
 			}
 			return;
-		case OKSETSDPIN:
+		case OKPINSD:
 			if (!initcheck || configmode == true) set_sd_pin(recv_buffer, 0);
 			return;
-		case OKSETPIN2:
+		case OKPINSEC:
 			if (!initcheck || configmode == true) set_secondary_pin(recv_buffer, 0);
 			return;
 		case OKCONNECT:
@@ -569,7 +559,7 @@ void recvmsg(int n)
 				{
 					#ifdef STD_VERSION
 					fadeon(213); //Purple
-					SIGN(recv_buffer);
+					okcrypto_sign(recv_buffer);
 					#endif
 				}
 			}
@@ -591,7 +581,7 @@ void recvmsg(int n)
 				{
 					#ifdef STD_VERSION
 					fadeon(128); //Turquoise
-					DECRYPT(recv_buffer);
+					okcrypto_decrypt(recv_buffer);
 					#endif
 				}
 			}
@@ -612,7 +602,7 @@ void recvmsg(int n)
 				if (profilemode != NONENCRYPTEDPROFILE)
 				{
 					#ifdef STD_VERSION
-					GETPUBKEY(recv_buffer);
+					okcrypto_getpubkey(recv_buffer);
 					#endif
 				}
 			}
@@ -711,7 +701,7 @@ void setCounter(uint32_t counter)
 	EEPROM.put(eeAddress, counter);
 }
 
-void keyboard_mode_config(uint8_t step)
+void okcore_quick_setup(uint8_t step)
 {
 #ifdef DEBUG
 	Serial.println("Keyboard-config OnlyKey");
@@ -734,10 +724,10 @@ void keyboard_mode_config(uint8_t step)
 		keytype("You have 20 seconds starting now...");
 		pin_set = 10;
 		fadeoffafter20();
-		//keyboard_mode_config(AUTO_PIN_SET);
+		//okcore_quick_setup(KEYBOARD_AUTO_PIN_SET);
 		return;
 	}
-	if (step == MANUAL_PIN_SET)
+	if (step == KEYBOARD_MANUAL_PIN_SET)
 	{ //Manual Set PIN
 		pin_set = 0;
 		keytype("You will now enter a PIN on the OnlyKey 6 button keypad");
@@ -745,15 +735,15 @@ void keyboard_mode_config(uint8_t step)
 		set_primary_pin(NULL, 1);
 		return;
 	}
-	else if (step == AUTO_PIN_SET)
+	else if (step == KEYBOARD_AUTO_PIN_SET)
 	{ //Auto Set PIN
 
 		keytype("Your OnlyKey will now be configured automatically with random PINs/Passphrase");
 		pin_set = 3;
+
 		generate_random_pin(buffer);
 		//memset(buffer, '1', 7);
-
-		set_primary_pin(buffer, AUTO_PIN_SET);
+		set_primary_pin(buffer, KEYBOARD_AUTO_PIN_SET);
 
 		Keyboard.println();
 		keytype("YOUR ONLYKEY PIN IS:");
@@ -763,7 +753,7 @@ void keyboard_mode_config(uint8_t step)
 
 		//memset(buffer, '2', 7);
 
-		set_secondary_pin(buffer, AUTO_PIN_SET);
+		set_secondary_pin(buffer, KEYBOARD_AUTO_PIN_SET);
 
 		keytype("YOUR ONLYKEY SECOND PROFILE PIN IS:");
 		keytype((char *)buffer);
@@ -773,33 +763,63 @@ void keyboard_mode_config(uint8_t step)
 
 		//memset(buffer, '3', 7);
 
-		set_sd_pin(buffer, AUTO_PIN_SET);
+		set_sd_pin(buffer, KEYBOARD_AUTO_PIN_SET);
 
 		keytype("YOUR ONLYKEY SELF-DESTRUCT PIN IS:");
 		keytype((char *)buffer);
 
-	}
+	} else if (step == KEYBOARD_ONLYKEY_GO) {
+		keytype("*** WELCOME TO ONLYKEY GO QUICK SETUP ***");
+		keytype("RUN THIS SETUP FROM A TRUSTED COMPUTER AND CAREFULLY WRITE DOWN");
+		keytype("YOUR BACKUP PASSPHRASE. STORE IN A SECURE LOCATION SUCH AS A SAFE");
+		keytype("WHEN FINISHED DELETE THIS TEXT");
+		Keyboard.println();
+		pin_set = 3;
+		// First 7 bytes of chip ID used instead of primary PIN
+		set_primary_pin((uint8_t*)ID, KEYBOARD_AUTO_PIN_SET);
+		pin_set = 9;
+		// Second 7 bytes of chip ID used instead of secondary PIN
+		set_secondary_pin((uint8_t*)(ID+7), KEYBOARD_AUTO_PIN_SET);
+	} else if (step == SETUP_MANUAL) {
+		if (recv_buffer[5]>'0') {
+			pin_set = 3;
+			set_primary_pin(recv_buffer+5, KEYBOARD_AUTO_PIN_SET);
+		}
+		if (recv_buffer[15]>'0') {
+			pin_set = 9;
+			set_secondary_pin(recv_buffer+15, KEYBOARD_AUTO_PIN_SET);
+		}
+		if (recv_buffer[25]>'0') {
+			pin_set = 6;
+			set_sd_pin(recv_buffer+25, KEYBOARD_AUTO_PIN_SET);
+		}
+	} 
 
-	generate_random_passphrase(buffer + 7);
-	keytype("YOUR ONLYKEY BACKUP PASSPHRASE IS:");
-	keytype((char *)(buffer + 7));
-	Keyboard.println();
-
-	//memset(buffer, 'a', 32);
-
-	buffer[5] = 0x83;
+	buffer[5] = RESERVED_KEY_DEFAULT_BACKUP;
 	buffer[6] = 0xA1;
 	SHA256_CTX hash;
 	sha256_init(&hash);
-	sha256_update(&hash, buffer + 7, 25);
-	sha256_final(&hash, buffer + 7);
-	set_private(buffer); //set backup ECC key
 
-	keytype("To start using OnlyKey enter your primary or secondary PIN on the OnlyKey 6 button keypad");
-	keytype("OnlyKey is ready for use as a security key (FIDO2/U2F) and for challenge-response");
-	keytype("For additional features install the OnlyKey desktop app - https://onlykey.io/app");
-	keytype("*** SETUP COMPLETE, DELETE THIS TEXT ***");
-	CPU_RESTART();
+	if (recv_buffer[35]>=0x20 && step == SETUP_MANUAL) { //ASCII Space
+		sha256_update(&hash, recv_buffer+35, strlen((char*)(recv_buffer+35)));
+		sha256_final(&hash, buffer + 7);
+		set_private(buffer); //set backup ECC key
+	} else {
+		keytype("YOUR ONLYKEY BACKUP PASSPHRASE IS:");
+		generate_random_passphrase(buffer + 7);
+		keytype((char *)(buffer + 7));
+		//memset(buffer, 'a', 32);
+		Keyboard.println();
+		sha256_update(&hash, buffer + 7, 27);
+		sha256_final(&hash, buffer + 7);
+		set_private(buffer); //set backup ECC key
+		if (HW_ID!=OK_GO) keytype("To start using OnlyKey enter your primary or secondary PIN on the OnlyKey 6 button keypad");
+		keytype("OnlyKey is ready for use as a security key (FIDO2/U2F) and for challenge-response");
+		keytype("For additional features such as password management install the OnlyKey desktop app");
+		keytype("https://onlykey.io/app ");
+		keytype("*** SETUP COMPLETE, DELETE THIS TEXT ***");
+	}
+	if (step!=SETUP_MANUAL) CPU_RESTART();
 }
 
 void generate_random_pin(uint8_t *buffer)
@@ -807,30 +827,30 @@ void generate_random_pin(uint8_t *buffer)
 	RNG2(buffer, 7);
 	for (int i = 0; i < 7; i++)
 	{
-		buffer[i] = ((buffer[i] % 5) + 1) + '0';
+		buffer[i] = ((buffer[i] % 6) + 1) + '0';
 	}
 	buffer[7] = 0;
 }
 
-// Generate a random 25 char alpha-numeric passphrase 
-// passphrase strength roughly 2.5x stronger than AES-128 key
-// 256^16 = ~3E38, 36^25 = ~8E38
+// Generate a random 27 char alpha-numeric passphrase 
+// passphrase strength stronger than AES-128 key
+// 256^16 = ~3E+38, 36^27 = ~1E+42
 void generate_random_passphrase(uint8_t *buffer)
 {
-	RNG2(buffer, 25);
-	byteprint(buffer, 25);
-	for (int i = 0; i < 25; i++)
+	RNG2(buffer, 27);
+	byteprint(buffer, 27);
+	for (int i = 0; i < 27; i++)
 	{
-		buffer[i] = ((buffer[i] % 35) + 1) + 96; //Alpha
+		buffer[i] = ((buffer[i] % 36) + 1) + 96; //Alpha
 		if (buffer[i] > 122) buffer[i] = buffer[i] - 75; //Numeric
 	} 
-	buffer[25] = 0;
+	buffer[27] = 0;
 }
 
 void set_primary_pin(uint8_t *buffer, uint8_t keyboard_mode)
 {
 #ifdef DEBUG
-	Serial.println("OKSETPIN MESSAGE RECEIVED");
+	Serial.println("OKPIN MESSAGE RECEIVED");
 #endif
 
 	if (pin_set > 3)
@@ -844,7 +864,7 @@ void set_primary_pin(uint8_t *buffer, uint8_t keyboard_mode)
 		Serial.println("Enter PIN");
 #endif
 		pin_set = 1;
-		if (keyboard_mode == MANUAL_PIN_SET)
+		if (keyboard_mode == KEYBOARD_MANUAL_PIN_SET)
 		{
 			keytype("You have 20 seconds to enter primary profile PIN, starting now");
 			fadeoffafter20();
@@ -884,15 +904,15 @@ void set_primary_pin(uint8_t *buffer, uint8_t keyboard_mode)
 			password.reset();
 			pin_set = 0;
 		}
-		if (keyboard_mode == MANUAL_PIN_SET)
-			set_primary_pin(NULL, MANUAL_PIN_SET);
+		if (keyboard_mode == KEYBOARD_MANUAL_PIN_SET)
+			set_primary_pin(NULL, KEYBOARD_MANUAL_PIN_SET);
 		return;
 	case 2:
 #ifdef DEBUG
 		Serial.println("Confirm PIN");
 #endif
 		pin_set = 3;
-		if (keyboard_mode == MANUAL_PIN_SET)
+		if (keyboard_mode == KEYBOARD_MANUAL_PIN_SET)
 		{
 			keytype("You have 20 seconds to re-enter PIN, starting now");
 			fadeoffafter20();
@@ -903,10 +923,10 @@ void set_primary_pin(uint8_t *buffer, uint8_t keyboard_mode)
 		return;
 	case 3:
 		pin_set = 0;
-		if ((strlen(password.guess) >= 7 && strlen(password.guess) < 11) || keyboard_mode == AUTO_PIN_SET)
+		if ((strlen(password.guess) >= 7 && strlen(password.guess) < 11) || keyboard_mode == KEYBOARD_AUTO_PIN_SET)
 		{
 
-			if ((password.evaluate()) || keyboard_mode == AUTO_PIN_SET)
+			if ((password.evaluate()) || keyboard_mode == KEYBOARD_AUTO_PIN_SET)
 			{
 #ifdef DEBUG
 				Serial.println("Both PINs Match");
@@ -914,43 +934,41 @@ void set_primary_pin(uint8_t *buffer, uint8_t keyboard_mode)
 				//hidprint("Both PINs Match");
 				uint8_t temp[32];
 				uint8_t nonce2[32];
-				uint8_t *ptr;
 
-				ptr = nonce2;
-				RNG2(ptr, 32); //Fill temp with random data
-				onlykey_eeset_nonce2(ptr);
-
-				ptr = temp;
+				RNG2((uint8_t*)nonce2, 32); //Fill temp with random data
+				okeeprom_eeset_nonce2((uint8_t*)nonce2);
 
 				//Hash PIN and Nonce
 				SHA256_CTX pinhash;
 				sha256_init(&pinhash);
-				if (keyboard_mode == AUTO_PIN_SET) memcpy(password.guess, buffer, 7);
-				sha256_update(&pinhash, (uint8_t *)password.guess, strlen(password.guess)); //Add new PIN to hash
+				if (keyboard_mode == KEYBOARD_AUTO_PIN_SET) {
+					sha256_update(&pinhash, (uint8_t *)buffer, 7); 
+				} else {
+					sha256_update(&pinhash, (uint8_t *)password.guess, strlen(password.guess)); //Add new PIN to hash
+				}
+
 				// Set new nonce if none is set
-				ptr=nonce;
 				if (!initcheck) {				
-					RNG2(ptr, 32); //Fill temp with random data
-					onlykey_flashset_noncehash(ptr); //Store in flash
+					RNG2((uint8_t*)nonce, 32); //Fill temp with random data
+					okcore_flashset_noncehash((uint8_t*)nonce); //Store in flash
 					#ifdef DEBUG
 					Serial.println("Generating NONCE");
 					byteprint(nonce, 32);
 					#endif
 				}
-				ptr = temp;
 				sha256_update(&pinhash, nonce, 32); //Add nonce to hash
 				sha256_final(&pinhash, temp); //Create hash and store in temp
 
-				onlykey_flashset_pinhashpublic(ptr);
+				okcore_flashset_pinhashpublic((uint8_t*)temp);
 				
 #ifdef DEBUG
 				Serial.println();
 				Serial.println("Successfully set PIN");
 #endif
-				if (keyboard_mode == MANUAL_PIN_SET)
+				if (keyboard_mode == KEYBOARD_MANUAL_PIN_SET)
 				{
 					keytype("Successfully set PIN");
-					set_secondary_pin(NULL, MANUAL_PIN_SET);
+					set_secondary_pin(NULL, KEYBOARD_MANUAL_PIN_SET);
 				}
 				else
 					hidprint("Successfully set PIN");
@@ -964,8 +982,8 @@ void set_primary_pin(uint8_t *buffer, uint8_t keyboard_mode)
 					hidprint("Error PINs Don't Match");
 				else
 					keytype("Error PINs Don't Match");
-				if (keyboard_mode == MANUAL_PIN_SET)
-					set_primary_pin(NULL, MANUAL_PIN_SET);
+				if (keyboard_mode == KEYBOARD_MANUAL_PIN_SET)
+					set_primary_pin(NULL, KEYBOARD_MANUAL_PIN_SET);
 			}
 		}
 		else
@@ -977,8 +995,8 @@ void set_primary_pin(uint8_t *buffer, uint8_t keyboard_mode)
 				hidprint("Error PIN is not between 7 - 10 digits");
 			else
 				keytype("Error PIN is not between 7 - 10 digits");
-			if (keyboard_mode == MANUAL_PIN_SET)
-				set_primary_pin(NULL, MANUAL_PIN_SET);
+			if (keyboard_mode == KEYBOARD_MANUAL_PIN_SET)
+				set_primary_pin(NULL, KEYBOARD_MANUAL_PIN_SET);
 		}
 		password.reset();
 		blink(3);
@@ -989,7 +1007,7 @@ void set_primary_pin(uint8_t *buffer, uint8_t keyboard_mode)
 void set_sd_pin(uint8_t *buffer, uint8_t keyboard_mode)
 {
 #ifdef DEBUG
-	Serial.println("OKSETSDPIN MESSAGE RECEIVED");
+	Serial.println("OKPINSDMESSAGE RECEIVED");
 #endif
 
 	if (pin_set < 4 || pin_set > 6)
@@ -1003,7 +1021,7 @@ void set_sd_pin(uint8_t *buffer, uint8_t keyboard_mode)
 		Serial.println("Enter PIN");
 #endif
 		pin_set = 4;
-		if (keyboard_mode == MANUAL_PIN_SET)
+		if (keyboard_mode == KEYBOARD_MANUAL_PIN_SET)
 		{
 			keytype("You have 20 seconds to enter self-destruct PIN, starting now");
 			fadeoffafter20();
@@ -1043,15 +1061,15 @@ void set_sd_pin(uint8_t *buffer, uint8_t keyboard_mode)
 			password.reset();
 			pin_set = 0;
 		}
-		if (keyboard_mode == MANUAL_PIN_SET)
-			set_sd_pin(NULL, MANUAL_PIN_SET);
+		if (keyboard_mode == KEYBOARD_MANUAL_PIN_SET)
+			set_sd_pin(NULL, KEYBOARD_MANUAL_PIN_SET);
 		return;
 	case 5:
 #ifdef DEBUG
 		Serial.println("Confirm PIN");
 #endif
 		pin_set = 6;
-		if (keyboard_mode == MANUAL_PIN_SET)
+		if (keyboard_mode == KEYBOARD_MANUAL_PIN_SET)
 		{
 			keytype("You have 20 seconds to re-enter PIN, starting now");
 			fadeoffafter20();
@@ -1062,19 +1080,18 @@ void set_sd_pin(uint8_t *buffer, uint8_t keyboard_mode)
 		return;
 	case 6:
 		pin_set = 0;
-		if ((strlen(password.guess) >= 7 && strlen(password.guess) < 11) || keyboard_mode == AUTO_PIN_SET)
+		if ((strlen(password.guess) >= 7 && strlen(password.guess) < 11) || keyboard_mode == KEYBOARD_AUTO_PIN_SET)
 		{
-			if ((password.evaluate()) || keyboard_mode == AUTO_PIN_SET)
+			if ((password.evaluate()) || keyboard_mode == KEYBOARD_AUTO_PIN_SET)
 			{
 #ifdef DEBUG
 				Serial.println("Both PINs Match");
 #endif
 				//hidprint("Both PINs Match");
 				uint8_t temp[32];
-				uint8_t *ptr;
-				ptr = temp;
+
 				//Copy characters to byte array
-				if (keyboard_mode == AUTO_PIN_SET)
+				if (keyboard_mode == KEYBOARD_AUTO_PIN_SET)
 					memcpy(password.guess, buffer, 7);
 				for (unsigned int i = 0; i <= strlen(password.guess); i++)
 				{
@@ -1092,11 +1109,11 @@ void set_sd_pin(uint8_t *buffer, uint8_t keyboard_mode)
 #ifdef DEBUG
 				Serial.println("Hashing SDPIN and storing to Flash");
 #endif
-				onlykey_flashset_selfdestructhash(ptr);
-				if (keyboard_mode == MANUAL_PIN_SET)
+				okcore_flashset_selfdestructhash((uint8_t*)temp);
+				if (keyboard_mode == KEYBOARD_MANUAL_PIN_SET)
 				{
 					keytype("Successfully set PIN");
-					keyboard_mode_config(3); //Done setting PINs
+					okcore_quick_setup(3); //Done setting PINs
 				}
 				else
 					hidprint("Successfully set PIN");
@@ -1110,8 +1127,8 @@ void set_sd_pin(uint8_t *buffer, uint8_t keyboard_mode)
 					hidprint("Error PINs Don't Match");
 				else
 					keytype("Error PINs Don't Match");
-				if (keyboard_mode == MANUAL_PIN_SET)
-					set_sd_pin(NULL, MANUAL_PIN_SET);
+				if (keyboard_mode == KEYBOARD_MANUAL_PIN_SET)
+					set_sd_pin(NULL, KEYBOARD_MANUAL_PIN_SET);
 			}
 		}
 		else
@@ -1123,8 +1140,8 @@ void set_sd_pin(uint8_t *buffer, uint8_t keyboard_mode)
 				hidprint("Error PIN is not between 7 - 10 digits");
 			else
 				keytype("Error PIN is not between 7 - 10 digits");
-			if (keyboard_mode == MANUAL_PIN_SET)
-				set_sd_pin(NULL, MANUAL_PIN_SET);
+			if (keyboard_mode == KEYBOARD_MANUAL_PIN_SET)
+				set_sd_pin(NULL, KEYBOARD_MANUAL_PIN_SET);
 		}
 		password.reset();
 		blink(3);
@@ -1135,7 +1152,7 @@ void set_sd_pin(uint8_t *buffer, uint8_t keyboard_mode)
 void set_secondary_pin(uint8_t *buffer, uint8_t keyboard_mode)
 {
 #ifdef DEBUG
-	Serial.println("OKSETPIN2 MESSAGE RECEIVED");
+	Serial.println("OKPINSEC MESSAGE RECEIVED");
 #endif
 	if (pin_set < 7)
 		pin_set = 0;
@@ -1148,7 +1165,7 @@ void set_secondary_pin(uint8_t *buffer, uint8_t keyboard_mode)
 		Serial.println("Enter PIN");
 #endif
 		pin_set = 7;
-		if (keyboard_mode == MANUAL_PIN_SET)
+		if (keyboard_mode == KEYBOARD_MANUAL_PIN_SET)
 		{
 			keytype("You have 20 seconds to enter second profile PIN, starting now");
 			fadeoffafter20();
@@ -1187,15 +1204,15 @@ void set_secondary_pin(uint8_t *buffer, uint8_t keyboard_mode)
 			password.reset();
 			pin_set = 0;
 		}
-		if (keyboard_mode == MANUAL_PIN_SET)
-			set_secondary_pin(NULL, MANUAL_PIN_SET);
+		if (keyboard_mode == KEYBOARD_MANUAL_PIN_SET)
+			set_secondary_pin(NULL, KEYBOARD_MANUAL_PIN_SET);
 		return;
 	case 8:
 #ifdef DEBUG
 		Serial.println("Confirm PIN");
 #endif
 		pin_set = 9;
-		if (keyboard_mode == MANUAL_PIN_SET)
+		if (keyboard_mode == KEYBOARD_MANUAL_PIN_SET)
 		{
 			keytype("You have 20 seconds to re-enter PIN, starting now");
 			fadeoffafter20();
@@ -1206,9 +1223,9 @@ void set_secondary_pin(uint8_t *buffer, uint8_t keyboard_mode)
 		return;
 	case 9:
 		pin_set = 0;
-		if ((strlen(password.guess) >= 7 && strlen(password.guess) < 11) || keyboard_mode == AUTO_PIN_SET)
+		if ((strlen(password.guess) >= 7 && strlen(password.guess) < 11) || keyboard_mode == KEYBOARD_AUTO_PIN_SET)
 		{
-			if ((password.evaluate()) || keyboard_mode == AUTO_PIN_SET)
+			if ((password.evaluate()) || keyboard_mode == KEYBOARD_AUTO_PIN_SET)
 			{
 #ifdef DEBUG
 				Serial.println("Both PINs Match");
@@ -1217,38 +1234,33 @@ void set_secondary_pin(uint8_t *buffer, uint8_t keyboard_mode)
 
 				uint8_t temp[32];
 				uint8_t nonce2[32];
-				uint8_t *ptr;
 
-				ptr = nonce2;
-				RNG2(ptr, 32); //Fill temp with random data
-				onlykey_eeset_nonce2(ptr);
-
-				
+				RNG2((uint8_t*)nonce2, 32); //Fill temp with random data
+				okeeprom_eeset_nonce2((uint8_t*)nonce2);
 
 				//Hash PIN and Nonce
 				SHA256_CTX pinhash;
 				sha256_init(&pinhash);
-				if (keyboard_mode == AUTO_PIN_SET) memcpy(password.guess, buffer, 7);
+				if (keyboard_mode == KEYBOARD_AUTO_PIN_SET) memcpy(password.guess, buffer, 7);
 				sha256_update(&pinhash, (uint8_t *)password.guess, strlen(password.guess)); //Add new PIN to hash
-				ptr = nonce;
-				if (!onlykey_flashget_noncehash (ptr, 32)) {
-					RNG2(ptr, 32); //Fill temp with random data
-					onlykey_flashset_noncehash(ptr); //Store in flash
+				if (!okcore_flashget_noncehash ((uint8_t*)nonce, 32)) {
+					RNG2((uint8_t*)nonce, 32); //Fill temp with random data
+					okcore_flashset_noncehash((uint8_t*)nonce); //Store in flash
 					#ifdef DEBUG
 					Serial.println("Generating NONCE");
 					byteprint(nonce, 32);
 					#endif
 				}
-				ptr = temp;
+
 				sha256_update(&pinhash, nonce, 32); //Add nonce to hash
 				sha256_final(&pinhash, temp); //Create hash and store in temp
 
-				onlykey_flashset_2ndpinhashpublic(ptr);
+				okcore_flashset_2ndpinhashpublic((uint8_t*)temp);
 #ifdef DEBUG
 				Serial.println();
 				Serial.println("Successfully set PIN");
 #endif
-				if (keyboard_mode == MANUAL_PIN_SET)
+				if (keyboard_mode == KEYBOARD_MANUAL_PIN_SET)
 				{
 					keytype("Successfully set PIN");
 					set_sd_pin(NULL, 1);
@@ -1265,8 +1277,8 @@ void set_secondary_pin(uint8_t *buffer, uint8_t keyboard_mode)
 					hidprint("Error PINs Don't Match");
 				else
 					keytype("Error PINs Don't Match");
-				if (keyboard_mode == MANUAL_PIN_SET)
-					set_secondary_pin(NULL, MANUAL_PIN_SET);
+				if (keyboard_mode == KEYBOARD_MANUAL_PIN_SET)
+					set_secondary_pin(NULL, KEYBOARD_MANUAL_PIN_SET);
 			}
 		}
 		else
@@ -1278,8 +1290,8 @@ void set_secondary_pin(uint8_t *buffer, uint8_t keyboard_mode)
 				hidprint("Error PIN is not between 7 - 10 digits");
 			else
 				keytype("Error PIN is not between 7 - 10 digits");
-			if (keyboard_mode == MANUAL_PIN_SET)
-				set_secondary_pin(NULL, MANUAL_PIN_SET);
+			if (keyboard_mode == KEYBOARD_MANUAL_PIN_SET)
+				set_secondary_pin(NULL, KEYBOARD_MANUAL_PIN_SET);
 		}
 		password.reset();
 		blink(3);
@@ -1298,7 +1310,7 @@ void set_time(uint8_t *buffer)
 #ifdef DEBUG
 		Serial.print("UNINITIALIZED");
 #endif
-		hidprint(UNINITIALIZED);
+		hidprint(HW_MODEL(UNINITIALIZED));
 		return;
 	}
 	else if (initialized == true && unlocked == true && configmode == true)
@@ -1306,14 +1318,14 @@ void set_time(uint8_t *buffer)
 #ifdef DEBUG
 		Serial.print("CONFIG_MODE");
 #endif
-		hidprint(UNLOCKED);
+		hidprint(HW_MODEL(UNLOCKED));
 	}
 	else if (initialized == true && unlocked == true)
 	{
 #ifdef DEBUG
 		Serial.print("UNLOCKED");
 #endif
-		hidprint(UNLOCKED);
+		hidprint(HW_MODEL(UNLOCKED));
 		if (timeStatus() == timeNotSet)
 		{
 			int i, j;
@@ -1375,7 +1387,7 @@ uint8_t get_key_labels(uint8_t output)
 
 	for (uint8_t i = 25; i <= 28; i++)
 	{ //4 labels for RSA keys
-		onlykey_flashget_label(ptr, (offset + i));
+		okcore_flashget_label(ptr, (offset + i));
 		label[0] = (uint8_t)i; //1-4
 		label[1] = (uint8_t)0x7C;
 		ByteToChar(label, labelchar, EElen_label + 3);
@@ -1406,7 +1418,7 @@ uint8_t get_key_labels(uint8_t output)
 	}
 	for (uint8_t i = 29; i <= 58; i++)
 	{ //30 labels for ECC keys
-		onlykey_flashget_label(ptr, (offset + i));
+		okcore_flashget_label(ptr, (offset + i));
 		label[0] = (uint8_t)i; //101-132
 		label[1] = (uint8_t)0x7C;
 		ByteToChar(label, labelchar, EElen_label + 3);
@@ -1471,12 +1483,12 @@ void get_slot_labels(uint8_t output)
 	char labeltype[EElen_label + 3 + 3];
 	labeltype[2] = 0x20;
 	ptr = label + 2;
-	if (profilemode)
-		offset = 12;
-
-	for (int i = 1; i <= 12; i++)
+	if (profilemode) offset = 12;
+	int maxslots = 12;
+	if (HW_ID==OK_GO) maxslots = 3;
+	for (int i = 1; i <= maxslots; i++)
 	{
-		onlykey_flashget_label(ptr, (offset + i));
+		okcore_flashget_label(ptr, (offset + i));
 		if (i <= 9)
 			label[0] = i;
 		else
@@ -1541,7 +1553,7 @@ void set_slot(uint8_t *buffer)
 #endif
 	if (buffer[0] == 0xBA && slot > 12)
 	{
-		onlykey_eeget_2ndprofilemode(&mode);
+		okeeprom_eeget_2ndprofilemode(&mode);
 	}
 	else
 	{
@@ -1557,7 +1569,7 @@ void set_slot(uint8_t *buffer)
 		Serial.println(); //newline
 		Serial.print("Writing Label Value to Flash...");
 #endif
-		onlykey_flashset_label(buffer + 7, slot);
+		okcore_flashset_label(buffer + 7, slot);
 		hidprint("Successfully set Label");
 		break;
 	case 15:
@@ -1571,16 +1583,14 @@ void set_slot(uint8_t *buffer)
 			byteprint(buffer + 7, 32);
 			Serial.println();
 #endif
-#ifdef STD_VERSION
-			aes_gcm_encrypt((buffer + 7), slot, value, profilekey, length);
-#endif
+			okcore_aes_gcm_encrypt((buffer + 7), slot, value, profilekey, length);
 #ifdef DEBUG
 			Serial.println("Encrypted");
 			byteprint(buffer + 7, 32);
 			Serial.println();
 #endif
 		}
-		onlykey_flashset_url(buffer + 7, length, slot);
+		okcore_flashset_url(buffer + 7, length, slot);
 		hidprint("Successfully set URL");
 		break;
 	case 16:
@@ -1590,10 +1600,10 @@ void set_slot(uint8_t *buffer)
 #endif
 		if (buffer[7] >= 0x30)
 			buffer[7] = buffer[7] - '0';
-		onlykey_eeget_addchar(&temp, slot);
+		okeeprom_eeget_addchar(&temp, slot);
 		mask = 0b00000011;
 		buffer[7] = (temp & ~mask) | (buffer[7] & mask);
-		onlykey_eeset_addchar(buffer + 7, slot);
+		okeeprom_eeset_addchar(buffer + 7, slot);
 #ifdef DEBUG
 		Serial.print(buffer[7]);
 #endif
@@ -1607,7 +1617,7 @@ void set_slot(uint8_t *buffer)
 #endif
 		if (buffer[7] > '0')
 			buffer[7] = (buffer[7] - '0');
-		onlykey_eeset_delay1(buffer + 7, slot);
+		okeeprom_eeset_delay1(buffer + 7, slot);
 		hidprint("Successfully set Delay1");
 		break;
 	case 18:
@@ -1617,11 +1627,11 @@ void set_slot(uint8_t *buffer)
 #endif
 		if (buffer[7] >= 0x30)
 			buffer[7] = buffer[7] - '0';
-		onlykey_eeget_addchar(&temp, slot);
+		okeeprom_eeget_addchar(&temp, slot);
 		mask = 0b00000100;
 		buffer[7] = buffer[7] << 2;
 		buffer[7] = (temp & ~mask) | (buffer[7] & mask);
-		onlykey_eeset_addchar(buffer + 7, slot);
+		okeeprom_eeset_addchar(buffer + 7, slot);
 #ifdef DEBUG
 		Serial.print(buffer[7]);
 #endif
@@ -1634,11 +1644,11 @@ void set_slot(uint8_t *buffer)
 #endif
 		if (buffer[7] >= 0x30)
 			buffer[7] = buffer[7] - '0';
-		onlykey_eeget_addchar(&temp, slot);
+		okeeprom_eeget_addchar(&temp, slot);
 		mask = 0b00001000;
 		buffer[7] = buffer[7] << 3;
 		buffer[7] = (temp & ~mask) | (buffer[7] & mask);
-		onlykey_eeset_addchar(buffer + 7, slot);
+		okeeprom_eeset_addchar(buffer + 7, slot);
 #ifdef DEBUG
 		Serial.print(buffer[7]);
 #endif
@@ -1656,16 +1666,14 @@ void set_slot(uint8_t *buffer)
 			byteprint(buffer + 7, 32);
 			Serial.println();
 #endif
-#ifdef STD_VERSION
-			aes_gcm_encrypt((buffer + 7), slot, value, profilekey, length);
-#endif
+			okcore_aes_gcm_encrypt((buffer + 7), slot, value, profilekey, length);
 #ifdef DEBUG
 			Serial.println("Encrypted");
 			byteprint(buffer + 7, 32);
 			Serial.println();
 #endif
 		}
-		onlykey_flashset_username(buffer + 7, length, slot);
+		okcore_flashset_username(buffer + 7, length, slot);
 		hidprint("Successfully set Username");
 		break;
 	case 3:
@@ -1676,11 +1684,11 @@ void set_slot(uint8_t *buffer)
 #endif
 		if (buffer[7] >= 0x30)
 			buffer[7] = buffer[7] - '0';
-		onlykey_eeget_addchar(&temp, slot);
+		okeeprom_eeget_addchar(&temp, slot);
 		mask = 0b00110000;
 		buffer[7] = buffer[7] << 4;
 		buffer[7] = (temp & ~mask) | (buffer[7] & mask);
-		onlykey_eeset_addchar(buffer + 7, slot);
+		okeeprom_eeset_addchar(buffer + 7, slot);
 #ifdef DEBUG
 		Serial.print(buffer[7]);
 #endif
@@ -1694,7 +1702,7 @@ void set_slot(uint8_t *buffer)
 #endif
 		if (buffer[7] > '0')
 			buffer[7] = (buffer[7] - '0');
-		onlykey_eeset_delay2(buffer + 7, slot);
+		okeeprom_eeset_delay2(buffer + 7, slot);
 		hidprint("Successfully set Delay2");
 		break;
 	case 5:
@@ -1709,16 +1717,14 @@ void set_slot(uint8_t *buffer)
 			byteprint(buffer + 7, 32);
 			Serial.println();
 #endif
-#ifdef STD_VERSION
-			aes_gcm_encrypt((buffer + 7), slot, value, profilekey, length);
-#endif
+			okcore_aes_gcm_encrypt((buffer + 7), slot, value, profilekey, length);
 #ifdef DEBUG
 			Serial.println("Encrypted");
 			byteprint(buffer + 7, 32);
 			Serial.println();
 #endif
 		}
-		onlykey_eeset_password(buffer + 7, length, slot);
+		okeeprom_eeset_password(buffer + 7, length, slot);
 		hidprint("Successfully set Password");
 		break;
 	case 6:
@@ -1731,11 +1737,11 @@ void set_slot(uint8_t *buffer)
 			buffer[7] = buffer[7] - '0';
 		if (buffer[7] == 2)
 			buffer[7]--; //Return only, no tab needed
-		onlykey_eeget_addchar(&temp, slot);
+		okeeprom_eeget_addchar(&temp, slot);
 		mask = 0b01000000;
 		buffer[7] = buffer[7] << 6;
 		buffer[7] = (temp & ~mask) | (buffer[7] & mask);
-		onlykey_eeset_addchar(buffer + 7, slot);
+		okeeprom_eeset_addchar(buffer + 7, slot);
 #ifdef DEBUG
 		Serial.print(buffer[7]);
 #endif
@@ -1749,7 +1755,7 @@ void set_slot(uint8_t *buffer)
 #endif
 		if (buffer[7] > '0')
 			buffer[7] = (buffer[7] - '0');
-		onlykey_eeset_delay3(buffer + 7, slot);
+		okeeprom_eeset_delay3(buffer + 7, slot);
 		hidprint("Successfully set Delay3");
 		break;
 	case 8:
@@ -1758,7 +1764,7 @@ void set_slot(uint8_t *buffer)
 		Serial.println(); //newline
 		Serial.print("Writing 2FA Type to EEPROM...");
 #endif
-		onlykey_eeset_2FAtype(buffer + 7, slot);
+		okeeprom_eeset_2FAtype(buffer + 7, slot);
 		hidprint("Successfully set 2FA Type");
 		break;
 	case 9:
@@ -1769,18 +1775,13 @@ void set_slot(uint8_t *buffer)
 		byteprint(buffer + 7, 32);
 		Serial.println();
 #endif
-#ifdef STD_VERSION
-		if (mode != NONENCRYPTEDPROFILE)
-		{
-			aes_gcm_encrypt((buffer + 7), slot, value, profilekey, length);
-		}
-#endif
+		okcore_aes_gcm_encrypt((buffer + 7), slot, value, profilekey, length);
 #ifdef DEBUG
 		Serial.println("Encrypted");
 		byteprint(buffer + 7, 64);
 		Serial.println();
 #endif
-		onlykey_flashset_totpkey(buffer + 7, length, slot);
+		okcore_flashset_totpkey(buffer + 7, length, slot);
 		hidprint("Successfully set TOTP Key");
 		break;
 	case 10:
@@ -1797,9 +1798,7 @@ void set_slot(uint8_t *buffer)
 			byteprint(buffer + 7 + 12, 16);
 			Serial.println();
 #endif
-#ifdef STD_VERSION
-			aes_gcm_encrypt((buffer + 7), 0, value, profilekey, length);
-#endif
+			okcore_aes_gcm_encrypt((buffer + 7), 0, value, profilekey, length);
 #ifdef DEBUG
 			Serial.println("Encrypted");
 			byteprint(buffer + 7, 32);
@@ -1809,9 +1808,9 @@ void set_slot(uint8_t *buffer)
 			uint8_t *ptr;
 			ptr = (uint8_t *)&counter;
 			yubikey_eeset_counter(ptr);
-			onlykey_eeset_public(buffer + 7);
-			onlykey_eeset_private((buffer + 7 + EElen_public));
-			onlykey_eeset_aeskey(buffer + 7 + EElen_public + EElen_private);
+			okeeprom_eeset_public(buffer + 7);
+			okeeprom_eeset_private((buffer + 7 + EElen_public));
+			okeeprom_eeset_aeskey(buffer + 7 + EElen_public + EElen_private);
 			yubikeyinit();
 			hidprint("Successfully set AES Key, Private ID, and Public ID");
 		}
@@ -1821,7 +1820,7 @@ void set_slot(uint8_t *buffer)
 		Serial.println(); //newline
 		Serial.println("Writing idle timeout to EEPROM...");
 #endif
-		onlykey_eeset_timeout(buffer + 7);
+		okeeprom_eeset_timeout(buffer + 7);
 		TIMEOUT[0] = buffer[7];
 		hidprint("Successfully set idle timeout");
 		break;
@@ -1832,12 +1831,12 @@ void set_slot(uint8_t *buffer)
 #endif
 		if (buffer[7] == 2)
 		{
-			onlykey_eeset_wipemode(buffer + 7);
+			okeeprom_eeset_wipemode(buffer + 7);
 			hidprint("Successfully set Wipe Mode to Full Wipe");
 		}
 		else if (!initcheck)
 		{ //Only permit changing this on first use on a clean device
-			onlykey_eeset_wipemode(buffer + 7);
+			okeeprom_eeset_wipemode(buffer + 7);
 			hidprint("Successfully set Wipe Mode to default setting");
 		}
 		else
@@ -1852,12 +1851,12 @@ void set_slot(uint8_t *buffer)
 #endif
 		if (buffer[7] == 1)
 		{
-			onlykey_eeset_backupkeymode(buffer + 7);
+			okeeprom_eeset_backupkeymode(buffer + 7);
 			hidprint("Successfully set Backup Key Mode to Locked");
 		}
 		else if (!initcheck)
 		{ //Only permit changing this on first use on a clean device
-			onlykey_eeset_backupkeymode(buffer + 7);
+			okeeprom_eeset_backupkeymode(buffer + 7);
 			hidprint("Successfully set Backup Key Mode to Permit Future Changes");
 		}
 		else
@@ -1873,7 +1872,7 @@ void set_slot(uint8_t *buffer)
 			Serial.println(); //newline
 			Serial.println("Writing sshchallengemode to EEPROM...");
 #endif
-			onlykey_eeset_sshchallengemode(buffer + 7);
+			okeeprom_eeset_sshchallengemode(buffer + 7);
 			hidprint("Successfully set SSH Challenge Mode");
 		}
 		else
@@ -1889,8 +1888,24 @@ void set_slot(uint8_t *buffer)
 			Serial.println(); //newline
 			Serial.println("Writing pgpchallengemode to EEPROM...");
 #endif
-			onlykey_eeset_pgpchallengemode(buffer + 7);
+			okeeprom_eeset_pgpchallengemode(buffer + 7);
 			hidprint("Successfully set PGP Challenge Mode");
+		}
+		else
+		{
+			hidprint("Error not in config mode, hold button 6 down for 5 sec");
+		}
+		break;
+	case 26:
+
+		if (configmode == true || !initcheck)
+		{ //Only permit changing this on first use or while in config mode
+#ifdef DEBUG
+			Serial.println(); //newline
+			Serial.println("Writing hmac_challengemode to EEPROM...");
+#endif
+			okeeprom_eeset_hmac_challengemode(buffer + 7);
+			hidprint("Successfully set HMAC Challenge Mode");
 		}
 		else
 		{
@@ -1907,7 +1922,7 @@ void set_slot(uint8_t *buffer)
 #ifdef STD_VERSION
 		if (!initcheck)
 		{ //Only permit changing this on first use
-			onlykey_eeset_2ndprofilemode(buffer + 7);
+			okeeprom_eeset_2ndprofilemode(buffer + 7);
 			//hidprint("Successfully set 2nd profile mode");
 		}
 		else
@@ -1921,7 +1936,7 @@ void set_slot(uint8_t *buffer)
 		Serial.println(); //newline
 		Serial.println("Writing LED brightness to EEPROM...");
 #endif
-		onlykey_eeset_ledbrightness(buffer + 7);
+		okeeprom_eeset_ledbrightness(buffer + 7);
 		NEO_Brightness[0] = buffer[7];
 		pixels.setBrightness(NEO_Brightness[0] * 22);
 		hidprint("Successfully set LED brightness");
@@ -1932,15 +1947,15 @@ void set_slot(uint8_t *buffer)
 	Serial.println("Writing lock button to EEPROM...");
 #endif
 	uint8_t temp;
-	onlykey_eeget_autolockslot(&temp);
+	okeeprom_eeget_autolockslot(&temp);
 		if (profilemode) {
 			temp &= 0x0F;
 			temp += (buffer[7] << 4);
-			onlykey_eeset_autolockslot(&temp);
+			okeeprom_eeset_autolockslot(&temp);
 		} else {
 			temp &= 0xF0;
 			temp += buffer[7];
-			onlykey_eeset_autolockslot(&temp);
+			okeeprom_eeset_autolockslot(&temp);
 		}
 	hidprint("Successfully set lock button");
 	break;
@@ -1953,7 +1968,7 @@ void set_slot(uint8_t *buffer)
 		if (buffer[7] <= 10)
 		{
 			buffer[7] = 11 - buffer[7];
-			onlykey_eeset_typespeed(buffer + 7);
+			okeeprom_eeset_typespeed(buffer + 7);
 			TYPESPEED[0] = buffer[7];
 		}
 		hidprint("Successfully set keyboard typespeed");
@@ -1964,7 +1979,7 @@ void set_slot(uint8_t *buffer)
 		Serial.println("Writing keyboard layout to EEPROM...");
 #endif
 		KeyboardLayout[0] = buffer[7];
-		onlykey_eeset_keyboardlayout(buffer + 7);
+		okeeprom_eeset_keyboardlayout(buffer + 7);
 		update_keyboard_layout();
 		hidprint("Successfully set keyboard layout");
 
@@ -2001,9 +2016,9 @@ void wipe_slot(uint8_t *buffer)
 		Serial.println(); //newline
 		Serial.print("Wiping OnlyKey AES Key, Private ID, and Public ID...");
 #endif
-		onlykey_eeset_aeskey(buffer + 7);
-		onlykey_eeset_private(buffer + 7 + EElen_aeskey);
-		onlykey_eeset_public(buffer + 7 + EElen_aeskey + EElen_private);
+		okeeprom_eeset_aeskey(buffer + 7);
+		okeeprom_eeset_private(buffer + 7 + EElen_aeskey);
+		okeeprom_eeset_public(buffer + 7 + EElen_aeskey + EElen_private);
 		yubikey_eeset_counter(buffer + 7);
 		hidprint("Successfully wiped AES Key, Private ID, and Public ID");
 	}
@@ -2015,61 +2030,61 @@ void wipe_slot(uint8_t *buffer)
 		Serial.println(); //newline
 		Serial.print("Wiping Label Value...");
 #endif
-		onlykey_flashset_label((buffer + 7), slot);
+		okcore_flashset_label((buffer + 7), slot);
 		hidprint("Successfully wiped Label");
 #ifdef DEBUG
 		Serial.println(); //newline
 		Serial.print("Wiping URL Value...");
 #endif
-		onlykey_flashset_url((buffer + 7), 0, slot);
+		okcore_flashset_url((buffer + 7), 0, slot);
 		hidprint("Successfully wiped URL");
 #ifdef DEBUG
 		Serial.println(); //newline
 		Serial.print("Wiping Additional Character1 Value...");
 #endif
-		onlykey_eeset_addchar((buffer + 7), slot);
+		okeeprom_eeset_addchar((buffer + 7), slot);
 		hidprint("Successfully wiped Additional Characters");
 #ifdef DEBUG
 		Serial.println(); //newline
 		Serial.print("Writing Delay1 to EEPROM...");
 #endif
-		onlykey_eeset_delay1((buffer + 7), slot);
+		okeeprom_eeset_delay1((buffer + 7), slot);
 		hidprint("Successfully wiped Delay 1");
 #ifdef DEBUG
 		Serial.println(); //newline
 		Serial.print("Wiping Username Value...");
 #endif
-		onlykey_flashset_username((buffer + 7), 0, slot);
+		okcore_flashset_username((buffer + 7), 0, slot);
 		hidprint("Successfully wiped Username");
 #ifdef DEBUG
 		Serial.println(); //newline
 		Serial.print("Writing Delay2 to EEPROM...");
 #endif
-		onlykey_eeset_delay2((buffer + 7), slot);
+		okeeprom_eeset_delay2((buffer + 7), slot);
 		hidprint("Successfully wiped Delay 2");
 #ifdef DEBUG
 		Serial.println(); //newline
 		Serial.print("Wiping Password Value...");
 #endif
-		onlykey_eeset_password((buffer + 7), 0, slot);
+		okeeprom_eeset_password((buffer + 7), 0, slot);
 		hidprint("Successfully wiped Password");
 #ifdef DEBUG
 		Serial.println(); //newline
 		Serial.print("Wiping Delay3 Value...");
 #endif
-		onlykey_eeset_delay3((buffer + 7), slot);
+		okeeprom_eeset_delay3((buffer + 7), slot);
 		hidprint("Successfully wiped Delay 3");
 #ifdef DEBUG
 		Serial.println(); //newline
 		Serial.print("Wiping 2FA Type Value...");
 #endif
-		onlykey_eeset_2FAtype((buffer + 7), slot);
+		okeeprom_eeset_2FAtype((buffer + 7), slot);
 		hidprint("Successfully wiped 2FA Type");
 #ifdef DEBUG
 		Serial.println(); //newline
 		Serial.print("Wiping TOTP Key from Flash...");
 #endif
-		onlykey_flashset_totpkey((buffer + 7), 0, slot);
+		okcore_flashset_totpkey((buffer + 7), 0, slot);
 		hidprint("Successfully wiped TOTP Key");
 	}
 	blink(1);
@@ -2164,6 +2179,7 @@ int touch_sense_loop () {
 		key_press = 0;
 		key_on += 1;
 		button_selected = '5';
+		//Serial.println("touchread1");
 		//Serial.println(touchread1);
 	}
 	else if (touchread2 > (touchread2ref+40)) {
@@ -2171,6 +2187,7 @@ int touch_sense_loop () {
 		key_press = 0;
 		key_on += 1;
 		button_selected = '2';
+		//Serial.println("touchread2");
 		//Serial.println(touchread2);
 	}
 	else if (touchread3 > (touchread3ref+40)) {
@@ -2178,6 +2195,7 @@ int touch_sense_loop () {
 		key_press = 0;
 		key_on += 1;
 		button_selected = '1';
+		//Serial.println("touchread3");
 		//Serial.println(touchread3);
 	}
 	else if (touchread4 > (touchread4ref+40)) {
@@ -2185,6 +2203,7 @@ int touch_sense_loop () {
 		key_press = 0;
 		key_on += 1;
 		button_selected = '3';
+		//Serial.println("touchread4");
 		//Serial.println(touchread4);
 	}
 	else if (touchread5 > (touchread5ref+40)) {
@@ -2192,6 +2211,7 @@ int touch_sense_loop () {
 		key_press = 0;
 		key_on += 1;
 		button_selected = '4';
+		//Serial.println("touchread5");
 		//Serial.println(touchread5);
 	}
 	else if (touchread6 > (touchread6ref+40)) {
@@ -2199,7 +2219,12 @@ int touch_sense_loop () {
 		key_press = 0;
 		key_on += 1;
 		button_selected = '6';
+		//Serial.println("touchread6");
 		//Serial.println(touchread6);
+	}
+
+	if (HW_ID==OK_GO && button_selected == '2' && touchread3 > (touchread3ref+100)) {
+		button_selected = '3';
 	}
 
 	else {
@@ -2241,46 +2266,57 @@ int touch_sense_loop () {
 
 
 /*************************************/
-//RNG Loop 
+// RNG Loop 
+// Stir in entropy from internal chip temperature, touchRead, and analogRead
 /*************************************/
 void rngloop()
 {
+	// Stir temperature into entropy pool
+	unsigned int internal_temperature1 = internal_temp();
+	//Serial.println("internal temp");
+	//Serial.println(internal_temperature1);
+	//byteprint((uint8_t *)&internal_temperature1, 2);
+	// Two bytes, 1 credit
+	RNG.stir((uint8_t *)&internal_temperature1, 2, 1);
 	// Stir the touchread and analog read values into the entropy pool.
-	//Serial.println("analog 1");
 	unsigned int analog1 = analogRead(ANALOGPIN1);
-	RNG.stir((uint8_t *)&analog1, 2, 4);
-	//Serial.println("touchread 1");
+	//byteprint((uint8_t *)&internal_temperature1, 3);
+	//Serial.println("analog 1");
+	//Serial.println(analog1);
+	//byteprint((uint8_t *)&analog1, 2);
+	// Two bytes, 2 credits
+	RNG.stir((uint8_t *)&analog1, 2, 2);
 	touchread1 = touchRead(TOUCHPIN1);
-	RNG.stir((uint8_t *)touchread1, 4, 2);
-	touchread2 = touchRead(TOUCHPIN2);
+	if(HW_ID==OK_GO) {
+		touchread2 = touchRead(TOUCHPIN5);
+		touchread5 = touchRead(TOUCHPIN2);
+	} else {
+		touchread2 = touchRead(TOUCHPIN2);
+		touchread5 = touchRead(TOUCHPIN5);
+	}
 	delay((analog1 % 3) + ((touchread1 + touchread2) % 3)); //delay 0 - 4 ms
 	integrityctr1++;
-	//Serial.println("touchread 2");
-	RNG.stir((uint8_t *)touchread2, 4, 2);
 	touchread3 = touchRead(TOUCHPIN3);
-	//Serial.println("touchread 3");
-	RNG.stir((uint8_t *)touchread3, 4, 2);
 	touchread4 = touchRead(TOUCHPIN4);
-	//Serial.println("touchread 4");
-	RNG.stir((uint8_t *)touchread4, 4, 2);
-	touchread5 = touchRead(TOUCHPIN5);
-	//Serial.println("touchread 5");
-	RNG.stir((uint8_t *)touchread5, 4, 2);
 	touchread6 = touchRead(TOUCHPIN6);
-	//Serial.println("touchread 6");
-	RNG.stir((uint8_t *)touchread6, 4, 2);
-	//Serial.println("analog 2");
 	unsigned int analog2 = analogRead(ANALOGPIN2);
-	RNG.stir((uint8_t *)&analog2, 2, 4);
-	//Serial.println("sumofall");
+	//Serial.println("analog 2");
+	//Serial.println(analog2);
+	//byteprint((uint8_t *)&analog2, 2);
+	// Two bytes, 2 credits
+	RNG.stir((uint8_t *)&analog2, 2, 2);
 	sumofall = (analog2 + touchread6 + touchread5 + touchread4 + analog1 + touchread3 + touchread2 + touchread1);
-	RNG.stir((uint8_t *)&sumofall, 2, 4);
+	//Serial.println("sumofall");
+	//Serial.println(sumofall);
+	//byteprint((uint8_t *)&sumofall, 3);
+	// Three bytes, 4 credits
+	RNG.stir((uint8_t *)&sumofall, 3, 4);
 	// Perform regular housekeeping on the random number generator.
 	RNG.loop();
 	delay((analog2 % 3) + ((touchread6 + touchread5 + touchread4) % 3)); //delay 0 - 4 ms
 	integrityctr2++;
-	if (integrityctr1 != integrityctr2)
-	{ //Integrity Check
+	if (integrityctr1 != integrityctr2 )
+	{ //Integrity check failed, reboot
 		unlocked = false;
 		CPU_RESTART();
 		return;
@@ -2562,7 +2598,7 @@ void byteprint(uint8_t *bytes, int size)
 void factorydefault()
 {
 	uint8_t mode;
-	onlykey_eeget_wipemode(&mode);
+	okeeprom_eeget_wipemode(&mode);
 	wipeEEPROM(); //Wipe data and go to bootloader after factory default
 	if (mode <= 1)
 	{
@@ -2665,234 +2701,9 @@ void wipeflashdata()
 #endif
 }
 
-void aes_gcm_encrypt(uint8_t *state, uint8_t slot, uint8_t value, const uint8_t *key, int len)
-{
-#ifdef STD_VERSION
-	GCM<AES256> gcm;
-	uint8_t iv2[12];
-	uint8_t aeskey[32];
-	uint8_t data[2];
-	data[0] = slot;
-	data[1] = value;
-	uint8_t *ptr;
-	ptr = iv2;
-	onlykey_flashget_noncehash(ptr, 12);
-
-#ifdef DEBUG
-	Serial.print("INPUT KEY ");
-	byteprint((uint8_t *)key, 32);
-#endif
-
-#ifdef DEBUG
-	Serial.println("SLOT");
-	Serial.println(slot);
-#endif
-
-#ifdef DEBUG
-	Serial.print("VALUE");
-	Serial.print(value);
-#endif
-
-	SHA256_CTX iv;
-	sha256_init(&iv);
-	sha256_update(&iv, iv2, 12);		   //add nonce
-	sha256_update(&iv, data, 2);		   //add data
-	sha256_update(&iv, (uint8_t *)ID, 32); //add first 32 bytes of Freescale CHIP ID
-	sha256_final(&iv, aeskey);			   //Create hash and store in aeskey temporarily
-	memcpy(iv2, aeskey, 12);
-#ifdef DEBUG
-	Serial.print("IV ");
-	byteprint(iv2, 12);
-#endif
-
-	SHA256_CTX key2;
-	sha256_init(&key2);
-	sha256_update(&key2, key, 16);			 //add profilekey
-	sha256_update(&key2, data, 2);			 //add slot
-	sha256_update(&key2, (uint8_t *)ID, 32); //add first 32 bytes of Freescale CHIP ID
-	sha256_final(&key2, aeskey);			 //Create hash and store in aeskey
-
-#ifdef DEBUG
-	Serial.print("AES KEY ");
-	byteprint(aeskey, 32);
-#endif
-
-	gcm.clear();
-	gcm.setKey(aeskey, 32);
-	gcm.setIV(iv2, 12);
-#ifdef DEBUG
-	Serial.print("DECRYPTED STATE");
-	byteprint(state, len);
-#endif
-	gcm.encrypt(state, state, len);
-#ifdef DEBUG
-	Serial.print("ENCRYPTED STATE");
-	byteprint(state, len);
-#endif
-//gcm.computeTag(tag, sizeof(tag));
-#endif
-}
-
-void aes_gcm_decrypt(uint8_t *state, uint8_t slot, uint8_t value, const uint8_t *key, int len)
-{
-#ifdef STD_VERSION
-	GCM<AES256> gcm;
-	uint8_t iv2[12];
-	uint8_t aeskey[32];
-	uint8_t data[2];
-	data[0] = slot;
-	data[1] = value;
-	uint8_t *ptr;
-	ptr = iv2;
-	onlykey_flashget_noncehash(ptr, 12);
-
-#ifdef DEBUG
-	Serial.print("INPUT KEY ");
-	byteprint((uint8_t *)key, 32);
-#endif
-
-#ifdef DEBUG
-	Serial.println("SLOT");
-	Serial.println(slot);
-#endif
-
-#ifdef DEBUG
-	Serial.print("VALUE");
-	Serial.print(value);
-#endif
-
-	SHA256_CTX iv;
-	sha256_init(&iv);
-	sha256_update(&iv, iv2, 12);		   //add nonce
-	sha256_update(&iv, data, 2);		   //add data
-	sha256_update(&iv, (uint8_t *)ID, 32); //add first 32 bytes of Freescale CHIP ID
-	sha256_final(&iv, aeskey);			   //Create hash and store in aeskey temporarily
-	memcpy(iv2, aeskey, 12);
-
-#ifdef DEBUG
-	Serial.print("IV ");
-	byteprint(iv2, 12);
-#endif
-
-	SHA256_CTX key2;
-	sha256_init(&key2);
-	sha256_update(&key2, key, 16);			 //add profilekey
-	sha256_update(&key2, data, 2);			 //add data
-	sha256_update(&key2, (uint8_t *)ID, 32); //add first 32 bytes of Freescale CHIP ID
-	sha256_final(&key2, aeskey);			 //Create hash and store in aeskey
-
-#ifdef DEBUG
-	Serial.print("AES KEY ");
-	byteprint(aeskey, 32);
-#endif
-
-	gcm.clear();
-	gcm.setKey(aeskey, 32);
-	gcm.setIV(iv2, 12);
-#ifdef DEBUG
-	Serial.print("ENCRYPTED STATE");
-	byteprint(state, len);
-#endif
-	gcm.decrypt(state, state, len);
-#ifdef DEBUG
-	Serial.print("DECRYPTED STATE");
-	byteprint(state, len);
-#endif
-//if (!gcm.checkTag(tag, sizeof(tag))) {
-//	return 1;
-//}
-#endif
-}
-
-void aes_gcm_encrypt2(uint8_t *state, uint8_t *iv1, const uint8_t *key, int len)
-{
-#ifdef STD_VERSION
-	GCM<AES256> gcm;
-	//uint8_t tag[16];
-#ifdef DEBUG
-	Serial.print("DECRYPTED STATE");
-	byteprint(state, len);
-#endif
-	gcm.clear();
-	gcm.setKey(key, 32);
-	gcm.setIV(iv1, 12);
-	gcm.encrypt(state, state, len);
-#ifdef DEBUG
-	Serial.print("ENCRYPTED STATE");
-	byteprint(state, len);
-#endif
-//gcm.computeTag(tag, sizeof(tag));
-#endif
-}
-
-void aes_gcm_decrypt2(uint8_t *state, uint8_t *iv1, const uint8_t *key, int len)
-{
-#ifdef STD_VERSION
-	GCM<AES256> gcm;
-	//uint8_t tag[16];
-#ifdef DEBUG
-	Serial.print("ENCRYPTED STATE");
-	byteprint(state, len);
-#endif
-	gcm.clear();
-	gcm.setKey(key, 32);
-	gcm.setIV(iv1, 12);
-	gcm.decrypt(state, state, len);
-#ifdef DEBUG
-	Serial.print("DECRYPTED STATE");
-	byteprint(state, len);
-#endif
-//if (!gcm.checkTag(tag, sizeof(tag))) {
-//	return 1;
-//}
-#endif
-}
-
-void aes_cbc_encrypt(uint8_t *state, const uint8_t *key, int len)
-{
-#ifdef STD_VERSION
-	CBC<AES256> cbc;
-	uint8_t iv[16] = {0};
-	// newPinEnc uses IV=0
-	// https://fidoalliance.org/specs/fido-v2.0-id-20180227/fido-client-to-authenticator-protocol-v2.0-id-20180227.pdf
-
-#ifdef DEBUG
-	Serial.print("DECRYPTED STATE");
-	byteprint(state, len);
-#endif
-	cbc.clear();
-	cbc.setKey(key, 32);
-	cbc.setIV(iv, 16);
-	cbc.encrypt(state, state, len);
-#ifdef DEBUG
-	Serial.print("ENCRYPTED STATE");
-	byteprint(state, len);
-#endif
-#endif
-}
-
-void aes_cbc_decrypt(uint8_t *state, const uint8_t *key, int len)
-{
-#ifdef STD_VERSION
-	CBC<AES256> cbc;
-	uint8_t iv[16] = {0};
-#ifdef DEBUG
-	Serial.print("ENCRYPTED STATE");
-	byteprint(state, len);
-#endif
-	cbc.clear();
-	cbc.setKey(key, 32);
-	cbc.setIV(iv, 16);
-	cbc.decrypt(state, state, len);
-#ifdef DEBUG
-	Serial.print("DECRYPTED STATE");
-	byteprint(state, len);
-#endif
-#endif
-}
 
 /*************************************/
-void onlykey_flashget_common(uint8_t *ptr, unsigned long *adr, int len)
+void okcore_flashget_common(uint8_t *ptr, unsigned long *adr, int len)
 {
 	for (int z = 0; z <= len - 4; z = z + 4)
 	{
@@ -2915,7 +2726,7 @@ void onlykey_flashget_common(uint8_t *ptr, unsigned long *adr, int len)
 	return;
 }
 
-void onlykey_flashset_common(uint8_t *ptr, unsigned long *adr, int len)
+void okcore_flashset_common(uint8_t *ptr, unsigned long *adr, int len)
 {
 	for (int z = 0; z <= len - 4; z = z + 4)
 	{
@@ -2934,6 +2745,7 @@ void onlykey_flashset_common(uint8_t *ptr, unsigned long *adr, int len)
 	return;
 }
 
+
 void onlykey_flashsector(uint8_t *ptr, unsigned long *adr, int len)
 {
 //Erase flash sector
@@ -2950,12 +2762,12 @@ void onlykey_flashsector(uint8_t *ptr, unsigned long *adr, int len)
 	Serial.println("successful\r\n");
 #endif
 	//Write buffer to flash
-	onlykey_flashset_common(ptr, (unsigned long *)adr, len);
+	okcore_flashset_common(ptr, (unsigned long *)adr, len);
 }
 
 /*********************************/
 
-int onlykey_flashget_noncehash(uint8_t *ptr, int size)
+int okcore_flashget_noncehash(uint8_t *ptr, int size)
 {
 	int set = 0;
 	uintptr_t adr = (unsigned long)flashstorestart;
@@ -2963,7 +2775,7 @@ int onlykey_flashget_noncehash(uint8_t *ptr, int size)
 #ifdef DEBUG
 	Serial.println("Reading nonce");
 #endif
-	onlykey_flashget_common(ptr, (unsigned long *)adr, size);
+	okcore_flashget_common(ptr, (unsigned long *)adr, size);
 	for (int i = 0; i < 32; i++)
 	{
 		set = *(ptr + i) + set;
@@ -2984,7 +2796,7 @@ int onlykey_flashget_noncehash(uint8_t *ptr, int size)
 	}
 }
 
-void onlykey_flashset_noncehash(uint8_t *ptr)
+void okcore_flashset_noncehash(uint8_t *ptr)
 {
 
 	uintptr_t adr = (unsigned long)flashstorestart;
@@ -2994,7 +2806,7 @@ void onlykey_flashset_noncehash(uint8_t *ptr)
 	tptr = temp;
 	initialized = true;
 	//Get current flash contents
-	onlykey_flashget_common(tptr, (unsigned long *)adr, 254);
+	okcore_flashget_common(tptr, (unsigned long *)adr, 254);
 	memcpy(nonce, ptr, 32);
 	//Add new flash contents
 	for (int z = 0; z <= 31; z++)
@@ -3007,16 +2819,16 @@ void onlykey_flashset_noncehash(uint8_t *ptr)
 	Serial.print("Nonce hash value =");
 #endif
 	onlykey_flashsector(tptr, (unsigned long *)adr, 254);
-	onlykey_flashget_common(ptr, (unsigned long *)adr, EElen_noncehash);
+	okcore_flashget_common(ptr, (unsigned long *)adr, EElen_noncehash);
 }
 
-int onlykey_flashget_pinhashpublic(uint8_t *ptr, int size)
+int okcore_flashget_pinhashpublic(uint8_t *ptr, int size)
 {
 
 	uintptr_t adr = (unsigned long)flashstorestart;
 	adr = adr + 2048; //2nd free sector
 	adr = adr + EElen_noncehash;
-	onlykey_flashget_common(ptr, (unsigned long *)adr, EElen_pinhash);
+	okcore_flashget_common(ptr, (unsigned long *)adr, EElen_pinhash);
 	if (*ptr == 255 && *(ptr + 1) == 255 && *(ptr + 2) == 255)
 	{ //pinhash not set
 #ifdef DEBUG
@@ -3035,7 +2847,7 @@ int onlykey_flashget_pinhashpublic(uint8_t *ptr, int size)
 	}
 }
 
-void onlykey_flashset_pinhashpublic(uint8_t *ptr)
+void okcore_flashset_pinhashpublic(uint8_t *ptr)
 {
 	uint8_t p2mode;
 	uintptr_t adr = (unsigned long)flashstorestart;
@@ -3053,14 +2865,14 @@ void onlykey_flashset_pinhashpublic(uint8_t *ptr)
 	byteprint(p1hash, 32);
 #endif
 	//Generate shared secret 
-	onlykey_eeget_2ndprofilemode(&p2mode);
+	okeeprom_eeget_2ndprofilemode(&p2mode);
 	if (p2mode==STDPROFILE2) Curve25519::eval(secret, ptr, p2hash);
 	else Curve25519::eval(secret, ptr, p1hash);
-	onlykey_flashset_profilekey((uint8_t*)secret);
+	okcore_flashset_profilekey((uint8_t*)secret);
 	//Copy public key to ptr for writing to flash
 	memcpy(ptr, p1hash, 32);
 	//Copy current flash contents to buffer
-	onlykey_flashget_common(tptr, (unsigned long *)adr, 254);
+	okcore_flashget_common(tptr, (unsigned long *)adr, 254);
 	//Add new flash contents to buffer
 	for (int z = 0; z <= 31; z++)
 	{
@@ -3073,25 +2885,28 @@ void onlykey_flashset_pinhashpublic(uint8_t *ptr)
 #endif
 	if (!initcheck) { // First time use
 		// Generate and encrypt default key
-		recv_buffer[4] = 0xEF;
-		recv_buffer[5] = 0x84;
+		recv_buffer[4] = OKSETPRIV;
+		recv_buffer[5] = RESERVED_KEY_DERIVATION;
 		recv_buffer[6] = 0x61;
 		RNG2(recv_buffer + 7, 32);
-		set_private(recv_buffer); //set default ECC key
+		set_private(recv_buffer); //set RESERVED_KEY_DERIVATION slot 132
+		recv_buffer[5] = RESERVED_KEY_WEB_DERIVATION;
+		RNG2(recv_buffer + 7, 32);
+		set_private(recv_buffer); //set RESERVED_KEY_WEB_DERIVATION slot 128
 		memset(recv_buffer, 0, sizeof(recv_buffer));
 	}
-	onlykey_flashget_common(ptr, (unsigned long *)adr, EElen_pinhash);
+	okcore_flashget_common(ptr, (unsigned long *)adr, EElen_pinhash);
 }
 /*********************************/
 /*********************************/
 
-int onlykey_flashget_selfdestructhash(uint8_t *ptr)
+int okcore_flashget_selfdestructhash(uint8_t *ptr)
 {
 
 	uintptr_t adr = (unsigned long)flashstorestart;
 	adr = adr + 2048; //2nd free sector
 	adr = adr + EElen_noncehash + EElen_pinhash;
-	onlykey_flashget_common(ptr, (unsigned long *)adr, EElen_selfdestructhash);
+	okcore_flashget_common(ptr, (unsigned long *)adr, EElen_selfdestructhash);
 
 	if (*ptr == 255 && *(ptr + 1) == 255 && *(ptr + 2) == 255)
 	{ //pinhash not set
@@ -3112,7 +2927,7 @@ int onlykey_flashget_selfdestructhash(uint8_t *ptr)
 	}
 }
 
-void onlykey_flashset_selfdestructhash(uint8_t *ptr)
+void okcore_flashset_selfdestructhash(uint8_t *ptr)
 {
 
 	uintptr_t adr = (unsigned long)flashstorestart;
@@ -3121,7 +2936,7 @@ void onlykey_flashset_selfdestructhash(uint8_t *ptr)
 	uint8_t *tptr;
 	tptr = temp;
 	//Copy current flash contents to buffer
-	onlykey_flashget_common(tptr, (unsigned long *)adr, 254);
+	okcore_flashget_common(tptr, (unsigned long *)adr, 254);
 	//Add new flash contents to buffer
 	for (int z = 0; z <= 31; z++)
 	{
@@ -3134,19 +2949,19 @@ void onlykey_flashset_selfdestructhash(uint8_t *ptr)
 	Serial.print("Self-Destruct PIN hash value =");
 	byteprint(ptr, 32);
 #endif
-	onlykey_flashget_common(ptr, (unsigned long *)adr, EElen_selfdestructhash);
+	okcore_flashget_common(ptr, (unsigned long *)adr, EElen_selfdestructhash);
 }
 
 /*********************************/
 /*********************************/
 
-int onlykey_flashget_2ndpinhashpublic(uint8_t *ptr)
+int okcore_flashget_2ndpinhashpublic(uint8_t *ptr)
 {
 
 	uintptr_t adr = (unsigned long)flashstorestart;
 	adr = adr + 2048; //2nd free sector
 	adr = adr + EElen_noncehash + EElen_pinhash + EElen_selfdestructhash;
-	onlykey_flashget_common(ptr, (unsigned long *)adr, EElen_2ndpinhash);
+	okcore_flashget_common(ptr, (unsigned long *)adr, EElen_2ndpinhash);
 
 	if (*ptr == 255 && *(ptr + 1) == 255 && *(ptr + 2) == 255)
 	{ //pinhash not set
@@ -3165,7 +2980,7 @@ int onlykey_flashget_2ndpinhashpublic(uint8_t *ptr)
 		return 1;
 	}
 }
-void onlykey_flashset_2ndpinhashpublic(uint8_t *ptr)
+void okcore_flashset_2ndpinhashpublic(uint8_t *ptr)
 {
 
 	uint8_t p2mode;
@@ -3179,29 +2994,29 @@ void onlykey_flashset_2ndpinhashpublic(uint8_t *ptr)
 	ptr[31] = (ptr[31] & 0x7F) | 0x40;
 	//Generate public key of pinhash
 	Curve25519::eval(p2hash, ptr, 0);
-#ifdef DEBUG
+	#ifdef DEBUG
 	Serial.print("Storing public key of PIN 2 hash =");
 	byteprint(p2hash, 32);
-#endif
-	onlykey_eeget_2ndprofilemode(&p2mode);
+	#endif
+	okeeprom_eeget_2ndprofilemode(&p2mode);
 	if (p2mode != NONENCRYPTEDPROFILE)
 	{ //profile key not used for plausible deniability mode or international fw
-#ifdef STD_VERSION
+	#ifdef STD_VERSION
 		if (!initcheck) {
 			// Default to standard profile
 			p2mode = STDPROFILE2;
-			onlykey_eeset_2ndprofilemode(&p2mode);
+			okeeprom_eeset_2ndprofilemode(&p2mode);
 		}
-		onlykey_flashget_pinhashpublic(p1hash, 32);	//store PIN hash
+		okcore_flashget_pinhashpublic(p1hash, 32);	//store PIN hash
 
 		Curve25519::eval(secret, ptr, p1hash); //Generate shared secret of p2hash private key and p1hash public key
-		onlykey_flashset_profilekey((uint8_t*)secret);
-#endif
+		okcore_flashset_profilekey((uint8_t*)secret);
+	#endif
 	}
 	//Copy public key to ptr for writing to flash
 	memcpy(ptr, p2hash, 32);
 	//Copy current flash contents to buffer
-	onlykey_flashget_common(tptr, (unsigned long *)adr, 254);
+	okcore_flashget_common(tptr, (unsigned long *)adr, 254);
 
 	//Add new flash contents to buffer
 	for (int z = 0; z <= 31; z++)
@@ -3209,27 +3024,30 @@ void onlykey_flashset_2ndpinhashpublic(uint8_t *ptr)
 		temp[z + EElen_noncehash + EElen_pinhash + EElen_selfdestructhash] = ((uint8_t) * (ptr + z));
 	}
 	onlykey_flashsector(tptr, (unsigned long *)adr, 254);
-#ifdef DEBUG
+	#ifdef DEBUG
 	Serial.print("PIN hash address =");
 	Serial.println(adr, HEX);
 	Serial.print("PIN hash value =");
-#endif
+	#endif
 	if (p2mode != NONENCRYPTEDPROFILE && !initcheck) // First time use
 	{
-#ifdef STD_VERSION
+	#ifdef STD_VERSION
 		// Generate and encrypt default key
-		recv_buffer[4] = 0xEF;
-		recv_buffer[5] = 0x84;
+		recv_buffer[4] = OKSETPRIV;
+		recv_buffer[5] = RESERVED_KEY_DERIVATION;
 		recv_buffer[6] = 0x61;
 		RNG2(recv_buffer + 7, 32);
-		set_private(recv_buffer); //set default ECC key
+		set_private(recv_buffer); //set RESERVED_KEY_DERIVATION slot 132
+		recv_buffer[5] = RESERVED_KEY_WEB_DERIVATION;
+		RNG2(recv_buffer + 7, 32);
+		set_private(recv_buffer); //set RESERVED_KEY_WEB_DERIVATION slot 128
 		memset(recv_buffer, 0, sizeof(recv_buffer));
-#endif
+	#endif
 	}
-	onlykey_flashget_common(ptr, (unsigned long *)adr, EElen_2ndpinhash);
+	okcore_flashget_common(ptr, (unsigned long *)adr, EElen_2ndpinhash);
 }
 
-int onlykey_flashget_profilekey(uint8_t *ptr)
+int okcore_flashget_profilekey(uint8_t *ptr)
 {
 	int set = 0;
 	uintptr_t adr = (unsigned long)flashstorestart;
@@ -3239,7 +3057,7 @@ int onlykey_flashget_profilekey(uint8_t *ptr)
 #ifdef DEBUG
 	Serial.println("Reading profilekey");
 #endif
-	onlykey_flashget_common(ptr, (unsigned long *)adr, EElen_profilekey);
+	okcore_flashget_common(ptr, (unsigned long *)adr, EElen_profilekey);
 	for (int i = 0; i < 32; i++)
 	{
 		set = *(ptr + i) + set;
@@ -3260,7 +3078,7 @@ int onlykey_flashget_profilekey(uint8_t *ptr)
 	}
 }
 
-void onlykey_flashset_profilekey(uint8_t *secret)
+void okcore_flashset_profilekey(uint8_t *secret)
 {
 	uintptr_t adr = (unsigned long)flashstorestart;
 	adr = adr + 2048; //2nd free sector
@@ -3272,22 +3090,27 @@ void onlykey_flashset_profilekey(uint8_t *secret)
 
 	SHA256_CTX pinhash;
 	sha256_init(&pinhash); 
-	onlykey_eeget_nonce2((uint8_t*)nonce2);
+	okeeprom_eeget_nonce2((uint8_t*)nonce2);
 	sha256_update(&pinhash, nonce2, sizeof(nonce2)); //Add mask (eeprom)
 	sha256_update(&pinhash, (uint8_t*)ID, 16); //Add chip ID (ROM)
 	sha256_update(&pinhash, secret, 32); //Add generated shared secret
 	sha256_update(&pinhash, nonce, 32); //Add nonce to hash
 	sha256_final(&pinhash, temp); //Create hash and store in temp
-	if (!onlykey_flashget_pinhashpublic(secret,32)) { //first time use, set random profilekey
+	if (!okcore_flashget_pinhashpublic(secret,32)) { //first time use, set random profilekey
 		RNG2(profilekey, 32);
 	} 
 	
 	memcpy(secret, profilekey, 32);
-	aes_gcm_encrypt2(secret, (uint8_t*)ID, temp, 32);
+	if (profilemode != NONENCRYPTEDPROFILE)
+	{
+	#ifdef STD_VERSION
+	okcrypto_aes_gcm_encrypt2(secret, (uint8_t*)ID, temp, 32);
+	#endif
+	}
 	ptr=secret;
 	
 	//Get current flash contents
-	onlykey_flashget_common(tptr, (unsigned long *)adr, 254);
+	okcore_flashget_common(tptr, (unsigned long *)adr, 254);
 	//Add new flash contents
 	//Add new flash contents to buffer
 	for (int z = 0; z <= 31; z++)
@@ -3300,10 +3123,10 @@ void onlykey_flashset_profilekey(uint8_t *secret)
 	Serial.print("profilekey hash value =");
 	#endif
 	onlykey_flashsector(tptr, (unsigned long *)adr, 254);
-	onlykey_flashget_common(ptr, (unsigned long *)adr, EElen_profilekey);
+	okcore_flashget_common(ptr, (unsigned long *)adr, EElen_profilekey);
 }
 
-int onlykey_flashget_url(uint8_t *ptr, int slot)
+int okcore_flashget_url(uint8_t *ptr, int slot)
 {
 
 	uintptr_t adr = (unsigned long)flashstorestart;
@@ -3313,202 +3136,202 @@ int onlykey_flashget_url(uint8_t *ptr, int slot)
 		uint8_t length;
 		int size;
 	case 1:
-		onlykey_eeget_urllen1(&length);
+		okeeprom_eeget_urllen1(&length);
 		size = (int)length;
 		if (size > EElen_url)
 			size = EElen_url;
-		onlykey_flashget_common(ptr, (unsigned long *)adr, EElen_url);
+		okcore_flashget_common(ptr, (unsigned long *)adr, EElen_url);
 		return size;
 	case 2:
-		onlykey_eeget_urllen2(&length);
+		okeeprom_eeget_urllen2(&length);
 		size = (int)length;
 		if (size > EElen_url)
 			size = EElen_url;
 		adr = adr + ((EElen_url * slot) - EElen_url);
-		onlykey_flashget_common(ptr, (unsigned long *)adr, EElen_url);
+		okcore_flashget_common(ptr, (unsigned long *)adr, EElen_url);
 		return size;
 	case 3:
-		onlykey_eeget_urllen3(&length);
+		okeeprom_eeget_urllen3(&length);
 		size = (int)length;
 		if (size > EElen_url)
 			size = EElen_url;
 		adr = adr + ((EElen_url * slot) - EElen_url);
-		onlykey_flashget_common(ptr, (unsigned long *)adr, EElen_url);
+		okcore_flashget_common(ptr, (unsigned long *)adr, EElen_url);
 		return size;
 	case 4:
-		onlykey_eeget_urllen4(&length);
+		okeeprom_eeget_urllen4(&length);
 		size = (int)length;
 		if (size > EElen_url)
 			size = EElen_url;
 		adr = adr + ((EElen_url * slot) - EElen_url);
-		onlykey_flashget_common(ptr, (unsigned long *)adr, EElen_url);
+		okcore_flashget_common(ptr, (unsigned long *)adr, EElen_url);
 		return size;
 	case 5:
-		onlykey_eeget_urllen5(&length);
+		okeeprom_eeget_urllen5(&length);
 		size = (int)length;
 		if (size > EElen_url)
 			size = EElen_url;
 		adr = adr + ((EElen_url * slot) - EElen_url);
-		onlykey_flashget_common(ptr, (unsigned long *)adr, EElen_url);
+		okcore_flashget_common(ptr, (unsigned long *)adr, EElen_url);
 		return size;
 	case 6:
-		onlykey_eeget_urllen6(&length);
+		okeeprom_eeget_urllen6(&length);
 		size = (int)length;
 		if (size > EElen_url)
 			size = EElen_url;
 		adr = adr + ((EElen_url * slot) - EElen_url);
-		onlykey_flashget_common(ptr, (unsigned long *)adr, EElen_url);
+		okcore_flashget_common(ptr, (unsigned long *)adr, EElen_url);
 		return size;
 	case 7:
-		onlykey_eeget_urllen7(&length);
+		okeeprom_eeget_urllen7(&length);
 		size = (int)length;
 		if (size > EElen_url)
 			size = EElen_url;
 		adr = adr + ((EElen_url * slot) - EElen_url);
-		onlykey_flashget_common(ptr, (unsigned long *)adr, EElen_url);
+		okcore_flashget_common(ptr, (unsigned long *)adr, EElen_url);
 		return size;
 	case 8:
-		onlykey_eeget_urllen8(&length);
+		okeeprom_eeget_urllen8(&length);
 		size = (int)length;
 		if (size > EElen_url)
 			size = EElen_url;
 		adr = adr + ((EElen_url * slot) - EElen_url);
-		onlykey_flashget_common(ptr, (unsigned long *)adr, EElen_url);
+		okcore_flashget_common(ptr, (unsigned long *)adr, EElen_url);
 		return size;
 	case 9:
-		onlykey_eeget_urllen9(&length);
+		okeeprom_eeget_urllen9(&length);
 		size = (int)length;
 		if (size > EElen_url)
 			size = EElen_url;
 		adr = adr + ((EElen_url * slot) - EElen_url);
-		onlykey_flashget_common(ptr, (unsigned long *)adr, EElen_url);
+		okcore_flashget_common(ptr, (unsigned long *)adr, EElen_url);
 		return size;
 	case 10:
-		onlykey_eeget_urllen10(&length);
+		okeeprom_eeget_urllen10(&length);
 		size = (int)length;
 		if (size > EElen_url)
 			size = EElen_url;
 		adr = adr + ((EElen_url * slot) - EElen_url);
-		onlykey_flashget_common(ptr, (unsigned long *)adr, EElen_url);
+		okcore_flashget_common(ptr, (unsigned long *)adr, EElen_url);
 		return size;
 	case 11:
-		onlykey_eeget_urllen11(&length);
+		okeeprom_eeget_urllen11(&length);
 		size = (int)length;
 		if (size > EElen_url)
 			size = EElen_url;
 		adr = adr + ((EElen_url * slot) - EElen_url);
-		onlykey_flashget_common(ptr, (unsigned long *)adr, EElen_url);
+		okcore_flashget_common(ptr, (unsigned long *)adr, EElen_url);
 		return size;
 	case 12:
-		onlykey_eeget_urllen12(&length);
+		okeeprom_eeget_urllen12(&length);
 		size = (int)length;
 		if (size > EElen_url)
 			size = EElen_url;
 		adr = adr + ((EElen_url * slot) - EElen_url);
-		onlykey_flashget_common(ptr, (unsigned long *)adr, EElen_url);
+		okcore_flashget_common(ptr, (unsigned long *)adr, EElen_url);
 		return size;
 	case 13:
-		onlykey_eeget_urllen13(&length);
+		okeeprom_eeget_urllen13(&length);
 		size = (int)length;
 		if (size > EElen_url)
 			size = EElen_url;
 		adr = adr + ((EElen_url * slot) - EElen_url);
-		onlykey_flashget_common(ptr, (unsigned long *)adr, EElen_url);
+		okcore_flashget_common(ptr, (unsigned long *)adr, EElen_url);
 		return size;
 	case 14:
-		onlykey_eeget_urllen14(&length);
+		okeeprom_eeget_urllen14(&length);
 		size = (int)length;
 		if (size > EElen_url)
 			size = EElen_url;
 		adr = adr + ((EElen_url * slot) - EElen_url);
-		onlykey_flashget_common(ptr, (unsigned long *)adr, EElen_url);
+		okcore_flashget_common(ptr, (unsigned long *)adr, EElen_url);
 		return size;
 	case 15:
-		onlykey_eeget_urllen15(&length);
+		okeeprom_eeget_urllen15(&length);
 		size = (int)length;
 		if (size > EElen_url)
 			size = EElen_url;
 		adr = adr + ((EElen_url * slot) - EElen_url);
-		onlykey_flashget_common(ptr, (unsigned long *)adr, EElen_url);
+		okcore_flashget_common(ptr, (unsigned long *)adr, EElen_url);
 		return size;
 	case 16:
-		onlykey_eeget_urllen16(&length);
+		okeeprom_eeget_urllen16(&length);
 		size = (int)length;
 		if (size > EElen_url)
 			size = EElen_url;
 		adr = adr + ((EElen_url * slot) - EElen_url);
-		onlykey_flashget_common(ptr, (unsigned long *)adr, EElen_url);
+		okcore_flashget_common(ptr, (unsigned long *)adr, EElen_url);
 		return size;
 	case 17:
-		onlykey_eeget_urllen17(&length);
+		okeeprom_eeget_urllen17(&length);
 		size = (int)length;
 		if (size > EElen_url)
 			size = EElen_url;
 		adr = adr + ((EElen_url * slot) - EElen_url);
-		onlykey_flashget_common(ptr, (unsigned long *)adr, EElen_url);
+		okcore_flashget_common(ptr, (unsigned long *)adr, EElen_url);
 		return size;
 	case 18:
-		onlykey_eeget_urllen18(&length);
+		okeeprom_eeget_urllen18(&length);
 		size = (int)length;
 		if (size > EElen_url)
 			size = EElen_url;
 		adr = adr + ((EElen_url * slot) - EElen_url);
-		onlykey_flashget_common(ptr, (unsigned long *)adr, EElen_url);
+		okcore_flashget_common(ptr, (unsigned long *)adr, EElen_url);
 		return size;
 	case 19:
-		onlykey_eeget_urllen19(&length);
+		okeeprom_eeget_urllen19(&length);
 		size = (int)length;
 		if (size > EElen_url)
 			size = EElen_url;
 		adr = adr + ((EElen_url * slot) - EElen_url);
-		onlykey_flashget_common(ptr, (unsigned long *)adr, EElen_url);
+		okcore_flashget_common(ptr, (unsigned long *)adr, EElen_url);
 		return size;
 	case 20:
-		onlykey_eeget_urllen20(&length);
+		okeeprom_eeget_urllen20(&length);
 		size = (int)length;
 		if (size > EElen_url)
 			size = EElen_url;
 		adr = adr + ((EElen_url * slot) - EElen_url);
-		onlykey_flashget_common(ptr, (unsigned long *)adr, EElen_url);
+		okcore_flashget_common(ptr, (unsigned long *)adr, EElen_url);
 		return size;
 	case 21:
-		onlykey_eeget_urllen21(&length);
+		okeeprom_eeget_urllen21(&length);
 		size = (int)length;
 		if (size > EElen_url)
 			size = EElen_url;
 		adr = adr + ((EElen_url * slot) - EElen_url);
-		onlykey_flashget_common(ptr, (unsigned long *)adr, EElen_url);
+		okcore_flashget_common(ptr, (unsigned long *)adr, EElen_url);
 		return size;
 	case 22:
-		onlykey_eeget_urllen22(&length);
+		okeeprom_eeget_urllen22(&length);
 		size = (int)length;
 		if (size > EElen_url)
 			size = EElen_url;
 		adr = adr + ((EElen_url * slot) - EElen_url);
-		onlykey_flashget_common(ptr, (unsigned long *)adr, EElen_url);
+		okcore_flashget_common(ptr, (unsigned long *)adr, EElen_url);
 		return size;
 	case 23:
-		onlykey_eeget_urllen23(&length);
+		okeeprom_eeget_urllen23(&length);
 		size = (int)length;
 		if (size > EElen_url)
 			size = EElen_url;
 		adr = adr + ((EElen_url * slot) - EElen_url);
-		onlykey_flashget_common(ptr, (unsigned long *)adr, EElen_url);
+		okcore_flashget_common(ptr, (unsigned long *)adr, EElen_url);
 		return size;
 	case 24:
-		onlykey_eeget_urllen24(&length);
+		okeeprom_eeget_urllen24(&length);
 		size = (int)length;
 		if (size > EElen_url)
 			size = EElen_url;
 		adr = adr + ((EElen_url * slot) - EElen_url);
-		onlykey_flashget_common(ptr, (unsigned long *)adr, EElen_url);
+		okcore_flashget_common(ptr, (unsigned long *)adr, EElen_url);
 		return size;
 	}
 
 	return 0;
 }
 
-void onlykey_flashset_url(uint8_t *ptr, int size, int slot)
+void okcore_flashset_url(uint8_t *ptr, int size, int slot)
 {
 
 	uintptr_t adr = (unsigned long)flashstorestart;
@@ -3517,7 +3340,7 @@ void onlykey_flashset_url(uint8_t *ptr, int size, int slot)
 	uint8_t *tptr;
 	tptr = temp;
 	//Copy current flash contents to buffer
-	onlykey_flashget_common(tptr, (unsigned long *)adr, 2048);
+	okcore_flashget_common(tptr, (unsigned long *)adr, 2048);
 	//Add new flash contents to buffer
 	for (int z = 0; z < EElen_url; z++)
 	{
@@ -3543,9 +3366,9 @@ void onlykey_flashset_url(uint8_t *ptr, int size, int slot)
 		if (size > EElen_url)
 			size = EElen_url;
 		//Write buffer to flash
-		onlykey_flashset_common(tptr, (unsigned long *)adr, 2048);
+		okcore_flashset_common(tptr, (unsigned long *)adr, 2048);
 		length = (uint8_t)size;
-		onlykey_eeset_urllen1(&length);
+		okeeprom_eeset_urllen1(&length);
 		return;
 	case 2:
 		if (size > EElen_url)
@@ -3553,9 +3376,9 @@ void onlykey_flashset_url(uint8_t *ptr, int size, int slot)
 		if (size > EElen_url)
 			size = EElen_url;
 		//Write buffer to flash
-		onlykey_flashset_common(tptr, (unsigned long *)adr, 2048);
+		okcore_flashset_common(tptr, (unsigned long *)adr, 2048);
 		length = (uint8_t)size;
-		onlykey_eeset_urllen2(&length);
+		okeeprom_eeset_urllen2(&length);
 		return;
 	case 3:
 		if (size > EElen_url)
@@ -3563,9 +3386,9 @@ void onlykey_flashset_url(uint8_t *ptr, int size, int slot)
 		if (size > EElen_url)
 			size = EElen_url;
 		//Write buffer to flash
-		onlykey_flashset_common(tptr, (unsigned long *)adr, 2048);
+		okcore_flashset_common(tptr, (unsigned long *)adr, 2048);
 		length = (uint8_t)size;
-		onlykey_eeset_urllen3(&length);
+		okeeprom_eeset_urllen3(&length);
 		return;
 	case 4:
 		if (size > EElen_url)
@@ -3573,9 +3396,9 @@ void onlykey_flashset_url(uint8_t *ptr, int size, int slot)
 		if (size > EElen_url)
 			size = EElen_url;
 		//Write buffer to flash
-		onlykey_flashset_common(tptr, (unsigned long *)adr, 2048);
+		okcore_flashset_common(tptr, (unsigned long *)adr, 2048);
 		length = (uint8_t)size;
-		onlykey_eeset_urllen4(&length);
+		okeeprom_eeset_urllen4(&length);
 		return;
 	case 5:
 		if (size > EElen_url)
@@ -3583,9 +3406,9 @@ void onlykey_flashset_url(uint8_t *ptr, int size, int slot)
 		if (size > EElen_url)
 			size = EElen_url;
 		//Write buffer to flash
-		onlykey_flashset_common(tptr, (unsigned long *)adr, 2048);
+		okcore_flashset_common(tptr, (unsigned long *)adr, 2048);
 		length = (uint8_t)size;
-		onlykey_eeset_urllen5(&length);
+		okeeprom_eeset_urllen5(&length);
 		return;
 	case 6:
 		if (size > EElen_url)
@@ -3593,9 +3416,9 @@ void onlykey_flashset_url(uint8_t *ptr, int size, int slot)
 		if (size > EElen_url)
 			size = EElen_url;
 		//Write buffer to flash
-		onlykey_flashset_common(tptr, (unsigned long *)adr, 2048);
+		okcore_flashset_common(tptr, (unsigned long *)adr, 2048);
 		length = (uint8_t)size;
-		onlykey_eeset_urllen6(&length);
+		okeeprom_eeset_urllen6(&length);
 		return;
 	case 7:
 		if (size > EElen_url)
@@ -3603,9 +3426,9 @@ void onlykey_flashset_url(uint8_t *ptr, int size, int slot)
 		if (size > EElen_url)
 			size = EElen_url;
 		//Write buffer to flash
-		onlykey_flashset_common(tptr, (unsigned long *)adr, 2048);
+		okcore_flashset_common(tptr, (unsigned long *)adr, 2048);
 		length = (uint8_t)size;
-		onlykey_eeset_urllen7(&length);
+		okeeprom_eeset_urllen7(&length);
 		return;
 	case 8:
 		if (size > EElen_url)
@@ -3613,9 +3436,9 @@ void onlykey_flashset_url(uint8_t *ptr, int size, int slot)
 		if (size > EElen_url)
 			size = EElen_url;
 		//Write buffer to flash
-		onlykey_flashset_common(tptr, (unsigned long *)adr, 2048);
+		okcore_flashset_common(tptr, (unsigned long *)adr, 2048);
 		length = (uint8_t)size;
-		onlykey_eeset_urllen8(&length);
+		okeeprom_eeset_urllen8(&length);
 		return;
 	case 9:
 		if (size > EElen_url)
@@ -3623,9 +3446,9 @@ void onlykey_flashset_url(uint8_t *ptr, int size, int slot)
 		if (size > EElen_url)
 			size = EElen_url;
 		//Write buffer to flash
-		onlykey_flashset_common(tptr, (unsigned long *)adr, 2048);
+		okcore_flashset_common(tptr, (unsigned long *)adr, 2048);
 		length = (uint8_t)size;
-		onlykey_eeset_urllen9(&length);
+		okeeprom_eeset_urllen9(&length);
 		return;
 	case 10:
 		if (size > EElen_url)
@@ -3633,9 +3456,9 @@ void onlykey_flashset_url(uint8_t *ptr, int size, int slot)
 		if (size > EElen_url)
 			size = EElen_url;
 		//Write buffer to flash
-		onlykey_flashset_common(tptr, (unsigned long *)adr, 2048);
+		okcore_flashset_common(tptr, (unsigned long *)adr, 2048);
 		length = (uint8_t)size;
-		onlykey_eeset_urllen10(&length);
+		okeeprom_eeset_urllen10(&length);
 		return;
 	case 11:
 		if (size > EElen_url)
@@ -3643,9 +3466,9 @@ void onlykey_flashset_url(uint8_t *ptr, int size, int slot)
 		if (size > EElen_url)
 			size = EElen_url;
 		//Write buffer to flash
-		onlykey_flashset_common(tptr, (unsigned long *)adr, 2048);
+		okcore_flashset_common(tptr, (unsigned long *)adr, 2048);
 		length = (uint8_t)size;
-		onlykey_eeset_urllen11(&length);
+		okeeprom_eeset_urllen11(&length);
 		return;
 	case 12:
 		if (size > EElen_url)
@@ -3653,17 +3476,17 @@ void onlykey_flashset_url(uint8_t *ptr, int size, int slot)
 		if (size > EElen_url)
 			size = EElen_url;
 		//Write buffer to flash
-		onlykey_flashset_common(tptr, (unsigned long *)adr, 2048);
+		okcore_flashset_common(tptr, (unsigned long *)adr, 2048);
 		length = (uint8_t)size;
-		onlykey_eeset_urllen12(&length);
+		okeeprom_eeset_urllen12(&length);
 		return;
 	case 13:
 		if (size > EElen_url)
 			size = EElen_url;
 		//Write buffer to flash
-		onlykey_flashset_common(tptr, (unsigned long *)adr, 2048);
+		okcore_flashset_common(tptr, (unsigned long *)adr, 2048);
 		length = (uint8_t)size;
-		onlykey_eeset_urllen13(&length);
+		okeeprom_eeset_urllen13(&length);
 		return;
 	case 14:
 		if (size > EElen_url)
@@ -3671,9 +3494,9 @@ void onlykey_flashset_url(uint8_t *ptr, int size, int slot)
 		if (size > EElen_url)
 			size = EElen_url;
 		//Write buffer to flash
-		onlykey_flashset_common(tptr, (unsigned long *)adr, 2048);
+		okcore_flashset_common(tptr, (unsigned long *)adr, 2048);
 		length = (uint8_t)size;
-		onlykey_eeset_urllen14(&length);
+		okeeprom_eeset_urllen14(&length);
 		return;
 	case 15:
 		if (size > EElen_url)
@@ -3681,9 +3504,9 @@ void onlykey_flashset_url(uint8_t *ptr, int size, int slot)
 		if (size > EElen_url)
 			size = EElen_url;
 		//Write buffer to flash
-		onlykey_flashset_common(tptr, (unsigned long *)adr, 2048);
+		okcore_flashset_common(tptr, (unsigned long *)adr, 2048);
 		length = (uint8_t)size;
-		onlykey_eeset_urllen15(&length);
+		okeeprom_eeset_urllen15(&length);
 		return;
 	case 16:
 		if (size > EElen_url)
@@ -3691,9 +3514,9 @@ void onlykey_flashset_url(uint8_t *ptr, int size, int slot)
 		if (size > EElen_url)
 			size = EElen_url;
 		//Write buffer to flash
-		onlykey_flashset_common(tptr, (unsigned long *)adr, 2048);
+		okcore_flashset_common(tptr, (unsigned long *)adr, 2048);
 		length = (uint8_t)size;
-		onlykey_eeset_urllen16(&length);
+		okeeprom_eeset_urllen16(&length);
 		return;
 	case 17:
 		if (size > EElen_url)
@@ -3701,9 +3524,9 @@ void onlykey_flashset_url(uint8_t *ptr, int size, int slot)
 		if (size > EElen_url)
 			size = EElen_url;
 		//Write buffer to flash
-		onlykey_flashset_common(tptr, (unsigned long *)adr, 2048);
+		okcore_flashset_common(tptr, (unsigned long *)adr, 2048);
 		length = (uint8_t)size;
-		onlykey_eeset_urllen17(&length);
+		okeeprom_eeset_urllen17(&length);
 		return;
 	case 18:
 		if (size > EElen_url)
@@ -3711,9 +3534,9 @@ void onlykey_flashset_url(uint8_t *ptr, int size, int slot)
 		if (size > EElen_url)
 			size = EElen_url;
 		//Write buffer to flash
-		onlykey_flashset_common(tptr, (unsigned long *)adr, 2048);
+		okcore_flashset_common(tptr, (unsigned long *)adr, 2048);
 		length = (uint8_t)size;
-		onlykey_eeset_urllen18(&length);
+		okeeprom_eeset_urllen18(&length);
 		return;
 	case 19:
 		if (size > EElen_url)
@@ -3721,9 +3544,9 @@ void onlykey_flashset_url(uint8_t *ptr, int size, int slot)
 		if (size > EElen_url)
 			size = EElen_url;
 		//Write buffer to flash
-		onlykey_flashset_common(tptr, (unsigned long *)adr, 2048);
+		okcore_flashset_common(tptr, (unsigned long *)adr, 2048);
 		length = (uint8_t)size;
-		onlykey_eeset_urllen19(&length);
+		okeeprom_eeset_urllen19(&length);
 		return;
 	case 20:
 		if (size > EElen_url)
@@ -3731,9 +3554,9 @@ void onlykey_flashset_url(uint8_t *ptr, int size, int slot)
 		if (size > EElen_url)
 			size = EElen_url;
 		//Write buffer to flash
-		onlykey_flashset_common(tptr, (unsigned long *)adr, 2048);
+		okcore_flashset_common(tptr, (unsigned long *)adr, 2048);
 		length = (uint8_t)size;
-		onlykey_eeset_urllen20(&length);
+		okeeprom_eeset_urllen20(&length);
 		return;
 	case 21:
 		if (size > EElen_url)
@@ -3741,9 +3564,9 @@ void onlykey_flashset_url(uint8_t *ptr, int size, int slot)
 		if (size > EElen_url)
 			size = EElen_url;
 		//Write buffer to flash
-		onlykey_flashset_common(tptr, (unsigned long *)adr, 2048);
+		okcore_flashset_common(tptr, (unsigned long *)adr, 2048);
 		length = (uint8_t)size;
-		onlykey_eeset_urllen21(&length);
+		okeeprom_eeset_urllen21(&length);
 		return;
 	case 22:
 		if (size > EElen_url)
@@ -3751,9 +3574,9 @@ void onlykey_flashset_url(uint8_t *ptr, int size, int slot)
 		if (size > EElen_url)
 			size = EElen_url;
 		//Write buffer to flash
-		onlykey_flashset_common(tptr, (unsigned long *)adr, 2048);
+		okcore_flashset_common(tptr, (unsigned long *)adr, 2048);
 		length = (uint8_t)size;
-		onlykey_eeset_urllen22(&length);
+		okeeprom_eeset_urllen22(&length);
 		return;
 	case 23:
 		if (size > EElen_url)
@@ -3761,9 +3584,9 @@ void onlykey_flashset_url(uint8_t *ptr, int size, int slot)
 		if (size > EElen_url)
 			size = EElen_url;
 		//Write buffer to flash
-		onlykey_flashset_common(tptr, (unsigned long *)adr, 2048);
+		okcore_flashset_common(tptr, (unsigned long *)adr, 2048);
 		length = (uint8_t)size;
-		onlykey_eeset_urllen23(&length);
+		okeeprom_eeset_urllen23(&length);
 		return;
 	case 24:
 		if (size > EElen_url)
@@ -3771,9 +3594,9 @@ void onlykey_flashset_url(uint8_t *ptr, int size, int slot)
 		if (size > EElen_url)
 			size = EElen_url;
 		//Write buffer to flash
-		onlykey_flashset_common(tptr, (unsigned long *)adr, 2048);
+		okcore_flashset_common(tptr, (unsigned long *)adr, 2048);
 		length = (uint8_t)size;
-		onlykey_eeset_urllen24(&length);
+		okeeprom_eeset_urllen24(&length);
 		return;
 	}
 	return;
@@ -3781,7 +3604,7 @@ void onlykey_flashset_url(uint8_t *ptr, int size, int slot)
 
 /*********************************/
 
-int onlykey_flashget_username(uint8_t *ptr, int slot)
+int okcore_flashget_username(uint8_t *ptr, int slot)
 {
 
 	uintptr_t adr = (unsigned long)flashstorestart;
@@ -3791,222 +3614,222 @@ int onlykey_flashget_username(uint8_t *ptr, int slot)
 		uint8_t length;
 		int size;
 	case 1:
-		onlykey_eeget_usernamelen1(&length);
+		okeeprom_eeget_usernamelen1(&length);
 		size = (int)length;
 		if (size > EElen_username)
 			size = EElen_username;
-		onlykey_flashget_common(ptr, (unsigned long *)adr, EElen_username);
+		okcore_flashget_common(ptr, (unsigned long *)adr, EElen_username);
 		return size;
 	case 2:
-		onlykey_eeget_usernamelen2(&length);
+		okeeprom_eeget_usernamelen2(&length);
 		size = (int)length;
 		if (size > EElen_username)
 			size = EElen_username;
 		adr = adr + ((EElen_username * slot) - EElen_username);
-		onlykey_flashget_common(ptr, (unsigned long *)adr, EElen_username);
+		okcore_flashget_common(ptr, (unsigned long *)adr, EElen_username);
 		return size;
 	case 3:
-		onlykey_eeget_usernamelen3(&length);
+		okeeprom_eeget_usernamelen3(&length);
 		size = (int)length;
 		if (size > EElen_username)
 			size = EElen_username;
 		adr = adr + ((EElen_username * slot) - EElen_username);
-		onlykey_flashget_common(ptr, (unsigned long *)adr, EElen_username);
+		okcore_flashget_common(ptr, (unsigned long *)adr, EElen_username);
 		return size;
 	case 4:
-		onlykey_eeget_usernamelen4(&length);
+		okeeprom_eeget_usernamelen4(&length);
 		size = (int)length;
 		if (size > EElen_username)
 			size = EElen_username;
 		adr = adr + ((EElen_username * slot) - EElen_username);
-		onlykey_flashget_common(ptr, (unsigned long *)adr, EElen_username);
+		okcore_flashget_common(ptr, (unsigned long *)adr, EElen_username);
 		return size;
 
 	case 5:
-		onlykey_eeget_usernamelen5(&length);
+		okeeprom_eeget_usernamelen5(&length);
 		size = (int)length;
 		if (size > EElen_username)
 			size = EElen_username;
 		adr = adr + ((EElen_username * slot) - EElen_username);
-		onlykey_flashget_common(ptr, (unsigned long *)adr, EElen_username);
+		okcore_flashget_common(ptr, (unsigned long *)adr, EElen_username);
 		return size;
 
 	case 6:
-		onlykey_eeget_usernamelen6(&length);
+		okeeprom_eeget_usernamelen6(&length);
 		size = (int)length;
 		if (size > EElen_username)
 			size = EElen_username;
 		adr = adr + ((EElen_username * slot) - EElen_username);
-		onlykey_flashget_common(ptr, (unsigned long *)adr, EElen_username);
+		okcore_flashget_common(ptr, (unsigned long *)adr, EElen_username);
 		return size;
 
 	case 7:
-		onlykey_eeget_usernamelen7(&length);
+		okeeprom_eeget_usernamelen7(&length);
 		size = (int)length;
 		if (size > EElen_username)
 			size = EElen_username;
 		adr = adr + ((EElen_username * slot) - EElen_username);
-		onlykey_flashget_common(ptr, (unsigned long *)adr, EElen_username);
+		okcore_flashget_common(ptr, (unsigned long *)adr, EElen_username);
 		return size;
 
 	case 8:
-		onlykey_eeget_usernamelen8(&length);
+		okeeprom_eeget_usernamelen8(&length);
 		size = (int)length;
 		if (size > EElen_username)
 			size = EElen_username;
 		adr = adr + ((EElen_username * slot) - EElen_username);
-		onlykey_flashget_common(ptr, (unsigned long *)adr, EElen_username);
+		okcore_flashget_common(ptr, (unsigned long *)adr, EElen_username);
 		return size;
 
 	case 9:
-		onlykey_eeget_usernamelen9(&length);
+		okeeprom_eeget_usernamelen9(&length);
 		size = (int)length;
 		if (size > EElen_username)
 			size = EElen_username;
 		adr = adr + ((EElen_username * slot) - EElen_username);
-		onlykey_flashget_common(ptr, (unsigned long *)adr, EElen_username);
+		okcore_flashget_common(ptr, (unsigned long *)adr, EElen_username);
 		return size;
 
 	case 10:
-		onlykey_eeget_usernamelen10(&length);
+		okeeprom_eeget_usernamelen10(&length);
 		size = (int)length;
 		if (size > EElen_username)
 			size = EElen_username;
 		adr = adr + ((EElen_username * slot) - EElen_username);
-		onlykey_flashget_common(ptr, (unsigned long *)adr, EElen_username);
+		okcore_flashget_common(ptr, (unsigned long *)adr, EElen_username);
 		return size;
 
 	case 11:
-		onlykey_eeget_usernamelen11(&length);
+		okeeprom_eeget_usernamelen11(&length);
 		size = (int)length;
 		if (size > EElen_username)
 			size = EElen_username;
 		adr = adr + ((EElen_username * slot) - EElen_username);
-		onlykey_flashget_common(ptr, (unsigned long *)adr, EElen_username);
+		okcore_flashget_common(ptr, (unsigned long *)adr, EElen_username);
 		return size;
 
 	case 12:
-		onlykey_eeget_usernamelen12(&length);
+		okeeprom_eeget_usernamelen12(&length);
 		size = (int)length;
 		if (size > EElen_username)
 			size = EElen_username;
 		adr = adr + ((EElen_username * slot) - EElen_username);
-		onlykey_flashget_common(ptr, (unsigned long *)adr, EElen_username);
+		okcore_flashget_common(ptr, (unsigned long *)adr, EElen_username);
 		return size;
 
 	case 13:
-		onlykey_eeget_usernamelen13(&length);
+		okeeprom_eeget_usernamelen13(&length);
 		size = (int)length;
 		if (size > EElen_username)
 			size = EElen_username;
 		adr = adr + ((EElen_username * slot) - EElen_username);
-		onlykey_flashget_common(ptr, (unsigned long *)adr, EElen_username);
+		okcore_flashget_common(ptr, (unsigned long *)adr, EElen_username);
 		return size;
 
 	case 14:
-		onlykey_eeget_usernamelen14(&length);
+		okeeprom_eeget_usernamelen14(&length);
 		size = (int)length;
 		if (size > EElen_username)
 			size = EElen_username;
 		adr = adr + ((EElen_username * slot) - EElen_username);
-		onlykey_flashget_common(ptr, (unsigned long *)adr, EElen_username);
+		okcore_flashget_common(ptr, (unsigned long *)adr, EElen_username);
 		return size;
 
 	case 15:
-		onlykey_eeget_usernamelen15(&length);
+		okeeprom_eeget_usernamelen15(&length);
 		size = (int)length;
 		if (size > EElen_username)
 			size = EElen_username;
 		adr = adr + ((EElen_username * slot) - EElen_username);
-		onlykey_flashget_common(ptr, (unsigned long *)adr, EElen_username);
+		okcore_flashget_common(ptr, (unsigned long *)adr, EElen_username);
 		return size;
 
 	case 16:
-		onlykey_eeget_usernamelen16(&length);
+		okeeprom_eeget_usernamelen16(&length);
 		size = (int)length;
 		if (size > EElen_username)
 			size = EElen_username;
 		adr = adr + ((EElen_username * slot) - EElen_username);
-		onlykey_flashget_common(ptr, (unsigned long *)adr, EElen_username);
+		okcore_flashget_common(ptr, (unsigned long *)adr, EElen_username);
 		return size;
 
 	case 17:
-		onlykey_eeget_usernamelen17(&length);
+		okeeprom_eeget_usernamelen17(&length);
 		size = (int)length;
 		if (size > EElen_username)
 			size = EElen_username;
 		adr = adr + ((EElen_username * slot) - EElen_username);
-		onlykey_flashget_common(ptr, (unsigned long *)adr, EElen_username);
+		okcore_flashget_common(ptr, (unsigned long *)adr, EElen_username);
 		return size;
 
 	case 18:
-		onlykey_eeget_usernamelen18(&length);
+		okeeprom_eeget_usernamelen18(&length);
 		size = (int)length;
 		if (size > EElen_username)
 			size = EElen_username;
 		adr = adr + ((EElen_username * slot) - EElen_username);
-		onlykey_flashget_common(ptr, (unsigned long *)adr, EElen_username);
+		okcore_flashget_common(ptr, (unsigned long *)adr, EElen_username);
 		return size;
 
 	case 19:
-		onlykey_eeget_usernamelen19(&length);
+		okeeprom_eeget_usernamelen19(&length);
 		size = (int)length;
 		if (size > EElen_username)
 			size = EElen_username;
 		adr = adr + ((EElen_username * slot) - EElen_username);
-		onlykey_flashget_common(ptr, (unsigned long *)adr, EElen_username);
+		okcore_flashget_common(ptr, (unsigned long *)adr, EElen_username);
 		return size;
 
 	case 20:
-		onlykey_eeget_usernamelen20(&length);
+		okeeprom_eeget_usernamelen20(&length);
 		size = (int)length;
 		if (size > EElen_username)
 			size = EElen_username;
 		adr = adr + ((EElen_username * slot) - EElen_username);
-		onlykey_flashget_common(ptr, (unsigned long *)adr, EElen_username);
+		okcore_flashget_common(ptr, (unsigned long *)adr, EElen_username);
 		return size;
 
 	case 21:
-		onlykey_eeget_usernamelen21(&length);
+		okeeprom_eeget_usernamelen21(&length);
 		size = (int)length;
 		if (size > EElen_username)
 			size = EElen_username;
 		adr = adr + ((EElen_username * slot) - EElen_username);
-		onlykey_flashget_common(ptr, (unsigned long *)adr, EElen_username);
+		okcore_flashget_common(ptr, (unsigned long *)adr, EElen_username);
 		return size;
 
 	case 22:
-		onlykey_eeget_usernamelen22(&length);
+		okeeprom_eeget_usernamelen22(&length);
 		size = (int)length;
 		if (size > EElen_username)
 			size = EElen_username;
 		adr = adr + ((EElen_username * slot) - EElen_username);
-		onlykey_flashget_common(ptr, (unsigned long *)adr, EElen_username);
+		okcore_flashget_common(ptr, (unsigned long *)adr, EElen_username);
 		return size;
 
 	case 23:
-		onlykey_eeget_usernamelen23(&length);
+		okeeprom_eeget_usernamelen23(&length);
 		size = (int)length;
 		if (size > EElen_username)
 			size = EElen_username;
 		adr = adr + ((EElen_username * slot) - EElen_username);
-		onlykey_flashget_common(ptr, (unsigned long *)adr, EElen_username);
+		okcore_flashget_common(ptr, (unsigned long *)adr, EElen_username);
 		return size;
 
 	case 24:
-		onlykey_eeget_usernamelen24(&length);
+		okeeprom_eeget_usernamelen24(&length);
 		size = (int)length;
 		if (size > EElen_username)
 			size = EElen_username;
 		adr = adr + ((EElen_username * slot) - EElen_username);
-		onlykey_flashget_common(ptr, (unsigned long *)adr, EElen_username);
+		okcore_flashget_common(ptr, (unsigned long *)adr, EElen_username);
 		return size;
 	}
 
 	return 0;
 }
 
-void onlykey_flashset_username(uint8_t *ptr, int size, int slot)
+void okcore_flashset_username(uint8_t *ptr, int size, int slot)
 {
 
 	uintptr_t adr = (unsigned long)flashstorestart;
@@ -4015,7 +3838,7 @@ void onlykey_flashset_username(uint8_t *ptr, int size, int slot)
 	uint8_t *tptr;
 	tptr = temp;
 	//Copy current flash contents to buffer
-	onlykey_flashget_common(tptr, (unsigned long *)adr, 2048);
+	okcore_flashget_common(tptr, (unsigned long *)adr, 2048);
 	//Add new flash contents to buffer
 	for (int z = 0; z < EElen_username; z++)
 	{
@@ -4041,9 +3864,9 @@ void onlykey_flashset_username(uint8_t *ptr, int size, int slot)
 		if (size > EElen_username)
 			size = EElen_username;
 		//Write buffer to flash
-		onlykey_flashset_common(tptr, (unsigned long *)adr, 2048);
+		okcore_flashset_common(tptr, (unsigned long *)adr, 2048);
 		length = (uint8_t)size;
-		onlykey_eeset_usernamelen1(&length);
+		okeeprom_eeset_usernamelen1(&length);
 		return;
 	case 2:
 		if (size > EElen_username)
@@ -4051,9 +3874,9 @@ void onlykey_flashset_username(uint8_t *ptr, int size, int slot)
 		if (size > EElen_username)
 			size = EElen_username;
 		//Write buffer to flash
-		onlykey_flashset_common(tptr, (unsigned long *)adr, 2048);
+		okcore_flashset_common(tptr, (unsigned long *)adr, 2048);
 		length = (uint8_t)size;
-		onlykey_eeset_usernamelen2(&length);
+		okeeprom_eeset_usernamelen2(&length);
 		return;
 	case 3:
 		if (size > EElen_username)
@@ -4061,9 +3884,9 @@ void onlykey_flashset_username(uint8_t *ptr, int size, int slot)
 		if (size > EElen_username)
 			size = EElen_username;
 		//Write buffer to flash
-		onlykey_flashset_common(tptr, (unsigned long *)adr, 2048);
+		okcore_flashset_common(tptr, (unsigned long *)adr, 2048);
 		length = (uint8_t)size;
-		onlykey_eeset_usernamelen3(&length);
+		okeeprom_eeset_usernamelen3(&length);
 		return;
 	case 4:
 		if (size > EElen_username)
@@ -4071,9 +3894,9 @@ void onlykey_flashset_username(uint8_t *ptr, int size, int slot)
 		if (size > EElen_username)
 			size = EElen_username;
 		//Write buffer to flash
-		onlykey_flashset_common(tptr, (unsigned long *)adr, 2048);
+		okcore_flashset_common(tptr, (unsigned long *)adr, 2048);
 		length = (uint8_t)size;
-		onlykey_eeset_usernamelen4(&length);
+		okeeprom_eeset_usernamelen4(&length);
 		return;
 	case 5:
 		if (size > EElen_username)
@@ -4081,9 +3904,9 @@ void onlykey_flashset_username(uint8_t *ptr, int size, int slot)
 		if (size > EElen_username)
 			size = EElen_username;
 		//Write buffer to flash
-		onlykey_flashset_common(tptr, (unsigned long *)adr, 2048);
+		okcore_flashset_common(tptr, (unsigned long *)adr, 2048);
 		length = (uint8_t)size;
-		onlykey_eeset_usernamelen5(&length);
+		okeeprom_eeset_usernamelen5(&length);
 		return;
 	case 6:
 		if (size > EElen_username)
@@ -4091,9 +3914,9 @@ void onlykey_flashset_username(uint8_t *ptr, int size, int slot)
 		if (size > EElen_username)
 			size = EElen_username;
 		//Write buffer to flash
-		onlykey_flashset_common(tptr, (unsigned long *)adr, 2048);
+		okcore_flashset_common(tptr, (unsigned long *)adr, 2048);
 		length = (uint8_t)size;
-		onlykey_eeset_usernamelen6(&length);
+		okeeprom_eeset_usernamelen6(&length);
 		return;
 	case 7:
 		if (size > EElen_username)
@@ -4101,9 +3924,9 @@ void onlykey_flashset_username(uint8_t *ptr, int size, int slot)
 		if (size > EElen_username)
 			size = EElen_username;
 		//Write buffer to flash
-		onlykey_flashset_common(tptr, (unsigned long *)adr, 2048);
+		okcore_flashset_common(tptr, (unsigned long *)adr, 2048);
 		length = (uint8_t)size;
-		onlykey_eeset_usernamelen7(&length);
+		okeeprom_eeset_usernamelen7(&length);
 		return;
 	case 8:
 		if (size > EElen_username)
@@ -4111,9 +3934,9 @@ void onlykey_flashset_username(uint8_t *ptr, int size, int slot)
 		if (size > EElen_username)
 			size = EElen_username;
 		//Write buffer to flash
-		onlykey_flashset_common(tptr, (unsigned long *)adr, 2048);
+		okcore_flashset_common(tptr, (unsigned long *)adr, 2048);
 		length = (uint8_t)size;
-		onlykey_eeset_usernamelen8(&length);
+		okeeprom_eeset_usernamelen8(&length);
 		return;
 	case 9:
 		if (size > EElen_username)
@@ -4121,9 +3944,9 @@ void onlykey_flashset_username(uint8_t *ptr, int size, int slot)
 		if (size > EElen_username)
 			size = EElen_username;
 		//Write buffer to flash
-		onlykey_flashset_common(tptr, (unsigned long *)adr, 2048);
+		okcore_flashset_common(tptr, (unsigned long *)adr, 2048);
 		length = (uint8_t)size;
-		onlykey_eeset_usernamelen9(&length);
+		okeeprom_eeset_usernamelen9(&length);
 		return;
 	case 10:
 		if (size > EElen_username)
@@ -4131,9 +3954,9 @@ void onlykey_flashset_username(uint8_t *ptr, int size, int slot)
 		if (size > EElen_username)
 			size = EElen_username;
 		//Write buffer to flash
-		onlykey_flashset_common(tptr, (unsigned long *)adr, 2048);
+		okcore_flashset_common(tptr, (unsigned long *)adr, 2048);
 		length = (uint8_t)size;
-		onlykey_eeset_usernamelen10(&length);
+		okeeprom_eeset_usernamelen10(&length);
 		return;
 	case 11:
 		if (size > EElen_username)
@@ -4141,9 +3964,9 @@ void onlykey_flashset_username(uint8_t *ptr, int size, int slot)
 		if (size > EElen_username)
 			size = EElen_username;
 		//Write buffer to flash
-		onlykey_flashset_common(tptr, (unsigned long *)adr, 2048);
+		okcore_flashset_common(tptr, (unsigned long *)adr, 2048);
 		length = (uint8_t)size;
-		onlykey_eeset_usernamelen11(&length);
+		okeeprom_eeset_usernamelen11(&length);
 		return;
 	case 12:
 		if (size > EElen_username)
@@ -4151,17 +3974,17 @@ void onlykey_flashset_username(uint8_t *ptr, int size, int slot)
 		if (size > EElen_username)
 			size = EElen_username;
 		//Write buffer to flash
-		onlykey_flashset_common(tptr, (unsigned long *)adr, 2048);
+		okcore_flashset_common(tptr, (unsigned long *)adr, 2048);
 		length = (uint8_t)size;
-		onlykey_eeset_usernamelen12(&length);
+		okeeprom_eeset_usernamelen12(&length);
 		return;
 	case 13:
 		if (size > EElen_username)
 			size = EElen_username;
 		//Write buffer to flash
-		onlykey_flashset_common(tptr, (unsigned long *)adr, 2048);
+		okcore_flashset_common(tptr, (unsigned long *)adr, 2048);
 		length = (uint8_t)size;
-		onlykey_eeset_usernamelen13(&length);
+		okeeprom_eeset_usernamelen13(&length);
 		return;
 	case 14:
 		if (size > EElen_username)
@@ -4169,9 +3992,9 @@ void onlykey_flashset_username(uint8_t *ptr, int size, int slot)
 		if (size > EElen_username)
 			size = EElen_username;
 		//Write buffer to flash
-		onlykey_flashset_common(tptr, (unsigned long *)adr, 2048);
+		okcore_flashset_common(tptr, (unsigned long *)adr, 2048);
 		length = (uint8_t)size;
-		onlykey_eeset_usernamelen14(&length);
+		okeeprom_eeset_usernamelen14(&length);
 		return;
 	case 15:
 		if (size > EElen_username)
@@ -4179,9 +4002,9 @@ void onlykey_flashset_username(uint8_t *ptr, int size, int slot)
 		if (size > EElen_username)
 			size = EElen_username;
 		//Write buffer to flash
-		onlykey_flashset_common(tptr, (unsigned long *)adr, 2048);
+		okcore_flashset_common(tptr, (unsigned long *)adr, 2048);
 		length = (uint8_t)size;
-		onlykey_eeset_usernamelen15(&length);
+		okeeprom_eeset_usernamelen15(&length);
 		return;
 	case 16:
 		if (size > EElen_username)
@@ -4189,9 +4012,9 @@ void onlykey_flashset_username(uint8_t *ptr, int size, int slot)
 		if (size > EElen_username)
 			size = EElen_username;
 		//Write buffer to flash
-		onlykey_flashset_common(tptr, (unsigned long *)adr, 2048);
+		okcore_flashset_common(tptr, (unsigned long *)adr, 2048);
 		length = (uint8_t)size;
-		onlykey_eeset_usernamelen16(&length);
+		okeeprom_eeset_usernamelen16(&length);
 		return;
 	case 17:
 		if (size > EElen_username)
@@ -4199,9 +4022,9 @@ void onlykey_flashset_username(uint8_t *ptr, int size, int slot)
 		if (size > EElen_username)
 			size = EElen_username;
 		//Write buffer to flash
-		onlykey_flashset_common(tptr, (unsigned long *)adr, 2048);
+		okcore_flashset_common(tptr, (unsigned long *)adr, 2048);
 		length = (uint8_t)size;
-		onlykey_eeset_usernamelen17(&length);
+		okeeprom_eeset_usernamelen17(&length);
 		return;
 	case 18:
 		if (size > EElen_username)
@@ -4209,9 +4032,9 @@ void onlykey_flashset_username(uint8_t *ptr, int size, int slot)
 		if (size > EElen_username)
 			size = EElen_username;
 		//Write buffer to flash
-		onlykey_flashset_common(tptr, (unsigned long *)adr, 2048);
+		okcore_flashset_common(tptr, (unsigned long *)adr, 2048);
 		length = (uint8_t)size;
-		onlykey_eeset_usernamelen18(&length);
+		okeeprom_eeset_usernamelen18(&length);
 		return;
 	case 19:
 		if (size > EElen_username)
@@ -4219,9 +4042,9 @@ void onlykey_flashset_username(uint8_t *ptr, int size, int slot)
 		if (size > EElen_username)
 			size = EElen_username;
 		//Write buffer to flash
-		onlykey_flashset_common(tptr, (unsigned long *)adr, 2048);
+		okcore_flashset_common(tptr, (unsigned long *)adr, 2048);
 		length = (uint8_t)size;
-		onlykey_eeset_usernamelen19(&length);
+		okeeprom_eeset_usernamelen19(&length);
 		return;
 	case 20:
 		if (size > EElen_username)
@@ -4229,9 +4052,9 @@ void onlykey_flashset_username(uint8_t *ptr, int size, int slot)
 		if (size > EElen_username)
 			size = EElen_username;
 		//Write buffer to flash
-		onlykey_flashset_common(tptr, (unsigned long *)adr, 2048);
+		okcore_flashset_common(tptr, (unsigned long *)adr, 2048);
 		length = (uint8_t)size;
-		onlykey_eeset_usernamelen20(&length);
+		okeeprom_eeset_usernamelen20(&length);
 		return;
 	case 21:
 		if (size > EElen_username)
@@ -4239,9 +4062,9 @@ void onlykey_flashset_username(uint8_t *ptr, int size, int slot)
 		if (size > EElen_username)
 			size = EElen_username;
 		//Write buffer to flash
-		onlykey_flashset_common(tptr, (unsigned long *)adr, 2048);
+		okcore_flashset_common(tptr, (unsigned long *)adr, 2048);
 		length = (uint8_t)size;
-		onlykey_eeset_usernamelen21(&length);
+		okeeprom_eeset_usernamelen21(&length);
 		return;
 	case 22:
 		if (size > EElen_username)
@@ -4249,9 +4072,9 @@ void onlykey_flashset_username(uint8_t *ptr, int size, int slot)
 		if (size > EElen_username)
 			size = EElen_username;
 		//Write buffer to flash
-		onlykey_flashset_common(tptr, (unsigned long *)adr, 2048);
+		okcore_flashset_common(tptr, (unsigned long *)adr, 2048);
 		length = (uint8_t)size;
-		onlykey_eeset_usernamelen22(&length);
+		okeeprom_eeset_usernamelen22(&length);
 		return;
 	case 23:
 		if (size > EElen_username)
@@ -4259,9 +4082,9 @@ void onlykey_flashset_username(uint8_t *ptr, int size, int slot)
 		if (size > EElen_username)
 			size = EElen_username;
 		//Write buffer to flash
-		onlykey_flashset_common(tptr, (unsigned long *)adr, 2048);
+		okcore_flashset_common(tptr, (unsigned long *)adr, 2048);
 		length = (uint8_t)size;
-		onlykey_eeset_usernamelen23(&length);
+		okeeprom_eeset_usernamelen23(&length);
 		return;
 	case 24:
 		if (size > EElen_username)
@@ -4269,9 +4092,9 @@ void onlykey_flashset_username(uint8_t *ptr, int size, int slot)
 		if (size > EElen_username)
 			size = EElen_username;
 		//Write buffer to flash
-		onlykey_flashset_common(tptr, (unsigned long *)adr, 2048);
+		okcore_flashset_common(tptr, (unsigned long *)adr, 2048);
 		length = (uint8_t)size;
-		onlykey_eeset_usernamelen24(&length);
+		okeeprom_eeset_usernamelen24(&length);
 		return;
 	}
 	return;
@@ -4279,17 +4102,17 @@ void onlykey_flashset_username(uint8_t *ptr, int size, int slot)
 
 /*********************************/
 
-void onlykey_flashget_label(uint8_t *ptr, int slot)
+void okcore_flashget_label(uint8_t *ptr, int slot)
 {
 	uintptr_t adr = (unsigned long)flashstorestart;
 	adr = adr + 8192; //5th free sector
 	if (slot > 58 && slot < 0)
 		return;
 	adr = adr + ((EElen_label * slot) - EElen_label);
-	onlykey_flashget_common(ptr, (unsigned long *)adr, EElen_label);
+	okcore_flashget_common(ptr, (unsigned long *)adr, EElen_label);
 }
 
-void onlykey_flashset_label(uint8_t *ptr, int slot)
+void okcore_flashset_label(uint8_t *ptr, int slot)
 {
 
 	uintptr_t adr = (unsigned long)flashstorestart;
@@ -4300,7 +4123,7 @@ void onlykey_flashset_label(uint8_t *ptr, int slot)
 	if (slot > 58 && slot < 0)
 		return;
 	//Copy current flash contents to buffer
-	onlykey_flashget_common(tptr, (unsigned long *)adr, 2048);
+	okcore_flashget_common(tptr, (unsigned long *)adr, 2048);
 	//Add new flash contents to buffer
 	for (int z = 0; z < EElen_label; z++)
 	{
@@ -4323,13 +4146,13 @@ void onlykey_flashset_label(uint8_t *ptr, int slot)
 		Serial.println("successful\r\n");
 #endif
 	}
-	onlykey_flashset_common(tptr, (unsigned long *)adr, 2048);
+	okcore_flashset_common(tptr, (unsigned long *)adr, 2048);
 	return;
 }
 
 /*********************************/
 
-int onlykey_flashget_totpkey(uint8_t *ptr, int slot)
+int okcore_flashget_totpkey(uint8_t *ptr, int slot)
 {
 
 	uintptr_t adr = (unsigned long)flashstorestart;
@@ -4339,225 +4162,225 @@ int onlykey_flashget_totpkey(uint8_t *ptr, int slot)
 		uint8_t length;
 		int size;
 	case 1:
-		onlykey_eeget_totpkeylen1(&length);
+		okeeprom_eeget_totpkeylen1(&length);
 		size = (int)length;
 		if (size > EElen_totpkey)
 			size = EElen_totpkey;
-		onlykey_flashget_common(ptr, (unsigned long *)adr, EElen_totpkey);
+		okcore_flashget_common(ptr, (unsigned long *)adr, EElen_totpkey);
 		return size;
 
 	case 2:
-		onlykey_eeget_totpkeylen2(&length);
+		okeeprom_eeget_totpkeylen2(&length);
 		size = (int)length;
 		if (size > EElen_totpkey)
 			size = EElen_totpkey;
 		adr = adr + ((EElen_totpkey * slot) - EElen_totpkey);
-		onlykey_flashget_common(ptr, (unsigned long *)adr, EElen_totpkey);
+		okcore_flashget_common(ptr, (unsigned long *)adr, EElen_totpkey);
 		return size;
 
 	case 3:
-		onlykey_eeget_totpkeylen3(&length);
+		okeeprom_eeget_totpkeylen3(&length);
 		size = (int)length;
 		if (size > EElen_totpkey)
 			size = EElen_totpkey;
 		adr = adr + ((EElen_totpkey * slot) - EElen_totpkey);
-		onlykey_flashget_common(ptr, (unsigned long *)adr, EElen_totpkey);
+		okcore_flashget_common(ptr, (unsigned long *)adr, EElen_totpkey);
 		return size;
 
 	case 4:
-		onlykey_eeget_totpkeylen4(&length);
+		okeeprom_eeget_totpkeylen4(&length);
 		size = (int)length;
 		if (size > EElen_totpkey)
 			size = EElen_totpkey;
 		adr = adr + ((EElen_totpkey * slot) - EElen_totpkey);
-		onlykey_flashget_common(ptr, (unsigned long *)adr, EElen_totpkey);
+		okcore_flashget_common(ptr, (unsigned long *)adr, EElen_totpkey);
 		return size;
 
 	case 5:
-		onlykey_eeget_totpkeylen5(&length);
+		okeeprom_eeget_totpkeylen5(&length);
 		size = (int)length;
 		if (size > EElen_totpkey)
 			size = EElen_totpkey;
 		adr = adr + ((EElen_totpkey * slot) - EElen_totpkey);
-		onlykey_flashget_common(ptr, (unsigned long *)adr, EElen_totpkey);
+		okcore_flashget_common(ptr, (unsigned long *)adr, EElen_totpkey);
 		return size;
 
 	case 6:
-		onlykey_eeget_totpkeylen6(&length);
+		okeeprom_eeget_totpkeylen6(&length);
 		size = (int)length;
 		if (size > EElen_totpkey)
 			size = EElen_totpkey;
 		adr = adr + ((EElen_totpkey * slot) - EElen_totpkey);
-		onlykey_flashget_common(ptr, (unsigned long *)adr, EElen_totpkey);
+		okcore_flashget_common(ptr, (unsigned long *)adr, EElen_totpkey);
 		return size;
 
 	case 7:
-		onlykey_eeget_totpkeylen7(&length);
+		okeeprom_eeget_totpkeylen7(&length);
 		size = (int)length;
 		if (size > EElen_totpkey)
 			size = EElen_totpkey;
 		adr = adr + ((EElen_totpkey * slot) - EElen_totpkey);
-		onlykey_flashget_common(ptr, (unsigned long *)adr, EElen_totpkey);
+		okcore_flashget_common(ptr, (unsigned long *)adr, EElen_totpkey);
 		return size;
 
 	case 8:
-		onlykey_eeget_totpkeylen8(&length);
+		okeeprom_eeget_totpkeylen8(&length);
 		size = (int)length;
 		if (size > EElen_totpkey)
 			size = EElen_totpkey;
 		adr = adr + ((EElen_totpkey * slot) - EElen_totpkey);
-		onlykey_flashget_common(ptr, (unsigned long *)adr, EElen_totpkey);
+		okcore_flashget_common(ptr, (unsigned long *)adr, EElen_totpkey);
 		return size;
 
 	case 9:
-		onlykey_eeget_totpkeylen9(&length);
+		okeeprom_eeget_totpkeylen9(&length);
 		size = (int)length;
 		if (size > EElen_totpkey)
 			size = EElen_totpkey;
 		adr = adr + ((EElen_totpkey * slot) - EElen_totpkey);
-		onlykey_flashget_common(ptr, (unsigned long *)adr, EElen_totpkey);
+		okcore_flashget_common(ptr, (unsigned long *)adr, EElen_totpkey);
 		return size;
 
 	case 10:
-		onlykey_eeget_totpkeylen10(&length);
+		okeeprom_eeget_totpkeylen10(&length);
 		size = (int)length;
 		if (size > EElen_totpkey)
 			size = EElen_totpkey;
 		adr = adr + ((EElen_totpkey * slot) - EElen_totpkey);
-		onlykey_flashget_common(ptr, (unsigned long *)adr, EElen_totpkey);
+		okcore_flashget_common(ptr, (unsigned long *)adr, EElen_totpkey);
 		return size;
 
 	case 11:
-		onlykey_eeget_totpkeylen11(&length);
+		okeeprom_eeget_totpkeylen11(&length);
 		size = (int)length;
 		if (size > EElen_totpkey)
 			size = EElen_totpkey;
 		adr = adr + ((EElen_totpkey * slot) - EElen_totpkey);
-		onlykey_flashget_common(ptr, (unsigned long *)adr, EElen_totpkey);
+		okcore_flashget_common(ptr, (unsigned long *)adr, EElen_totpkey);
 		return size;
 
 	case 12:
-		onlykey_eeget_totpkeylen12(&length);
+		okeeprom_eeget_totpkeylen12(&length);
 		size = (int)length;
 		if (size > EElen_totpkey)
 			size = EElen_totpkey;
 		adr = adr + ((EElen_totpkey * slot) - EElen_totpkey);
-		onlykey_flashget_common(ptr, (unsigned long *)adr, EElen_totpkey);
+		okcore_flashget_common(ptr, (unsigned long *)adr, EElen_totpkey);
 		return size;
 
 	case 13:
-		onlykey_eeget_totpkeylen13(&length);
+		okeeprom_eeget_totpkeylen13(&length);
 		size = (int)length;
 		if (size > EElen_totpkey)
 			size = EElen_totpkey;
 		adr = adr + ((EElen_totpkey * slot) - EElen_totpkey);
-		onlykey_flashget_common(ptr, (unsigned long *)adr, EElen_totpkey);
+		okcore_flashget_common(ptr, (unsigned long *)adr, EElen_totpkey);
 		return size;
 
 	case 14:
-		onlykey_eeget_totpkeylen14(&length);
+		okeeprom_eeget_totpkeylen14(&length);
 		size = (int)length;
 		if (size > EElen_totpkey)
 			size = EElen_totpkey;
 		adr = adr + ((EElen_totpkey * slot) - EElen_totpkey);
-		onlykey_flashget_common(ptr, (unsigned long *)adr, EElen_totpkey);
+		okcore_flashget_common(ptr, (unsigned long *)adr, EElen_totpkey);
 		return size;
 
 	case 15:
-		onlykey_eeget_totpkeylen15(&length);
+		okeeprom_eeget_totpkeylen15(&length);
 		size = (int)length;
 		if (size > EElen_totpkey)
 			size = EElen_totpkey;
 		adr = adr + ((EElen_totpkey * slot) - EElen_totpkey);
-		onlykey_flashget_common(ptr, (unsigned long *)adr, EElen_totpkey);
+		okcore_flashget_common(ptr, (unsigned long *)adr, EElen_totpkey);
 		return size;
 
 	case 16:
-		onlykey_eeget_totpkeylen16(&length);
+		okeeprom_eeget_totpkeylen16(&length);
 		size = (int)length;
 		if (size > EElen_totpkey)
 			size = EElen_totpkey;
 		adr = adr + ((EElen_totpkey * slot) - EElen_totpkey);
-		onlykey_flashget_common(ptr, (unsigned long *)adr, EElen_totpkey);
+		okcore_flashget_common(ptr, (unsigned long *)adr, EElen_totpkey);
 		return size;
 
 	case 17:
-		onlykey_eeget_totpkeylen17(&length);
+		okeeprom_eeget_totpkeylen17(&length);
 		size = (int)length;
 		if (size > EElen_totpkey)
 			size = EElen_totpkey;
 		adr = adr + ((EElen_totpkey * slot) - EElen_totpkey);
-		onlykey_flashget_common(ptr, (unsigned long *)adr, EElen_totpkey);
+		okcore_flashget_common(ptr, (unsigned long *)adr, EElen_totpkey);
 		return size;
 
 	case 18:
-		onlykey_eeget_totpkeylen18(&length);
+		okeeprom_eeget_totpkeylen18(&length);
 		size = (int)length;
 		if (size > EElen_totpkey)
 			size = EElen_totpkey;
 		adr = adr + ((EElen_totpkey * slot) - EElen_totpkey);
-		onlykey_flashget_common(ptr, (unsigned long *)adr, EElen_totpkey);
+		okcore_flashget_common(ptr, (unsigned long *)adr, EElen_totpkey);
 		return size;
 
 	case 19:
-		onlykey_eeget_totpkeylen19(&length);
+		okeeprom_eeget_totpkeylen19(&length);
 		size = (int)length;
 		if (size > EElen_totpkey)
 			size = EElen_totpkey;
 		adr = adr + ((EElen_totpkey * slot) - EElen_totpkey);
-		onlykey_flashget_common(ptr, (unsigned long *)adr, EElen_totpkey);
+		okcore_flashget_common(ptr, (unsigned long *)adr, EElen_totpkey);
 		return size;
 
 	case 20:
-		onlykey_eeget_totpkeylen20(&length);
+		okeeprom_eeget_totpkeylen20(&length);
 		size = (int)length;
 		if (size > EElen_totpkey)
 			size = EElen_totpkey;
 		adr = adr + ((EElen_totpkey * slot) - EElen_totpkey);
-		onlykey_flashget_common(ptr, (unsigned long *)adr, EElen_totpkey);
+		okcore_flashget_common(ptr, (unsigned long *)adr, EElen_totpkey);
 		return size;
 
 	case 21:
-		onlykey_eeget_totpkeylen21(&length);
+		okeeprom_eeget_totpkeylen21(&length);
 		size = (int)length;
 		if (size > EElen_totpkey)
 			size = EElen_totpkey;
 		adr = adr + ((EElen_totpkey * slot) - EElen_totpkey);
-		onlykey_flashget_common(ptr, (unsigned long *)adr, EElen_totpkey);
+		okcore_flashget_common(ptr, (unsigned long *)adr, EElen_totpkey);
 		return size;
 
 	case 22:
-		onlykey_eeget_totpkeylen22(&length);
+		okeeprom_eeget_totpkeylen22(&length);
 		size = (int)length;
 		if (size > EElen_totpkey)
 			size = EElen_totpkey;
 		adr = adr + ((EElen_totpkey * slot) - EElen_totpkey);
-		onlykey_flashget_common(ptr, (unsigned long *)adr, EElen_totpkey);
+		okcore_flashget_common(ptr, (unsigned long *)adr, EElen_totpkey);
 		return size;
 
 	case 23:
-		onlykey_eeget_totpkeylen23(&length);
+		okeeprom_eeget_totpkeylen23(&length);
 		size = (int)length;
 		if (size > EElen_totpkey)
 			size = EElen_totpkey;
 		adr = adr + ((EElen_totpkey * slot) - EElen_totpkey);
-		onlykey_flashget_common(ptr, (unsigned long *)adr, EElen_totpkey);
+		okcore_flashget_common(ptr, (unsigned long *)adr, EElen_totpkey);
 		return size;
 
 	case 24:
-		onlykey_eeget_totpkeylen24(&length);
+		okeeprom_eeget_totpkeylen24(&length);
 		size = (int)length;
 		if (size > EElen_totpkey)
 			size = EElen_totpkey;
 		adr = adr + ((EElen_totpkey * slot) - EElen_totpkey);
-		onlykey_flashget_common(ptr, (unsigned long *)adr, EElen_totpkey);
+		okcore_flashget_common(ptr, (unsigned long *)adr, EElen_totpkey);
 		return size;
 	}
 
 	return 0;
 }
 
-void onlykey_flashset_totpkey(uint8_t *ptr, int size, int slot)
+void okcore_flashset_totpkey(uint8_t *ptr, int size, int slot)
 {
 
 	uintptr_t adr = (unsigned long)flashstorestart;
@@ -4566,7 +4389,7 @@ void onlykey_flashset_totpkey(uint8_t *ptr, int size, int slot)
 	uint8_t *tptr;
 	tptr = temp;
 	//Copy current flash contents to buffer
-	onlykey_flashget_common(tptr, (unsigned long *)adr, 2048);
+	okcore_flashget_common(tptr, (unsigned long *)adr, 2048);
 	//Add new flash contents to buffer
 	for (int z = 0; z < EElen_totpkey; z++)
 	{
@@ -4592,9 +4415,9 @@ void onlykey_flashset_totpkey(uint8_t *ptr, int size, int slot)
 		if (size > EElen_totpkey)
 			size = EElen_totpkey;
 		//Write buffer to flash
-		onlykey_flashset_common(tptr, (unsigned long *)adr, 2048);
+		okcore_flashset_common(tptr, (unsigned long *)adr, 2048);
 		length = (uint8_t)size;
-		onlykey_eeset_totpkeylen1(&length);
+		okeeprom_eeset_totpkeylen1(&length);
 		return;
 	case 2:
 		if (size > EElen_totpkey)
@@ -4602,9 +4425,9 @@ void onlykey_flashset_totpkey(uint8_t *ptr, int size, int slot)
 		if (size > EElen_totpkey)
 			size = EElen_totpkey;
 		//Write buffer to flash
-		onlykey_flashset_common(tptr, (unsigned long *)adr, 2048);
+		okcore_flashset_common(tptr, (unsigned long *)adr, 2048);
 		length = (uint8_t)size;
-		onlykey_eeset_totpkeylen2(&length);
+		okeeprom_eeset_totpkeylen2(&length);
 		return;
 	case 3:
 		if (size > EElen_totpkey)
@@ -4612,9 +4435,9 @@ void onlykey_flashset_totpkey(uint8_t *ptr, int size, int slot)
 		if (size > EElen_totpkey)
 			size = EElen_totpkey;
 		//Write buffer to flash
-		onlykey_flashset_common(tptr, (unsigned long *)adr, 2048);
+		okcore_flashset_common(tptr, (unsigned long *)adr, 2048);
 		length = (uint8_t)size;
-		onlykey_eeset_totpkeylen3(&length);
+		okeeprom_eeset_totpkeylen3(&length);
 		return;
 	case 4:
 		if (size > EElen_totpkey)
@@ -4622,9 +4445,9 @@ void onlykey_flashset_totpkey(uint8_t *ptr, int size, int slot)
 		if (size > EElen_totpkey)
 			size = EElen_totpkey;
 		//Write buffer to flash
-		onlykey_flashset_common(tptr, (unsigned long *)adr, 2048);
+		okcore_flashset_common(tptr, (unsigned long *)adr, 2048);
 		length = (uint8_t)size;
-		onlykey_eeset_totpkeylen4(&length);
+		okeeprom_eeset_totpkeylen4(&length);
 		return;
 	case 5:
 		if (size > EElen_totpkey)
@@ -4632,9 +4455,9 @@ void onlykey_flashset_totpkey(uint8_t *ptr, int size, int slot)
 		if (size > EElen_totpkey)
 			size = EElen_totpkey;
 		//Write buffer to flash
-		onlykey_flashset_common(tptr, (unsigned long *)adr, 2048);
+		okcore_flashset_common(tptr, (unsigned long *)adr, 2048);
 		length = (uint8_t)size;
-		onlykey_eeset_totpkeylen5(&length);
+		okeeprom_eeset_totpkeylen5(&length);
 		return;
 	case 6:
 		if (size > EElen_totpkey)
@@ -4642,9 +4465,9 @@ void onlykey_flashset_totpkey(uint8_t *ptr, int size, int slot)
 		if (size > EElen_totpkey)
 			size = EElen_totpkey;
 		//Write buffer to flash
-		onlykey_flashset_common(tptr, (unsigned long *)adr, 2048);
+		okcore_flashset_common(tptr, (unsigned long *)adr, 2048);
 		length = (uint8_t)size;
-		onlykey_eeset_totpkeylen6(&length);
+		okeeprom_eeset_totpkeylen6(&length);
 		return;
 	case 7:
 		if (size > EElen_totpkey)
@@ -4652,9 +4475,9 @@ void onlykey_flashset_totpkey(uint8_t *ptr, int size, int slot)
 		if (size > EElen_totpkey)
 			size = EElen_totpkey;
 		//Write buffer to flash
-		onlykey_flashset_common(tptr, (unsigned long *)adr, 2048);
+		okcore_flashset_common(tptr, (unsigned long *)adr, 2048);
 		length = (uint8_t)size;
-		onlykey_eeset_totpkeylen7(&length);
+		okeeprom_eeset_totpkeylen7(&length);
 		return;
 	case 8:
 		if (size > EElen_totpkey)
@@ -4662,9 +4485,9 @@ void onlykey_flashset_totpkey(uint8_t *ptr, int size, int slot)
 		if (size > EElen_totpkey)
 			size = EElen_totpkey;
 		//Write buffer to flash
-		onlykey_flashset_common(tptr, (unsigned long *)adr, 2048);
+		okcore_flashset_common(tptr, (unsigned long *)adr, 2048);
 		length = (uint8_t)size;
-		onlykey_eeset_totpkeylen8(&length);
+		okeeprom_eeset_totpkeylen8(&length);
 		return;
 	case 9:
 		if (size > EElen_totpkey)
@@ -4672,9 +4495,9 @@ void onlykey_flashset_totpkey(uint8_t *ptr, int size, int slot)
 		if (size > EElen_totpkey)
 			size = EElen_totpkey;
 		//Write buffer to flash
-		onlykey_flashset_common(tptr, (unsigned long *)adr, 2048);
+		okcore_flashset_common(tptr, (unsigned long *)adr, 2048);
 		length = (uint8_t)size;
-		onlykey_eeset_totpkeylen9(&length);
+		okeeprom_eeset_totpkeylen9(&length);
 		return;
 	case 10:
 		if (size > EElen_totpkey)
@@ -4682,9 +4505,9 @@ void onlykey_flashset_totpkey(uint8_t *ptr, int size, int slot)
 		if (size > EElen_totpkey)
 			size = EElen_totpkey;
 		//Write buffer to flash
-		onlykey_flashset_common(tptr, (unsigned long *)adr, 2048);
+		okcore_flashset_common(tptr, (unsigned long *)adr, 2048);
 		length = (uint8_t)size;
-		onlykey_eeset_totpkeylen10(&length);
+		okeeprom_eeset_totpkeylen10(&length);
 		return;
 	case 11:
 		if (size > EElen_totpkey)
@@ -4692,9 +4515,9 @@ void onlykey_flashset_totpkey(uint8_t *ptr, int size, int slot)
 		if (size > EElen_totpkey)
 			size = EElen_totpkey;
 		//Write buffer to flash
-		onlykey_flashset_common(tptr, (unsigned long *)adr, 2048);
+		okcore_flashset_common(tptr, (unsigned long *)adr, 2048);
 		length = (uint8_t)size;
-		onlykey_eeset_totpkeylen11(&length);
+		okeeprom_eeset_totpkeylen11(&length);
 		return;
 	case 12:
 		if (size > EElen_totpkey)
@@ -4702,17 +4525,17 @@ void onlykey_flashset_totpkey(uint8_t *ptr, int size, int slot)
 		if (size > EElen_totpkey)
 			size = EElen_totpkey;
 		//Write buffer to flash
-		onlykey_flashset_common(tptr, (unsigned long *)adr, 2048);
+		okcore_flashset_common(tptr, (unsigned long *)adr, 2048);
 		length = (uint8_t)size;
-		onlykey_eeset_totpkeylen12(&length);
+		okeeprom_eeset_totpkeylen12(&length);
 		return;
 	case 13:
 		if (size > EElen_totpkey)
 			size = EElen_totpkey;
 		//Write buffer to flash
-		onlykey_flashset_common(tptr, (unsigned long *)adr, 2048);
+		okcore_flashset_common(tptr, (unsigned long *)adr, 2048);
 		length = (uint8_t)size;
-		onlykey_eeset_totpkeylen13(&length);
+		okeeprom_eeset_totpkeylen13(&length);
 		return;
 	case 14:
 		if (size > EElen_totpkey)
@@ -4720,9 +4543,9 @@ void onlykey_flashset_totpkey(uint8_t *ptr, int size, int slot)
 		if (size > EElen_totpkey)
 			size = EElen_totpkey;
 		//Write buffer to flash
-		onlykey_flashset_common(tptr, (unsigned long *)adr, 2048);
+		okcore_flashset_common(tptr, (unsigned long *)adr, 2048);
 		length = (uint8_t)size;
-		onlykey_eeset_totpkeylen14(&length);
+		okeeprom_eeset_totpkeylen14(&length);
 		return;
 		;
 	case 15:
@@ -4731,9 +4554,9 @@ void onlykey_flashset_totpkey(uint8_t *ptr, int size, int slot)
 		if (size > EElen_totpkey)
 			size = EElen_totpkey;
 		//Write buffer to flash
-		onlykey_flashset_common(tptr, (unsigned long *)adr, 2048);
+		okcore_flashset_common(tptr, (unsigned long *)adr, 2048);
 		length = (uint8_t)size;
-		onlykey_eeset_totpkeylen15(&length);
+		okeeprom_eeset_totpkeylen15(&length);
 		return;
 	case 16:
 		if (size > EElen_totpkey)
@@ -4741,9 +4564,9 @@ void onlykey_flashset_totpkey(uint8_t *ptr, int size, int slot)
 		if (size > EElen_totpkey)
 			size = EElen_totpkey;
 		//Write buffer to flash
-		onlykey_flashset_common(tptr, (unsigned long *)adr, 2048);
+		okcore_flashset_common(tptr, (unsigned long *)adr, 2048);
 		length = (uint8_t)size;
-		onlykey_eeset_totpkeylen16(&length);
+		okeeprom_eeset_totpkeylen16(&length);
 		return;
 	case 17:
 		if (size > EElen_totpkey)
@@ -4751,9 +4574,9 @@ void onlykey_flashset_totpkey(uint8_t *ptr, int size, int slot)
 		if (size > EElen_totpkey)
 			size = EElen_totpkey;
 		//Write buffer to flash
-		onlykey_flashset_common(tptr, (unsigned long *)adr, 2048);
+		okcore_flashset_common(tptr, (unsigned long *)adr, 2048);
 		length = (uint8_t)size;
-		onlykey_eeset_totpkeylen17(&length);
+		okeeprom_eeset_totpkeylen17(&length);
 		return;
 	case 18:
 		if (size > EElen_totpkey)
@@ -4761,9 +4584,9 @@ void onlykey_flashset_totpkey(uint8_t *ptr, int size, int slot)
 		if (size > EElen_totpkey)
 			size = EElen_totpkey;
 		//Write buffer to flash
-		onlykey_flashset_common(tptr, (unsigned long *)adr, 2048);
+		okcore_flashset_common(tptr, (unsigned long *)adr, 2048);
 		length = (uint8_t)size;
-		onlykey_eeset_totpkeylen18(&length);
+		okeeprom_eeset_totpkeylen18(&length);
 		return;
 	case 19:
 		if (size > EElen_totpkey)
@@ -4771,9 +4594,9 @@ void onlykey_flashset_totpkey(uint8_t *ptr, int size, int slot)
 		if (size > EElen_totpkey)
 			size = EElen_totpkey;
 		//Write buffer to flash
-		onlykey_flashset_common(tptr, (unsigned long *)adr, 2048);
+		okcore_flashset_common(tptr, (unsigned long *)adr, 2048);
 		length = (uint8_t)size;
-		onlykey_eeset_totpkeylen19(&length);
+		okeeprom_eeset_totpkeylen19(&length);
 		return;
 	case 20:
 		if (size > EElen_totpkey)
@@ -4781,9 +4604,9 @@ void onlykey_flashset_totpkey(uint8_t *ptr, int size, int slot)
 		if (size > EElen_totpkey)
 			size = EElen_totpkey;
 		//Write buffer to flash
-		onlykey_flashset_common(tptr, (unsigned long *)adr, 2048);
+		okcore_flashset_common(tptr, (unsigned long *)adr, 2048);
 		length = (uint8_t)size;
-		onlykey_eeset_totpkeylen20(&length);
+		okeeprom_eeset_totpkeylen20(&length);
 		return;
 	case 21:
 		if (size > EElen_totpkey)
@@ -4791,9 +4614,9 @@ void onlykey_flashset_totpkey(uint8_t *ptr, int size, int slot)
 		if (size > EElen_totpkey)
 			size = EElen_totpkey;
 		//Write buffer to flash
-		onlykey_flashset_common(tptr, (unsigned long *)adr, 2048);
+		okcore_flashset_common(tptr, (unsigned long *)adr, 2048);
 		length = (uint8_t)size;
-		onlykey_eeset_totpkeylen21(&length);
+		okeeprom_eeset_totpkeylen21(&length);
 		return;
 	case 22:
 		if (size > EElen_totpkey)
@@ -4801,9 +4624,9 @@ void onlykey_flashset_totpkey(uint8_t *ptr, int size, int slot)
 		if (size > EElen_totpkey)
 			size = EElen_totpkey;
 		//Write buffer to flash
-		onlykey_flashset_common(tptr, (unsigned long *)adr, 2048);
+		okcore_flashset_common(tptr, (unsigned long *)adr, 2048);
 		length = (uint8_t)size;
-		onlykey_eeset_totpkeylen22(&length);
+		okeeprom_eeset_totpkeylen22(&length);
 		return;
 	case 23:
 		if (size > EElen_totpkey)
@@ -4811,9 +4634,9 @@ void onlykey_flashset_totpkey(uint8_t *ptr, int size, int slot)
 		if (size > EElen_totpkey)
 			size = EElen_totpkey;
 		//Write buffer to flash
-		onlykey_flashset_common(tptr, (unsigned long *)adr, 2048);
+		okcore_flashset_common(tptr, (unsigned long *)adr, 2048);
 		length = (uint8_t)size;
-		onlykey_eeset_totpkeylen23(&length);
+		okeeprom_eeset_totpkeylen23(&length);
 		return;
 	case 24:
 		if (size > EElen_totpkey)
@@ -4821,16 +4644,16 @@ void onlykey_flashset_totpkey(uint8_t *ptr, int size, int slot)
 		if (size > EElen_totpkey)
 			size = EElen_totpkey;
 		//Write buffer to flash
-		onlykey_flashset_common(tptr, (unsigned long *)adr, 2048);
+		okcore_flashset_common(tptr, (unsigned long *)adr, 2048);
 		length = (uint8_t)size;
-		onlykey_eeset_totpkeylen24(&length);
+		okeeprom_eeset_totpkeylen24(&length);
 		return;
 	}
 	return;
 }
 
 /*********************************/
-void onlykey_flashget_U2F()
+void okcore_flashget_U2F()
 {
 
 	if (profilemode == NONENCRYPTEDPROFILE)
@@ -4842,8 +4665,8 @@ void onlykey_flashget_U2F()
 	uint8_t length[2];
 	uintptr_t adr = (unsigned long)flashstorestart;
 	adr = adr + 12288 + 1024; //2nd half of 7th flash sector
-	onlykey_flashget_common((uint8_t *)attestation_key, (unsigned long *)adr, 32);
-	aes_gcm_decrypt((uint8_t *)attestation_key, 0, 200, profilekey, 32);
+	okcore_flashget_common((uint8_t *)attestation_key, (unsigned long *)adr, 32);
+	okcore_aes_gcm_decrypt((uint8_t *)attestation_key, 0, 200, profilekey, 32);
 #ifdef DEBUG
 	Serial.print("attestation_key =");
 #endif
@@ -4854,15 +4677,15 @@ void onlykey_flashget_U2F()
 #endif
 	}
 	adr = adr + 32;
-	onlykey_eeget_U2Fcertlen(length);
+	okeeprom_eeget_U2Fcertlen(length);
 	int length2 = length[0] << 8 | length[1];
 #ifdef DEBUG
 	Serial.print("attestation der length=");
 	Serial.println(length2);
 #endif
 	attestation_cert_der_size = length2;
-	onlykey_flashget_common((uint8_t *)attestation_cert_der, (unsigned long *)adr, length2);
-	aes_gcm_decrypt((uint8_t *)attestation_cert_der, 0, 199, profilekey, length2);
+	okcore_flashget_common((uint8_t *)attestation_cert_der, (unsigned long *)adr, length2);
+	okcore_aes_gcm_decrypt((uint8_t *)attestation_cert_der, 0, 199, profilekey, length2);
 #ifdef DEBUG
 	Serial.print("attestation der =");
 	byteprint((uint8_t *)attestation_cert_der, sizeof(attestation_cert_der));
@@ -4889,8 +4712,8 @@ void set_u2f_priv(uint8_t *buffer)
 	tptr = temp;
 	ptr = buffer + 5;
 	//Copy current flash contents to buffer
-	onlykey_flashget_common(tptr, (unsigned long *)adr, 1024);
-	aes_gcm_encrypt(buffer, 0, 200, profilekey, 32);
+	okcore_flashget_common(tptr, (unsigned long *)adr, 1024);
+	okcore_aes_gcm_encrypt(buffer, 0, 200, profilekey, 32);
 	//Add new flash contents to buffer
 	for (int z = 0; z < 32; z++)
 	{
@@ -4913,7 +4736,7 @@ void set_u2f_priv(uint8_t *buffer)
 
 	//Write buffer to flash
 
-	onlykey_flashset_common(tptr, (unsigned long *)adr, 1024);
+	okcore_flashset_common(tptr, (unsigned long *)adr, 1024);
 #ifdef DEBUG
 	Serial.print("U2F Private address =");
 	Serial.println(adr, HEX);
@@ -5010,12 +4833,12 @@ void set_u2f_cert(uint8_t *buffer)
 		length[0] = packet_buffer_offset >> 8 & 0xFF;
 		length[1] = packet_buffer_offset & 0xFF;
 		//Set U2F Certificate size
-		onlykey_eeset_U2Fcertlen(length);
+		okeeprom_eeset_U2Fcertlen(length);
 		//Copy current flash contents to buffer
 		tptr = temp;
-		onlykey_flashget_common(tptr, (unsigned long *)adr, 1024);
+		okcore_flashget_common(tptr, (unsigned long *)adr, 1024);
 		int length2 = length[0] << 8 | length[1];
-		aes_gcm_encrypt((uint8_t *)attestation_cert_der, 0, 199, profilekey, length2);
+		okcore_aes_gcm_encrypt((uint8_t *)attestation_cert_der, 0, 199, profilekey, length2);
 		//Add new flash contents to buffer
 		ptr = (uint8_t *)attestation_cert_der;
 		for (int z = 0; z <= packet_buffer_offset; z++)
@@ -5038,7 +4861,7 @@ void set_u2f_cert(uint8_t *buffer)
 		Serial.println("successful\r\n");
 #endif
 		//Write buffer to flash
-		onlykey_flashset_common(tptr, (unsigned long *)adr, 1024);
+		okcore_flashset_common(tptr, (unsigned long *)adr, 1024);
 	}
 #ifdef DEBUG
 	Serial.print("U2F Cert value =");
@@ -5078,7 +4901,7 @@ void wipe_u2f_cert(uint8_t *buffer)
 	Serial.println("successful\r\n");
 
 #endif
-	onlykey_eeset_U2Fcertlen(length);
+	okeeprom_eeset_U2Fcertlen(length);
 	hidprint("Successfully wiped U2F Certificate");
 	blink(2);
 #endif
@@ -5090,9 +4913,9 @@ void set_private(uint8_t *buffer)
 	uint8_t backupkeymode = 0;
 	uint8_t backupkeyslot = 0;
 	integrityctr2++;
-	onlykey_eeget_backupkey(&backupkeyslot);
+	okeeprom_eeget_backupkey(&backupkeyslot);
 	integrityctr1++;
-	onlykey_eeget_backupkeymode(&backupkeymode);
+	okeeprom_eeget_backupkeymode(&backupkeymode);
 	integrityctr2++;
 	//Serial.println("Backup key slot and key mode");
 	//Serial.println(backupkeyslot);
@@ -5101,7 +4924,7 @@ void set_private(uint8_t *buffer)
 	Serial.print("Profile Key "); 
 	byteprint(profilekey, 32);
 	#endif
-	if ((buffer[6] > 0x80 && backupkeymode && initcheck) || (backupkeymode && backupkeyslot == buffer[5] && initcheck))
+	if ((buffer[6] > 0x80 && backupkeymode && initcheck) || ((backupkeymode || HW_ID==OK_GO) && backupkeyslot == buffer[5] && initcheck))
 	{
 		hidprint("Error backup key mode set to locked");
 		integrityctr1++;
@@ -5114,7 +4937,7 @@ void set_private(uint8_t *buffer)
 	if (buffer[6] > 0x80)
 	{ //Type is Backup key
 		buffer[6] = buffer[6] - 0x80;
-		onlykey_eeset_backupkey(buffer + 5); //Set this key slot as the backup key
+		okeeprom_eeset_backupkey(buffer + 5); //Set this key slot as the backup key
 	}
 
 	if (buffer[5] <= 4 && buffer[5] >= 1)
@@ -5148,7 +4971,7 @@ void wipe_private(uint8_t *buffer)
 #endif
 }
 
-int onlykey_flashget_ECC(uint8_t slot)
+int okcore_flashget_ECC(uint8_t slot)
 {
 
 	if (profilemode == NONENCRYPTEDPROFILE)
@@ -5170,7 +4993,7 @@ int onlykey_flashget_ECC(uint8_t slot)
 	}
 	uintptr_t adr = (unsigned long)flashstorestart;
 	adr = adr + 14336; //8th free flash sector
-	onlykey_eeget_ecckey(&type, slot); //Key Type (1-3) and slot (101-132)
+	okeeprom_eeget_ecckey(&type, slot); //Key Type (1-3) and slot (101-132)
 #ifdef DEBUG
 	Serial.print("Type of ECC KEY with features is ");
 	Serial.println(type);
@@ -5198,8 +5021,8 @@ int onlykey_flashget_ECC(uint8_t slot)
 		type = (type & 0x0F);
 	}
 	adr = adr + (((slot - 100) * 32) - 32);
-	onlykey_flashget_common((uint8_t *)ecc_private_key, (unsigned long *)adr, 32);
-	aes_gcm_decrypt(ecc_private_key, slot, features, profilekey, 32);
+	okcore_flashget_common((uint8_t *)ecc_private_key, (unsigned long *)adr, 32);
+	okcore_aes_gcm_decrypt(ecc_private_key, slot, features, profilekey, 32);
 #ifdef DEBUG
 	Serial.println("Read ECC Private Key");
 #endif
@@ -5255,23 +5078,23 @@ void ecc_priv_flash(uint8_t *buffer)
 		Serial.println(buffer[6]);
 #endif
 	}
-	onlykey_eeset_ecckey(&buffer[6], (int)buffer[5]); //Key Type (1-4) and slot (101-132)
+	okeeprom_eeset_ecckey(&buffer[6], (int)buffer[5]); //Key Type (1-4) and slot (101-132)
 													  //Write buffer to flash
 	uint8_t temp[2048];
 	uint8_t *tptr;
 	tptr = temp;
 	int gen_key = buffer[7] + buffer[8] + buffer[9] + buffer[10] + buffer[11] + buffer[12] + buffer[13] + buffer[14];
 	if (gen_key == 2040)
-	{ //All FFs
-		GENERATE_KEY(buffer);
+	{ //All FFs, trigger to generate a randomly generated key
+		okcrypto_generate_random_key(buffer);
 	}
 #ifdef DEBUG
 	Serial.print("ECC Key value =");
 	byteprint((uint8_t *)buffer + 7, 32);
 #endif
-	aes_gcm_encrypt(buffer + 7, buffer[5], buffer[6], profilekey, 32);
+	okcore_aes_gcm_encrypt(buffer + 7, buffer[5], buffer[6], profilekey, 32);
 	//Copy current flash contents to buffer
-	onlykey_flashget_common(tptr, (unsigned long *)adr, 2048);
+	okcore_flashget_common(tptr, (unsigned long *)adr, 2048);
 	//Add new flash contents to buffer
 	for (int z = 0; z < MAX_ECC_KEY_SIZE; z++)
 	{
@@ -5291,7 +5114,7 @@ void ecc_priv_flash(uint8_t *buffer)
 	Serial.println("successful\r\n");
 #endif
 	//Write buffer to flash
-	onlykey_flashset_common(tptr, (unsigned long *)adr, 2048);
+	okcore_flashset_common(tptr, (unsigned long *)adr, 2048);
 #ifdef DEBUG
 	Serial.println(buffer[5]);
 #endif
@@ -5309,7 +5132,7 @@ void ecc_priv_flash(uint8_t *buffer)
 	return;
 }
 
-int onlykey_flashget_RSA(uint8_t slot)
+int okcore_flashget_RSA(uint8_t slot)
 {
 
 	if (profilemode == NONENCRYPTEDPROFILE)
@@ -5331,7 +5154,7 @@ int onlykey_flashget_RSA(uint8_t slot)
 	}
 	uintptr_t adr = (unsigned long)flashstorestart;
 	adr = adr + 16384; //9th free flash sector
-	onlykey_eeget_rsakey(&type, slot); //Key Type (1-4) and slot (1-4)
+	okeeprom_eeget_rsakey(&type, slot); //Key Type (1-4) and slot (1-4)
 	features = type;
 	if (type == 0x00)
 	{
@@ -5359,8 +5182,8 @@ int onlykey_flashget_RSA(uint8_t slot)
 	Serial.println(type, HEX);
 #endif
 	adr = adr + ((slot * MAX_RSA_KEY_SIZE) - MAX_RSA_KEY_SIZE);
-	onlykey_flashget_common((uint8_t *)rsa_private_key, (unsigned long *)adr, (type * 128));
-	aes_gcm_decrypt(rsa_private_key, slot, features, profilekey, (type * 128));
+	okcore_flashget_common((uint8_t *)rsa_private_key, (unsigned long *)adr, (type * 128));
+	okcore_aes_gcm_decrypt(rsa_private_key, slot, features, profilekey, (type * 128));
 #ifdef DEBUG
 	Serial.println("Read RSA Private Key");
 	byteprint(rsa_private_key, (type * 128));
@@ -5390,11 +5213,11 @@ void rsa_priv_flash(uint8_t *buffer, bool wipe)
 	if (wipe)
 	{
 		//Copy current flash contents to buffer
-		onlykey_flashget_common(tptr, (unsigned long *)adr, 2048);
+		okcore_flashget_common(tptr, (unsigned long *)adr, 2048);
 		//Wipe content from buffer
 		flash_modify(buffer[5], temp, buffer, MAX_RSA_KEY_SIZE, 1);
 		//Write buffer to flash
-		onlykey_flashset_common(tptr, (unsigned long *)adr, 2048);
+		okcore_flashset_common(tptr, (unsigned long *)adr, 2048);
 		hidprint("Successfully wiped RSA Private Key");
 		blink(2);
 		return;
@@ -5464,7 +5287,7 @@ void rsa_priv_flash(uint8_t *buffer, bool wipe)
 		{
 			memcpy(rsa_private_key, buffer + 7, keysize);
 		}
-		onlykey_eeset_rsakey(&buffer[6], (int)buffer[5]); //Key Type (1-4) and slot (1-4)
+		okeeprom_eeset_rsakey(&buffer[6], (int)buffer[5]); //Key Type (1-4) and slot (1-4)
 														  //Write buffer to flash
 		#ifdef DEBUG
 		Serial.print("Received RSA Key of size ");
@@ -5472,9 +5295,9 @@ void rsa_priv_flash(uint8_t *buffer, bool wipe)
 		Serial.print("RSA Key value =");
 		byteprint((uint8_t *)rsa_private_key, keysize);
 		#endif
-		aes_gcm_encrypt(rsa_private_key, buffer[5], buffer[6], profilekey, keysize);
+		okcore_aes_gcm_encrypt(rsa_private_key, buffer[5], buffer[6], profilekey, keysize);
 		//Copy current flash contents to buffer
-		onlykey_flashget_common(tptr, (unsigned long *)adr, 2048);
+		okcore_flashget_common(tptr, (unsigned long *)adr, 2048);
 		//Add new flash contents to buffer
 		for (int z = 0; z < MAX_RSA_KEY_SIZE; z++)
 		{
@@ -5494,7 +5317,7 @@ void rsa_priv_flash(uint8_t *buffer, bool wipe)
 		Serial.println("successful\r\n");
 		#endif
 		//Write buffer to flash
-		onlykey_flashset_common(tptr, (unsigned long *)adr, 2048);
+		okcore_flashset_common(tptr, (unsigned long *)adr, 2048);
 
 		packet_buffer_offset = 0;
 		hidprint("Successfully set RSA Key");
@@ -5533,14 +5356,14 @@ void ctap_flash(int index, uint8_t *buffer, int size, uint8_t mode)
 	}
 	else if (mode == 3)
 	{ // read auth state from EEPROM
-		onlykey_eeget_ctap_authstate(buffer);
-		aes_gcm_decrypt(buffer, 0, 255, profilekey, size);
+		okeeprom_eeget_ctap_authstate(buffer);
+		okcore_aes_gcm_decrypt(buffer, 0, 255, profilekey, size);
 		return;
 	}
 	else if (mode == 4)
 	{ // write auth state to EEPROM
-		aes_gcm_decrypt(buffer, 0, 255, profilekey, size);
-		onlykey_eeset_ctap_authstate(buffer);
+		okcore_aes_gcm_decrypt(buffer, 0, 255, profilekey, size);
+		okeeprom_eeset_ctap_authstate(buffer);
 		return;
 	}
 	#ifdef DEBUG
@@ -5567,12 +5390,12 @@ void ctap_flash(int index, uint8_t *buffer, int size, uint8_t mode)
 		index-=10;
 	}
 	//Copy current flash contents to buffer
-	onlykey_flashget_common(tptr, (unsigned long *)adr, sizeof(temp));
+	okcore_flashget_common(tptr, (unsigned long *)adr, sizeof(temp));
 	//Add new flash contents to buffer
 	if (mode == 1)
 	{ // read RK
 		memcpy(buffer, tptr + ((index * size) - size), size);
-		aes_gcm_decrypt(buffer, 0, (255-slot), profilekey, size);
+		okcore_aes_gcm_decrypt(buffer, 0, (255-slot), profilekey, size);
 		#ifdef DEBUG
 		Serial.print("CTAP value =");
 		byteprint(buffer, size);
@@ -5581,7 +5404,7 @@ void ctap_flash(int index, uint8_t *buffer, int size, uint8_t mode)
 	}
 	else if (mode == 2)
 	{
-		aes_gcm_encrypt(buffer, 0, (255-slot), profilekey, size);
+		okcore_aes_gcm_encrypt(buffer, 0, (255-slot), profilekey, size);
 		flash_modify(index, temp, buffer, size, 0); //write RK
 
 		if (flashEraseSector((unsigned long *)adr))
@@ -5594,7 +5417,7 @@ void ctap_flash(int index, uint8_t *buffer, int size, uint8_t mode)
 		Serial.println("successful");
 		#endif
 		//Write buffer to flash
-		onlykey_flashset_common(tptr, (unsigned long *)adr, sizeof(temp));
+		okcore_flashset_common(tptr, (unsigned long *)adr, sizeof(temp));
 		#ifdef DEBUG
 		Serial.print("CTAP address =");
 		Serial.println(adr, HEX);
@@ -5643,15 +5466,15 @@ void yubikeyinit()
 	memset(temp, 0, 32); //Clear temp buffer
 
 	ptr = temp;
-	onlykey_eeget_public(ptr);
+	okeeprom_eeget_public(ptr);
 
 	ptr = (temp + EElen_public);
-	onlykey_eeget_private(ptr);
+	okeeprom_eeget_private(ptr);
 
 	ptr = (temp + EElen_public + EElen_private);
-	onlykey_eeget_aeskey(ptr);
+	okeeprom_eeget_aeskey(ptr);
 
-	aes_gcm_decrypt(temp, 0, 10, profilekey, (EElen_aeskey + EElen_private + EElen_public));
+	okcore_aes_gcm_decrypt(temp, 0, 10, profilekey, (EElen_aeskey + EElen_private + EElen_public));
 	#ifdef DEBUG
 	Serial.println("public_id");
 	#endif
@@ -5738,18 +5561,19 @@ void increment(Task *me)
 	#ifndef OK_Color
 	analogWrite(BLINKPIN, fade);
 	#else
-	if (NEO_Color == 1)
+	if (NEO_Color == 1) {
 		pixels.setPixelColor(0, pixels.Color(fade, 0, 0)); //Red
-	else if (NEO_Color < 44)
+	} else if (NEO_Color < 44) {
 		pixels.setPixelColor(0, pixels.Color((fade / 2), (fade / 2), 0)); //Yellow
-	else if (NEO_Color < 86)
+	} else if (NEO_Color < 86) { 
 		pixels.setPixelColor(0, pixels.Color(0, fade, 0)); //Green
-	else if (NEO_Color < 129)
+	} else if (NEO_Color < 129) {
 		pixels.setPixelColor(0, pixels.Color(0, (fade / 2), (fade / 2))); //Turquoise
-	else if (NEO_Color < 171)
+	} else if (NEO_Color < 171) {
 		pixels.setPixelColor(0, pixels.Color(0, 0, fade)); //Blue
-	else if (NEO_Color < 214)
+	} else if (NEO_Color < 214) {
 		pixels.setPixelColor(0, pixels.Color((fade / 2), 0, (fade / 2))); //Purple
+	}
 	pixels.show();														  // This sends the updated pixel color to the hardware.
 	#endif
 	fade += 8;
@@ -5767,19 +5591,20 @@ void decrement(Task *me)
 	#ifndef OK_Color
 	analogWrite(BLINKPIN, fade);
 	#else
-	if (NEO_Color == 1)
+	if (NEO_Color == 1) {
 		pixels.setPixelColor(0, pixels.Color(fade, 0, 0)); //Red
-	else if (NEO_Color < 44)
+	} else if (NEO_Color < 44) {
 		pixels.setPixelColor(0, pixels.Color((fade / 2), (fade / 2), 0)); //Yellow
-	else if (NEO_Color < 86)
+	} else if (NEO_Color < 86) {
 		pixels.setPixelColor(0, pixels.Color(0, fade, 0)); //Green
-	else if (NEO_Color < 129)
+	} else if (NEO_Color < 129) {
 		pixels.setPixelColor(0, pixels.Color(0, (fade / 2), (fade / 2))); //Turquoise
-	else if (NEO_Color < 171)
+	} else if (NEO_Color < 171) {
 		pixels.setPixelColor(0, pixels.Color(0, 0, fade)); //Blue
-	else if (NEO_Color < 214)
+	} else if (NEO_Color < 214) {
 		pixels.setPixelColor(0, pixels.Color((fade / 2), 0, (fade / 2))); //Purple
 	pixels.show();														  // This sends the updated pixel color to the hardware.
+	}
 	#endif
 	if (fade == 0)
 	{
@@ -5832,6 +5657,17 @@ bool wipebuffersafter5sec(Task *me)
 		memset(keyboard_buffer, 0, KEYBOARD_BUFFER_SIZE);
 		memset(packet_buffer_details, 0, sizeof(packet_buffer_details));
 		setBuffer[7] = 0;
+		if (getBuffer[8]>= 0xC0) {
+			getBuffer[0] = 0;
+			getBuffer[1] = 2;
+			getBuffer[2] = 2;
+			getBuffer[3] = 3;
+			getBuffer[4] = 3;
+			getBuffer[5] = 3;
+			getBuffer[6] = 5;
+			getBuffer[7] = 0;
+			getBuffer[8] = 0;
+		}
 		large_resp_buffer_offset = 0;
 		CRYPTO_AUTH = 0;
 		Challenge_button1 = 0;
@@ -5860,19 +5696,19 @@ bool fadeoffafter20sec(Task *me)
 	{
 		if (pin_set <= 3)
 		{
-			set_primary_pin(NULL, MANUAL_PIN_SET); //Done PIN entry
+			set_primary_pin(NULL, KEYBOARD_MANUAL_PIN_SET); //Done PIN entry
 		}
 		else if (pin_set <= 6)
 		{
-			set_sd_pin(NULL, MANUAL_PIN_SET); //Done PIN entry
+			set_sd_pin(NULL, KEYBOARD_MANUAL_PIN_SET); //Done PIN entry
 		}
 		else if (pin_set <= 9)
 		{
-			set_secondary_pin(NULL, MANUAL_PIN_SET); //Done PIN entry
+			set_secondary_pin(NULL, KEYBOARD_MANUAL_PIN_SET); //Done PIN entry
 		}
 		else
 		{
-			keyboard_mode_config(AUTO_PIN_SET); //Auto
+			okcore_quick_setup(KEYBOARD_AUTO_PIN_SET); //Auto
 		}
 	}
 	return false;
@@ -6005,19 +5841,23 @@ int calibratecaptouch(uint16_t j)
 void initColor()
 {
 	pixels.begin(); // This initializes the NeoPixel library.
-	if (NEO_Brightness[0] != 0)
-		pixels.setBrightness(NEO_Brightness[0] * 22);
-	else
-		pixels.setBrightness(176); //70% Brightness
+	uint8_t modifier = 22;
+	if (HW_ID==OK_GO) modifier=modifier/2;
+	if (NEO_Brightness[0] != 0) {
+		pixels.setBrightness(NEO_Brightness[0] * modifier);
+	} else {
+		pixels.setBrightness(modifier*8); //70% Brightness
+	}
 	pixels.show();
 }
 
 void setcolor(uint8_t Color)
 {
-	if (Color == 0)
+	if (Color == 0) {
 		pixels.setPixelColor(0, pixels.Color(0, 0, 0));
-	else
-	{
+	} else if (Color == 85) {
+		pixels.setPixelColor(0, Wheel(Color+Profile_Offset));
+	} else	{
 		pixels.setPixelColor(0, Wheel(Color));
 		NEO_Color = Color;
 	}
@@ -6050,7 +5890,7 @@ void backup()
 	uint8_t addchar4;
 	uint8_t addchar5;
 	uint8_t p2mode;
-	onlykey_eeget_2ndprofilemode(&p2mode); //get 2nd profile mode
+	okeeprom_eeget_2ndprofilemode(&p2mode); //get 2nd profile mode
 	large_buffer_offset = 0;
 	memset(large_temp, 0, sizeof(large_temp)); //Wipe all data from largebuffer
 #ifdef OK_Color
@@ -6072,7 +5912,7 @@ void backup()
 #endif
 		memset(temp, 0, sizeof(temp)); //Wipe all data from temp buffer
 		ptr = temp;
-		onlykey_flashget_label(ptr, slot);
+		okcore_flashget_label(ptr, slot);
 		if (temp[0] != 0xFF && temp[0] != 0x00)
 		{
 			large_temp[large_buffer_offset] = 0xFF; //delimiter
@@ -6090,7 +5930,7 @@ void backup()
 #endif
 		memset(temp, 0, sizeof(temp)); //Wipe all data from temp buffer
 		ptr = temp;
-		urllength = onlykey_flashget_url(ptr, slot);
+		urllength = okcore_flashget_url(ptr, slot);
 		if (urllength > 0)
 		{
 #ifdef DEBUG
@@ -6106,7 +5946,7 @@ void backup()
 #endif
 #ifdef STD_VERSION
 			if (slot <= 12 || (slot > 12 && p2mode != NONENCRYPTEDPROFILE))
-				aes_gcm_decrypt(temp, slot, 15, profilekey, urllength);
+				okcore_aes_gcm_decrypt(temp, slot, 15, profilekey, urllength);
 #endif
 #ifdef DEBUG
 			Serial.println("Unencrypted");
@@ -6119,7 +5959,7 @@ void backup()
 			memcpy(large_temp + large_buffer_offset + 3, temp, urllength);
 			large_buffer_offset = large_buffer_offset + urllength + 3;
 		}
-		onlykey_eeget_addchar(&addchar5, slot);
+		okeeprom_eeget_addchar(&addchar5, slot);
 		addchar1 = addchar5 & 0x3;		  //After Username
 		addchar2 = (addchar5 >> 4) & 0x3; //After Password
 		addchar3 = (addchar5 >> 6) & 0x1; //After OTP
@@ -6165,7 +6005,7 @@ void backup()
 			large_temp[large_buffer_offset + 3] = addchar5;
 			large_buffer_offset = large_buffer_offset + 4;
 		}
-		onlykey_eeget_delay1(ptr, slot);
+		okeeprom_eeget_delay1(ptr, slot);
 		if (temp[0] > 0)
 		{
 			large_temp[large_buffer_offset] = 0xFF; //delimiter
@@ -6174,7 +6014,7 @@ void backup()
 			large_temp[large_buffer_offset + 3] = temp[0];
 			large_buffer_offset = large_buffer_offset + 4;
 		}
-		usernamelength = onlykey_flashget_username(ptr, slot);
+		usernamelength = okcore_flashget_username(ptr, slot);
 		if (usernamelength > 0)
 		{
 #ifdef DEBUG
@@ -6189,9 +6029,7 @@ void backup()
 				byteprint(temp, usernamelength);
 				Serial.println();
 #endif
-#ifdef STD_VERSION
-				aes_gcm_decrypt(temp, slot, 2, profilekey, usernamelength);
-#endif
+				okcore_aes_gcm_decrypt(temp, slot, 2, profilekey, usernamelength);
 			}
 #ifdef DEBUG
 			Serial.println("Unencrypted");
@@ -6204,7 +6042,7 @@ void backup()
 			memcpy(large_temp + large_buffer_offset + 3, temp, usernamelength);
 			large_buffer_offset = large_buffer_offset + usernamelength + 3;
 		}
-		onlykey_eeget_delay2(ptr, slot);
+		okeeprom_eeget_delay2(ptr, slot);
 		if (temp[0] > 0)
 		{
 			large_temp[large_buffer_offset] = 0xFF; //delimiter
@@ -6213,7 +6051,7 @@ void backup()
 			large_temp[large_buffer_offset + 3] = temp[0];
 			large_buffer_offset = large_buffer_offset + 4;
 		}
-		passwordlength = onlykey_eeget_password(ptr, slot);
+		passwordlength = okeeprom_eeget_password(ptr, slot);
 		if (passwordlength > 0)
 		{
 #ifdef DEBUG
@@ -6228,9 +6066,7 @@ void backup()
 				byteprint(temp, passwordlength);
 				Serial.println();
 #endif
-#ifdef STD_VERSION
-				aes_gcm_decrypt(temp, slot, 5, profilekey, passwordlength);
-#endif
+				okcore_aes_gcm_decrypt(temp, slot, 5, profilekey, passwordlength);
 			}
 #ifdef DEBUG
 			Serial.println("Unencrypted");
@@ -6243,7 +6079,7 @@ void backup()
 			memcpy(large_temp + large_buffer_offset + 3, temp, passwordlength);
 			large_buffer_offset = large_buffer_offset + passwordlength + 3;
 		}
-		onlykey_eeget_delay3(ptr, slot);
+		okeeprom_eeget_delay3(ptr, slot);
 		if (temp[0] > 0)
 		{
 			large_temp[large_buffer_offset] = 0xFF; //delimiter
@@ -6252,7 +6088,7 @@ void backup()
 			large_temp[large_buffer_offset + 3] = temp[0];
 			large_buffer_offset = large_buffer_offset + 4;
 		}
-		otplength = onlykey_eeget_2FAtype(ptr, slot);
+		otplength = okeeprom_eeget_2FAtype(ptr, slot);
 		if (temp[0] > 0)
 		{
 			large_temp[large_buffer_offset] = 0xFF; //delimiter
@@ -6266,7 +6102,7 @@ void backup()
 #ifdef DEBUG
 			Serial.println("Reading TOTP Key from Flash...");
 #endif
-			otplength = onlykey_flashget_totpkey(ptr, slot);
+			otplength = okcore_flashget_totpkey(ptr, slot);
 #ifdef DEBUG
 			Serial.println("Encrypted");
 			byteprint(temp, otplength);
@@ -6275,7 +6111,7 @@ void backup()
 			Serial.println(otplength);
 #endif
 			if (slot <= 12 || (slot > 12 && p2mode != NONENCRYPTEDPROFILE))
-				aes_gcm_decrypt(temp, slot, 9, profilekey, otplength);
+				okcore_aes_gcm_decrypt(temp, slot, 9, profilekey, otplength);
 #ifdef DEBUG
 			Serial.println("Unencrypted");
 			byteprint(temp, otplength);
@@ -6293,7 +6129,7 @@ void backup()
 			backupyubikey = true;
 		}
 	}
-	onlykey_eeget_typespeed(ptr);
+	okeeprom_eeget_typespeed(ptr);
 	if (*ptr != 0)
 	{
 		*ptr = 11 - *ptr;
@@ -6303,7 +6139,7 @@ void backup()
 		large_temp[large_buffer_offset + 3] = temp[0];
 		large_buffer_offset = large_buffer_offset + 4;
 	}
-	onlykey_eeget_keyboardlayout(ptr);
+	okeeprom_eeget_keyboardlayout(ptr);
 	if (*ptr != 0)
 	{
 		large_temp[large_buffer_offset] = 0xFF;   //delimiter
@@ -6312,7 +6148,7 @@ void backup()
 		large_temp[large_buffer_offset + 3] = temp[0];
 		large_buffer_offset = large_buffer_offset + 4;
 	}
-	onlykey_eeget_timeout(ptr);
+	okeeprom_eeget_timeout(ptr);
 	if (*ptr != 0)
 	{
 		large_temp[large_buffer_offset] = 0xFF;   //delimiter
@@ -6324,15 +6160,15 @@ void backup()
 	yubikey_eeget_counter(ctr);
 	if (backupyubikey)
 	{
-		onlykey_eeget_public(ptr);
+		okeeprom_eeget_public(ptr);
 
 		ptr = (temp + EElen_public);
-		onlykey_eeget_private(ptr);
+		okeeprom_eeget_private(ptr);
 
 		ptr = (temp + EElen_public + EElen_private);
-		onlykey_eeget_aeskey(ptr);
+		okeeprom_eeget_aeskey(ptr);
 
-		aes_gcm_decrypt(temp, 0, 10, profilekey, (EElen_aeskey + EElen_private + EElen_public));
+		okcore_aes_gcm_decrypt(temp, 0, 10, profilekey, (EElen_aeskey + EElen_private + EElen_public));
 
 		large_temp[large_buffer_offset] = 0xFF;   //delimiter
 		large_temp[large_buffer_offset + 1] = 0;  //slot 0
@@ -6353,7 +6189,7 @@ void backup()
 
 	//Copy RSA keys to buffer
 	uint8_t backupslot;
-	onlykey_eeget_backupkey(&backupslot);
+	okeeprom_eeget_backupkey(&backupslot);
 	for (uint8_t slot = 1; slot <= 4; slot++)
 	{
 #ifdef DEBUG
@@ -6362,7 +6198,7 @@ void backup()
 #endif
 		memset(temp, 0, MAX_RSA_KEY_SIZE); //Wipe all data from temp buffer
 		ptr = temp;
-		uint8_t features = onlykey_flashget_RSA(slot);
+		uint8_t features = okcore_flashget_RSA(slot);
 		if (slot == backupslot)
 			features = features + 0x80;
 		if (features != 0x00)
@@ -6393,7 +6229,7 @@ void backup()
 #endif
 		memset(temp, 0, MAX_RSA_KEY_SIZE); //Wipe all data from temp buffer
 		ptr = temp;
-		uint8_t features = onlykey_flashget_ECC(slot);
+		uint8_t features = okcore_flashget_ECC(slot);
 		if (slot == backupslot)
 			features = features + 0x80;
 		if (features != 0x00)
@@ -6435,7 +6271,7 @@ void backup()
     }
 
 	//Copy U2F key/Cert to buffer
-	//onlykey_eeget_U2Fcertlen(length);
+	//okeeprom_eeget_U2Fcertlen(length);
 	//int length2 = length[0] << 8 | length[1];
 	//if (length2 != 0)
 	//{
@@ -6471,7 +6307,7 @@ void backup()
 #endif
 
 	//ENCRYPT
-	onlykey_eeget_backupkey(&slot);
+	okeeprom_eeget_backupkey(&slot);
 #ifdef DEBUG
 	Serial.println();
 	Serial.print("Backup Key Assigned to Slot # ");
@@ -6497,14 +6333,14 @@ void backup()
 		uint8_t iv[12];
 		uint8_t secret[32];
 		memcpy(iv, temp, 12);
-		onlykey_flashget_ECC(slot);
+		okcore_flashget_ECC(slot);
 #ifdef DEBUG
 		Serial.println("Slot");
 		Serial.println(slot);
 		Serial.println("Private = ");
 		byteprint(ecc_private_key, 32);
 #endif
-		if (shared_secret(ecc_public_key, secret))
+		if (okcrypto_shared_secret(ecc_public_key, secret))
 		{
 			hidprint("Error with ECC Shared Secret");
 			return;
@@ -6525,7 +6361,12 @@ void backup()
 		Serial.println("AES KEY = ");
 		byteprint(secret, 32);
 #endif
-		aes_gcm_encrypt2(large_temp, iv, secret, large_buffer_offset);
+		if (profilemode != NONENCRYPTEDPROFILE)
+		{
+		#ifdef STD_VERSION
+		okcrypto_aes_gcm_encrypt2(large_temp, iv, secret, large_buffer_offset);
+		#endif
+		}
 		memcpy(large_temp + large_buffer_offset, iv, 12);
 #ifdef DEBUG
 		Serial.println("IV = ");
@@ -6541,14 +6382,19 @@ void backup()
 	}
 	else if (slot <= 4)
 	{
-		onlykey_flashget_RSA(slot);
+		okcore_flashget_RSA(slot);
 		uint8_t iv[12] = "BACKUP12345";
 		uint8_t temp2[512];
 #ifdef DEBUG
 		Serial.println("AES KEY = ");
 		byteprint(temp, 32);
 #endif
-		aes_gcm_encrypt2(large_temp, iv, temp, large_buffer_offset);
+		if (profilemode != NONENCRYPTEDPROFILE)
+		{
+		#ifdef STD_VERSION
+		okcrypto_aes_gcm_encrypt2(large_temp, iv, temp, large_buffer_offset);
+		#endif
+		}
 		//No need for unique IVs when random key used
 		if (rsa_encrypt(32, temp, temp2))
 		{
@@ -6705,7 +6551,7 @@ void RESTORE(uint8_t *buffer)
 		}
 
 		//DECRYPT
-		onlykey_eeget_backupkey(&slot);
+		okeeprom_eeget_backupkey(&slot);
 		offset--;
 #ifdef DEBUG
 		Serial.print("Type of Backup Key = ");
@@ -6720,7 +6566,7 @@ void RESTORE(uint8_t *buffer)
 		}
 		else if (slot > 100)
 		{
-			onlykey_flashget_ECC(slot);
+			okcore_flashget_ECC(slot);
 
 #ifdef DEBUG
 			Serial.println("Slot");
@@ -6742,7 +6588,7 @@ void RESTORE(uint8_t *buffer)
 				uint8_t iv[12];
 				offset = offset - 12;
 				memcpy(iv, large_temp + offset, 12);
-				shared_secret(ecc_public_key, temp);
+				okcrypto_shared_secret(ecc_public_key, temp);
 
 #ifdef DEBUG
 				Serial.println("Secret = ");
@@ -6758,14 +6604,18 @@ void RESTORE(uint8_t *buffer)
 				sha256_update(&context, ecc_public_key, 32); //add public key
 				sha256_update(&context, iv, 12);			 //add AES GCM IV
 				sha256_final(&context, temp);
-
-				aes_gcm_decrypt2(large_temp, iv, temp, offset);
+				if (profilemode != NONENCRYPTEDPROFILE)
+				{
+				#ifdef STD_VERSION
+				okcrypto_aes_gcm_decrypt2(large_temp, iv, temp, offset);
+				#endif
+				}
 			}
 		}
 		else if (slot <= 4)
 		{
 			unsigned int len = 0;
-			onlykey_flashget_RSA(slot);
+			okcore_flashget_RSA(slot);
 			if (type != large_temp[offset])
 			{
 				hidprint("Error key type used for backup does not match");
@@ -6788,7 +6638,12 @@ void RESTORE(uint8_t *buffer)
 				byteprint(temp2, 32);
 #endif
 				uint8_t iv[12] = "BACKUP12345";
-				aes_gcm_decrypt2(large_temp, iv, temp2, offset);
+				if (profilemode != NONENCRYPTEDPROFILE)
+				{
+				#ifdef STD_VERSION
+				okcrypto_aes_gcm_decrypt2(large_temp, iv, temp2, offset);
+				#endif
+				}
 				//No need for unique IVs when random key used
 			}
 		}
@@ -7005,7 +6860,7 @@ void RESTORE(uint8_t *buffer)
 				//memcpy(temp, ptr, 2);
 				//temp2 = temp[0] << 8 | temp[1];
 				//Set U2F Certificate size
-				//onlykey_eeset_U2Fcertlen(temp);
+				//okeeprom_eeset_U2Fcertlen(temp);
 				offset = offset - 2;
 				ptr = ptr + 2;
 				//large_temp[0] = 0xBA;
@@ -7165,51 +7020,30 @@ void done_process_packets()
 	pgpchallengemode = 0;
 	CRYPTO_AUTH = 1;
 	fadeoffafter20(); //Wipe and fadeoff after 20 seconds
-	if (packet_buffer_details[1] > 200)
-	{ //SSH request
-		onlykey_eeget_sshchallengemode(&sshchallengemode);
+	// If support is added for PGP/GPG ssh challenge mode and pgp challenge mode may require change 
+	// Change to sign challenge mode and decrypt challenge mode based on key features of slot
+	if (packet_buffer_details[1] > 200) { //SSH request
+		okeeprom_eeget_sshchallengemode(&sshchallengemode);
 	}
-	if (packet_buffer_details[1] < 5 || (packet_buffer_details[1] > 100 && packet_buffer_details[1] <= 132))
-	{ //PGP request
-		onlykey_eeget_pgpchallengemode(&pgpchallengemode);
+	if (packet_buffer_details[1] < 5 || (packet_buffer_details[1] > 100 && packet_buffer_details[1] <= 132)) { //PGP request
+		okeeprom_eeget_pgpchallengemode(&pgpchallengemode);
 	}
-	if (sshchallengemode || pgpchallengemode)
-	{
+	if (sshchallengemode || pgpchallengemode || HW_ID==OK_GO) {
 		CRYPTO_AUTH = 3;
-	}
-	else
-	{
+	} else {
 		SHA256_CTX msg_hash;
 		sha256_init(&msg_hash);
 		sha256_update(&msg_hash, packet_buffer, packet_buffer_offset); //add data to sign
-		sha256_final(&msg_hash, temp);								   //Temporarily store hash
-		if (temp[0] < 6)
-			Challenge_button1 = '1'; //Convert first byte of hash
-		else
-		{
-			Challenge_button1 = temp[0] % 5;				 //Get the base 5 remainder (0-5)
-			Challenge_button1 = Challenge_button1 + '0' + 1; //Add '0' and 1 so number will be ASCII 1 - 6
-		}
-		if (temp[15] < 6)
-			Challenge_button2 = '1'; //Convert middle byte of hash
-		else
-		{
-			Challenge_button2 = temp[15] % 5;				 //Get the base 5 remainder (0-5)
-			Challenge_button2 = Challenge_button2 + '0' + 1; //Add '0' and 1 so number will be ASCII 1 - 6
-		}
-		if (temp[31] < 6)
-			Challenge_button3 = '1'; //Convert last byte of hash
-		else
-		{
-			Challenge_button3 = temp[31] % 5;				 //Get the base 5 remainder (0-5)
-			Challenge_button3 = Challenge_button3 + '0' + 1; //Add '0' and 1 so number will be ASCII 1 - 6
-		}
+		sha256_final(&msg_hash, temp);					//Temporarily store hash
+		Challenge_button1 = (temp[0] % 6) + '0' + 1;	//Get value 1-6 for challenge 1
+		Challenge_button2 = (temp[15] % 6) + '0' + 1;	//Get value 1-6 for challenge 2
+		Challenge_button3 = (temp[31] % 6) + '0' + 1;	//Get value 1-6 for challenge 3
 	}
 #ifdef DEBUG
 	Serial.println("Received Message");
 	byteprint(packet_buffer, packet_buffer_offset);
 #endif
-	aes_gcm_encrypt(packet_buffer, packet_buffer_details[0], packet_buffer_details[1], profilekey, packet_buffer_offset);
+	okcore_aes_gcm_encrypt(packet_buffer, packet_buffer_details[0], packet_buffer_details[1], profilekey, packet_buffer_offset);
 	// Just in case there is still a response stored
 	large_resp_buffer_offset = 0;
 	memset(large_resp_buffer, 0, large_resp_buffer_offset);
@@ -7224,33 +7058,25 @@ void done_process_packets()
 	fadeon(NEO_Color);
 }
 
-/*
-void temp_voltage () {
-	float average = 0;
-	analogReference(INTERNAL);
-	analogReadResolution(12);
-	   for (int i =0;i<255;i++){
-		  average = analogRead(38)+average;
-		}
-	average= average/255;
-	float C = 25.0 + 0.17083 * (2454.19 - average);
-#ifdef DEBUG
-	Serial.print(average);
-	Serial.print(' ');
-    Serial.print(C);
-    Serial.println ("C - Internal Temperature");
-#endif
-	analogReference(DEFAULT);
-	analogReadResolution(12);
-	analogReadAveraging(32);
-	int mv;
-	mv = 1200 * 4096 /analogRead(39);
+int internal_temp () {
+	//unsigned int temp;
 	#ifdef DEBUG
-	  Serial.print(mv);
-      Serial.println ("mv - VCC");
+	//Serial.println("VREF");
+	//for (int i=0; i<8; i++) {
+	//	temp = analogRead(39) + i;
+	//}
+	//temp = temp/8;
+	//Serial.println(temp);
+	//Serial.println("TEMP SENSOR");
+	//for (int i=0; i<8; i++) {
+	//	temp = analogRead(38) + i;
+	//}
+	//temp = temp/8;
+	//return temp;
 	#endif
+	return analogRead(38);
 }
-*/
+
 int RNG2(uint8_t *dest, unsigned size)
 {
 	// Generate output whenever 32 bytes of entropy have been accumulated.
@@ -7300,12 +7126,26 @@ void process_setreport()
 	}
 	else if (keyboard_buffer[64] == 0x30 || keyboard_buffer[64] == 0x38)
 	{ //HMACSHA1}
-		CRYPTO_AUTH = 3;
-		packet_buffer_details[0] = OKHMAC;
-		SoftTimer.remove(&Wipedata);
-		fadeon(43);		  //Yellow
-		fadeoffafter20(); //Wipe and fadeoff after 20 seconds
-		memset(setBuffer, 0, 9);
+		if (profilemode != NONENCRYPTEDPROFILE)
+			{
+			#ifdef STD_VERSION
+			uint8_t hmac_challenge_disabled = 0;
+			okeeprom_eeget_hmac_challengemode((uint8_t*)hmac_challenge_disabled);
+			if (hmac_challenge_disabled) { // 0 = Default physical presence required, 1 = No physical presence required for HMAC
+				CRYPTO_AUTH = 4;
+				okcrypto_hmacsha1();
+				CRYPTO_AUTH = 0;
+				memset(setBuffer, 0, 9);
+			} else {
+				CRYPTO_AUTH = 3;
+				packet_buffer_details[0] = OKHMAC;
+				SoftTimer.remove(&Wipedata);
+				fadeon(43);		  //Yellow
+				fadeoffafter20(); //Wipe and fadeoff after 20 seconds
+				memset(setBuffer, 0, 9);
+			}
+			#endif
+		}
 	}
 	else if (keyboard_buffer[0] == 0xFF && keyboard_buffer[1] == 0xFF && keyboard_buffer[2] == 0xFF && keyboard_buffer[3] == 0xFF)
 	{ //Other
@@ -7339,4 +7179,68 @@ int check_crc(uint8_t* buffer) {
 	return 0;
 	}
 	return 1;
+}
+
+void okcore_aes_gcm_encrypt(uint8_t *state, uint8_t slot, uint8_t value, const uint8_t *key, int len) {
+	if (profilemode != NONENCRYPTEDPROFILE)
+	{
+		#ifdef STD_VERSION
+		okcrypto_aes_gcm_encrypt(state, slot, value, key, len);
+		#endif
+	}
+}
+
+void okcore_aes_gcm_decrypt(uint8_t *state, uint8_t slot, uint8_t value, const uint8_t *key, int len)
+{
+	if (profilemode != NONENCRYPTEDPROFILE)
+	{
+		#ifdef STD_VERSION
+		okcrypto_aes_gcm_decrypt(state, slot, value, key, len);
+		#endif
+	}
+}
+
+void okcore_aes_cbc_encrypt (uint8_t * state, const uint8_t * key, int len)
+{
+	#ifdef STD_VERSION
+	okcrypto_aes_cbc_encrypt (state, key, len);
+	#endif
+}
+
+void okcore_aes_cbc_decrypt (uint8_t * state, const uint8_t * key, int len)
+{
+	#ifdef STD_VERSION
+	okcrypto_aes_cbc_decrypt (state, key, len);
+	#endif
+}
+
+char * HW_MODEL(char const * in) {
+	// HW_MODEL g=OnlyKey Go, c=OnlyKey, o=Discontinued OnlyKey Orignal
+	char out[strlen(in)+2];
+	memcpy(out,in,strlen(in));
+	#ifdef OK_Color
+	if (HW_ID==OK_GO) {
+		out[sizeof(out)-2] = 'g';
+	} else {
+		out[sizeof(out)-2] = 'c';
+	}
+	#else
+	out[sizeof(out)-2] = 'o';
+	#endif
+	out[sizeof(out)-1] = 0;
+	return (char*)out;
+}
+
+void okcore_pin_login ()
+{
+	#ifdef STD_VERSION
+	//PIN attempt stored in recv_buffer
+	char *ptr = (char*)(recv_buffer+5);
+	uint8_t index=1;
+	while (index<=10) {
+		if (*ptr>='0' && *ptr<='9') password.append(*ptr);
+		else password.append('0');
+		index++;
+	}
+	#endif
 }

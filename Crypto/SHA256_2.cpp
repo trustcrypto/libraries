@@ -20,7 +20,7 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#include "SHA256.h"
+#include "SHA256_2.h"
 #include "Crypto.h"
 #include "utility/RotateUtil.h"
 #include "utility/EndianUtil.h"

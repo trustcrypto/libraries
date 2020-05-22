@@ -1,4 +1,5 @@
 #include "T3MacLib.h"
+#define DEBUG
 
 
 uint8_t mac[6];

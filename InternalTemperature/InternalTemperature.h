@@ -31,6 +31,10 @@
 
 #ifndef InternalTemperature_h_
 #define InternalTemperature_h_
+// Hardware ID
+#define SIM_SDID                *(const    uint32_t *)0x40048024 // System Device Identification Register
+#define SIM_SDID_PINID                  ((SIM_SDID & 0x000F) >> 0)      // Pincount identification
+
 
 class InternalTemperature
 {
@@ -66,6 +70,7 @@ public:
   //
   float convertTemperatureC (float volts);
   static float convertUncalibratedTemperatureC (float volts);
+  static bool getHwModel (void);
   static float readRawVoltage (void);
   static float readUncalibratedTemperatureC (void);
   static float readUncalibratedTemperatureF (void);

@@ -62,6 +62,7 @@
 //#define mbedtls_calloc calloc
 //#define mbedtls_free   free
 #endif
+
 #include "device.h"
 
 
@@ -361,6 +362,7 @@ cleanup:
     return( ret );
 }
 
+
 /*
  * Do an RSA private key operation
  */
@@ -477,6 +479,7 @@ cleanup:
 
     return( 0 );
 }
+
 
 #if defined(MBEDTLS_PKCS1_V21)
 /**
@@ -1780,3 +1783,4 @@ cleanup:
 #endif /* MBEDTLS_SELF_TEST */
 
 #endif /* MBEDTLS_RSA_C */
+

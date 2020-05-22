@@ -87,6 +87,9 @@ extern "C"
 #include <SoftTimer.h>
 #include "base64.h"
 
+/*************************************/
+//Firmware Memory Locations
+/*************************************/
 // Start of firmware
 // 0x0000_6060 - 0x0003_A05F used for firmware (13 blocks of 16384 = 212992 bytes max size fw)
 #define fwstartadr 0x6060
@@ -95,24 +98,28 @@ extern "C"
 #define flashstorestart 0x3A800
 // End of flash storage
 #define flashend 0x3FFFF
+/*************************************/
+//Hardware CPU Restart
+/*************************************/
 #define CPU_RESTART_ADDR (uint32_t *)0xE000ED0C
 #define CPU_RESTART_VAL 0x5FA0004
 // Restart device
 #define CPU_RESTART() (*CPU_RESTART_ADDR = CPU_RESTART_VAL);
-
+/*************************************/
+//Global Buffer Sizes
+/*************************************/
 #define LARGE_RESP_BUFFER_SIZE         1024
 #define LARGE_BUFFER_SIZE         1024
 #define PACKET_BUFFER_SIZE         768
 #define ATTESTATION_DER_BUFFER_SIZE 768
 #define KEYBOARD_BUFFER_SIZE         80
-
+/*************************************/
+//USB MSG Type assignments
+/*************************************/
 #define TYPE_INIT               0x80  // Initial frame identifier
-/*************************************/
-//Vendor Defined OnlyKey MSG Type assignments
-/*************************************/
-#define OKSETPIN 			(TYPE_INIT | 0x61)  // First vendor defined command
-#define OKSETSDPIN 			(TYPE_INIT | 0x62)
-#define OKSETPIN2 			(TYPE_INIT | 0x63)
+#define OKPIN 			(TYPE_INIT | 0x61) 
+#define OKPINSD			(TYPE_INIT | 0x62)
+#define OKPINSEC 			(TYPE_INIT | 0x63)
 #define OKCONNECT 			(TYPE_INIT | 0x64)
 #define OKGETLABELS 		(TYPE_INIT | 0x65)
 #define OKSETSLOT  			(TYPE_INIT | 0x66)
@@ -125,40 +132,52 @@ extern "C"
 #define OKSIGN      (TYPE_INIT | 0x6D)
 #define OKWIPEPRIV           (TYPE_INIT | 0x6E)
 #define OKSETPRIV           (TYPE_INIT | 0x6F)
-#define OKDECRYPT      (TYPE_INIT | 0x70)//
+#define OKDECRYPT      (TYPE_INIT | 0x70)
 #define OKRESTORE            (TYPE_INIT | 0x71)
 #define OKGETRESPONSE            (TYPE_INIT | 0x72)
 #define OKPING           (TYPE_INIT | 0x73)
 #define OKFWUPDATE           (TYPE_INIT | 0x74)
 #define OKHMAC           (TYPE_INIT | 0x75)
 #define OKWEBAUTHN           (TYPE_INIT | 0x76)
-
 /*************************************/
 //Types of second profile
 /*************************************/
 #define STDPROFILE1 0
 #define STDPROFILE2 1
 #define NONENCRYPTEDPROFILE 2 //International Travel Edition or Plausible Deniability
-
 /*************************************/
-//Keyboard setup mode
+//Setup mode
 /*************************************/
-#define MANUAL_PIN_SET 1
-#define AUTO_PIN_SET 2
-
+#define KEYBOARD_MANUAL_PIN_SET 1
+#define KEYBOARD_AUTO_PIN_SET 2
+#define SETUP_MANUAL 3
+#define SETUP_AUTO 4
+#define KEYBOARD_ONLYKEY_GO 5
 /*************************************/
 // Output Modes
 /*************************************/
-
 #define RAW_USB 0
 #define WEBAUTHN 1
-
 #define KEYBOARD_USB 3
 #define DISCARD 4
+/*************************************/
+//Crypto Key Definitions
+/*************************************/
+#define MAX_RSA_KEY_SIZE 512
+#define MAX_ECC_KEY_SIZE 32
+#define RESERVED_KEY_DERIVATION 132
+#define RESERVED_KEY_DEFAULT_BACKUP 131
+#define RESERVED_KEY_HMACSHA1_1 130
+#define RESERVED_KEY_HMACSHA1_2 129
+#define RESERVED_KEY_WEB_DERIVATION 128
+/*************************************/
+/*************************************/
+//Hardware Models
+/*************************************/
+#define SIM_SDID_PINID                  ((SIM_SDID & 0x000F) >> 0)      // Pincount identification
 
-
-// Last vendor defined command
-
+extern void colorWipe(int color, int wait);
+extern int internal_temp ();
 extern void ByteToChar(uint8_t* bytes, char* chars, unsigned int count);
 extern void CharToByte(char* chars, uint8_t* bytes, unsigned int count);
 extern void ByteToChar2(uint8_t* bytes, char* chars, unsigned int count, unsigned int index);
@@ -171,7 +190,7 @@ extern void printDigits(int digits);
 extern void digitalClockDisplay();
 extern void get_slot_labels (uint8_t output);
 extern uint8_t get_key_labels (uint8_t output);
-extern void keyboard_mode_config(uint8_t step);
+extern void okcore_quick_setup(uint8_t step);
 extern void set_time (uint8_t *buffer);
 extern void wipe_u2f_cert (uint8_t *buffer);
 extern void set_u2f_cert (uint8_t *buffer);
@@ -215,35 +234,35 @@ extern int pin_set;
 extern int u2f_button;
 extern int large_buffer_offset;
 
-extern void aes_gcm_encrypt (uint8_t * state, uint8_t slot, uint8_t value, const uint8_t * key, int len);
-extern void aes_gcm_decrypt (uint8_t * state, uint8_t slot, uint8_t value, const uint8_t * key, int len);
-extern void aes_gcm_encrypt2 (uint8_t * state, uint8_t * iv1, const uint8_t * key, int len);
-extern void aes_gcm_decrypt2 (uint8_t * state, uint8_t * iv1, const uint8_t * key, int len);
-extern void aes_cbc_encrypt (uint8_t * state, const uint8_t * key, int len);
-extern void aes_cbc_decrypt (uint8_t * state, const uint8_t * key, int len);
-extern void onlykey_flashset_2ndpinhashpublic (uint8_t *ptr);
-extern int onlykey_flashget_2ndpinhashpublic (uint8_t *ptr);
-extern void onlykey_flashset_selfdestructhash (uint8_t *ptr);
-extern int onlykey_flashget_selfdestructhash (uint8_t *ptr);
-extern void onlykey_flashset_pinhashpublic (uint8_t *ptr);
-extern int onlykey_flashget_pinhashpublic (uint8_t *ptr, int size);
-extern void onlykey_flashset_noncehash (uint8_t *ptr);
-extern int onlykey_flashget_noncehash (uint8_t *ptr, int size);
-extern int onlykey_flashget_profilekey(uint8_t *ptr);
-extern void onlykey_flashset_profilekey(uint8_t *secret);
-extern void onlykey_flashset_common (uint8_t *ptr, uintptr_t adr, int len);
-extern void onlykey_flashget_common (uint8_t *ptr, uintptr_t adr, int len);
-extern int onlykey_flashget_totpkey (uint8_t *ptr, int slot);
-extern void onlykey_flashset_totpkey (uint8_t *ptr, int size, int slot);
-extern int onlykey_flashget_username (uint8_t *ptr, int slot);
-extern void onlykey_flashset_username (uint8_t *ptr, int size, int slot);
-extern int onlykey_flashget_url (uint8_t *ptr, int slot);
-extern void onlykey_flashset_url (uint8_t *ptr, int size, int slot);
-extern void onlykey_flashget_label (uint8_t *ptr, int slot);
-extern void onlykey_flashset_label (uint8_t *ptr, int slot);
-extern void onlykey_flashget_U2F ();
-extern int onlykey_flashget_ECC (uint8_t slot);
-extern int onlykey_flashget_RSA (uint8_t slot);
+extern void okcore_flashset_2ndpinhashpublic (uint8_t *ptr);
+extern int okcore_flashget_2ndpinhashpublic (uint8_t *ptr);
+extern void okcore_flashset_selfdestructhash (uint8_t *ptr);
+extern int okcore_flashget_selfdestructhash (uint8_t *ptr);
+extern void okcore_flashset_pinhashpublic (uint8_t *ptr);
+extern int okcore_flashget_pinhashpublic (uint8_t *ptr, int size);
+extern void okcore_flashset_noncehash (uint8_t *ptr);
+extern int okcore_flashget_noncehash (uint8_t *ptr, int size);
+extern int okcore_flashget_profilekey (uint8_t *ptr);
+extern void okcore_flashset_profilekey (uint8_t *secret);
+extern void okcore_flashset_common (uint8_t *ptr, uintptr_t adr, int len);
+extern void okcore_flashget_common (uint8_t *ptr, uintptr_t adr, int len);
+extern int okcore_flashget_totpkey (uint8_t *ptr, int slot);
+extern void okcore_flashset_totpkey (uint8_t *ptr, int size, int slot);
+extern int okcore_flashget_username (uint8_t *ptr, int slot);
+extern void okcore_flashset_username (uint8_t *ptr, int size, int slot);
+extern int okcore_flashget_url (uint8_t *ptr, int slot);
+extern void okcore_flashset_url (uint8_t *ptr, int size, int slot);
+extern void okcore_flashget_label (uint8_t *ptr, int slot);
+extern void okcore_flashset_label (uint8_t *ptr, int slot);
+extern void okcore_flashget_U2F ();
+extern int okcore_flashget_ECC (uint8_t slot);
+extern int okcore_flashget_RSA (uint8_t slot);
+void okcore_aes_gcm_encrypt(uint8_t *state, uint8_t slot, uint8_t value, const uint8_t *key, int len);
+void okcore_aes_gcm_decrypt(uint8_t *state, uint8_t slot, uint8_t value, const uint8_t *key, int len);
+void okcore_aes_cbc_decrypt (uint8_t * state, const uint8_t * key, int len);
+void okcore_aes_cbc_encrypt (uint8_t * state, const uint8_t * key, int len);
+void okcore_pin_login ();
+
 extern void yubikeyinit();
 extern void yubikeysim(char *ptr);
 extern void yubikey_incr_time();
@@ -273,13 +292,13 @@ extern void send_transport_response (uint8_t* data, int len, uint8_t encrypt, ui
 extern void apdu_data(uint8_t *data, int len);
 extern int store_keyboard_response();
 extern void changeoutputmode(uint8_t mode);
-extern void temp_voltage ();
 extern int RNG2(uint8_t *dest, unsigned size);
 extern int calibratecaptouch (uint16_t j);
 extern void process_setreport ();
 extern void generate_random_pin (uint8_t *buffer);
 extern void generate_random_passphrase (uint8_t *buffer);
 extern int check_crc(uint8_t* buffer);
+extern char * HW_MODEL(char const * in);
 
 #ifdef __cplusplus
 }

@@ -87,8 +87,17 @@
 #include "extensions.h"
 #include "ok_extension.h"
 
+// Functions for use with derived key (RESERVED_KEY_WEB_DERIVATION)
 #define DERIVE_PUBLIC_KEY 1
-#define DERIVE_SHARED_SECRET 2
+#define DERIVE_SHAREDSEC 2
+#define DERIVE_SIGN 3
+#define DERIVE_DECRYPT 4
+// Type of key to derive 
+#define KEYTYPE_NACL 0
+#define KEYTYPE_P256R1 1
+#define KEYTYPE_P256K1 2
+#define KEYTYPE_CURVE25519 3
+// Option to encrypt response for end-to-end data in-transit encryption
 #define NO_ENCRYPT_RESP 0
 #define ENCRYPT_RESP 1
 
@@ -108,9 +117,7 @@ extern int packet_buffer_offset;
 extern uint8_t packet_buffer_details[5];
 
 
-int16_t bridge_to_onlykey(uint8_t * _appid, uint8_t * keyh, int handle_len, uint8_t * output)
-{
-
+int16_t bridge_to_onlykey(uint8_t * _appid, uint8_t * keyh, int handle_len, uint8_t * output) {
     int8_t ret = 0;
 	uint8_t client_handle[256];
 	handle_len-=10;
@@ -133,43 +140,23 @@ int16_t bridge_to_onlykey(uint8_t * _appid, uint8_t * keyh, int handle_len, uint
       outputmode=DISCARD; // Discard output 
 		if (cmd == OKCONNECT && !CRYPTO_AUTH) {
 			large_buffer_offset = 0;
+			// Set time if not already set
 			set_time(client_handle);
 			memset(ecc_public_key, 0, sizeof(ecc_public_key));
+			// Generate a random NACL key that we will use for data in transit encryption OnlyKey <--> Web App
+			// This is optional and enabled by ENCRYPT_RESP
 			// crypto_box_keypair uses RNG2 to create random 32 byte private
 			// crypto_box_keypair puts generated private in ecc_private_key and public in ecc_public_key along with OnlyKey version info
-			crypto_box_keypair(ecc_public_key+sizeof(UNLOCKED), ecc_private_key); //Generate keys
+			crypto_box_keypair(ecc_public_key+sizeof(UNLOCKED)+1, ecc_private_key); //Generate keys
 			#ifdef DEBUG
 			Serial.println("OnlyKey public = ");
-			byteprint(ecc_public_key+sizeof(UNLOCKED), 32);
+			byteprint(ecc_public_key+sizeof(UNLOCKED)+1, 32);
 			#endif
-			memcpy(ecc_public_key, UNLOCKED, sizeof(UNLOCKED));
+			memcpy(ecc_public_key, HW_MODEL(UNLOCKED), sizeof(UNLOCKED)+1);
 			// Response goes out via WEBAUTHN
 			outputmode=WEBAUTHN;
-			memcpy(temp, ecc_public_key, sizeof(ecc_public_key));
-			// Check opt1 to see if additional info goes in response
-			if (opt1==DERIVE_PUBLIC_KEY) {
-				//TODO HKDF
-				// Test public key value all 1s
-				memset(temp+sizeof(ecc_public_key), 1, 32);
-				send_transport_response(temp, sizeof(ecc_public_key)+32, false, false); //Encrypt if opt3 and send right away
-			} else if (opt1==DERIVE_SHARED_SECRET) {
-				//TODO HKDF
-				//Input RPID, Derivation Private, Optional additional data
-				//if (shared_secret (ecc_public_key, shared)) {
-				//	ret = CTAP2_ERR_OPERATION_DENIED;
-				//	printf2(TAG_ERR,"Error with ECC Shared Secret\n");
-				//	return ret;
-				//}
-
-				// Test public key value all 1s
-				memset(temp+sizeof(ecc_public_key), 1, 32);
-				// Test shared secret value all 2s
-				memset(temp+sizeof(ecc_public_key)+32, 2, 32);
-				send_transport_response(temp, sizeof(ecc_public_key)+32+32, opt3, false); //Encrypt if opt3 and send right away
-			} else {
-				send_transport_response (ecc_public_key, 32+sizeof(UNLOCKED), opt3, false); //Don't encrypt and send right away
-			}
-			memcpy(ecc_public_key, client_handle+9, 32); //Get app public key
+			memcpy(temp, ecc_public_key, sizeof(ecc_public_key)); //Store OnlyKey public NACL transit key (includes OnlyKey version info)
+			memcpy(ecc_public_key, client_handle+9, 32); //Get app public NACL transit key
 			browser = client_handle[9+32];
 			os = client_handle[9+32+1];
 			#ifdef DEBUG
@@ -180,29 +167,112 @@ int16_t bridge_to_onlykey(uint8_t * _appid, uint8_t * keyh, int handle_len, uint
 			Serial.print("OS = ");
 			Serial.println((char)os);
 			#endif
-			uint8_t shared[32];
-			type = 1;
-			if (shared_secret (ecc_public_key, shared)) {
-			ret = CTAP2_ERR_OPERATION_DENIED;
-			printf2(TAG_ERR,"Error with ECC Shared Secret\n");
-			return ret;
+			uint8_t transit_key[32];
+			type = 1; //NACL
+			if (okcrypto_shared_secret (ecc_public_key, transit_key)) {
+				ret = CTAP2_ERR_OPERATION_DENIED;
+				printf2(TAG_ERR,"Error with ECC Shared Secret\n");
+				return ret;
 			}
 			#ifdef DEBUG
-			Serial.println("Shared Secret = ");
-			byteprint(shared, 32);
+			Serial.println("Transit Shared Secret = ");
+			byteprint(transit_key, 32);
 			#endif
+			// Hash the shared secret to generate the AES transit private key
 			SHA256_CTX context;
 			sha256_init(&context);
-			sha256_update(&context, shared, 32);
-			sha256_final(&context, ecc_private_key);
+			sha256_update(&context, transit_key, 32);
+			sha256_final(&context, transit_key);
 			#ifdef DEBUG
-			Serial.println("AES Key = ");
-			byteprint(ecc_private_key, 32);
+			Serial.println("Transit AES Key = ");
+			byteprint(transit_key, 32);
 			#endif
 			pending_operation=CTAP2_ERR_DATA_READY;
+			// OnlyKey Private Web (beta)
+			// This is a simple way of providing web apps with a shared secret
+			// for use in encryption/signing. This shared secret is derived
+			// based on input public key, domain (origin)and allowing  
+			// additional data as input to private derivation (HKDF). Key types supported 
+			// include NACL, P256R1, P256K1, and Curve25519. No user presence is 
+			// required making this useful for encrypted/private web pages that may
+			// be decrypted and viewed only when OnlyKey is connected and unlocked.
+			if (opt1>=DERIVE_PUBLIC_KEY) {
+				if (opt3) opt3=2; // 1=encrypt everything, 2=encrypt everything except transit public so app can derive shared secret
+				uint8_t *additional_data = client_handle+43; // 32 bytes of data to include in key derivation
+				uint8_t *input_pubkey = client_handle+43+32; // Use uncompressed ecc pubkeys, could use compressed in future
+
+				memset(ecc_public_key, 0, sizeof(ecc_public_key));
+
+				//Similar format to SSH derivation but use RESERVED_KEY_WEB_DERIVATION key
+				if (opt2 == KEYTYPE_NACL) {
+					okcrypto_derive_key(4, additional_data, RESERVED_KEY_WEB_DERIVATION); //Curve25519
+					type = 1; //NACL
+				}
+				else if (opt2 == KEYTYPE_P256R1) {
+					okcrypto_derive_key(2, additional_data, RESERVED_KEY_WEB_DERIVATION);
+					type = 2; //P256R1
+				}
+				else if (opt2 == KEYTYPE_P256K1) {
+					okcrypto_derive_key(3, additional_data, RESERVED_KEY_WEB_DERIVATION);
+					type = 3; //P256K1
+				} 
+				else if (opt2 == KEYTYPE_CURVE25519) {
+					okcrypto_derive_key(4, additional_data, RESERVED_KEY_WEB_DERIVATION); //Curve25519
+					type = 4; 
+				}
+
+				// Derived private key stored in ecc_private_key
+				// Derived public key stored in ecc_public_key
+
+				memcpy(temp+32+sizeof(UNLOCKED)+1, ecc_public_key, sizeof(ecc_public_key)); // Copy derived public key to temp
+
+				#ifdef DEBUG
+				Serial.println("Returned Public");
+				byteprint(ecc_public_key, sizeof(ecc_public_key));
+				Serial.println("Derived Private");
+				byteprint(ecc_private_key, sizeof(ecc_private_key));
+				#endif
+
+				if (opt1==DERIVE_SHAREDSEC) { // Return DERIVE_PUBLIC_KEY and DERIVE_SHAREDSEC
+					#ifdef DEBUG
+					Serial.println("Input Pubkey");
+					byteprint(input_pubkey, 65);
+					#endif
+					// Use ecc_private_key and provided pubkey to generate shared secret
+					if (okcrypto_shared_secret (input_pubkey, temp+32+sizeof(UNLOCKED)+1+sizeof(ecc_public_key))) { // Generate derived key shared secret in temp
+						ret = CTAP2_ERR_OPERATION_DENIED;
+						printf2(TAG_ERR,"Error with ECC Shared Secret\n");
+						return ret;
+					}
+
+					#ifdef DEBUG
+					Serial.println("Shared Secret");
+					byteprint(temp+32+sizeof(UNLOCKED)+1+sizeof(ecc_public_key), sizeof(ecc_private_key));
+					#endif
+
+					memcpy(ecc_private_key, transit_key, sizeof(transit_key)); // Copy transit key to ecc private 
+					// For testing send shared secret of 2s
+					//memset(temp+32+sizeof(UNLOCKED)+1+sizeof(ecc_public_key), 2, sizeof(ecc_private_key));
+					// For testing send pubkey of 1s
+					//memset(temp+32+sizeof(UNLOCKED)+1, 1, sizeof(ecc_public_key));
+					send_transport_response(temp, 32+sizeof(UNLOCKED)+1+sizeof(ecc_public_key)+sizeof(ecc_private_key), opt3, false); // Encrypt data in trasit using transit key if opt3 and send right away
+				} else if (opt1==DERIVE_SIGN) { // Return signed data
+					//TODO Implement this
+					return 0;
+				} else if (opt1==DERIVE_DECRYPT) { // Return decrypted data
+					//TODO Implement this
+					return 0;
+				} else { // Just Return DERIVE_PUBLIC_KEY
+					// For testing send pubkey of 1s
+					//memset(temp+32+sizeof(UNLOCKED)+1, 1, sizeof(ecc_public_key));
+					send_transport_response(temp, 32+sizeof(UNLOCKED)+1+sizeof(ecc_public_key), opt3, false); //Encrypt if opt3 and send right away
+				}
+			} else {
+				send_transport_response (temp, 32+sizeof(UNLOCKED)+1, false, false); //Don't encrypt and send right away
+			}
 		} else if (webcryptcheck(_appid, client_handle)>1) {  // Protected mode, only allow crp.to and localhost
 			//Todo add localhost support
-			aes_crypto_box (client_handle, handle_len, true);
+			okcrypto_aes_crypto_box (client_handle, handle_len, true);
 			#ifdef DEBUG
 			Serial.println("Decrypted client handle");
 			byteprint(client_handle, handle_len);
@@ -246,7 +316,7 @@ int16_t bridge_to_onlykey(uint8_t * _appid, uint8_t * keyh, int handle_len, uint
 						Serial.println("OKDECRYPT Chunk");
 						byteprint(recv_buffer, 64);
 						#endif
-						DECRYPT(recv_buffer);
+						okcrypto_decrypt(recv_buffer);
 					} else if (cmd == OKSIGN) {
 						packet_buffer_details[3] = opt3;
 						NEO_Color = 213; //Purple
@@ -256,7 +326,7 @@ int16_t bridge_to_onlykey(uint8_t * _appid, uint8_t * keyh, int handle_len, uint
 						Serial.println("OKSIGN Chunk");
 						byteprint(recv_buffer, 64);
 						#endif
-						SIGN(recv_buffer);
+						okcrypto_sign(recv_buffer);
 					}
 					handle_len-=57;
 					i++;

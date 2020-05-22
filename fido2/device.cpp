@@ -48,12 +48,12 @@ void U2Finit()
 {
   uint8_t length[2];
   device_init();
-  onlykey_eeget_U2Fcertlen(length);
+  okeeprom_eeget_U2Fcertlen(length);
   int length2 = length[0] << 8 | length[1];
   if (length2 != 0) {
     extern uint16_t attestation_cert_der_size;
     attestation_cert_der_size=length2;
-    onlykey_flashget_U2F();
+    okcore_flashget_U2F();
   } else {
       // Future feature, built in attestation key
       // Add checking here for built-in attestation key
@@ -62,7 +62,7 @@ void U2Finit()
     byteprint((uint8_t*)attestation_cert_der,sizeof(attestation_cert_der));
     #endif
   }
-  //DERIVEKEY(0 , (uint8_t*)attestation_key); //Derive key from default key in slot 32
+  //okcrypto_derive_key(0 , (uint8_t*)attestation_key); //Derive key from default key in slot 32
   //memcpy(handlekey, ecc_private_key, 32); // Copy derived key to handlekey
   //SHA256_CTX APPKEY;
   //sha256_init(&APPKEY);
@@ -134,11 +134,13 @@ int webcryptcheck (uint8_t * _appid, uint8_t * buffer) {
     else return 0;
 }
 
-void store_FIDO_response (uint8_t *data, int len, bool encrypt) {
+void store_FIDO_response (uint8_t *data, int len, uint8_t encrypt) {
     cancelfadeoffafter20();
   if (len >= (int)LARGE_RESP_BUFFER_SIZE) return; //Double check buf overflow
-	if (encrypt) {
-		aes_crypto_box (data, len, false);
+	if (encrypt==1) {
+		okcrypto_aes_crypto_box (data, len, false);
+	} else if (encrypt==2) {
+		okcrypto_aes_crypto_box (data+32, len-32, false);
 	} else {
     // Unencrypted message, check if it's an error message
     if (strcmp((char*)data, "Error")) {

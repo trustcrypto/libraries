@@ -79,12 +79,18 @@
 #include "onlykey.h"
 #ifdef STD_VERSION
 #include <SoftTimer.h>
+#include "T3MacLib.h"
 #include <RNG.h>
+#include <AES.h>
+#include <CBC.h>
+#include <GCM.h>
+#include <Crypto.h>
 #include "sha1.h"
 #include "sha512.h"
 #include "yubikey.h"
 #include "device.h"
 #include "okcrypto.h"
+
 
 #if !defined(MBEDTLS_CONFIG_FILE)
 #include "config.h"
@@ -95,7 +101,6 @@
 #if defined(MBEDTLS_MEMORY_BUFFER_ALLOC_C)
 #include "memory_buffer_alloc.h"
 #endif
-
 
 /*************************************/
 //RSA assignments
@@ -113,7 +118,6 @@ uint8_t ecc_private_key[MAX_ECC_KEY_SIZE];
 extern uint8_t keyboard_buffer[KEYBOARD_BUFFER_SIZE];
 /*************************************/
 
-
 extern uint8_t Challenge_button1;
 extern uint8_t Challenge_button2;
 extern uint8_t Challenge_button3;
@@ -124,14 +128,13 @@ extern uint8_t resp_buffer[64];
 extern uint8_t* large_buffer;
 extern uint8_t recv_buffer[64];
 extern int large_buffer_len;
-//extern int msgcount;
 extern uint8_t profilekey[32];
 extern uint8_t packet_buffer_details[5];
 extern uint8_t* large_resp_buffer;
 extern uint8_t outputmode;
 extern uint8_t pending_operation;
 
-void SIGN (uint8_t *buffer) {
+void okcrypto_sign (uint8_t *buffer) {
 	uECC_set_rng(&RNG2);
 	uint8_t features = 0;
 	#ifdef DEBUG
@@ -139,71 +142,69 @@ void SIGN (uint8_t *buffer) {
 	Serial.println("OKSIGN MESSAGE RECEIVED");
 	#endif
 	if (buffer[5] < 101) { //Slot 101-132 are for ECC, 1-4 are for RSA
-	features = onlykey_flashget_RSA ((int)buffer[5]);
-	if (type == 0) {
-		hidprint("Error no key set in this slot");
-		fadeoff(0);
-		return;
-	}
-	#ifdef DEBUG
-	Serial.print(features, BIN);
-	#endif
-	if (is_bit_set(features, 6)) {
-		RSASIGN(buffer);
-	} else {
+		features = okcore_flashget_RSA ((int)buffer[5]);
+		if (type == 0) {
+			hidprint("Error no key set in this slot");
+			fadeoff(0);
+			return;
+		}
 		#ifdef DEBUG
-		Serial.print("Error key not set as signature key");
+		Serial.print(features, BIN);
 		#endif
-		hidprint("Error key not set as signature key");
-		fadeoff(0);
+		if (is_bit_set(features, 6)) {
+			okcrypto_rsasign(buffer);
+		} else {
+			#ifdef DEBUG
+			Serial.print("Error key not set as signature key");
+			#endif
+			hidprint("Error key not set as signature key");
+			fadeoff(0);
 		}
 		return;
 	}
 	else if (buffer[5] > 200 && buffer[5] < 204) { //SSH Sign Request
-		ECDSA_EDDSA(buffer);
+		okcrypto_ecdsa_eddsa(buffer);
 	} else {
-	if (buffer[5] != 132 && buffer[5] != 131 && buffer[5] != 130) { //These keys are reserved for derivation, backup, and HMACSHA1
-	features = onlykey_flashget_ECC ((int)buffer[5]);
-	}
-	if (type == 0) {
-		hidprint("Error no key set in this slot");
-		fadeoff(0);
-		return;
-	}
-	#ifdef DEBUG
-	Serial.print(features, BIN);
-	#endif
-	if (is_bit_set(features, 6)) {
-		ECDSA_EDDSA(buffer);
-	} else {
+		if (buffer[5] != RESERVED_KEY_DERIVATION && buffer[5] != RESERVED_KEY_DEFAULT_BACKUP && buffer[5] != RESERVED_KEY_HMACSHA1_1 && buffer[5] != RESERVED_KEY_HMACSHA1_2) { //These keys are reserved for derivation, backup, and HMACSHA1
+			features = okcore_flashget_ECC ((int)buffer[5]);
+		}
+		if (type == 0) {
+			hidprint("Error no key set in this slot");
+			fadeoff(0);
+			return;
+		}
 		#ifdef DEBUG
-		Serial.print("Error key not set as signature key");
+		Serial.print(features, BIN);
 		#endif
-		hidprint("Error key not set as signature key");
-		fadeoff(0);
-		return;
-	}
+		if (is_bit_set(features, 6)) {
+			okcrypto_ecdsa_eddsa(buffer);
+		} else {
+			#ifdef DEBUG
+			Serial.print("Error key not set as signature key");
+			#endif
+			hidprint("Error key not set as signature key");
+			fadeoff(0);
+			return;
+		}
 	}
 }
 
-void GETPUBKEY (uint8_t *buffer) {
+void okcrypto_getpubkey (uint8_t *buffer) {
 	#ifdef DEBUG
 	Serial.println();
 	Serial.println("OKGETPUBKEY MESSAGE RECEIVED");
 	#endif
-
 	if (buffer[5] < 5 && !buffer[6]) { //Slot 101-132 are for ECC, 1-4 are for RSA
-		if (onlykey_flashget_RSA ((int)buffer[5])) GETRSAPUBKEY(buffer);
-	} else if (buffer[5] < 130 && !buffer[6]) { //132 and 131 and 130 are reserved
-		if (onlykey_flashget_ECC ((int)buffer[5])) GETECCPUBKEY(buffer);
+		if (okcore_flashget_RSA ((int)buffer[5])) okcrypto_getrsapubkey(buffer);
+	} else if (buffer[5] < 128 && !buffer[6]) { //128-132 are reserved
+		if (okcore_flashget_ECC ((int)buffer[5])) okcrypto_geteccpubkey(buffer);
 	} else if (buffer[6] <= 3) { // Generate key using provided data, return public
-	DERIVEKEY(buffer[6], buffer+7, NULL);
+	okcrypto_derive_key(buffer[6], buffer+7, NULL);
 	send_transport_response(ecc_public_key, 64, false, false);
 	}
-
 }
 
-void DECRYPT (uint8_t *buffer){
+void okcrypto_decrypt (uint8_t *buffer){
 	uECC_set_rng(&RNG2);
 	uint8_t features = 0;
 	#ifdef DEBUG
@@ -211,45 +212,45 @@ void DECRYPT (uint8_t *buffer){
 	Serial.println("OKDECRYPT MESSAGE RECEIVED");
 	#endif
 	if (buffer[5] < 101) { //Slot 101-132 are for ECC, 1-4 are for RSA
-	features = onlykey_flashget_RSA (buffer[5]);
-	if (type == 0) {
-		hidprint("Error no key set in this slot");
-		fadeoff(0);
-		return;
-	}
-	if (is_bit_set(features, 5)) {
-		RSADECRYPT(buffer);
-	} else {
-		#ifdef DEBUG
-		Serial.print("Error key not set as decryption key");
-		#endif
-		hidprint("Error key not set as decryption key");
-		fadeoff(0);
-		return;
-	}
-	} else {
-		if (buffer[5] != 132 && buffer[5] != 131 && buffer[5] != 130) { //These keys are reserved for derivation, backup, and HMACSHA1
-		features = onlykey_flashget_ECC ((int)buffer[5]);
-		}
-    if (type == 0) {
+		features = okcore_flashget_RSA (buffer[5]);
+		if (type == 0) {
 			hidprint("Error no key set in this slot");
-		  fadeoff(0);
-		return;
-	}
-	if (is_bit_set(features, 5)) {
-		ECDH(buffer);
+			fadeoff(0);
+			return;
+		}
+		if (is_bit_set(features, 5)) {
+			okcrypto_rsadecrypt(buffer);
+		} else {
+			#ifdef DEBUG
+			Serial.print("Error key not set as decryption key");
+			#endif
+			hidprint("Error key not set as decryption key");
+			fadeoff(0);
+			return;
+		}
 	} else {
-		#ifdef DEBUG
-		Serial.print("Error key not set as decryption key");
-		#endif
-		hidprint("Error key not set as decryption key");
-		fadeoff(0);
-		return;
-	}
+		if (buffer[5] != RESERVED_KEY_DERIVATION && buffer[5] != RESERVED_KEY_DEFAULT_BACKUP && buffer[5] != RESERVED_KEY_HMACSHA1_1 && buffer[5] != RESERVED_KEY_HMACSHA1_2) { //These keys are reserved for derivation, backup, and HMACSHA1
+			features = okcore_flashget_ECC ((int)buffer[5]);
+		}
+		if (type == 0) {
+			hidprint("Error no key set in this slot");
+			fadeoff(0);
+			return;
+		}
+		if (is_bit_set(features, 5)) {
+			okcrypto_ecdh(buffer);
+		} else {
+			#ifdef DEBUG
+			Serial.print("Error key not set as decryption key");
+			#endif
+			hidprint("Error key not set as decryption key");
+			fadeoff(0);
+			return;
+		}
 	}
 }
 
-void GENERATE_KEY (uint8_t *buffer) {
+void okcrypto_generate_random_key (uint8_t *buffer) {
 	uECC_set_rng(&RNG2);
 	//uint8_t backupslot;
 	//uint8_t temp[64];
@@ -259,7 +260,7 @@ void GENERATE_KEY (uint8_t *buffer) {
 	#endif
 	if (buffer[5] > 100) { //Slot 101-132 are for ECC, 1-4 are for RSA
 		if ((buffer[6] & 0x0F) == 1) {
-			RNG2(buffer+7, 32);
+			crypto_box_keypair(ecc_public_key, buffer+7); //Curve25519
 		} else if ((buffer[6] & 0x0F) == 2) {
 			const struct uECC_Curve_t * curve = uECC_secp256r1(); //P-256
 			uECC_make_key(ecc_public_key, buffer+7, curve);
@@ -272,255 +273,247 @@ void GENERATE_KEY (uint8_t *buffer) {
 	return;
 }
 
-void GETRSAPUBKEY (uint8_t *buffer)
-{
-#ifdef DEBUG
+void okcrypto_getrsapubkey (uint8_t *buffer) {
+	#ifdef DEBUG
 	byteprint(rsa_publicN, (type*128));
-#endif
+	#endif
 	send_transport_response(rsa_publicN, (type*128), false, false);
 }
 
-void RSASIGN (uint8_t *buffer)
-{
+void okcrypto_rsasign (uint8_t *buffer) {
 	uint8_t rsa_signature[(type*128)];
 	uint8_t rsa_signaturetemp[64];
-
     if(!CRYPTO_AUTH) process_packets (buffer, 0, 0);
 	else if (CRYPTO_AUTH == 4) {
 		if (large_buffer_offset != 28 && large_buffer_offset != 32 && large_buffer_offset != 48 && large_buffer_offset != 64) {
-		hidprint("Error with RSA data to sign invalid size");
-#ifdef DEBUG
-    Serial.println("Error with RSA data to sign invalid size");
-	Serial.println(large_buffer_offset);
-#endif
-		fadeoff(1);
-		large_buffer_offset = 0;
-		memset(large_buffer, 0, LARGE_BUFFER_SIZE); //wipe buffer
-		return;
-	}
-	aes_gcm_decrypt(large_buffer, packet_buffer_details[0], packet_buffer_details[1], profilekey, large_buffer_offset);
-#ifdef DEBUG
-    Serial.println();
-    Serial.printf("RSA data to sign size=%d", large_buffer_offset);
-	Serial.println();
-	byteprint(large_buffer, large_buffer_offset);
-#endif
-  pending_operation=CTAP2_ERR_OPERATION_PENDING;
-  memcpy(rsa_signaturetemp, large_buffer, large_buffer_offset);
-  memset(large_buffer, 0, LARGE_BUFFER_SIZE);
-  if (rsa_sign (large_buffer_offset, rsa_signaturetemp, rsa_signature) == 0)
-	{
-		pending_operation=CTAP2_ERR_DATA_READY;
-#ifdef DEBUG
-		Serial.print("Signature = ");
-	    byteprint(rsa_signature, sizeof(rsa_signature));
-#endif
-	outputmode=packet_buffer_details[2]; // Outputmode set at start of operation
-	send_transport_response(rsa_signature, (type*128), true, true);
+			hidprint("Error with RSA data to sign invalid size");
+			#ifdef DEBUG
+			Serial.println("Error with RSA data to sign invalid size");
+			Serial.println(large_buffer_offset);
+			#endif
+			fadeoff(1);
+			large_buffer_offset = 0;
+			memset(large_buffer, 0, LARGE_BUFFER_SIZE); //wipe buffer
+			return;
+		}
+		okcore_aes_gcm_decrypt(large_buffer, packet_buffer_details[0], packet_buffer_details[1], profilekey, large_buffer_offset);
+		#ifdef DEBUG
+		Serial.println();
+		Serial.printf("RSA data to sign size=%d", large_buffer_offset);
+		Serial.println();
+		byteprint(large_buffer, large_buffer_offset);
+		#endif
+  		pending_operation=CTAP2_ERR_OPERATION_PENDING;
+  		memcpy(rsa_signaturetemp, large_buffer, large_buffer_offset);
+  		memset(large_buffer, 0, LARGE_BUFFER_SIZE);
+  		if (rsa_sign (large_buffer_offset, rsa_signaturetemp, rsa_signature) == 0) {
+			pending_operation=CTAP2_ERR_DATA_READY;
+			#ifdef DEBUG
+			Serial.print("Signature = ");
+			byteprint(rsa_signature, sizeof(rsa_signature));
+			#endif
+			outputmode=packet_buffer_details[2]; // Outputmode set at start of operation
+			send_transport_response(rsa_signature, (type*128), true, true);
+		} else {
+			pending_operation=0;
+			hidprint("Error with RSA signing");
+		}
+		fadeoff(85);
+		memset(rsa_signature, 0, sizeof(rsa_signature));
+		if (outputmode != WEBAUTHN) memset(large_resp_buffer, 0, LARGE_RESP_BUFFER_SIZE);
+   		return;
 	} else {
-		pending_operation=0;
-		hidprint("Error with RSA signing");
-	}
-	fadeoff(85);
-	memset(rsa_signature, 0, sizeof(rsa_signature));
-	if (outputmode != WEBAUTHN) memset(large_resp_buffer, 0, LARGE_RESP_BUFFER_SIZE);
-    return;
-	} else {
-#ifdef DEBUG
-    Serial.println("Waiting for challenge buttons to be pressed");
-#endif
-	pending_operation=CTAP2_ERR_USER_ACTION_PENDING;
+		#ifdef DEBUG
+   		Serial.println("Waiting for challenge buttons to be pressed");
+		#endif
+		pending_operation=CTAP2_ERR_USER_ACTION_PENDING;
 	}
 }
 
-void RSADECRYPT (uint8_t *buffer)
-{
-
+void okcrypto_rsadecrypt (uint8_t *buffer) {
 	unsigned int plaintext_len = 0;
     if(!CRYPTO_AUTH) process_packets (buffer, 0, 0);
 	else if (CRYPTO_AUTH == 4) {
 		if (large_buffer_offset != (type*128)) {
-		hidprint("Error with RSA data to decrypt invalid size");
-#ifdef DEBUG
-    Serial.println("Error with RSA data to decrypt invalid size");
-	Serial.println(large_buffer_offset);
-#endif
-		fadeoff(1);
-		large_buffer_offset = 0;
-		memset(large_buffer, 0, LARGE_BUFFER_SIZE); //wipe buffer
-		return;
-	}
-	aes_gcm_decrypt(large_buffer, packet_buffer_details[0], packet_buffer_details[1], profilekey, large_buffer_offset);
-#ifdef DEBUG
-    Serial.println();
-    Serial.printf("RSA ciphertext blob size=%d", large_buffer_offset);
-	Serial.println();
-	byteprint(large_buffer, large_buffer_offset);
-#endif
-	// decrypt ciphertext in large_buffer to temp_buffer
-  pending_operation=CTAP2_ERR_OPERATION_PENDING;
-  uint8_t rsa_decrypttemp[(type*128)];
-  memcpy(rsa_decrypttemp, large_buffer, large_buffer_offset);
-  memset(large_buffer, 0, LARGE_BUFFER_SIZE);
-  if (rsa_decrypt (&plaintext_len, rsa_decrypttemp, large_resp_buffer) == 0)
-	{
-		pending_operation=CTAP2_ERR_DATA_READY;
-#ifdef DEBUG
-		Serial.println();
-		Serial.print("Plaintext len = ");
-		Serial.println(plaintext_len);
-		Serial.print("Plaintext = ");
-		byteprint(large_resp_buffer, plaintext_len);
-		Serial.println();
-#endif
-	outputmode=packet_buffer_details[2]; // Outputmode set at start of operation
-	send_transport_response(large_resp_buffer, plaintext_len,  true, true);
-	} else {
-		pending_operation=0;
-		hidprint("Error with RSA decryption");
-	}
-	fadeoff(85);
-	if (outputmode != WEBAUTHN) memset(large_resp_buffer, 0, LARGE_RESP_BUFFER_SIZE);
-
-    return;
-	} else {
-#ifdef DEBUG
-    Serial.println("Waiting for challenge buttons to be pressed");
-#endif
-	pending_operation=CTAP2_ERR_USER_ACTION_PENDING;
-	}
-}
-
-void GETECCPUBKEY (uint8_t *buffer)
-{
-		onlykey_flashget_ECC (buffer[5]);
+			hidprint("Error with RSA data to decrypt invalid size");
 			#ifdef DEBUG
-    	    Serial.println("OKGETECCPUBKEY MESSAGE RECEIVED");
-			byteprint(ecc_public_key, sizeof(ecc_public_key));
-	    #endif
-			send_transport_response(ecc_public_key, 64, false, false);
-			memset(ecc_public_key, 0, MAX_ECC_KEY_SIZE*2); //wipe buffer
-			memset(ecc_private_key, 0, MAX_ECC_KEY_SIZE); //wipe buffer
+    		Serial.println("Error with RSA data to decrypt invalid size");
+			Serial.println(large_buffer_offset);
+			#endif
+			fadeoff(1);
+			large_buffer_offset = 0;
+			memset(large_buffer, 0, LARGE_BUFFER_SIZE); //wipe buffer
+			return;
+		}
+		okcore_aes_gcm_decrypt(large_buffer, packet_buffer_details[0], packet_buffer_details[1], profilekey, large_buffer_offset);
+		#ifdef DEBUG
+   		Serial.println();
+    	Serial.printf("RSA ciphertext blob size=%d", large_buffer_offset);
+		Serial.println();
+		byteprint(large_buffer, large_buffer_offset);
+		#endif
+		// decrypt ciphertext in large_buffer to temp_buffer
+  		pending_operation=CTAP2_ERR_OPERATION_PENDING;
+  		uint8_t rsa_decrypttemp[(type*128)];
+  		memcpy(rsa_decrypttemp, large_buffer, large_buffer_offset);
+  		memset(large_buffer, 0, LARGE_BUFFER_SIZE);
+		if (rsa_decrypt (&plaintext_len, rsa_decrypttemp, large_resp_buffer) == 0) {
+			pending_operation=CTAP2_ERR_DATA_READY;
+			#ifdef DEBUG
+			Serial.println();
+			Serial.print("Plaintext len = ");
+			Serial.println(plaintext_len);
+			Serial.print("Plaintext = ");
+			byteprint(large_resp_buffer, plaintext_len);
+			Serial.println();
+			#endif
+			outputmode=packet_buffer_details[2]; // Outputmode set at start of operation
+			send_transport_response(large_resp_buffer, plaintext_len,  true, true);
+		} else {
+			pending_operation=0;
+			hidprint("Error with RSA decryption");
+		}
+		fadeoff(85);
+		if (outputmode != WEBAUTHN) memset(large_resp_buffer, 0, LARGE_RESP_BUFFER_SIZE);
+		return;
+	} else {
+		#ifdef DEBUG
+    	Serial.println("Waiting for challenge buttons to be pressed");
+		#endif
+		pending_operation=CTAP2_ERR_USER_ACTION_PENDING;
+	}
 }
 
-void GENPUBKEY (uint8_t *buffer)
-{
-	uint8_t pk[crypto_box_PUBLICKEYBYTES];
-	//Generate public key of hash
-	//crypto_scalarmult_base(pk, buffer);
-	// ^^ Too Slow
-	buffer[0] &= 0xF8;
-    buffer[31] = (buffer[31] & 0x7F) | 0x40;
-	Curve25519::eval(pk, buffer, 0);
-	memcpy(buffer, pk, 32);
+void okcrypto_geteccpubkey (uint8_t *buffer) {
+	okcore_flashget_ECC (buffer[5]);
+	#ifdef DEBUG
+    Serial.println("OKokcrypto_geteccpubkey MESSAGE RECEIVED");
+	byteprint(ecc_public_key, sizeof(ecc_public_key));
+	#endif
+	send_transport_response(ecc_public_key, 64, false, false);
+	memset(ecc_public_key, 0, MAX_ECC_KEY_SIZE*2); //wipe buffer
+	memset(ecc_private_key, 0, MAX_ECC_KEY_SIZE); //wipe buffer
 }
 
-void DERIVEKEY (uint8_t ktype, uint8_t *data, uint8_t slot)
-{
-  if (!slot) onlykey_flashget_ECC (132); //Default Key stored in ECC slot 32
-  else if (slot<125) onlykey_flashget_ECC (slot); 
-  memset(ecc_public_key, 0, sizeof(ecc_public_key));
-  SHA256_CTX ekey;
-  sha256_init(&ekey);
-  sha256_update(&ekey, ecc_private_key, 32); //Add default key to ekey
-  sha256_update(&ekey, data, 32); //Add provided data to ekey
-  sha256_final(&ekey, ecc_private_key); //Create hash and store
-	if (ktype==1) {
+void okcrypto_derive_key (uint8_t ktype, uint8_t *data, uint8_t slot) {
+	if (!slot) { //SHA256 KDF used for SSH
+		okcore_flashget_ECC (RESERVED_KEY_DERIVATION); //Default Key stored in ECC slot 32
+		memset(ecc_public_key, 0, sizeof(ecc_public_key));
+		SHA256_CTX ekey;
+		sha256_init(&ekey);
+		sha256_update(&ekey, ecc_private_key, 32); //Add default key to ekey
+		sha256_update(&ekey, data, 32); //Add provided data to ekey
+		sha256_final(&ekey, ecc_private_key); //Create hash and store
+  	} else if (slot==RESERVED_KEY_WEB_DERIVATION) { //HMAC SHA256 KDF used for web requests
+	  	okcore_flashget_ECC (slot); 
+		#ifdef DEBUG
+		Serial.println();
+		Serial.println("Web derivation key");
+		byteprint(ecc_private_key,32);
+		Serial.println("Other data");
+		byteprint(data,32);
+		#endif
+		// HKDF Reference: RFC5869 - https://tools.ietf.org/html/rfc5869
+		okcrypto_hkdf(data, ecc_private_key, ecc_private_key, 32);
+		#ifdef DEBUG
+		Serial.println();
+		Serial.println("HKDF Key");
+		byteprint(ecc_private_key,32);
+		#endif
+  	}
+	if (ktype==1) { //ED25519
 		Ed25519::derivePublicKey(ecc_public_key, ecc_private_key);
 		return;
 	}
-	else if (ktype==2) {
+	else if (ktype==2) { //P256R1
 		const struct uECC_Curve_t * curve = uECC_secp256r1();
 		uECC_compute_public_key(ecc_private_key, ecc_public_key, curve);
 	}
-	else if (ktype==3) {
+	else if (ktype==3) { //P256K1
 		const struct uECC_Curve_t * curve = uECC_secp256k1();
 		uECC_compute_public_key(ecc_private_key, ecc_public_key, curve);
+	} else if (ktype==4) { //CURVE25519
+		crypto_scalarmult_base(ecc_public_key, ecc_private_key); //NACL method curve25519
+		// Alternative method, faster but NACL library probably better
+			//ecc_private_key[0] &= 0xF8;
+			//ecc_private_key[31] = (ecc_private_key[31] & 0x7F) | 0x40;
+			//Curve25519::eval(ecc_public_key, ecc_private_key, 0);
 	}
-	/*
-	uECC_compress(ecc_public_key, temp, curve);
-	memset(ecc_public_key, 0, sizeof(ecc_public_key));
-	memcpy(ecc_public_key+31, temp, 33);
-	#ifdef DEBUG
-	Serial.println("Compressed Public key");
-	byteprint(ecc_public_key, sizeof(ecc_public_key));
-	#endif
-	*/
 }
 
-void ECDSA_EDDSA(uint8_t *buffer)
+void okcrypto_ecdsa_eddsa(uint8_t *buffer)
 {
 	uint8_t ecc_signature[64];
 	uint8_t sha256_hash[32];
 	uint8_t len = 0;
-#ifdef DEBUG
+	#ifdef DEBUG
     Serial.println();
-    Serial.println("OKECDSA_EDDSACHALLENGE MESSAGE RECEIVED");
-#endif
+    Serial.println("OKECDSA_EDDSA CHALLENGE MESSAGE RECEIVED");
+	#endif
     if(!CRYPTO_AUTH) process_packets (buffer, 0, 0);
 	else if (CRYPTO_AUTH == 4) {
-	aes_gcm_decrypt(large_buffer, packet_buffer_details[0], packet_buffer_details[1], profilekey, large_buffer_offset);
-#ifdef DEBUG
-    Serial.println();
-    Serial.printf("ECC challenge blob size=%d", large_buffer_offset);
-	Serial.println();
-    byteprint(large_buffer, large_buffer_offset);
-#endif
-	uint8_t tmp[32 + 32 + 64];
-	SHA256_HashContext ectx = {{&init_SHA256, &update_SHA256, &finish_SHA256, 64, 32, tmp}};
-	if (buffer[5] == 201) {
-		//Used by SSH, old version used 132, new version uses 201 for type 1
-		DERIVEKEY(1, large_buffer+(large_buffer_offset-32), NULL);
-		type = 1;
-	}
-	else if (buffer[5] == 202) {
-		DERIVEKEY(2, large_buffer+(large_buffer_offset-32), NULL);
-		type = 2;
-	}
-	else if (buffer[5] == 203) {
-		DERIVEKEY(3, large_buffer+(large_buffer_offset-32), NULL);
-		type = 3;
-	}
+		okcore_aes_gcm_decrypt(large_buffer, packet_buffer_details[0], packet_buffer_details[1], profilekey, large_buffer_offset);
+		#ifdef DEBUG
+		Serial.println();
+		Serial.printf("ECC challenge blob size=%d", large_buffer_offset);
+		Serial.println();
+		byteprint(large_buffer, large_buffer_offset);
+		#endif
+		uint8_t tmp[32 + 32 + 64];
+		SHA256_HashContext ectx = {{&init_SHA256, &update_SHA256, &finish_SHA256, 64, 32, tmp}};
+		if (buffer[5] == 201) {
+			//Used by SSH, old version used 132, new version uses 201 for type 1
+			okcrypto_derive_key(1, large_buffer+(large_buffer_offset-32), NULL);
+			type = 1;
+		}
+		else if (buffer[5] == 202) {
+			okcrypto_derive_key(2, large_buffer+(large_buffer_offset-32), NULL);
+			type = 2;
+		}
+		else if (buffer[5] == 203) {
+			okcrypto_derive_key(3, large_buffer+(large_buffer_offset-32), NULL);
+			type = 3;
+		} 
 
-	if (large_buffer_offset > 32) large_buffer_offset = large_buffer_offset - 32;
+		if (large_buffer_offset > 32) large_buffer_offset = large_buffer_offset - 32;
 
-	SHA256_CTX msghash;
-	sha256_init(&msghash);
-	sha256_update(&msghash, large_buffer, large_buffer_offset);
-	sha256_final(&msghash, sha256_hash); //Create hash and store
-#ifdef DEBUG
-      Serial.println("Signature Hash ");
-	  byteprint(sha256_hash, 32);
-	  Serial.print("Type");
-	  Serial.println(type);
-#endif
-	if (type==0x01) Ed25519::sign(ecc_signature, ecc_private_key, ecc_public_key, large_buffer, large_buffer_offset);
-	else if (type==0x02) {
-		const struct uECC_Curve_t * curve = uECC_secp256r1(); //P-256
-		if (!uECC_sign_deterministic(ecc_private_key,
+		SHA256_CTX msghash;
+		sha256_init(&msghash);
+		sha256_update(&msghash, large_buffer, large_buffer_offset);
+		sha256_final(&msghash, sha256_hash); //Create hash and store
+		#ifdef DEBUG
+      	Serial.println("Signature Hash ");
+	  	byteprint(sha256_hash, 32);
+	  	Serial.print("Type");
+	  	Serial.println(type);
+		#endif
+		if (type==0x01) Ed25519::sign(ecc_signature, ecc_private_key, ecc_public_key, large_buffer, large_buffer_offset);
+		else if (type==0x02) {
+			const struct uECC_Curve_t * curve = uECC_secp256r1(); //P-256
+			if (!uECC_sign_deterministic(ecc_private_key,
 						sha256_hash,
 						32,
 						&ectx.uECC,
 						ecc_signature,
 						curve)) {
-#ifdef DEBUG
-      Serial.println("Signature Failed ");
-#endif
-      }
-	}
-	else if (type==0x03) {
+							#ifdef DEBUG
+      						Serial.println("Signature Failed ");
+							#endif
+      		}
+		}
+		else if (type==0x03) {
 			const struct uECC_Curve_t * curve = uECC_secp256k1();
-		if (!uECC_sign_deterministic(ecc_private_key,
+			if (!uECC_sign_deterministic(ecc_private_key,
 						sha256_hash,
 						32,
 						&ectx.uECC,
 						ecc_signature,
 						curve)) {
-#ifdef DEBUG
-      Serial.println("Signature Failed ");
-#endif
-      }
-	}
+							#ifdef DEBUG
+      						Serial.println("Signature Failed ");
+							#endif
+      		}
+		}
 /*
 	if (type==0x03 || type==0x02) {
 	  memset(tmp, 0, sizeof(tmp));
@@ -550,30 +543,28 @@ void ECDSA_EDDSA(uint8_t *buffer)
       memcpy(tmp+len, ecc_signature+32, 32); //R value
       len +=32;
 	}
-	*/
-	#ifdef DEBUG
-	Serial.print("Signature=");
-	byteprint(ecc_signature, 64);
-	#endif
-	outputmode=packet_buffer_details[2]; // Outputmode set at start of operation
-	send_transport_response (ecc_signature, 64, false, false);
-  // Stop the fade in
-  	fadeoff(85);
-    memset(large_buffer, 0, LARGE_BUFFER_SIZE);
-	memset(ecc_public_key, 0, sizeof(ecc_public_key)); //wipe buffer
-	memset(ecc_private_key, 0, sizeof(ecc_private_key)); //wipe buffer
-    return;
+*/
+		#ifdef DEBUG
+		Serial.print("Signature=");
+		byteprint(ecc_signature, 64);
+		#endif
+		outputmode=packet_buffer_details[2]; // Outputmode set at start of operation
+		send_transport_response (ecc_signature, 64, false, false);
+  		// Stop the fade in
+  		fadeoff(85);
+    	memset(large_buffer, 0, LARGE_BUFFER_SIZE);
+		memset(ecc_public_key, 0, sizeof(ecc_public_key)); //wipe buffer
+		memset(ecc_private_key, 0, sizeof(ecc_private_key)); //wipe buffer
+    	return;
 	} else {
-#ifdef DEBUG
-    Serial.println("Waiting for challenge buttons to be pressed");
-#endif
-	pending_operation=CTAP2_ERR_USER_ACTION_PENDING;
+		#ifdef DEBUG
+    	Serial.println("Waiting for challenge buttons to be pressed");
+		#endif
+		pending_operation=CTAP2_ERR_USER_ACTION_PENDING;
 	}
 }
 
-
-void ECDH(uint8_t *buffer)
-{
+void okcrypto_ecdh(uint8_t *buffer) {
 	// This function currently is not used, it generates shared secret and returns no data
     uint8_t ephemeral_pub[MAX_ECC_KEY_SIZE*2];
 	uint8_t secret[64] = {0};
@@ -583,21 +574,21 @@ void ECDH(uint8_t *buffer)
 	#endif
     if(!CRYPTO_AUTH) process_packets (buffer, 0, 0);
 	else if (CRYPTO_AUTH == 4) {
-	memcpy (ephemeral_pub, large_buffer, MAX_ECC_KEY_SIZE*2);
-    if (shared_secret(ephemeral_pub, secret)) {
-		hidprint("Error with ECC Shared Secret");
-		return;
-	}
-	#ifdef DEBUG
-    Serial.println();
-    Serial.print("Public key to generate shared secret for");
-	byteprint(ephemeral_pub, 64);
-    Serial.println();
-    Serial.print("ECDH Secret is ");
-	for (uint8_t i = 0; i< 32; i++) {
-		Serial.print(secret[i],HEX);
-	}
-	#endif
+		memcpy (ephemeral_pub, large_buffer, MAX_ECC_KEY_SIZE*2);
+		if (okcrypto_shared_secret(ephemeral_pub, secret)) {
+			hidprint("Error with ECC Shared Secret");
+			return;
+		}
+		#ifdef DEBUG
+		Serial.println();
+		Serial.print("Public key to generate shared secret for");
+		byteprint(ephemeral_pub, 64);
+		Serial.println();
+		Serial.print("ECDH Secret is ");
+		for (uint8_t i = 0; i< 32; i++) {
+			Serial.print(secret[i],HEX);
+		}
+		#endif
   //	if (outputU2F) {
 	//store_U2F_response(secret, 32);
 	//} else{
@@ -684,48 +675,47 @@ void ECDH(uint8_t *buffer)
 	//outputmode=packet_buffer_details[2]; // Outputmode set at start of operation
 	//send_transport_response (decrypteddata, len, true, true);
 
-    fadeoff(85);
-
-	memset(large_buffer, 0, LARGE_BUFFER_SIZE);
-	memset(secret, 0, sizeof(secret)); //wipe buffer
-	memset(ecc_public_key, 0, sizeof(ecc_public_key)); //wipe buffer
-	memset(ecc_private_key, 0, sizeof(ecc_private_key)); //wipe buffer
-    return;
+		fadeoff(85);
+		memset(large_buffer, 0, LARGE_BUFFER_SIZE);
+		memset(secret, 0, sizeof(secret)); //wipe buffer
+		memset(ecc_public_key, 0, sizeof(ecc_public_key)); //wipe buffer
+		memset(ecc_private_key, 0, sizeof(ecc_private_key)); //wipe buffer
+		return;
 	} else {
-#ifdef DEBUG
+	#ifdef DEBUG
     Serial.println("Waiting for challenge buttons to be pressed");
-#endif
+	#endif
 	}
 }
 
-void HMACSHA1 () {
+void okcrypto_hmacsha1 () {
 	uint8_t temp[32];
 	uint8_t inputlen;
 	uint16_t crc;
 	extern uint8_t setBuffer[9];
 	uint8_t *ptr;
-#ifdef DEBUG
+	#ifdef DEBUG
 	Serial.println();
 	Serial.println("GENERATE HMACSHA1 MESSAGE RECEIVED");
-#endif
+	#endif
     if (CRYPTO_AUTH == 4) {
-			if(!check_crc(keyboard_buffer)) {
+		if(!check_crc(keyboard_buffer)) {
 			memset(setBuffer, 0, 9);
 			memset(keyboard_buffer, 0, KEYBOARD_BUFFER_SIZE);
 			return;
 		}
 		if ((keyboard_buffer[64] & 0x0f) == 0x08 ) { //HMAC Slot 2 selected, 0x08 for slot 2, 0x00 for slot 1
-			onlykey_flashget_ECC (129); //ECC slot 129 reserved for HMAC Slot 2 custom key 
+			okcore_flashget_ECC (RESERVED_KEY_HMACSHA1_2); //ECC slot 129 reserved for HMAC Slot 2 key
 		} else {
-			onlykey_flashget_ECC (130); 
+			okcore_flashget_ECC (RESERVED_KEY_HMACSHA1_1); //ECC slot 130 reserved for HMAC Slot 1 key
 		}
 		if (type == 0) { //Generate a key using the default key in slot 130 if there is no key set
-		 onlykey_flashget_ECC (130);
-		 // Derive key from SHA256 hash of default key and added data temp
+			okcore_flashget_ECC (RESERVED_KEY_HMACSHA1_1);
+		 	// Derive key from SHA256 hash of default key and added data temp
 			for(int i=0; i<32; i++) {
 				temp[i] = i + (keyboard_buffer[64] & 0x0f);
 			}
-			DERIVEKEY(0, temp, NULL);
+			okcrypto_derive_key(0, temp, NULL);
 		}
 		//Variable buffer size
 		if (keyboard_buffer[57] == 0x20 && keyboard_buffer[58] == 0x20 && keyboard_buffer[59] == 0x20 && keyboard_buffer[60] == 0x20 && keyboard_buffer[61] == 0x20 && keyboard_buffer[62] == 0x20 && keyboard_buffer[63] == 0x20) {
@@ -735,56 +725,56 @@ void HMACSHA1 () {
 		} else {
 			inputlen = 64;
 		}
-#ifdef DEBUG
+		#ifdef DEBUG
 		Serial.print("HMACSHA1 Input = ");
 	    byteprint(keyboard_buffer, 70);
 		Serial.print("Input Length");
 	    Serial.println(inputlen);
-#endif
-	//Load HMAC Key
-	Sha1.initHmac(ecc_private_key, 20);
-	//Generate HMACSHA1
-	Sha1.write(keyboard_buffer, inputlen);
-	ptr=keyboard_buffer;
-	ptr = Sha1.resultHmac();
-	memcpy(temp, ptr, 20);
-	memset(ecc_private_key, 0, 32);
-#ifdef DEBUG
+		#endif
+		//Load HMAC Key
+		Sha1.initHmac(ecc_private_key, 20);
+		//Generate HMACSHA1
+		Sha1.write(keyboard_buffer, inputlen);
+		ptr=keyboard_buffer;
+		ptr = Sha1.resultHmac();
+		memcpy(temp, ptr, 20);
+		memset(ecc_private_key, 0, 32);
+		#ifdef DEBUG
 		Serial.print("CRC Input = ");
 	    byteprint(temp, 20);
-#endif
-	//Generate CRC of Output
-	crc = yubikey_crc16 (temp, 20);
-	memcpy(keyboard_buffer, temp, 7);
-	keyboard_buffer[7] = 0xC0; //Part 1 of HMAC
-	memcpy(keyboard_buffer+8, temp+7, 7);
-	keyboard_buffer[15] = 0xC1; //Part 2 of HMAC
-	memcpy(keyboard_buffer+16, temp+14, 6);
-	keyboard_buffer[23] = 0xC2; //Part 3 of HMAC
-	memset(keyboard_buffer +24, 0, KEYBOARD_BUFFER_SIZE-24);
-    // CRC Bytes expected are CRC-16/X-25 but yubikey_crc16 generates CRC-16/MCRF4XX,
-    // Weird that firmware uses a different CRC-16 than https://github.com/Yubico/yubikey-personalization/blob/master/ykcore/
-	// We can XOR CRC-16/MCRF4XX output to convert to CRC-16/X-25
-	crc ^= 0xFFFF;
-	keyboard_buffer[22] = crc & 0xFF;
-	keyboard_buffer[24] = crc >> 8;
-	keyboard_buffer[31] = 0xC3; //Part 4 contains part of CRC and mystery byte keyboard_buffer[28]
-	keyboard_buffer[28] = 0x4B;
-#ifdef DEBUG
+		#endif
+		//Generate CRC of Output
+		crc = yubikey_crc16 (temp, 20);
+		memcpy(keyboard_buffer, temp, 7);
+		keyboard_buffer[7] = 0xC0; //Part 1 of HMAC
+		memcpy(keyboard_buffer+8, temp+7, 7);
+		keyboard_buffer[15] = 0xC1; //Part 2 of HMAC
+		memcpy(keyboard_buffer+16, temp+14, 6);
+		keyboard_buffer[23] = 0xC2; //Part 3 of HMAC
+		memset(keyboard_buffer +24, 0, KEYBOARD_BUFFER_SIZE-24);
+    	// CRC Bytes expected are CRC-16/X-25 but yubikey_crc16 generates CRC-16/MCRF4XX,
+    	// Weird that firmware uses a different CRC-16 than https://github.com/Yubico/yubikey-personalization/blob/master/ykcore/
+		// We can XOR CRC-16/MCRF4XX output to convert to CRC-16/X-25
+		crc ^= 0xFFFF;
+		keyboard_buffer[22] = crc & 0xFF;
+		keyboard_buffer[24] = crc >> 8;
+		keyboard_buffer[31] = 0xC3; //Part 4 contains part of CRC and mystery byte keyboard_buffer[28]
+		keyboard_buffer[28] = 0x4B;
+		#ifdef DEBUG
 		Serial.print("HMACSHA1 Output = ");
 	    byteprint(keyboard_buffer, KEYBOARD_BUFFER_SIZE);
 		Serial.print("CRC = ");
 		Serial.println(crc);
-#endif
-    return;
+		#endif
+    	return;
 	} else {
-#ifdef DEBUG
-    Serial.println("Waiting for challenge buttons to be pressed");
-#endif
+		#ifdef DEBUG
+    	Serial.println("Waiting for challenge buttons to be pressed");
+		#endif
 	}
 }
 
-int shared_secret (uint8_t *pub, uint8_t *secret) {
+int okcrypto_shared_secret (uint8_t *pub, uint8_t *secret) {
 	const struct uECC_Curve_t * curve;
 	#ifdef DEBUG
 	Serial.printf("Shared Secret for type %X ",type);
@@ -827,7 +817,7 @@ void crypto_sha512_final(uint8_t * hash) {
 	mbedtls_md_free (&sha512_ctx);
 }
 
-void aes_crypto_box (uint8_t *buffer, int len, bool open) {
+void okcrypto_aes_crypto_box (uint8_t *buffer, int len, bool open) {
 	uint8_t iv[12];
 	memset(iv, 0, 12);
 	//msgcount++;
@@ -849,10 +839,10 @@ void aes_crypto_box (uint8_t *buffer, int len, bool open) {
 	byteprint(buffer, len);
 	#endif
 	if (open) {
-		aes_gcm_decrypt2 (buffer, iv, ecc_private_key, len);
+		okcrypto_aes_gcm_decrypt2 (buffer, iv, ecc_private_key, len);
 	}
 	else {
-		aes_gcm_encrypt2 (buffer, iv, ecc_private_key, len);
+		okcrypto_aes_gcm_encrypt2 (buffer, iv, ecc_private_key, len);
 	}
 }
 
@@ -889,21 +879,19 @@ int rsa_sign (int mlen, const uint8_t *msg, uint8_t *out)
 	cleanup:
 	mbedtls_mpi_free (&P1);  mbedtls_mpi_free (&Q1);  mbedtls_mpi_free (&H);
 
-   if( ret != 0 )
-    {
+   	if( ret != 0 ) {
 		#ifdef DEBUG
-	  Serial.printf("Error with key check =%d", ret);
-	  #endif
+	  	Serial.printf("Error with key check =%d", ret);
+	  	#endif
 		hidprint("Error invalid key, key check failed");
 		return -1;
-		}
-  if (ret == 0)
-    {
-    #ifdef DEBUG
-    Serial.print("RSA sign messege length = ");
-	  Serial.println(mlen);
-	  #endif
-	  if (mlen > ((type*128)-11)) mlen = ((type*128)-11);
+	}
+  	if (ret == 0) {
+    	#ifdef DEBUG
+    	Serial.print("RSA sign messege length = ");
+	  	Serial.println(mlen);
+	  	#endif
+	  	if (mlen > ((type*128)-11)) mlen = ((type*128)-11);
 
 		switch (mlen) {
 		case 64:
@@ -931,148 +919,135 @@ int rsa_sign (int mlen, const uint8_t *msg, uint8_t *out)
 
 		}
 
-      ret = mbedtls_rsa_rsassa_pkcs1_v15_sign (&rsa, mbedtls_rand, NULL, MBEDTLS_RSA_PRIVATE, md_type, mlen, msg, rsa_ciphertext);
-      #ifdef DEBUG
-      Serial.print("Hash Value = ");
-	  byteprint((uint8_t *)msg, mlen);
-	  #endif
-	  memcpy (out, rsa_ciphertext, (type*128));
-	  /*int ret2 = mbedtls_rsa_rsassa_pkcs1_v15_verify ( &rsa, NULL, NULL, MBEDTLS_RSA_PUBLIC, MBEDTLS_MD_NONE, mlen, msg, rsa_ciphertext );
-	  #ifdef DEBUG
-      Serial.print("Hash Value = ");
-	  byteprint((uint8_t *)msg, mlen);
-	  #endif
-	  if( ret2 != 0 ) {
-		  #ifdef DEBUG
-		  Serial.print("Signature Verification Failed ");
-		  Serial.println(ret2);
-		  #endif
-		  return -1;
-	  }*/
+      	ret = mbedtls_rsa_rsassa_pkcs1_v15_sign (&rsa, mbedtls_rand, NULL, MBEDTLS_RSA_PRIVATE, md_type, mlen, msg, rsa_ciphertext);
+      	#ifdef DEBUG
+      		Serial.print("Hash Value = ");
+	 		byteprint((uint8_t *)msg, mlen);
+	  	#endif
+	  	memcpy (out, rsa_ciphertext, (type*128));
+		/*int ret2 = mbedtls_rsa_rsassa_pkcs1_v15_verify ( &rsa, NULL, NULL, MBEDTLS_RSA_PUBLIC, MBEDTLS_MD_NONE, mlen, msg, rsa_ciphertext );
+		#ifdef DEBUG
+		Serial.print("Hash Value = ");
+		byteprint((uint8_t *)msg, mlen);
+		#endif
+		if( ret2 != 0 ) {
+			#ifdef DEBUG
+			Serial.print("Signature Verification Failed ");
+			Serial.println(ret2);
+			#endif
+			return -1;
+		}*/
     }
-  mbedtls_rsa_free (&rsa);
-  if (ret == 0)
-    {
-    #ifdef DEBUG
-    Serial.println("completed successfully");
-	#endif
-    return 0;
+  	mbedtls_rsa_free (&rsa);
+  	if (ret == 0) {
+		#ifdef DEBUG
+		Serial.println("completed successfully");
+		#endif
+		return 0;
     }
-  else
-    {
+  	else {
 		#ifdef DEBUG
 		Serial.print("MBEDTLS_ERR_RSA_XXX error code ");
-    Serial.println(ret);
+    	Serial.println(ret);
 		#endif
 		hidprint("invalid data, or data does not match key");
-    return -1;
+    	return -1;
     }
 }
 
-int rsa_decrypt (unsigned int *olen, const uint8_t *in, uint8_t *out)
-{
-  mbedtls_mpi P1, Q1, H;
-  int ret = 0;
-  static mbedtls_rsa_context rsa;
-  #ifdef DEBUG
-  Serial.printf ("\nRSA decrypt:");
-  Serial.println ((uint32_t)&ret);
-  #endif
+int rsa_decrypt (unsigned int *olen, const uint8_t *in, uint8_t *out) {
+	mbedtls_mpi P1, Q1, H;
+	int ret = 0;
+	static mbedtls_rsa_context rsa;
+	#ifdef DEBUG
+	Serial.printf ("\nRSA decrypt:");
+	Serial.println ((uint32_t)&ret);
+	#endif
 
-  mbedtls_rsa_init (&rsa, MBEDTLS_RSA_PKCS_V15, 0);
-  mbedtls_mpi_init (&P1);  mbedtls_mpi_init (&Q1);  mbedtls_mpi_init (&H);
-  rsa.len = (type*128);
-  MBEDTLS_MPI_CHK( mbedtls_mpi_lset (&rsa.E, 0x10001) );
-  MBEDTLS_MPI_CHK( mbedtls_mpi_read_binary (&rsa.P, &rsa_private_key[0], ((type*128) / 2) ));
-  MBEDTLS_MPI_CHK( mbedtls_mpi_read_binary (&rsa.Q, &rsa_private_key[((type*128) / 2)], ((type*128) / 2) ));
-  MBEDTLS_MPI_CHK( mbedtls_mpi_mul_mpi (&rsa.N, &rsa.P, &rsa.Q) );
-  MBEDTLS_MPI_CHK( mbedtls_mpi_sub_int (&P1, &rsa.P, 1) );
-  MBEDTLS_MPI_CHK( mbedtls_mpi_sub_int (&Q1, &rsa.Q, 1) );
-  MBEDTLS_MPI_CHK( mbedtls_mpi_mul_mpi (&H, &P1, &Q1) );
-  MBEDTLS_MPI_CHK( mbedtls_mpi_inv_mod (&rsa.D , &rsa.E, &H) );
-  MBEDTLS_MPI_CHK( mbedtls_mpi_mod_mpi (&rsa.DP, &rsa.D, &P1) );
-  MBEDTLS_MPI_CHK( mbedtls_mpi_mod_mpi (&rsa.DQ, &rsa.D, &Q1) );
-  MBEDTLS_MPI_CHK( mbedtls_mpi_inv_mod (&rsa.QP, &rsa.Q, &rsa.P) );
-  #ifdef DEBUG
-  Serial.println (rsa.len);
-  #endif
-  cleanup:
-  mbedtls_mpi_free (&P1);  mbedtls_mpi_free (&Q1);  mbedtls_mpi_free (&H);
+	mbedtls_rsa_init (&rsa, MBEDTLS_RSA_PKCS_V15, 0);
+	mbedtls_mpi_init (&P1);  mbedtls_mpi_init (&Q1);  mbedtls_mpi_init (&H);
+	rsa.len = (type*128);
+	MBEDTLS_MPI_CHK( mbedtls_mpi_lset (&rsa.E, 0x10001) );
+	MBEDTLS_MPI_CHK( mbedtls_mpi_read_binary (&rsa.P, &rsa_private_key[0], ((type*128) / 2) ));
+	MBEDTLS_MPI_CHK( mbedtls_mpi_read_binary (&rsa.Q, &rsa_private_key[((type*128) / 2)], ((type*128) / 2) ));
+	MBEDTLS_MPI_CHK( mbedtls_mpi_mul_mpi (&rsa.N, &rsa.P, &rsa.Q) );
+	MBEDTLS_MPI_CHK( mbedtls_mpi_sub_int (&P1, &rsa.P, 1) );
+	MBEDTLS_MPI_CHK( mbedtls_mpi_sub_int (&Q1, &rsa.Q, 1) );
+	MBEDTLS_MPI_CHK( mbedtls_mpi_mul_mpi (&H, &P1, &Q1) );
+	MBEDTLS_MPI_CHK( mbedtls_mpi_inv_mod (&rsa.D , &rsa.E, &H) );
+	MBEDTLS_MPI_CHK( mbedtls_mpi_mod_mpi (&rsa.DP, &rsa.D, &P1) );
+	MBEDTLS_MPI_CHK( mbedtls_mpi_mod_mpi (&rsa.DQ, &rsa.D, &Q1) );
+	MBEDTLS_MPI_CHK( mbedtls_mpi_inv_mod (&rsa.QP, &rsa.Q, &rsa.P) );
+	#ifdef DEBUG
+	Serial.println (rsa.len);
+	#endif
+	cleanup:
+	mbedtls_mpi_free (&P1);  mbedtls_mpi_free (&Q1);  mbedtls_mpi_free (&H);
 
 	#ifdef DEBUG
 	Serial.printf( "\nRSA len = " );
 	Serial.println(rsa.len);
 	#endif
-  ret = mbedtls_rsa_check_privkey( &rsa );
+	ret = mbedtls_rsa_check_privkey( &rsa );
 	if (ret != 0) {
-	  #ifdef DEBUG
-      Serial.print ("MBEDTLS_ERR_RSA_XXX error code ");
-	  Serial.println (ret);
-	  #endif
+		#ifdef DEBUG
+		Serial.print ("MBEDTLS_ERR_RSA_XXX error code ");
+		Serial.println (ret);
+		#endif
 		hidprint("Error invalid key, key check failed");
 	}
-  if (ret == 0)
-    {
-	  #ifdef DEBUG
-      Serial.print ("RSA decrypt ");
-	  #endif
-      ret = mbedtls_rsa_rsaes_pkcs1_v15_decrypt (&rsa, NULL, NULL, MBEDTLS_RSA_PRIVATE, olen, in, out, 512);
-    }
-  mbedtls_rsa_free (&rsa);
-  if (ret == 0)
-    {
-	  #ifdef DEBUG
-      Serial.println ("completed successfully");
-	  Serial.print (*olen);
-	  #endif
-      return 0;
-    }
-  else
-    {
-  	#ifdef DEBUG
-    Serial.print ("MBEDTLS_ERR_RSA_XXX error code ");
-  	Serial.println (ret);
-  	#endif
+	if (ret == 0) {
+		#ifdef DEBUG
+		Serial.print ("RSA decrypt ");
+		#endif
+		ret = mbedtls_rsa_rsaes_pkcs1_v15_decrypt (&rsa, NULL, NULL, MBEDTLS_RSA_PRIVATE, olen, in, out, 512);
+	}
+	mbedtls_rsa_free (&rsa);
+	if (ret == 0) {
+		#ifdef DEBUG
+		Serial.println ("completed successfully");
+		Serial.print (*olen);
+		#endif
+		return 0;
+	} else {
+		#ifdef DEBUG
+		Serial.print ("MBEDTLS_ERR_RSA_XXX error code ");
+		Serial.println (ret);
+		#endif
 		hidprint("Error invalid data, or data does not match key");
-    return -1;
-    }
-}
-
-
-void rsa_getpub (uint8_t type)
-{
-  mbedtls_mpi P, Q, N;
-  int ret = 0;
-  #ifdef DEBUG
-  Serial.print ("RSA generate public N:");
-  #endif
-
-  mbedtls_mpi_init (&P);  mbedtls_mpi_init (&Q);  mbedtls_mpi_init (&N);
-
-  MBEDTLS_MPI_CHK( mbedtls_mpi_read_binary (&P, &rsa_private_key[0], ((type*128) / 2) ));
-  MBEDTLS_MPI_CHK( mbedtls_mpi_read_binary (&Q, &rsa_private_key[((type*128) / 2)], ((type*128) / 2) ));
-  MBEDTLS_MPI_CHK( mbedtls_mpi_mul_mpi (&N, &P, &Q) );
-  MBEDTLS_MPI_CHK( mbedtls_mpi_write_binary (&N, &rsa_publicN[0], (type*128) ));
-  cleanup:
-  mbedtls_mpi_free (&P);  mbedtls_mpi_free (&Q);  mbedtls_mpi_free (&N);
-
-  if (ret == 0)
-    {
-	  #ifdef DEBUG
-      Serial.print ("Storing RSA public ");
-	  byteprint(rsa_publicN, (type*128));
-	  #endif
-    } else {
-		  		hidprint("Error generating RSA public N");
-	  #ifdef DEBUG
-      Serial.print ("Error generating RSA public");
-	  byteprint(rsa_publicN, (type*128));
-	  #endif
+		return -1;
 	}
 }
 
-int rsa_encrypt (int len, const uint8_t *in, uint8_t *out)
-{
+void rsa_getpub (uint8_t type) {
+	mbedtls_mpi P, Q, N;
+	int ret = 0;
+	#ifdef DEBUG
+	Serial.print ("RSA generate public N:");
+	#endif
+	mbedtls_mpi_init (&P);  mbedtls_mpi_init (&Q);  mbedtls_mpi_init (&N);
+	MBEDTLS_MPI_CHK( mbedtls_mpi_read_binary (&P, &rsa_private_key[0], ((type*128) / 2) ));
+	MBEDTLS_MPI_CHK( mbedtls_mpi_read_binary (&Q, &rsa_private_key[((type*128) / 2)], ((type*128) / 2) ));
+	MBEDTLS_MPI_CHK( mbedtls_mpi_mul_mpi (&N, &P, &Q) );
+	MBEDTLS_MPI_CHK( mbedtls_mpi_write_binary (&N, &rsa_publicN[0], (type*128) ));
+	cleanup:
+	mbedtls_mpi_free (&P);  mbedtls_mpi_free (&Q);  mbedtls_mpi_free (&N);
+
+	if (ret == 0) {
+		#ifdef DEBUG
+		Serial.print ("Storing RSA public ");
+		byteprint(rsa_publicN, (type*128));
+		#endif
+	} else {
+		hidprint("Error generating RSA public N");
+		#ifdef DEBUG
+		Serial.print ("Error generating RSA public");
+		byteprint(rsa_publicN, (type*128));
+		#endif
+	}
+}
+
+int rsa_encrypt (int len, const uint8_t *in, uint8_t *out) {
 	mbedtls_mpi P1, Q1, H;
 	int ret = 0;
 	static mbedtls_rsa_context rsa;
@@ -1105,7 +1080,7 @@ int rsa_encrypt (int len, const uint8_t *in, uint8_t *out)
 	Serial.printf( "\nRSA len = " );
 	Serial.println(rsa.len);
 	#endif
-  ret = mbedtls_rsa_check_pubkey( &rsa );
+  	ret = mbedtls_rsa_check_pubkey( &rsa );
 	if (ret != 0) {
 	  #ifdef DEBUG
       Serial.print ("MBEDTLS_ERR_RSA_XXX error code ");
@@ -1113,22 +1088,16 @@ int rsa_encrypt (int len, const uint8_t *in, uint8_t *out)
 	  #endif
 	  return ret;
 	}
-  if (ret == 0)
-    {
-
-	  ret = mbedtls_rsa_rsaes_pkcs1_v15_encrypt	( &rsa, mbedtls_rand, NULL, MBEDTLS_RSA_PUBLIC, len,
-                           in, out );
+  	if (ret == 0) {
+	  ret = mbedtls_rsa_rsaes_pkcs1_v15_encrypt	( &rsa, mbedtls_rand, NULL, MBEDTLS_RSA_PUBLIC, len, in, out );
     }
-  mbedtls_rsa_free (&rsa);
-  if (ret == 0)
-    {
+  	mbedtls_rsa_free (&rsa);
+  	if (ret == 0) {
 	  #ifdef DEBUG
       Serial.print ("completed successfully");
 	  #endif
       return 0;
-    }
-  else
-    {
+    } else {
 	  #ifdef DEBUG
       Serial.print ("MBEDTLS_ERR_RSA_XXX error code ");
 	  Serial.println (ret);
@@ -1137,17 +1106,338 @@ int rsa_encrypt (int len, const uint8_t *in, uint8_t *out)
     }
 }
 
-
 bool is_bit_set(unsigned char byte, int index) {
   return (byte >> index) & 1;
 }
 
-int mbedtls_rand( void *rng_state, unsigned char *output, size_t len )
-{
+int mbedtls_rand( void *rng_state, unsigned char *output, size_t len ) {
 	if( rng_state != NULL )
         rng_state = NULL;
     RNG2( output, len );
     return( 0 );
+}
+
+
+void okcrypto_hkdf(const void *data, const void *inputKey, void *outputKey, const size_t L) {
+	SHA256 hash;
+	uint8_t PRK[hash.hashSize()];
+	void *s;
+	uint8_t tmp[32];
+	int N = L / hash.hashSize();
+	uint8_t i;
+	uint8_t rpid[12];
+	extern uint8_t ctap_buffer[CTAPHID_BUFFER_SIZE];
+	memcpy(rpid, ctap_buffer+4, 12); // i.e. app.crp.to
+	#ifdef DEBUG
+	Serial.print ("RPID");
+	byteprint(rpid,12);
+	#endif
+
+	if (data == NULL) {
+		s = tmp;
+		memset(s, 0, 32);
+	} else {
+		s = (void *) data;
+	}
+
+	hash.resetHMAC(s, 32);
+	hash.update(inputKey, 32);
+	hash.finalizeHMAC(s, 32, PRK, hash.hashSize());
+
+	// Use rpid as salt
+	size_t saltLen = hash.hashSize() + sizeof(rpid) + 1;
+	uint8_t salt[saltLen];
+	salt[saltLen - 1] = 1;
+	memcpy(salt + hash.hashSize(), rpid, sizeof(rpid));
+
+	// Calculate T(1)
+	hash.resetHMAC (PRK, hash.hashSize());
+	hash.update(salt + hash.hashSize(), sizeof(rpid) + 1);
+	hash.finalizeHMAC (PRK, hash.hashSize(), outputKey, hash.hashSize());
+
+	salt[saltLen - 1] += 1;
+	memcpy(salt, outputKey, hash.hashSize());
+
+	// Calculate T(2) ... T(N)
+	for (i = 1; i < N; i++) {
+		hash.resetHMAC(PRK, hash.hashSize());
+		hash.update(salt, saltLen);
+		hash.finalizeHMAC(PRK,
+					hash.hashSize(),
+					((uint8_t *) outputKey) + (i * hash.hashSize()),
+					hash.hashSize());
+
+		salt[saltLen - 1] += 1;
+		memcpy(salt,
+			((uint8_t *) outputKey) + (i * hash.hashSize()),
+			hash.hashSize());
+	}
+
+	// Process remaining octets if there are any.
+	if (L % hash.hashSize()) {
+		uint8_t rslt[hash.hashSize()];
+		int remain = L - N * hash.hashSize();
+		hash.resetHMAC(PRK, hash.hashSize());
+		hash.update(salt, saltLen);
+		hash.finalizeHMAC(PRK, hash.hashSize(), rslt, hash.hashSize());
+
+		memcpy(((uint8_t *) outputKey) + (N * hash.hashSize()),
+			rslt,
+			remain);
+	}
+		hash.clear();
+
+}
+
+
+void okcrypto_aes_gcm_encrypt(uint8_t *state, uint8_t slot, uint8_t value, const uint8_t *key, int len)
+{
+	#ifdef STD_VERSION
+	GCM<AES256> gcm;
+	uint8_t iv2[12];
+	uint8_t aeskey[32];
+	uint8_t data[2];
+	data[0] = slot;
+	data[1] = value;
+
+	okcore_flashget_noncehash((uint8_t*)iv2, 12);
+
+	#ifdef DEBUG
+	Serial.print("INPUT KEY ");
+	byteprint((uint8_t *)key, 32);
+	#endif
+
+	#ifdef DEBUG
+	Serial.println("SLOT");
+	Serial.println(slot);
+	#endif
+
+	#ifdef DEBUG
+	Serial.print("VALUE");
+	Serial.print(value);
+	#endif
+
+	SHA256_CTX iv;
+	sha256_init(&iv);
+	sha256_update(&iv, iv2, 12);		   //add nonce
+	sha256_update(&iv, data, 2);		   //add data
+	sha256_update(&iv, (uint8_t *)ID, 32); //add first 32 bytes of Freescale CHIP ID
+	sha256_final(&iv, aeskey);			   //Create hash and store in aeskey temporarily
+	memcpy(iv2, aeskey, 12);
+	#ifdef DEBUG
+	Serial.print("IV ");
+	byteprint(iv2, 12);
+	#endif
+
+	SHA256_CTX key2;
+	sha256_init(&key2);
+	sha256_update(&key2, key, 16);			 //add profilekey
+	sha256_update(&key2, data, 2);			 //add slot
+	sha256_update(&key2, (uint8_t *)ID, 32); //add first 32 bytes of Freescale CHIP ID
+	sha256_final(&key2, aeskey);			 //Create hash and store in aeskey
+
+	#ifdef DEBUG
+	Serial.print("AES KEY ");
+	byteprint(aeskey, 32);
+	Serial.print("DECRYPTED STATE");
+	byteprint(state, len);
+	#endif
+
+	// OnlyKey Go encrypt outer
+	if (HW_ID==OK_GO) okcrypto_split_sundae(state, len, 1);
+
+	gcm.clear();
+	gcm.setKey(aeskey, 32);
+	gcm.setIV(iv2, 12);
+	gcm.encrypt(state, state, len);
+
+	// OnlyKey Go encrypt inner
+	if (HW_ID==OK_GO) okcrypto_split_sundae(state, len, 2);
+
+	#ifdef DEBUG
+	Serial.print("ENCRYPTED STATE");
+	byteprint(state, len);
+	#endif
+	//gcm.computeTag(tag, sizeof(tag));
+	#endif
+}
+
+void okcrypto_aes_gcm_decrypt(uint8_t *state, uint8_t slot, uint8_t value, const uint8_t *key, int len)
+{
+	#ifdef STD_VERSION
+	GCM<AES256> gcm;
+	uint8_t iv2[12];
+	uint8_t aeskey[32];
+	uint8_t data[2];
+	data[0] = slot;
+	data[1] = value;
+
+	okcore_flashget_noncehash((uint8_t*)iv2, 12);
+
+	#ifdef DEBUG
+	Serial.print("INPUT KEY ");
+	byteprint((uint8_t *)key, 32);
+	#endif
+
+	#ifdef DEBUG
+	Serial.println("SLOT");
+	Serial.println(slot);
+	#endif
+
+	#ifdef DEBUG
+	Serial.print("VALUE");
+	Serial.print(value);
+	#endif
+
+	SHA256_CTX iv;
+	sha256_init(&iv);
+	sha256_update(&iv, iv2, 12);		   //add nonce
+	sha256_update(&iv, data, 2);		   //add data
+	sha256_update(&iv, (uint8_t *)ID, 32); //add first 32 bytes of Freescale CHIP ID
+	sha256_final(&iv, aeskey);			   //Create hash and store in aeskey temporarily
+	memcpy(iv2, aeskey, 12);
+
+	#ifdef DEBUG
+	Serial.print("IV ");
+	byteprint(iv2, 12);
+	#endif
+
+	SHA256_CTX key2;
+	sha256_init(&key2);
+	sha256_update(&key2, key, 16);			 //add profilekey
+	sha256_update(&key2, data, 2);			 //add data
+	sha256_update(&key2, (uint8_t *)ID, 32); //add first 32 bytes of Freescale CHIP ID
+	sha256_final(&key2, aeskey);			 //Create hash and store in aeskey
+
+	#ifdef DEBUG
+	Serial.print("AES KEY ");
+	byteprint(aeskey, 32);
+	Serial.print("ENCRYPTED STATE");
+	byteprint(state, len);
+	#endif
+
+	// OnlyKey Go decrypt inner
+	if (HW_ID==OK_GO) okcrypto_split_sundae(state, len, 3);
+
+	gcm.clear();
+	gcm.setKey(aeskey, 32);
+	gcm.setIV(iv2, 12);
+	gcm.decrypt(state, state, len);
+
+	// OnlyKey Go decrypt outer
+	if (HW_ID==OK_GO) okcrypto_split_sundae(state, len, 4);
+
+	#ifdef DEBUG
+	Serial.print("DECRYPTED STATE");
+	byteprint(state, len);
+	#endif
+	//if (!gcm.checkTag(tag, sizeof(tag))) {
+	//	return 1;
+	//}
+	#endif
+}
+
+void okcrypto_aes_gcm_encrypt2(uint8_t *state, uint8_t *iv1, const uint8_t *key, int len)
+{
+	#ifdef STD_VERSION
+	GCM<AES256> gcm;
+	//uint8_t tag[16];
+	#ifdef DEBUG
+	Serial.print("DECRYPTED STATE");
+	byteprint(state, len);
+	#endif
+
+	// OnlyKey Go encrypt outer
+	if (HW_ID==OK_GO) okcrypto_split_sundae(state, len, 1);
+
+	gcm.clear();
+	gcm.setKey(key, 32);
+	gcm.setIV(iv1, 12);
+	gcm.encrypt(state, state, len);
+
+	// OnlyKey Go encrypt inner
+	if (HW_ID==OK_GO) okcrypto_split_sundae(state, len, 2);
+
+	#ifdef DEBUG
+	Serial.print("ENCRYPTED STATE");
+	byteprint(state, len);
+	#endif
+	//gcm.computeTag(tag, sizeof(tag));
+	#endif
+}
+
+void okcrypto_aes_gcm_decrypt2(uint8_t *state, uint8_t *iv1, const uint8_t *key, int len)
+{
+	#ifdef STD_VERSION
+	GCM<AES256> gcm;
+	//uint8_t tag[16];
+	#ifdef DEBUG
+	Serial.print("ENCRYPTED STATE");
+	byteprint(state, len);
+	#endif
+
+	// OnlyKey Go decrypt inner
+	if (HW_ID==OK_GO) okcrypto_split_sundae(state, len, 3);
+
+	gcm.clear();
+	gcm.setKey(key, 32);
+	gcm.setIV(iv1, 12);
+	gcm.decrypt(state, state, len);
+
+	// OnlyKey Go decrypt outer
+	if (HW_ID==OK_GO) okcrypto_split_sundae(state, len, 4);
+
+	#ifdef DEBUG
+	Serial.print("DECRYPTED STATE");
+	byteprint(state, len);
+	#endif
+	//if (!gcm.checkTag(tag, sizeof(tag))) {
+	//	return 1;
+	//}
+	#endif
+}
+
+void okcrypto_aes_cbc_encrypt(uint8_t *state, const uint8_t *key, int len)
+{
+	#ifdef STD_VERSION
+	CBC<AES256> cbc;
+	uint8_t iv[16] = {0};
+	// newPinEnc uses IV=0
+	// https://fidoalliance.org/specs/fido-v2.0-id-20180227/fido-client-to-authenticator-protocol-v2.0-id-20180227.pdf
+
+	#ifdef DEBUG
+	Serial.print("DECRYPTED STATE");
+	byteprint(state, len);
+	#endif
+	cbc.clear();
+	cbc.setKey(key, 32);
+	cbc.setIV(iv, 16);
+	cbc.encrypt(state, state, len);
+	#ifdef DEBUG
+	Serial.print("ENCRYPTED STATE");
+	byteprint(state, len);
+	#endif
+	#endif
+}
+
+void okcrypto_aes_cbc_decrypt(uint8_t *state, const uint8_t *key, int len)
+{
+	#ifdef STD_VERSION
+	CBC<AES256> cbc;
+	uint8_t iv[16] = {0};
+	#ifdef DEBUG
+	Serial.print("ENCRYPTED STATE");
+	byteprint(state, len);
+	#endif
+	cbc.clear();
+	cbc.setKey(key, 32);
+	cbc.setIV(iv, 16);
+	cbc.decrypt(state, state, len);
+	#ifdef DEBUG
+	Serial.print("DECRYPTED STATE");
+	byteprint(state, len);
+	#endif
+	#endif
 }
 
 /*
@@ -1185,5 +1475,91 @@ void newhope_test ()
 #endif
 	return;
 } */
+
+void okcrypto_split_sundae(uint8_t *state, int len, uint8_t function) {
+	// Just like an ice cream sundae, this function mixes the best crypto algorithms 
+	// together in order to mitigate side channel attacks against a single algorithm 
+	// or key
+	//
+	// Here is how it works, for example, a 32 byte uint8_t *state:
+	// 
+	// Each Outer and inner crypto function only has access to half (or less) of the input/output
+	//
+	// Inner
+	// crypto_inner1 has access to bytes 16-31
+	// crypto_inner2 has access to bytes 0-15
+	//
+	// Middle
+	// crypto_middle as its in the middle has access to all bytes
+	//
+	// Outer
+	// crypto_outer1 has access to bytes 8-23
+	// crypto_outer2 has access to bytes 0-7 
+	// crypto_outer3 has access to bytes 24-31
+	//
+	// Each byte is triple encrypted using three different algorithms
+	// The middle algorithm is a FIPS 140-2 compliant algorithm for FIPS compliance
+	// Each algorithm uses a different key stored in a different location
+	// key1 - nonce2[0-15] - this is a random 16 byte value stored in Flash
+	// key2 - nonce[32] -  this is a random 32 byte value stored in Flash
+	// key3 - profilekey[32] - this is a derived 32 byte value stored in Flash
+	// key4 - ID[32] - this is a unique ID number assigned by manufacturer stored in ROM
+	// key5 - nonce2[16-31] - this is a random 16 byte string stored in Flash
+	//
+	// Inner
+	// crypto_inner1 - Algorithm1(key1) - Yubico Implementation of AES-128
+	// crypto_inner2 - Algorithm2(key2) - NACL crypto_stream_xsalsa20
+	//
+	// Middle
+	// Algorithm3(key3) - AES256-GCM
+	//
+	// Outer
+	// crypto_outer1 - Algorithm4(key4) - AES256-CBC
+	// crypto_outer2 - Algorithm5(key5) - NACL crypto_stream_aes128ctr
+	// crypto_outer3 - Algorithm6(key2) - NACL crypto_stream_salsa20
+	//
+	// function variable selects from the following functions:
+	// 1 = encrypt outer
+	// 2 = encrypt inner
+	// 3 = decrypt inner
+	// 4 = decrypt outer
+	//
+	// Encrypt usage:
+	// okcrypto_split_sundae(<plaintext>, <plaintext len>, <encrypt outer>)
+	// return ciphertext
+	// middle encryption is completed in calling function
+	// okcrypto_split_sundae(<ciphertext>, <ciphertext len>, <encrypt inner>)
+	// return ciphertext
+	//
+	// Decrypt usage:
+	// okcrypto_split_sundae(<ciphertext>, <ciphertext len>, <decrypt inner>)
+	// return ciphertext
+	// middle decryption is completed in calling function
+	// okcrypto_split_sundae(<ciphertext>, <ciphertext len>, <decrypt outer>)
+	// return plaintext
+
+	uint8_t key1[32];
+	uint8_t key2[32];
+
+	if(function==2 || function==3) {
+		// Retreive inner keys
+		// nonce2 & ID
+		// Retreive inner keys
+		// crypto_inner1 has access to bytes 16-31
+		// Yubico Implementation of AES-128 (len/2 to len)
+		// crypto_inner2 has access to bytes 0-15
+		// crypto_stream_xsalsa20 (0 to (len/2)-1)
+	} else {
+		// Retreive outer keys
+		// nonce2 & nonce
+		// Outer
+		// crypto_outer1 has access to bytes 8-23
+		// AES256-CBC (len/4 to (len-1-(len/4)))
+		// crypto_outer2 has access to bytes 0-7
+		// crypto_outer3 has access to bytes 24-31
+		// crypto_stream_aes128ctr (0 to (len/4)-1)
+		// crypto_stream_salsa20 ((len-(len/4)) to len-1)
+	}
+}
 
 #endif

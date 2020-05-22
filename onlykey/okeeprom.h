@@ -121,6 +121,7 @@ extern "C"
 #define EElen_backupkeymode	1
 #define EElen_sshchallengemode	1
 #define EElen_pgpchallengemode	1
+#define EElen_hmac_challengemode	1
 #define EElen_2ndprofilemode	1
 #define EElen_typespeed	1
 #define EElen_keyboardlayout	1
@@ -448,385 +449,389 @@ extern "C"
 #define EEpos_ledbrightness	(EEpos_nonce2 + EElen_nonce2)
 #define EEpos_autolockslot	(EEpos_ledbrightness + EElen_ledbrightness)
 #define EEpos_ctap_authstate	(EEpos_autolockslot + EElen_autolockslot)
+#define EEpos_hmac_challengemode	(EEpos_ctap_authstate + EElen_ctap_authstate)
 
 
-extern int  onlykey_eeget_ctap_authstate (uint8_t *ptr);
-extern void onlykey_eeset_ctap_authstate(uint8_t *ptr);
+extern int  okeeprom_eeget_ctap_authstate (uint8_t *ptr);
+extern void okeeprom_eeset_ctap_authstate(uint8_t *ptr);
 
-extern int  onlykey_eeget_backupkey (uint8_t *ptr);
-extern void onlykey_eeset_backupkey(uint8_t *ptr);
+extern int  okeeprom_eeget_backupkey (uint8_t *ptr);
+extern void okeeprom_eeset_backupkey(uint8_t *ptr);
 
-extern int  onlykey_eeget_timeout (uint8_t *ptr);
-extern void onlykey_eeset_timeout(uint8_t *ptr);
+extern int  okeeprom_eeget_timeout (uint8_t *ptr);
+extern void okeeprom_eeset_timeout(uint8_t *ptr);
 
-extern int  onlykey_eeget_wipemode (uint8_t *ptr);
-extern void onlykey_eeset_wipemode(uint8_t *ptr);
+extern int  okeeprom_eeget_wipemode (uint8_t *ptr);
+extern void okeeprom_eeset_wipemode(uint8_t *ptr);
 
-extern int  onlykey_eeget_backupkeymode (uint8_t *ptr);
-extern void onlykey_eeset_backupkeymode(uint8_t *ptr);
+extern int  okeeprom_eeget_backupkeymode (uint8_t *ptr);
+extern void okeeprom_eeset_backupkeymode(uint8_t *ptr);
 
-extern int  onlykey_eeget_sshchallengemode (uint8_t *ptr);
-extern void onlykey_eeset_sshchallengemode(uint8_t *ptr);
+extern int  okeeprom_eeget_sshchallengemode (uint8_t *ptr);
+extern void okeeprom_eeset_sshchallengemode(uint8_t *ptr);
 
-extern int  onlykey_eeget_pgpchallengemode (uint8_t *ptr);
-extern void onlykey_eeset_pgpchallengemode(uint8_t *ptr);
+extern int  okeeprom_eeget_pgpchallengemode (uint8_t *ptr);
+extern void okeeprom_eeset_pgpchallengemode(uint8_t *ptr);
 
-extern int  onlykey_eeget_2ndprofilemode (uint8_t *ptr);
-extern void onlykey_eeset_2ndprofilemode(uint8_t *ptr);
+extern int  okeeprom_eeget_hmac_challengemode (uint8_t *ptr);
+extern void okeeprom_eeset_hmac_challengemode(uint8_t *ptr);
 
-extern int  onlykey_eeget_typespeed (uint8_t *ptr);
-extern void onlykey_eeset_typespeed(uint8_t *ptr);
+extern int  okeeprom_eeget_2ndprofilemode (uint8_t *ptr);
+extern void okeeprom_eeset_2ndprofilemode(uint8_t *ptr);
 
-extern int  onlykey_eeget_keyboardlayout (uint8_t *ptr);
-extern void onlykey_eeset_keyboardlayout(uint8_t *ptr);
+extern int  okeeprom_eeget_typespeed (uint8_t *ptr);
+extern void okeeprom_eeset_typespeed(uint8_t *ptr);
 
-extern int  onlykey_eeget_ledbrightness (uint8_t *ptr);
-extern void onlykey_eeset_ledbrightness (uint8_t *ptr);
+extern int  okeeprom_eeget_keyboardlayout (uint8_t *ptr);
+extern void okeeprom_eeset_keyboardlayout(uint8_t *ptr);
 
-extern int  onlykey_eeget_autolockslot (uint8_t *ptr);
-extern void onlykey_eeset_autolockslot (uint8_t *ptr);
+extern int  okeeprom_eeget_ledbrightness (uint8_t *ptr);
+extern void okeeprom_eeset_ledbrightness (uint8_t *ptr);
 
-extern int  onlykey_eeget_failedlogins (uint8_t *ptr);
-extern void onlykey_eeset_failedlogins(uint8_t *ptr);
+extern int  okeeprom_eeget_autolockslot (uint8_t *ptr);
+extern void okeeprom_eeset_autolockslot (uint8_t *ptr);
 
-extern int  onlykey_eeget_nonce2 (uint8_t *ptr);
-extern void onlykey_eeset_nonce2(uint8_t *ptr);
+extern int  okeeprom_eeget_failedlogins (uint8_t *ptr);
+extern void okeeprom_eeset_failedlogins(uint8_t *ptr);
 
-extern int  onlykey_eeget_sincelastregularlogin (uint8_t *ptr);
-extern void onlykey_eeset_sincelastregularlogin(uint8_t *ptr);
+extern int  okeeprom_eeget_nonce2 (uint8_t *ptr);
+extern void okeeprom_eeset_nonce2(uint8_t *ptr);
 
-extern int  onlykey_eeget_aeskey (uint8_t *ptr);
-extern void onlykey_eeset_aeskey (uint8_t *ptr);
+extern int  okeeprom_eeget_sincelastregularlogin (uint8_t *ptr);
+extern void okeeprom_eeset_sincelastregularlogin(uint8_t *ptr);
+
+extern int  okeeprom_eeget_aeskey (uint8_t *ptr);
+extern void okeeprom_eeset_aeskey (uint8_t *ptr);
 
 extern int  yubikey_eeget_counter (uint8_t *ptr);
 extern void yubikey_eeset_counter (uint8_t *ptr);
 
-extern int  onlykey_eeget_private (uint8_t *ptr);
-extern void onlykey_eeset_private (uint8_t *ptr);
+extern int  okeeprom_eeget_private (uint8_t *ptr);
+extern void okeeprom_eeset_private (uint8_t *ptr);
 
-extern int  onlykey_eeget_public (uint8_t *ptr);
-extern void onlykey_eeset_public (uint8_t *ptr);
+extern int  okeeprom_eeget_public (uint8_t *ptr);
+extern void okeeprom_eeset_public (uint8_t *ptr);
 
-extern int  onlykey_eeget_password (uint8_t *ptr, int slot);
-extern void onlykey_eeset_password (uint8_t *ptr, int len, int slot);
+extern int  okeeprom_eeget_password (uint8_t *ptr, int slot);
+extern void okeeprom_eeset_password (uint8_t *ptr, int len, int slot);
 
-extern int  onlykey_eeget_2FAtype (uint8_t *ptr, int slot);
-extern void onlykey_eeset_2FAtype (uint8_t *ptr, int slot);
+extern int  okeeprom_eeget_2FAtype (uint8_t *ptr, int slot);
+extern void okeeprom_eeset_2FAtype (uint8_t *ptr, int slot);
 
-extern int  onlykey_eeget_addchar (uint8_t *ptr, int slot);
-extern void onlykey_eeset_addchar (uint8_t *ptr, int slot);
+extern int  okeeprom_eeget_addchar (uint8_t *ptr, int slot);
+extern void okeeprom_eeset_addchar (uint8_t *ptr, int slot);
 
-extern int  onlykey_eeget_delay1 (uint8_t *ptr, int slot);
-extern void onlykey_eeset_delay1 (uint8_t *ptr, int slot);
+extern int  okeeprom_eeget_delay1 (uint8_t *ptr, int slot);
+extern void okeeprom_eeset_delay1 (uint8_t *ptr, int slot);
 
-extern int  onlykey_eeget_delay2 (uint8_t *ptr, int slot);
-extern void onlykey_eeset_delay2 (uint8_t *ptr, int slot);
+extern int  okeeprom_eeget_delay2 (uint8_t *ptr, int slot);
+extern void okeeprom_eeset_delay2 (uint8_t *ptr, int slot);
 
-extern int  onlykey_eeget_delay3 (uint8_t *ptr, int slot);
-extern void onlykey_eeset_delay3 (uint8_t *ptr, int slot);
+extern int  okeeprom_eeget_delay3 (uint8_t *ptr, int slot);
+extern void okeeprom_eeset_delay3 (uint8_t *ptr, int slot);
 
-extern int  onlykey_eeget_ecckey (uint8_t *ptr, int slot);
-extern void onlykey_eeset_ecckey (uint8_t *ptr, int slot);
+extern int  okeeprom_eeget_ecckey (uint8_t *ptr, int slot);
+extern void okeeprom_eeset_ecckey (uint8_t *ptr, int slot);
 
-extern int  onlykey_eeget_rsakey (uint8_t *ptr, int slot);
-extern void onlykey_eeset_rsakey (uint8_t *ptr, int slot);
+extern int  okeeprom_eeget_rsakey (uint8_t *ptr, int slot);
+extern void okeeprom_eeset_rsakey (uint8_t *ptr, int slot);
 
-extern int  onlykey_eeget_U2Fprivlen (uint8_t *ptr);
-extern void onlykey_eeset_U2Fprivlen (uint8_t *ptr);
+extern int  okeeprom_eeget_U2Fprivlen (uint8_t *ptr);
+extern void okeeprom_eeset_U2Fprivlen (uint8_t *ptr);
 
-extern int  onlykey_eeget_U2Fcertlen (uint8_t *ptr);
-extern void onlykey_eeset_U2Fcertlen (uint8_t *ptr);
+extern int  okeeprom_eeget_U2Fcertlen (uint8_t *ptr);
+extern void okeeprom_eeset_U2Fcertlen (uint8_t *ptr);
 
-extern int  onlykey_eeget_flashpos (uint8_t *ptr);
-extern void onlykey_eeset_flashpos (uint8_t *ptr);
+extern int  okeeprom_eeget_flashpos (uint8_t *ptr);
+extern void okeeprom_eeset_flashpos (uint8_t *ptr);
 
-extern int  onlykey_eeget_passwordlen1 (uint8_t *ptr);
-extern void onlykey_eeset_passwordlen1 (uint8_t *ptr);
+extern int  okeeprom_eeget_passwordlen1 (uint8_t *ptr);
+extern void okeeprom_eeset_passwordlen1 (uint8_t *ptr);
 
-extern int  onlykey_eeget_passwordlen2 (uint8_t *ptr);
-extern void onlykey_eeset_passwordlen2 (uint8_t *ptr);
+extern int  okeeprom_eeget_passwordlen2 (uint8_t *ptr);
+extern void okeeprom_eeset_passwordlen2 (uint8_t *ptr);
 
-extern int  onlykey_eeget_passwordlen3 (uint8_t *ptr);
-extern void onlykey_eeset_passwordlen3 (uint8_t *ptr);
+extern int  okeeprom_eeget_passwordlen3 (uint8_t *ptr);
+extern void okeeprom_eeset_passwordlen3 (uint8_t *ptr);
 
-extern int  onlykey_eeget_passwordlen4 (uint8_t *ptr);
-extern void onlykey_eeset_passwordlen4 (uint8_t *ptr);
+extern int  okeeprom_eeget_passwordlen4 (uint8_t *ptr);
+extern void okeeprom_eeset_passwordlen4 (uint8_t *ptr);
 
-extern int  onlykey_eeget_passwordlen5 (uint8_t *ptr);
-extern void onlykey_eeset_passwordlen5 (uint8_t *ptr);
+extern int  okeeprom_eeget_passwordlen5 (uint8_t *ptr);
+extern void okeeprom_eeset_passwordlen5 (uint8_t *ptr);
 
-extern int  onlykey_eeget_passwordlen6 (uint8_t *ptr);
-extern void onlykey_eeset_passwordlen6 (uint8_t *ptr);
+extern int  okeeprom_eeget_passwordlen6 (uint8_t *ptr);
+extern void okeeprom_eeset_passwordlen6 (uint8_t *ptr);
 
-extern int  onlykey_eeget_passwordlen7 (uint8_t *ptr);
-extern void onlykey_eeset_passwordlen7 (uint8_t *ptr);
+extern int  okeeprom_eeget_passwordlen7 (uint8_t *ptr);
+extern void okeeprom_eeset_passwordlen7 (uint8_t *ptr);
 
-extern int  onlykey_eeget_passwordlen8 (uint8_t *ptr);
-extern void onlykey_eeset_passwordlen8 (uint8_t *ptr);
+extern int  okeeprom_eeget_passwordlen8 (uint8_t *ptr);
+extern void okeeprom_eeset_passwordlen8 (uint8_t *ptr);
 
-extern int  onlykey_eeget_passwordlen9 (uint8_t *ptr);
-extern void onlykey_eeset_passwordlen9 (uint8_t *ptr);
+extern int  okeeprom_eeget_passwordlen9 (uint8_t *ptr);
+extern void okeeprom_eeset_passwordlen9 (uint8_t *ptr);
 
-extern int  onlykey_eeget_passwordlen10 (uint8_t *ptr);
-extern void onlykey_eeset_passwordlen10 (uint8_t *ptr);
+extern int  okeeprom_eeget_passwordlen10 (uint8_t *ptr);
+extern void okeeprom_eeset_passwordlen10 (uint8_t *ptr);
 
-extern int  onlykey_eeget_passwordlen11 (uint8_t *ptr);
-extern void onlykey_eeset_passwordlen11 (uint8_t *ptr);
+extern int  okeeprom_eeget_passwordlen11 (uint8_t *ptr);
+extern void okeeprom_eeset_passwordlen11 (uint8_t *ptr);
 
-extern int  onlykey_eeget_passwordlen12 (uint8_t *ptr);
-extern void onlykey_eeset_passwordlen12 (uint8_t *ptr);
+extern int  okeeprom_eeget_passwordlen12 (uint8_t *ptr);
+extern void okeeprom_eeset_passwordlen12 (uint8_t *ptr);
 
-extern int  onlykey_eeget_passwordlen13 (uint8_t *ptr);
-extern void onlykey_eeset_passwordlen13 (uint8_t *ptr);
+extern int  okeeprom_eeget_passwordlen13 (uint8_t *ptr);
+extern void okeeprom_eeset_passwordlen13 (uint8_t *ptr);
 
-extern int  onlykey_eeget_passwordlen14 (uint8_t *ptr);
-extern void onlykey_eeset_passwordlen14 (uint8_t *ptr);
+extern int  okeeprom_eeget_passwordlen14 (uint8_t *ptr);
+extern void okeeprom_eeset_passwordlen14 (uint8_t *ptr);
 
-extern int  onlykey_eeget_passwordlen15 (uint8_t *ptr);
-extern void onlykey_eeset_passwordlen15 (uint8_t *ptr);
+extern int  okeeprom_eeget_passwordlen15 (uint8_t *ptr);
+extern void okeeprom_eeset_passwordlen15 (uint8_t *ptr);
 
-extern int  onlykey_eeget_passwordlen16 (uint8_t *ptr);
-extern void onlykey_eeset_passwordlen16 (uint8_t *ptr);
+extern int  okeeprom_eeget_passwordlen16 (uint8_t *ptr);
+extern void okeeprom_eeset_passwordlen16 (uint8_t *ptr);
 
-extern int  onlykey_eeget_passwordlen17 (uint8_t *ptr);
-extern void onlykey_eeset_passwordlen17 (uint8_t *ptr);
+extern int  okeeprom_eeget_passwordlen17 (uint8_t *ptr);
+extern void okeeprom_eeset_passwordlen17 (uint8_t *ptr);
 
-extern int  onlykey_eeget_passwordlen18 (uint8_t *ptr);
-extern void onlykey_eeset_passwordlen18 (uint8_t *ptr);
+extern int  okeeprom_eeget_passwordlen18 (uint8_t *ptr);
+extern void okeeprom_eeset_passwordlen18 (uint8_t *ptr);
 
-extern int  onlykey_eeget_passwordlen19 (uint8_t *ptr);
-extern void onlykey_eeset_passwordlen19 (uint8_t *ptr);
+extern int  okeeprom_eeget_passwordlen19 (uint8_t *ptr);
+extern void okeeprom_eeset_passwordlen19 (uint8_t *ptr);
 
-extern int  onlykey_eeget_passwordlen20 (uint8_t *ptr);
-extern void onlykey_eeset_passwordlen20 (uint8_t *ptr);
+extern int  okeeprom_eeget_passwordlen20 (uint8_t *ptr);
+extern void okeeprom_eeset_passwordlen20 (uint8_t *ptr);
 
-extern int  onlykey_eeget_passwordlen21 (uint8_t *ptr);
-extern void onlykey_eeset_passwordlen21 (uint8_t *ptr);
+extern int  okeeprom_eeget_passwordlen21 (uint8_t *ptr);
+extern void okeeprom_eeset_passwordlen21 (uint8_t *ptr);
 
-extern int  onlykey_eeget_passwordlen22 (uint8_t *ptr);
-extern void onlykey_eeset_passwordlen22 (uint8_t *ptr);
+extern int  okeeprom_eeget_passwordlen22 (uint8_t *ptr);
+extern void okeeprom_eeset_passwordlen22 (uint8_t *ptr);
 
-extern int  onlykey_eeget_passwordlen23 (uint8_t *ptr);
-extern void onlykey_eeset_passwordlen23 (uint8_t *ptr);
+extern int  okeeprom_eeget_passwordlen23 (uint8_t *ptr);
+extern void okeeprom_eeset_passwordlen23 (uint8_t *ptr);
 
-extern int  onlykey_eeget_passwordlen24 (uint8_t *ptr);
-extern void onlykey_eeset_passwordlen24 (uint8_t *ptr);
+extern int  okeeprom_eeget_passwordlen24 (uint8_t *ptr);
+extern void okeeprom_eeset_passwordlen24 (uint8_t *ptr);
 
-extern int  onlykey_eeget_usernamelen1 (uint8_t *ptr);
-extern void onlykey_eeset_usernamelen1 (uint8_t *ptr);
+extern int  okeeprom_eeget_usernamelen1 (uint8_t *ptr);
+extern void okeeprom_eeset_usernamelen1 (uint8_t *ptr);
 
-extern int  onlykey_eeget_usernamelen2 (uint8_t *ptr);
-extern void onlykey_eeset_usernamelen2 (uint8_t *ptr);
+extern int  okeeprom_eeget_usernamelen2 (uint8_t *ptr);
+extern void okeeprom_eeset_usernamelen2 (uint8_t *ptr);
 
-extern int  onlykey_eeget_usernamelen3 (uint8_t *ptr);
-extern void onlykey_eeset_usernamelen3 (uint8_t *ptr);
+extern int  okeeprom_eeget_usernamelen3 (uint8_t *ptr);
+extern void okeeprom_eeset_usernamelen3 (uint8_t *ptr);
 
-extern int  onlykey_eeget_usernamelen4 (uint8_t *ptr);
-extern void onlykey_eeset_usernamelen4 (uint8_t *ptr);
+extern int  okeeprom_eeget_usernamelen4 (uint8_t *ptr);
+extern void okeeprom_eeset_usernamelen4 (uint8_t *ptr);
 
-extern int  onlykey_eeget_usernamelen5 (uint8_t *ptr);
-extern void onlykey_eeset_usernamelen5 (uint8_t *ptr);
+extern int  okeeprom_eeget_usernamelen5 (uint8_t *ptr);
+extern void okeeprom_eeset_usernamelen5 (uint8_t *ptr);
 
-extern int  onlykey_eeget_usernamelen6 (uint8_t *ptr);
-extern void onlykey_eeset_usernamelen6 (uint8_t *ptr);
+extern int  okeeprom_eeget_usernamelen6 (uint8_t *ptr);
+extern void okeeprom_eeset_usernamelen6 (uint8_t *ptr);
 
-extern int  onlykey_eeget_usernamelen7 (uint8_t *ptr);
-extern void onlykey_eeset_usernamelen7 (uint8_t *ptr);
+extern int  okeeprom_eeget_usernamelen7 (uint8_t *ptr);
+extern void okeeprom_eeset_usernamelen7 (uint8_t *ptr);
 
-extern int  onlykey_eeget_usernamelen8 (uint8_t *ptr);
-extern void onlykey_eeset_usernamelen8 (uint8_t *ptr);
+extern int  okeeprom_eeget_usernamelen8 (uint8_t *ptr);
+extern void okeeprom_eeset_usernamelen8 (uint8_t *ptr);
 
-extern int  onlykey_eeget_usernamelen9 (uint8_t *ptr);
-extern void onlykey_eeset_usernamelen9 (uint8_t *ptr);
+extern int  okeeprom_eeget_usernamelen9 (uint8_t *ptr);
+extern void okeeprom_eeset_usernamelen9 (uint8_t *ptr);
 
-extern int  onlykey_eeget_usernamelen10 (uint8_t *ptr);
-extern void onlykey_eeset_usernamelen10 (uint8_t *ptr);
+extern int  okeeprom_eeget_usernamelen10 (uint8_t *ptr);
+extern void okeeprom_eeset_usernamelen10 (uint8_t *ptr);
 
-extern int  onlykey_eeget_usernamelen11 (uint8_t *ptr);
-extern void onlykey_eeset_usernamelen11 (uint8_t *ptr);
+extern int  okeeprom_eeget_usernamelen11 (uint8_t *ptr);
+extern void okeeprom_eeset_usernamelen11 (uint8_t *ptr);
 
-extern int  onlykey_eeget_usernamelen12 (uint8_t *ptr);
-extern void onlykey_eeset_usernamelen12 (uint8_t *ptr);
+extern int  okeeprom_eeget_usernamelen12 (uint8_t *ptr);
+extern void okeeprom_eeset_usernamelen12 (uint8_t *ptr);
 
-extern int  onlykey_eeget_usernamelen13 (uint8_t *ptr);
-extern void onlykey_eeset_usernamelen13 (uint8_t *ptr);
+extern int  okeeprom_eeget_usernamelen13 (uint8_t *ptr);
+extern void okeeprom_eeset_usernamelen13 (uint8_t *ptr);
 
-extern int  onlykey_eeget_usernamelen14 (uint8_t *ptr);
-extern void onlykey_eeset_usernamelen14 (uint8_t *ptr);
+extern int  okeeprom_eeget_usernamelen14 (uint8_t *ptr);
+extern void okeeprom_eeset_usernamelen14 (uint8_t *ptr);
 
-extern int  onlykey_eeget_usernamelen15 (uint8_t *ptr);
-extern void onlykey_eeset_usernamelen15 (uint8_t *ptr);
+extern int  okeeprom_eeget_usernamelen15 (uint8_t *ptr);
+extern void okeeprom_eeset_usernamelen15 (uint8_t *ptr);
 
-extern int  onlykey_eeget_usernamelen16 (uint8_t *ptr);
-extern void onlykey_eeset_usernamelen16 (uint8_t *ptr);
+extern int  okeeprom_eeget_usernamelen16 (uint8_t *ptr);
+extern void okeeprom_eeset_usernamelen16 (uint8_t *ptr);
 
-extern int  onlykey_eeget_usernamelen17 (uint8_t *ptr);
-extern void onlykey_eeset_usernamelen17 (uint8_t *ptr);
+extern int  okeeprom_eeget_usernamelen17 (uint8_t *ptr);
+extern void okeeprom_eeset_usernamelen17 (uint8_t *ptr);
 
-extern int  onlykey_eeget_usernamelen18 (uint8_t *ptr);
-extern void onlykey_eeset_usernamelen18 (uint8_t *ptr);
+extern int  okeeprom_eeget_usernamelen18 (uint8_t *ptr);
+extern void okeeprom_eeset_usernamelen18 (uint8_t *ptr);
 
-extern int  onlykey_eeget_usernamelen19 (uint8_t *ptr);
-extern void onlykey_eeset_usernamelen19 (uint8_t *ptr);
+extern int  okeeprom_eeget_usernamelen19 (uint8_t *ptr);
+extern void okeeprom_eeset_usernamelen19 (uint8_t *ptr);
 
-extern int  onlykey_eeget_usernamelen20 (uint8_t *ptr);
-extern void onlykey_eeset_usernamelen20 (uint8_t *ptr);
+extern int  okeeprom_eeget_usernamelen20 (uint8_t *ptr);
+extern void okeeprom_eeset_usernamelen20 (uint8_t *ptr);
 
-extern int  onlykey_eeget_usernamelen21 (uint8_t *ptr);
-extern void onlykey_eeset_usernamelen21 (uint8_t *ptr);
+extern int  okeeprom_eeget_usernamelen21 (uint8_t *ptr);
+extern void okeeprom_eeset_usernamelen21 (uint8_t *ptr);
 
-extern int  onlykey_eeget_usernamelen22 (uint8_t *ptr);
-extern void onlykey_eeset_usernamelen22 (uint8_t *ptr);
+extern int  okeeprom_eeget_usernamelen22 (uint8_t *ptr);
+extern void okeeprom_eeset_usernamelen22 (uint8_t *ptr);
 
-extern int  onlykey_eeget_usernamelen23 (uint8_t *ptr);
-extern void onlykey_eeset_usernamelen23 (uint8_t *ptr);
+extern int  okeeprom_eeget_usernamelen23 (uint8_t *ptr);
+extern void okeeprom_eeset_usernamelen23 (uint8_t *ptr);
 
-extern int  onlykey_eeget_usernamelen24 (uint8_t *ptr);
-extern void onlykey_eeset_usernamelen24 (uint8_t *ptr);
+extern int  okeeprom_eeget_usernamelen24 (uint8_t *ptr);
+extern void okeeprom_eeset_usernamelen24 (uint8_t *ptr);
 
-extern int  onlykey_eeget_urllen1 (uint8_t *ptr);
-extern void onlykey_eeset_urllen1 (uint8_t *ptr);
+extern int  okeeprom_eeget_urllen1 (uint8_t *ptr);
+extern void okeeprom_eeset_urllen1 (uint8_t *ptr);
 
-extern int  onlykey_eeget_urllen2 (uint8_t *ptr);
-extern void onlykey_eeset_urllen2 (uint8_t *ptr);
+extern int  okeeprom_eeget_urllen2 (uint8_t *ptr);
+extern void okeeprom_eeset_urllen2 (uint8_t *ptr);
 
-extern int  onlykey_eeget_urllen3 (uint8_t *ptr);
-extern void onlykey_eeset_urllen3 (uint8_t *ptr);
+extern int  okeeprom_eeget_urllen3 (uint8_t *ptr);
+extern void okeeprom_eeset_urllen3 (uint8_t *ptr);
 
-extern int  onlykey_eeget_urllen4 (uint8_t *ptr);
-extern void onlykey_eeset_urllen4 (uint8_t *ptr);
+extern int  okeeprom_eeget_urllen4 (uint8_t *ptr);
+extern void okeeprom_eeset_urllen4 (uint8_t *ptr);
 
-extern int  onlykey_eeget_urllen5 (uint8_t *ptr);
-extern void onlykey_eeset_urllen5 (uint8_t *ptr);
+extern int  okeeprom_eeget_urllen5 (uint8_t *ptr);
+extern void okeeprom_eeset_urllen5 (uint8_t *ptr);
 
-extern int  onlykey_eeget_urllen6 (uint8_t *ptr);
-extern void onlykey_eeset_urllen6 (uint8_t *ptr);
+extern int  okeeprom_eeget_urllen6 (uint8_t *ptr);
+extern void okeeprom_eeset_urllen6 (uint8_t *ptr);
 
-extern int  onlykey_eeget_urllen7 (uint8_t *ptr);
-extern void onlykey_eeset_urllen7 (uint8_t *ptr);
+extern int  okeeprom_eeget_urllen7 (uint8_t *ptr);
+extern void okeeprom_eeset_urllen7 (uint8_t *ptr);
 
-extern int  onlykey_eeget_urllen8 (uint8_t *ptr);
-extern void onlykey_eeset_urllen8 (uint8_t *ptr);
+extern int  okeeprom_eeget_urllen8 (uint8_t *ptr);
+extern void okeeprom_eeset_urllen8 (uint8_t *ptr);
 
-extern int  onlykey_eeget_urllen9 (uint8_t *ptr);
-extern void onlykey_eeset_urllen9 (uint8_t *ptr);
+extern int  okeeprom_eeget_urllen9 (uint8_t *ptr);
+extern void okeeprom_eeset_urllen9 (uint8_t *ptr);
 
-extern int  onlykey_eeget_urllen10 (uint8_t *ptr);
-extern void onlykey_eeset_urllen10 (uint8_t *ptr);
+extern int  okeeprom_eeget_urllen10 (uint8_t *ptr);
+extern void okeeprom_eeset_urllen10 (uint8_t *ptr);
 
-extern int  onlykey_eeget_urllen11 (uint8_t *ptr);
-extern void onlykey_eeset_urllen11 (uint8_t *ptr);
+extern int  okeeprom_eeget_urllen11 (uint8_t *ptr);
+extern void okeeprom_eeset_urllen11 (uint8_t *ptr);
 
-extern int  onlykey_eeget_urllen12 (uint8_t *ptr);
-extern void onlykey_eeset_urllen12 (uint8_t *ptr);
+extern int  okeeprom_eeget_urllen12 (uint8_t *ptr);
+extern void okeeprom_eeset_urllen12 (uint8_t *ptr);
 
-extern int  onlykey_eeget_urllen13 (uint8_t *ptr);
-extern void onlykey_eeset_urllen13 (uint8_t *ptr);
+extern int  okeeprom_eeget_urllen13 (uint8_t *ptr);
+extern void okeeprom_eeset_urllen13 (uint8_t *ptr);
 
-extern int  onlykey_eeget_urllen14 (uint8_t *ptr);
-extern void onlykey_eeset_urllen14 (uint8_t *ptr);
+extern int  okeeprom_eeget_urllen14 (uint8_t *ptr);
+extern void okeeprom_eeset_urllen14 (uint8_t *ptr);
 
-extern int  onlykey_eeget_urllen15 (uint8_t *ptr);
-extern void onlykey_eeset_urllen15 (uint8_t *ptr);
+extern int  okeeprom_eeget_urllen15 (uint8_t *ptr);
+extern void okeeprom_eeset_urllen15 (uint8_t *ptr);
 
-extern int  onlykey_eeget_urllen16 (uint8_t *ptr);
-extern void onlykey_eeset_urllen16 (uint8_t *ptr);
+extern int  okeeprom_eeget_urllen16 (uint8_t *ptr);
+extern void okeeprom_eeset_urllen16 (uint8_t *ptr);
 
-extern int  onlykey_eeget_urllen17 (uint8_t *ptr);
-extern void onlykey_eeset_urllen17 (uint8_t *ptr);
+extern int  okeeprom_eeget_urllen17 (uint8_t *ptr);
+extern void okeeprom_eeset_urllen17 (uint8_t *ptr);
 
-extern int  onlykey_eeget_urllen18 (uint8_t *ptr);
-extern void onlykey_eeset_urllen18 (uint8_t *ptr);
+extern int  okeeprom_eeget_urllen18 (uint8_t *ptr);
+extern void okeeprom_eeset_urllen18 (uint8_t *ptr);
 
-extern int  onlykey_eeget_urllen19 (uint8_t *ptr);
-extern void onlykey_eeset_urllen19 (uint8_t *ptr);
+extern int  okeeprom_eeget_urllen19 (uint8_t *ptr);
+extern void okeeprom_eeset_urllen19 (uint8_t *ptr);
 
-extern int  onlykey_eeget_urllen20 (uint8_t *ptr);
-extern void onlykey_eeset_urllen20 (uint8_t *ptr);
+extern int  okeeprom_eeget_urllen20 (uint8_t *ptr);
+extern void okeeprom_eeset_urllen20 (uint8_t *ptr);
 
-extern int  onlykey_eeget_urllen21 (uint8_t *ptr);
-extern void onlykey_eeset_urllen21 (uint8_t *ptr);
+extern int  okeeprom_eeget_urllen21 (uint8_t *ptr);
+extern void okeeprom_eeset_urllen21 (uint8_t *ptr);
 
-extern int  onlykey_eeget_urllen22 (uint8_t *ptr);
-extern void onlykey_eeset_urllen22 (uint8_t *ptr);
+extern int  okeeprom_eeget_urllen22 (uint8_t *ptr);
+extern void okeeprom_eeset_urllen22 (uint8_t *ptr);
 
-extern int  onlykey_eeget_urllen23 (uint8_t *ptr);
-extern void onlykey_eeset_urllen23 (uint8_t *ptr);
+extern int  okeeprom_eeget_urllen23 (uint8_t *ptr);
+extern void okeeprom_eeset_urllen23 (uint8_t *ptr);
 
-extern int  onlykey_eeget_urllen24 (uint8_t *ptr);
-extern void onlykey_eeset_urllen24 (uint8_t *ptr);
+extern int  okeeprom_eeget_urllen24 (uint8_t *ptr);
+extern void okeeprom_eeset_urllen24 (uint8_t *ptr);
 
-extern int  onlykey_eeget_totpkeylen1 (uint8_t *ptr);
-extern void onlykey_eeset_totpkeylen1 (uint8_t *ptr);
+extern int  okeeprom_eeget_totpkeylen1 (uint8_t *ptr);
+extern void okeeprom_eeset_totpkeylen1 (uint8_t *ptr);
 
-extern int  onlykey_eeget_totpkeylen2 (uint8_t *ptr);
-extern void onlykey_eeset_totpkeylen2 (uint8_t *ptr);
+extern int  okeeprom_eeget_totpkeylen2 (uint8_t *ptr);
+extern void okeeprom_eeset_totpkeylen2 (uint8_t *ptr);
 
-extern int  onlykey_eeget_totpkeylen3 (uint8_t *ptr);
-extern void onlykey_eeset_totpkeylen3 (uint8_t *ptr);
+extern int  okeeprom_eeget_totpkeylen3 (uint8_t *ptr);
+extern void okeeprom_eeset_totpkeylen3 (uint8_t *ptr);
 
-extern int  onlykey_eeget_totpkeylen4 (uint8_t *ptr);
-extern void onlykey_eeset_totpkeylen4 (uint8_t *ptr);
+extern int  okeeprom_eeget_totpkeylen4 (uint8_t *ptr);
+extern void okeeprom_eeset_totpkeylen4 (uint8_t *ptr);
 
-extern int  onlykey_eeget_totpkeylen5 (uint8_t *ptr);
-extern void onlykey_eeset_totpkeylen5 (uint8_t *ptr);
+extern int  okeeprom_eeget_totpkeylen5 (uint8_t *ptr);
+extern void okeeprom_eeset_totpkeylen5 (uint8_t *ptr);
 
-extern int  onlykey_eeget_totpkeylen6 (uint8_t *ptr);
-extern void onlykey_eeset_totpkeylen6 (uint8_t *ptr);
+extern int  okeeprom_eeget_totpkeylen6 (uint8_t *ptr);
+extern void okeeprom_eeset_totpkeylen6 (uint8_t *ptr);
 
-extern int  onlykey_eeget_totpkeylen7 (uint8_t *ptr);
-extern void onlykey_eeset_totpkeylen7 (uint8_t *ptr);
+extern int  okeeprom_eeget_totpkeylen7 (uint8_t *ptr);
+extern void okeeprom_eeset_totpkeylen7 (uint8_t *ptr);
 
-extern int  onlykey_eeget_totpkeylen8 (uint8_t *ptr);
-extern void onlykey_eeset_totpkeylen8 (uint8_t *ptr);
+extern int  okeeprom_eeget_totpkeylen8 (uint8_t *ptr);
+extern void okeeprom_eeset_totpkeylen8 (uint8_t *ptr);
 
-extern int  onlykey_eeget_totpkeylen9 (uint8_t *ptr);
-extern void onlykey_eeset_totpkeylen9 (uint8_t *ptr);
+extern int  okeeprom_eeget_totpkeylen9 (uint8_t *ptr);
+extern void okeeprom_eeset_totpkeylen9 (uint8_t *ptr);
 
-extern int  onlykey_eeget_totpkeylen10 (uint8_t *ptr);
-extern void onlykey_eeset_totpkeylen10 (uint8_t *ptr);
+extern int  okeeprom_eeget_totpkeylen10 (uint8_t *ptr);
+extern void okeeprom_eeset_totpkeylen10 (uint8_t *ptr);
 
-extern int  onlykey_eeget_totpkeylen11 (uint8_t *ptr);
-extern void onlykey_eeset_totpkeylen11 (uint8_t *ptr);
+extern int  okeeprom_eeget_totpkeylen11 (uint8_t *ptr);
+extern void okeeprom_eeset_totpkeylen11 (uint8_t *ptr);
 
-extern int  onlykey_eeget_totpkeylen12 (uint8_t *ptr);
-extern void onlykey_eeset_totpkeylen12 (uint8_t *ptr);
+extern int  okeeprom_eeget_totpkeylen12 (uint8_t *ptr);
+extern void okeeprom_eeset_totpkeylen12 (uint8_t *ptr);
 
-extern int  onlykey_eeget_totpkeylen13 (uint8_t *ptr);
-extern void onlykey_eeset_totpkeylen13 (uint8_t *ptr);
+extern int  okeeprom_eeget_totpkeylen13 (uint8_t *ptr);
+extern void okeeprom_eeset_totpkeylen13 (uint8_t *ptr);
 
-extern int  onlykey_eeget_totpkeylen14 (uint8_t *ptr);
-extern void onlykey_eeset_totpkeylen14 (uint8_t *ptr);
+extern int  okeeprom_eeget_totpkeylen14 (uint8_t *ptr);
+extern void okeeprom_eeset_totpkeylen14 (uint8_t *ptr);
 
-extern int  onlykey_eeget_totpkeylen15 (uint8_t *ptr);
-extern void onlykey_eeset_totpkeylen15 (uint8_t *ptr);
+extern int  okeeprom_eeget_totpkeylen15 (uint8_t *ptr);
+extern void okeeprom_eeset_totpkeylen15 (uint8_t *ptr);
 
-extern int  onlykey_eeget_totpkeylen16 (uint8_t *ptr);
-extern void onlykey_eeset_totpkeylen16 (uint8_t *ptr);
+extern int  okeeprom_eeget_totpkeylen16 (uint8_t *ptr);
+extern void okeeprom_eeset_totpkeylen16 (uint8_t *ptr);
 
-extern int  onlykey_eeget_totpkeylen17 (uint8_t *ptr);
-extern void onlykey_eeset_totpkeylen17 (uint8_t *ptr);
+extern int  okeeprom_eeget_totpkeylen17 (uint8_t *ptr);
+extern void okeeprom_eeset_totpkeylen17 (uint8_t *ptr);
 
-extern int  onlykey_eeget_totpkeylen18 (uint8_t *ptr);
-extern void onlykey_eeset_totpkeylen18 (uint8_t *ptr);
+extern int  okeeprom_eeget_totpkeylen18 (uint8_t *ptr);
+extern void okeeprom_eeset_totpkeylen18 (uint8_t *ptr);
 
-extern int  onlykey_eeget_totpkeylen19 (uint8_t *ptr);
-extern void onlykey_eeset_totpkeylen19 (uint8_t *ptr);
+extern int  okeeprom_eeget_totpkeylen19 (uint8_t *ptr);
+extern void okeeprom_eeset_totpkeylen19 (uint8_t *ptr);
 
-extern int  onlykey_eeget_totpkeylen20 (uint8_t *ptr);
-extern void onlykey_eeset_totpkeylen20 (uint8_t *ptr);
+extern int  okeeprom_eeget_totpkeylen20 (uint8_t *ptr);
+extern void okeeprom_eeset_totpkeylen20 (uint8_t *ptr);
 
-extern int  onlykey_eeget_totpkeylen21 (uint8_t *ptr);
-extern void onlykey_eeset_totpkeylen21 (uint8_t *ptr);
+extern int  okeeprom_eeget_totpkeylen21 (uint8_t *ptr);
+extern void okeeprom_eeset_totpkeylen21 (uint8_t *ptr);
 
-extern int  onlykey_eeget_totpkeylen22 (uint8_t *ptr);
-extern void onlykey_eeset_totpkeylen22 (uint8_t *ptr);
+extern int  okeeprom_eeget_totpkeylen22 (uint8_t *ptr);
+extern void okeeprom_eeset_totpkeylen22 (uint8_t *ptr);
 
-extern int  onlykey_eeget_totpkeylen23 (uint8_t *ptr);
-extern void onlykey_eeset_totpkeylen23 (uint8_t *ptr);
+extern int  okeeprom_eeget_totpkeylen23 (uint8_t *ptr);
+extern void okeeprom_eeset_totpkeylen23 (uint8_t *ptr);
 
-extern int  onlykey_eeget_totpkeylen24 (uint8_t *ptr);
-extern void onlykey_eeset_totpkeylen24 (uint8_t *ptr);
+extern int  okeeprom_eeget_totpkeylen24 (uint8_t *ptr);
+extern void okeeprom_eeset_totpkeylen24 (uint8_t *ptr);
 
 
 #ifdef __cplusplus

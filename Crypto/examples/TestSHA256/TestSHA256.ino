@@ -25,7 +25,7 @@ This example runs tests on the SHA256 implementation to verify correct behaviour
 */
 
 #include <Crypto.h>
-#include <SHA256.h>
+#include <SHA256_2.h>
 #include <string.h>
 
 #define HASH_SIZE 32

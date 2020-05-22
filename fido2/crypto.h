@@ -42,8 +42,8 @@ void crypto_ecc256_shared_secret(const uint8_t * pubkey, const uint8_t * privkey
 #define CRYPTO_TRANSPORT_KEY            ((uint8_t*)1)
 #define CRYPTO_MASTER_KEY               ((uint8_t*)0)
 
-#define crypto_aes256_decrypt aes_cbc_decrypt
-#define crypto_aes256_encrypt aes_cbc_encrypt
+#define crypto_aes256_decrypt okcore_aes_cbc_decrypt
+#define crypto_aes256_encrypt okcore_aes_cbc_encrypt
 
 void crypto_reset_master_secret();
 void crypto_load_master_secret(uint8_t * key);

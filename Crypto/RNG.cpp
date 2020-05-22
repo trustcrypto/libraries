@@ -638,8 +638,13 @@ void RNGClass::stir(const uint8_t *data, size_t len, unsigned int credit)
             uint8_t *output = ((uint8_t *)block) + 16;
             len -= templen;
             while (templen > 0) {
-		        //Serial.println(*data); //Debug to view random data in real-time
+                //Serial.println("data to stir in");
+                //Serial.println(*data,HEX); //Debug to view random data in real-time
+                //Serial.println("current data");
+                //Serial.println(*output,HEX); //Debug to view random data in real-time
                 *output++ ^= *data++;
+                //Serial.println("xor output");
+                //Serial.println(*(output-1),HEX); //Debug to view random data in real-time
                 --templen;
             }
             rekey();

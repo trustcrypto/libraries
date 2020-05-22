@@ -34,7 +34,7 @@ extern void update_SHA256(const uECC_HashContext *base,
 extern void finish_SHA256(const uECC_HashContext *base, uint8_t *hash_result);
 
 extern void U2Finit();
-extern void store_FIDO_response (uint8_t *data, int len, bool encrypt);
+extern void store_FIDO_response (uint8_t *data, int len, uint8_t encrypt);
 extern int webcryptcheck (uint8_t * _appid, uint8_t * buffer);
 void device_init();
 
@@ -152,3 +152,4 @@ void device_init_button();
 }
 #endif
 #endif
+

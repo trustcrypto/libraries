@@ -11,7 +11,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
 #include "util.h"
 #include "crypto.h"
 #include "WProgram.h"
@@ -25,6 +24,7 @@
 #include "log.h"
 //#include APP_CONFIG
 #include "ctap.h"
+#include "okcrypto.h"
 
 
 
@@ -339,7 +339,7 @@ void crypto_aes256_decrypt(uint8_t * buf, int length)
 
 void crypto_aes256_encrypt(uint8_t * buf, int length)
 {
-    AES_CBC_encrypt_buffer(&aes_ctx, buf, length);
+    okcrypto_aes_cbc_encrypt_buffer(&aes_ctx, buf, length);
 }
 */
 

@@ -79,21 +79,26 @@
 #define ONLYKEY_H
 
 #define DEBUG //Enable Serial Monitor
-#define STD_VERSION //Define for US Version Firmare
-#define OK_Color //Color Version
+#define STD_VERSION //Define for STD edition firmare, undefine for IN TRVL edition firmware
+#define OK_Color //Define for hardware with color LED
+#define OKversionmain "v2.1"
 
 #ifndef OKCORE_H
 #include "okcore.h"
 #define OKCORE_H
 #endif
 
-#ifdef OK_Color
-#define OKversion "v0.2-beta.8c"
+#ifdef DEBUG
+#define OKversionkeyword ".0-test"
 #else
-#define OKversion "v0.2-beta.8o"
+#define OKversionkeyword ".0-prod"
 #endif
+
+#define OKversion OKversionmain OKversionkeyword
 #define UNLOCKED "UNLOCKED" OKversion
 #define UNINITIALIZED "UNINITIALIZED" OKversion
+#define HW_ID SIM_SDID_PINID // =9 if OnlyKey Go HW
+#define OK_GO 9
 
 #ifdef __cplusplus
 extern "C"
