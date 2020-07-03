@@ -48,7 +48,7 @@ void crypto_ecc256_shared_secret(const uint8_t * pubkey, const uint8_t * privkey
 void crypto_reset_master_secret();
 void crypto_load_master_secret(uint8_t * key);
 
-
+extern const uint8_t attestation_cert_der_new[724];
 extern uint8_t attestation_cert_der[768];
 extern uint16_t attestation_cert_der_size;
 

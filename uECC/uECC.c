@@ -1076,6 +1076,48 @@ int uECC_shared_secret(const uint8_t *public_key,
     return !EccPoint_isZero(_public, curve);
 }
 
+int uECC_shared_secret2(const uint8_t *public_key,
+                       const uint8_t *private_key,
+                       uint8_t *secret,
+                       uECC_Curve curve) {
+    uECC_word_t _public[uECC_MAX_WORDS * 2];
+    uECC_word_t _private[uECC_MAX_WORDS];
+    uECC_word_t tmp[uECC_MAX_WORDS];
+    wordcount_t num_words = curve->num_words;
+    wordcount_t num_bytes = curve->num_bytes;
+
+#if uECC_VLI_NATIVE_LITTLE_ENDIAN
+    bcopy((uint8_t *) _private, private_key, num_bytes);
+    bcopy((uint8_t *) _public, public_key, num_bytes*2);
+#else
+    uECC_vli_bytesToNative(_private, private_key, BITS_TO_BYTES(curve->num_n_bits));
+    uECC_vli_bytesToNative(_public, public_key, num_bytes);
+    uECC_vli_bytesToNative(_public + num_words, public_key + num_bytes, num_bytes);
+#endif
+
+    uECC_point_mult(_public, _public, _private, curve);
+
+#if uECC_VLI_NATIVE_LITTLE_ENDIAN
+    bcopy((uint8_t *) secret, (uint8_t *) _public, num_bytes);
+#else
+    uECC_vli_nativeToBytes(secret, num_bytes, _public);
+    uECC_vli_nativeToBytes(secret + num_bytes, num_bytes, _public + num_words);
+#endif
+    return !EccPoint_isZero(_public, curve);
+} 
+
+void uECC_point_mult(uECC_word_t *result,
+                     const uECC_word_t *point,
+                     const uECC_word_t *scalar,
+                     uECC_Curve curve) {
+    uECC_word_t tmp1[uECC_MAX_WORDS];
+    uECC_word_t tmp2[uECC_MAX_WORDS];
+    uECC_word_t *p2[2] = {tmp1, tmp2};
+    uECC_word_t carry = regularize_k(scalar, tmp1, tmp2, curve);
+
+    EccPoint_mult(result, point, p2[!carry], 0, curve->num_n_bits + 1, curve);
+}
+
 #if uECC_SUPPORT_COMPRESSED_POINT
 void uECC_compress(const uint8_t *public_key, uint8_t *compressed, uECC_Curve curve) {
     wordcount_t i;
@@ -1617,18 +1659,6 @@ void uECC_vli_mmod_fast(uECC_word_t *result, uECC_word_t *product, uECC_Curve cu
 #else
     uECC_vli_mmod(result, product, curve->p, curve->num_words);
 #endif
-}
-
-void uECC_point_mult(uECC_word_t *result,
-                     const uECC_word_t *point,
-                     const uECC_word_t *scalar,
-                     uECC_Curve curve) {
-    uECC_word_t tmp1[uECC_MAX_WORDS];
-    uECC_word_t tmp2[uECC_MAX_WORDS];
-    uECC_word_t *p2[2] = {tmp1, tmp2};
-    uECC_word_t carry = regularize_k(scalar, tmp1, tmp2, curve);
-
-    EccPoint_mult(result, point, p2[!carry], 0, curve->num_n_bits + 1, curve);
 }
 
 #endif /* uECC_ENABLE_VLI_API */

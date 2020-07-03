@@ -119,8 +119,8 @@ extern "C"
 #define EElen_timeout	1
 #define EElen_wipemode	1
 #define EElen_backupkeymode	1
-#define EElen_sshchallengemode	1
-#define EElen_pgpchallengemode	1
+#define EElen_derived_key_challenge_mode	1
+#define EElen_stored_key_challenge_mode	1
 #define EElen_hmac_challengemode	1
 #define EElen_2ndprofilemode	1
 #define EElen_typespeed	1
@@ -438,9 +438,9 @@ extern "C"
 #define EEpos_timeout	(EEpos_backupkey + EElen_backupkey)
 #define EEpos_wipemode	(EEpos_timeout + EElen_timeout)
 #define EEpos_backupkeymode	(EEpos_wipemode + EElen_wipemode)
-#define EEpos_sshchallengemode	(EEpos_backupkeymode + EElen_backupkeymode)
-#define EEpos_pgpchallengemode	(EEpos_sshchallengemode + EElen_sshchallengemode)
-#define EEpos_2ndprofilemode	(EEpos_pgpchallengemode + EElen_pgpchallengemode)
+#define EEpos_derived_key_challenge_mode	(EEpos_backupkeymode + EElen_backupkeymode)
+#define EEpos_stored_key_challenge_mode	(EEpos_derived_key_challenge_mode + EElen_derived_key_challenge_mode)
+#define EEpos_2ndprofilemode	(EEpos_stored_key_challenge_mode + EElen_stored_key_challenge_mode)
 #define EEpos_typespeed	(EEpos_2ndprofilemode + EElen_2ndprofilemode)
 #define EEpos_keyboardlayout	(EEpos_typespeed + EElen_typespeed)
 #define EEpos_sincelastregularlogin	(EEpos_keyboardlayout + EElen_keyboardlayout)
@@ -467,11 +467,11 @@ extern void okeeprom_eeset_wipemode(uint8_t *ptr);
 extern int  okeeprom_eeget_backupkeymode (uint8_t *ptr);
 extern void okeeprom_eeset_backupkeymode(uint8_t *ptr);
 
-extern int  okeeprom_eeget_sshchallengemode (uint8_t *ptr);
-extern void okeeprom_eeset_sshchallengemode(uint8_t *ptr);
+extern int  okeeprom_eeget_derived_key_challenge_mode (uint8_t *ptr);
+extern void okeeprom_eeset_derived_key_challenge_mode(uint8_t *ptr);
 
-extern int  okeeprom_eeget_pgpchallengemode (uint8_t *ptr);
-extern void okeeprom_eeset_pgpchallengemode(uint8_t *ptr);
+extern int  okeeprom_eeget_stored_key_challenge_mode (uint8_t *ptr);
+extern void okeeprom_eeset_stored_key_challenge_mode(uint8_t *ptr);
 
 extern int  okeeprom_eeget_hmac_challengemode (uint8_t *ptr);
 extern void okeeprom_eeset_hmac_challengemode(uint8_t *ptr);

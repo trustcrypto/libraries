@@ -90,6 +90,22 @@ extern "C"
 /*************************************/
 //Firmware Memory Locations
 /*************************************/
+// Factory Values
+#define factorysectoradr 0x5800
+// Last 512 bytes of factorysectoradr in use
+// 0x0000_5E00 - 0x0000_6000
+// okcrypto_split_sundae keys
+#define banana    (uint8_t *) (factorysectoradr+1536)
+#define ice_cream    (uint8_t *) (factorysectoradr+1536+32)
+#define chocolate_syrup    (uint8_t *) (factorysectoradr+1536+64)
+#define whipped_cream    (uint8_t *) (factorysectoradr+1536+96)
+#define cherry_on_top    (uint8_t *) (factorysectoradr+1536+128)
+// FIDO attestation key
+#define encrypted_attestation_key    (uint8_t *) (factorysectoradr+1536+480)
+#define attestation_kek    (uint8_t *) (factorysectoradr+1536+448)
+#define attestation_kek_iv    (uint8_t *) (factorysectoradr+1536+436)
+#define factory_config_flag    (uint8_t) (factorysectoradr+1536+435)
+// #define attestation_cert_der_stored 0x3DC20
 // Start of firmware
 // 0x0000_6060 - 0x0003_A05F used for firmware (13 blocks of 16384 = 212992 bytes max size fw)
 #define fwstartadr 0x6060
@@ -153,6 +169,7 @@ extern "C"
 #define SETUP_MANUAL 3
 #define SETUP_AUTO 4
 #define KEYBOARD_ONLYKEY_GO 5
+#define KEYBOARD_ONLYKEY_GO_NO_BACKUP 6
 /*************************************/
 // Output Modes
 /*************************************/
@@ -170,6 +187,15 @@ extern "C"
 #define RESERVED_KEY_HMACSHA1_1 130
 #define RESERVED_KEY_HMACSHA1_2 129
 #define RESERVED_KEY_WEB_DERIVATION 128
+#define KEYTYPE_NACL 1
+#define KEYTYPE_ED25519 1
+#define KEYTYPE_P256R1 2
+#define KEYTYPE_P256K1 3
+#define KEYTYPE_CURVE25519 4
+#define KEYTYPE_ECDH_P256R   102
+#define KEYTYPE_ECDH_P256K   103
+#define KEYTYPE_ECDH_CURVE25519  104
+
 /*************************************/
 /*************************************/
 //Hardware Models
@@ -244,8 +270,9 @@ extern void okcore_flashset_noncehash (uint8_t *ptr);
 extern int okcore_flashget_noncehash (uint8_t *ptr, int size);
 extern int okcore_flashget_profilekey (uint8_t *ptr);
 extern void okcore_flashset_profilekey (uint8_t *secret);
-extern void okcore_flashset_common (uint8_t *ptr, uintptr_t adr, int len);
-extern void okcore_flashget_common (uint8_t *ptr, uintptr_t adr, int len);
+extern void okcore_flashset_common (uint8_t *ptr, unsigned long *adr, int len);
+extern void okcore_flashget_common (uint8_t *ptr, unsigned long *adr, int len);
+extern void okcore_flashsector(uint8_t *ptr, unsigned long *adr, int len);
 extern int okcore_flashget_totpkey (uint8_t *ptr, int slot);
 extern void okcore_flashset_totpkey (uint8_t *ptr, int size, int slot);
 extern int okcore_flashget_username (uint8_t *ptr, int slot);

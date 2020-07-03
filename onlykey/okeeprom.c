@@ -150,21 +150,21 @@ void okeeprom_eeset_backupkeymode (uint8_t *ptr) {
 }
 /*********************************/
 /*********************************/
-int okeeprom_eeget_sshchallengemode (uint8_t *ptr) {
-    okeeprom_eeget_common(ptr, EEpos_sshchallengemode, EElen_sshchallengemode);
-    return EElen_sshchallengemode;
+int okeeprom_eeget_derived_key_challenge_mode (uint8_t *ptr) {
+    okeeprom_eeget_common(ptr, EEpos_derived_key_challenge_mode, EElen_derived_key_challenge_mode);
+    return EElen_derived_key_challenge_mode;
 }
-void okeeprom_eeset_sshchallengemode (uint8_t *ptr) {
-    okeeprom_eeset_common(ptr, EEpos_sshchallengemode, EElen_sshchallengemode);
+void okeeprom_eeset_derived_key_challenge_mode (uint8_t *ptr) {
+    okeeprom_eeset_common(ptr, EEpos_derived_key_challenge_mode, EElen_derived_key_challenge_mode);
 }
 /*********************************/
 /*********************************/
-int okeeprom_eeget_pgpchallengemode (uint8_t *ptr) {
-    okeeprom_eeget_common(ptr, EEpos_pgpchallengemode, EElen_pgpchallengemode);
-    return EElen_pgpchallengemode;
+int okeeprom_eeget_stored_key_challenge_mode (uint8_t *ptr) {
+    okeeprom_eeget_common(ptr, EEpos_stored_key_challenge_mode, EElen_stored_key_challenge_mode);
+    return EElen_stored_key_challenge_mode;
 }
-void okeeprom_eeset_pgpchallengemode (uint8_t *ptr) {
-    okeeprom_eeset_common(ptr, EEpos_pgpchallengemode, EElen_pgpchallengemode);
+void okeeprom_eeset_stored_key_challenge_mode (uint8_t *ptr) {
+    okeeprom_eeset_common(ptr, EEpos_stored_key_challenge_mode, EElen_stored_key_challenge_mode);
 }
 /*********************************/
 /*********************************/
@@ -239,7 +239,6 @@ int okeeprom_eeget_failedlogins (uint8_t *ptr) {
 void okeeprom_eeset_failedlogins (uint8_t *ptr) {
     okeeprom_eeset_common(ptr, EEpos_failedlogins, EElen_failedlogins);
 }
-
 /*********************************/
 /*********************************/
 int okeeprom_eeget_nonce2 (uint8_t *ptr) {
@@ -249,10 +248,8 @@ int okeeprom_eeget_nonce2 (uint8_t *ptr) {
 void okeeprom_eeset_nonce2 (uint8_t *ptr) {
     okeeprom_eeset_common(ptr, EEpos_nonce2, EElen_nonce2);
 }
-
 /*********************************/
 /*********************************/
-
 int okeeprom_eeget_U2Fcertlen (uint8_t *ptr) {
     okeeprom_eeget_common(ptr, EEpos_U2Fcertlen, EElen_U2Fcertlen);
     return EElen_U2Fcertlen;
@@ -260,10 +257,8 @@ int okeeprom_eeget_U2Fcertlen (uint8_t *ptr) {
 void okeeprom_eeset_U2Fcertlen (uint8_t *ptr) {
     okeeprom_eeset_common(ptr, EEpos_U2Fcertlen, EElen_U2Fcertlen);
 }
-
 /*********************************/
 /*********************************/
-
 int okeeprom_eeget_flashpos (uint8_t *ptr) {
     okeeprom_eeget_common(ptr, EEpos_flashpos, EElen_flashpos);
     return EElen_flashpos;
@@ -271,7 +266,6 @@ int okeeprom_eeget_flashpos (uint8_t *ptr) {
 void okeeprom_eeset_flashpos (uint8_t *ptr) {
     okeeprom_eeset_common(ptr, EEpos_flashpos, EElen_flashpos);
 }
-
 /*********************************/
 /*********************************/
 int okeeprom_eeget_passwordlen1 (uint8_t *ptr) {

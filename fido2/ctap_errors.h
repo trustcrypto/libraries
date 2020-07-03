@@ -56,4 +56,6 @@
 #define CTAP2_ERR_VENDOR_FIRST              0xF0
 #define CTAP2_ERR_DATA_READY                0xF6
 #define CTAP2_ERR_DATA_WIPE                 0xF7
+#define OKECDSA_EDDSA_ERR_USER_ACTION_PENDING 0xF8
+#define OKECDH_ERR_USER_ACTION_PENDING  0xF9
 #define CTAP2_ERR_VENDOR_LAST               0xFF

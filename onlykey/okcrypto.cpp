@@ -162,10 +162,10 @@ void okcrypto_sign (uint8_t *buffer) {
 		}
 		return;
 	}
-	else if (buffer[5] > 200 && buffer[5] < 204) { //SSH Sign Request
+	else if (buffer[5] > 200 && buffer[5] < 205) { // SSH/GPG Derive Key
 		okcrypto_ecdsa_eddsa(buffer);
 	} else {
-		if (buffer[5] != RESERVED_KEY_DERIVATION && buffer[5] != RESERVED_KEY_DEFAULT_BACKUP && buffer[5] != RESERVED_KEY_HMACSHA1_1 && buffer[5] != RESERVED_KEY_HMACSHA1_2) { //These keys are reserved for derivation, backup, and HMACSHA1
+		if (buffer[5] > 100 && buffer[5] < 117) { // Keys 117 - 132 reserved
 			features = okcore_flashget_ECC ((int)buffer[5]);
 		}
 		if (type == 0) {
@@ -198,7 +198,7 @@ void okcrypto_getpubkey (uint8_t *buffer) {
 		if (okcore_flashget_RSA ((int)buffer[5])) okcrypto_getrsapubkey(buffer);
 	} else if (buffer[5] < 128 && !buffer[6]) { //128-132 are reserved
 		if (okcore_flashget_ECC ((int)buffer[5])) okcrypto_geteccpubkey(buffer);
-	} else if (buffer[6] <= 3) { // Generate key using provided data, return public
+	} else if (buffer[5] == RESERVED_KEY_DERIVATION && buffer[6] <= KEYTYPE_CURVE25519) { // Generate key using provided data, return public
 	okcrypto_derive_key(buffer[6], buffer+7, NULL);
 	send_transport_response(ecc_public_key, 64, false, false);
 	}
@@ -228,8 +228,10 @@ void okcrypto_decrypt (uint8_t *buffer){
 			fadeoff(0);
 			return;
 		}
+	} else if (buffer[5] > 200 && buffer[5] < 205) { // SSH/GPG Derive Key
+		okcrypto_ecdh(buffer);
 	} else {
-		if (buffer[5] != RESERVED_KEY_DERIVATION && buffer[5] != RESERVED_KEY_DEFAULT_BACKUP && buffer[5] != RESERVED_KEY_HMACSHA1_1 && buffer[5] != RESERVED_KEY_HMACSHA1_2) { //These keys are reserved for derivation, backup, and HMACSHA1
+		if (buffer[5] > 100 && buffer[5] < 117) { // Keys 117 - 132 reserved
 			features = okcore_flashget_ECC ((int)buffer[5]);
 		}
 		if (type == 0) {
@@ -387,7 +389,7 @@ void okcrypto_rsadecrypt (uint8_t *buffer) {
 void okcrypto_geteccpubkey (uint8_t *buffer) {
 	okcore_flashget_ECC (buffer[5]);
 	#ifdef DEBUG
-    Serial.println("OKokcrypto_geteccpubkey MESSAGE RECEIVED");
+    Serial.println("okcrypto_geteccpubkey MESSAGE RECEIVED");
 	byteprint(ecc_public_key, sizeof(ecc_public_key));
 	#endif
 	send_transport_response(ecc_public_key, 64, false, false);
@@ -421,24 +423,8 @@ void okcrypto_derive_key (uint8_t ktype, uint8_t *data, uint8_t slot) {
 		byteprint(ecc_private_key,32);
 		#endif
   	}
-	if (ktype==1) { //ED25519
-		Ed25519::derivePublicKey(ecc_public_key, ecc_private_key);
-		return;
-	}
-	else if (ktype==2) { //P256R1
-		const struct uECC_Curve_t * curve = uECC_secp256r1();
-		uECC_compute_public_key(ecc_private_key, ecc_public_key, curve);
-	}
-	else if (ktype==3) { //P256K1
-		const struct uECC_Curve_t * curve = uECC_secp256k1();
-		uECC_compute_public_key(ecc_private_key, ecc_public_key, curve);
-	} else if (ktype==4) { //CURVE25519
-		crypto_scalarmult_base(ecc_public_key, ecc_private_key); //NACL method curve25519
-		// Alternative method, faster but NACL library probably better
-			//ecc_private_key[0] &= 0xF8;
-			//ecc_private_key[31] = (ecc_private_key[31] & 0x7F) | 0x40;
-			//Curve25519::eval(ecc_public_key, ecc_private_key, 0);
-	}
+	type=ktype;
+	okcrypto_compute_pubkey();
 }
 
 void okcrypto_ecdsa_eddsa(uint8_t *buffer)
@@ -448,15 +434,18 @@ void okcrypto_ecdsa_eddsa(uint8_t *buffer)
 	uint8_t len = 0;
 	#ifdef DEBUG
     Serial.println();
-    Serial.println("OKECDSA_EDDSA CHALLENGE MESSAGE RECEIVED");
+    Serial.println("OKECDSA_EDDSA SIGN MESSAGE RECEIVED");
 	#endif
-    if(!CRYPTO_AUTH) process_packets (buffer, 0, 0);
+    if (!CRYPTO_AUTH) {
+		process_packets (buffer, 0, 0);
+		pending_operation=OKECDSA_EDDSA_ERR_USER_ACTION_PENDING;
+	}
 	else if (CRYPTO_AUTH == 4) {
 		okcore_aes_gcm_decrypt(large_buffer, packet_buffer_details[0], packet_buffer_details[1], profilekey, large_buffer_offset);
 		#ifdef DEBUG
 		Serial.println();
-		Serial.printf("ECC challenge blob size=%d", large_buffer_offset);
-		Serial.println();
+		Serial.print("ECC blob size of ");
+		Serial.println(large_buffer_offset);
 		byteprint(large_buffer, large_buffer_offset);
 		#endif
 		uint8_t tmp[32 + 32 + 64];
@@ -464,29 +453,36 @@ void okcrypto_ecdsa_eddsa(uint8_t *buffer)
 		if (buffer[5] == 201) {
 			//Used by SSH, old version used 132, new version uses 201 for type 1
 			okcrypto_derive_key(1, large_buffer+(large_buffer_offset-32), NULL);
-			type = 1;
 		}
 		else if (buffer[5] == 202) {
 			okcrypto_derive_key(2, large_buffer+(large_buffer_offset-32), NULL);
-			type = 2;
 		}
 		else if (buffer[5] == 203) {
 			okcrypto_derive_key(3, large_buffer+(large_buffer_offset-32), NULL);
-			type = 3;
+		} else if (buffer[5] >= 101 && buffer[5] <= 116) {
+			// Not using derived key, using stored key
+			okcore_flashget_ECC (buffer[5]); //Default Key stored in ECC slot 32
 		} 
 
 		if (large_buffer_offset > 32) large_buffer_offset = large_buffer_offset - 32;
+		if (large_buffer_offset == 32) { // Hash and sign data if larger than 32 bytes, if 32 bytes sign data
+			memcpy(sha256_hash, large_buffer, 32);
+		} else {
+			SHA256_CTX msghash;
+			sha256_init(&msghash);
+			sha256_update(&msghash, large_buffer, large_buffer_offset);
+			sha256_final(&msghash, sha256_hash); //Create hash and store
+		}
 
-		SHA256_CTX msghash;
-		sha256_init(&msghash);
-		sha256_update(&msghash, large_buffer, large_buffer_offset);
-		sha256_final(&msghash, sha256_hash); //Create hash and store
 		#ifdef DEBUG
       	Serial.println("Signature Hash ");
 	  	byteprint(sha256_hash, 32);
 	  	Serial.print("Type");
 	  	Serial.println(type);
+		Serial.println("Private ");
+	  	byteprint(ecc_private_key, sizeof(ecc_private_key));
 		#endif
+
 		if (type==0x01) Ed25519::sign(ecc_signature, ecc_private_key, ecc_public_key, large_buffer, large_buffer_offset);
 		else if (type==0x02) {
 			const struct uECC_Curve_t * curve = uECC_secp256r1(); //P-256
@@ -502,6 +498,18 @@ void okcrypto_ecdsa_eddsa(uint8_t *buffer)
       		}
 		}
 		else if (type==0x03) {
+			const struct uECC_Curve_t * curve = uECC_secp256k1();
+			if (!uECC_sign_deterministic(ecc_private_key,
+						sha256_hash,
+						32,
+						&ectx.uECC,
+						ecc_signature,
+						curve)) {
+							#ifdef DEBUG
+      						Serial.println("Signature Failed ");
+							#endif
+      		}
+		} else if (type==0x04) {
 			const struct uECC_Curve_t * curve = uECC_secp256k1();
 			if (!uECC_sign_deterministic(ecc_private_key,
 						sha256_hash,
@@ -560,131 +568,90 @@ void okcrypto_ecdsa_eddsa(uint8_t *buffer)
 		#ifdef DEBUG
     	Serial.println("Waiting for challenge buttons to be pressed");
 		#endif
-		pending_operation=CTAP2_ERR_USER_ACTION_PENDING;
 	}
 }
 
 void okcrypto_ecdh(uint8_t *buffer) {
-	// This function currently is not used, it generates shared secret and returns no data
-    uint8_t ephemeral_pub[MAX_ECC_KEY_SIZE*2];
-	uint8_t secret[64] = {0};
+	uint8_t temp[65] = {0};
 	#ifdef DEBUG
     Serial.println();
     Serial.println("OKECDH MESSAGE RECEIVED");
 	#endif
-    if(!CRYPTO_AUTH) process_packets (buffer, 0, 0);
+    if(!CRYPTO_AUTH) {
+		process_packets (buffer, 0, 0);
+		pending_operation=OKECDH_ERR_USER_ACTION_PENDING;
+	}
 	else if (CRYPTO_AUTH == 4) {
-		memcpy (ephemeral_pub, large_buffer, MAX_ECC_KEY_SIZE*2);
-		if (okcrypto_shared_secret(ephemeral_pub, secret)) {
-			hidprint("Error with ECC Shared Secret");
-			return;
-		}
+		okcore_aes_gcm_decrypt(large_buffer, packet_buffer_details[0], packet_buffer_details[1], profilekey, large_buffer_offset);
 		#ifdef DEBUG
 		Serial.println();
-		Serial.print("Public key to generate shared secret for");
-		byteprint(ephemeral_pub, 64);
-		Serial.println();
-		Serial.print("ECDH Secret is ");
-		for (uint8_t i = 0; i< 32; i++) {
-			Serial.print(secret[i],HEX);
-		}
+		Serial.print("ECC blob size of ");
+		Serial.println(large_buffer_offset);
+		byteprint(large_buffer, large_buffer_offset);
 		#endif
-  //	if (outputU2F) {
-	//store_U2F_response(secret, 32);
-	//} else{
-	//RawHID.send(secret, 0);
-	//}
-	//delay(100);
-    // Reference - https://www.ietf.org/mail-archive/web/openpgp/current/msg00637.html
-	// https://fossies.org/linux/misc/gnupg-2.1.17.tar.gz/gnupg-2.1.17/g10/ecdh.c
-	// gcry_md_write(h, "\x00\x00\x00\x01", 4);      /* counter = 1 */
-    // gcry_md_write(h, secret_x, secret_x_size);    /* x of the point X */
-    // gcry_md_write(h, message, message_size);      /* KDF parameters */
-	// This is a limitation as we have to be able to fit the entire message to decrypt
-	// In this way RSA seems to have an advantage?
-	// /* Build kdf_params.  */
-    //{
-    //IOBUF obuf;
-    //
-    //obuf = iobuf_temp();
-    ///* variable-length field 1, curve name OID */
-    //err = gpg_mpi_write_nohdr (obuf, pkey[0]);
-    ///* fixed-length field 2 */
-    //iobuf_put (obuf, PUBKEY_ALGO_ECDH);
-    ///* variable-length field 3, KDF params */
-    //err = (err ? err : gpg_mpi_write_nohdr (obuf, pkey[2]));
-    ///* fixed-length field 4 */
-    //iobuf_write (obuf, "Anonymous Sender    ", 20);
-    ///* fixed-length field 5, recipient fp */
-    //iobuf_write (obuf, pk_fp, 20);
-    //
-    //message_size = iobuf_temp_to_buffer (obuf, message, sizeof message);
-	/*
-
-	uint8_t hash_alg = large_buffer[0];
-	uint8_t *pub_key = large_buffer+1;
-	uint8_t *msg = large_buffer+1+32;
-	uint8_t counter[] = "\x00\x00\x00\x01";
-	uint8_t hash[64];
-    mbedtls_sha512_context sha512;
-	switch (hash_alg) {
-		case 2: //sha256
-		SHA256_CTX context;
-		sha256_init(&context);
-		sha256_update(&context, counter, 4); //add counter
-		sha256_update(&context, secret, sizeof(secret)); //add secret
-		sha256_update(&context, msg, (large_buffer_offset-1-type)); //add message
-		sha256_final(&context, hash);
-		break;
-		case 3: //sha384
-		mbedtls_sha512_init (&sha512);
-		mbedtls_sha512_starts (&sha512, 1); //is 384
-		mbedtls_sha512_update (&sha512, counter, 4); //add counter
-		mbedtls_sha512_update (&sha512, secret, sizeof(secret)); //add secret
-		mbedtls_sha512_update (&sha512, msg, (large_buffer_offset-1-type)); //add message
-		mbedtls_sha512_finish (&sha512, hash);
-		mbedtls_sha512_free (&sha512);
-		break;
-		case 5: //sha512
-		mbedtls_sha512_init (&sha512);
-		mbedtls_sha512_starts (&sha512, 0); //is not 384
-		mbedtls_sha512_update (&sha512, counter, 4); //add counter
-		mbedtls_sha512_update (&sha512, secret, sizeof(secret)); //add secret
-		mbedtls_sha512_update (&sha512, msg, (large_buffer_offset-1-sizeof(secret))); //add message
-		mbedtls_sha512_finish (&sha512, hash);
-		mbedtls_sha512_free (&sha512);
-		break;
-		default:
-		hidprint("Error hash algorithm incorrect");
-		return;
-	}
-	//Send the KEK, client app should know the symmetric encryption alg
-	//Depending on the alg the client will drop the uneeded tail of the the key
-
-#ifdef DEBUG
-    Serial.println();
-    Serial.print("ECDH KEK is ");
-	for (int i = 0; i< sizeof(hash); i++) {
-		Serial.print(hash[i],HEX);
+		if (buffer[5] == 202) {
+			okcrypto_derive_key(2, large_buffer+(large_buffer_offset-32), NULL);
 		}
-#endif
-    RawHID.send(hash, 0);
-	*/
+		else if (buffer[5] == 203) {
+			okcrypto_derive_key(3, large_buffer+(large_buffer_offset-32), NULL);
+		} 
+		else if (buffer[5] == 204) {
+			okcrypto_derive_key(4, large_buffer+(large_buffer_offset-32), NULL); 
+		} 
+		else if (buffer[5] >= 101 && buffer[5] <= 116) {
+			// Not using derived key, using stored key
+			okcore_flashget_ECC (buffer[5]); //Default Key stored in ECC slot 32
+		}
 
-	// TODO finish PGP/GPG compatible ECDH, return decrypted data
-	//outputmode=packet_buffer_details[2]; // Outputmode set at start of operation
-	//send_transport_response (decrypteddata, len, true, true);
+		if (type==2 || type==3) type+=100; // Different shared secret method required, multiply points and return x and y
+	
+		if (large_buffer_offset > 32) large_buffer_offset = large_buffer_offset - 32; //Remove derivation data hash
 
-		fadeoff(85);
-		memset(large_buffer, 0, LARGE_BUFFER_SIZE);
-		memset(secret, 0, sizeof(secret)); //wipe buffer
+		if (large_buffer_offset == 33 || large_buffer_offset == 65) { // Remove public key first byte 0x04 or 0x40 for Trezor agent
+			large_buffer_offset--;
+			memcpy(ecc_public_key, large_buffer+1, large_buffer_offset);
+		}
+
+		#ifdef DEBUG
+      	Serial.println("Input public ");
+	  	byteprint(ecc_public_key, large_buffer_offset);
+      	Serial.println("Private ");
+	  	byteprint(ecc_private_key, sizeof(ecc_private_key));
+	  	Serial.print("Type");
+	  	Serial.println(type);
+		#endif
+
+		// Use ecc_private_key and provided pubkey to generate shared secret
+		if (large_buffer_offset == 64 || large_buffer_offset == 32) { // Public key sizes
+			if (okcrypto_shared_secret (ecc_public_key, temp)) { 
+				//Error
+			}
+		}
+					
+		#ifdef DEBUG
+		Serial.print("Shared Secret =");
+		byteprint(temp, large_buffer_offset);
+		#endif
+
+		okcrypto_compute_pubkey();
+		#ifdef DEBUG
+		Serial.print("my pub =");
+		byteprint(ecc_public_key, 64);
+		#endif
+
+
+		outputmode=packet_buffer_details[2]; // Outputmode set at start of operation
+		send_transport_response (temp, 64, false, false);
+  		// Stop the fade in
+  		fadeoff(85);
+    	memset(large_buffer, 0, LARGE_BUFFER_SIZE);
 		memset(ecc_public_key, 0, sizeof(ecc_public_key)); //wipe buffer
 		memset(ecc_private_key, 0, sizeof(ecc_private_key)); //wipe buffer
-		return;
+    	return;
 	} else {
-	#ifdef DEBUG
-    Serial.println("Waiting for challenge buttons to be pressed");
-	#endif
+		#ifdef DEBUG
+    	Serial.println("Waiting for challenge buttons to be pressed");
+		#endif
 	}
 }
 
@@ -776,24 +743,36 @@ void okcrypto_hmacsha1 () {
 
 int okcrypto_shared_secret (uint8_t *pub, uint8_t *secret) {
 	const struct uECC_Curve_t * curve;
-	#ifdef DEBUG
-	Serial.printf("Shared Secret for type %X ",type);
-	#endif
 	switch (type) {
-	case 1:
+	case KEYTYPE_NACL:
 		if (crypto_box_beforenm(secret, pub, ecc_private_key)) return 1;
 		else return 0;
-	case 2:
+	case KEYTYPE_P256R1:
 		curve = uECC_secp256r1();
-		if (uECC_shared_secret(pub, ecc_private_key, secret, curve)) return 0;
+		if (uECC_shared_secret(pub, ecc_private_key, secret, curve)) {
+			return 0;
+		}
 		else return 1;
-	case 3:
+	case KEYTYPE_P256K1:
 		curve = uECC_secp256k1();
-		if (uECC_shared_secret(pub, ecc_private_key, secret, curve)) return 0;
+		if (uECC_shared_secret(pub, ecc_private_key, secret, curve)) {
+			return 0;
+		}
 		else return 1;
-	case 4:
+	case KEYTYPE_CURVE25519:
 		Curve25519::eval(secret, ecc_private_key, pub);
 		return 0;
+	case KEYTYPE_ECDH_P256R:
+		curve = uECC_secp256r1();
+		if (uECC_shared_secret2(pub, ecc_private_key, secret, curve)) {
+		return 0;
+		}
+	case KEYTYPE_ECDH_P256K:
+		curve = uECC_secp256k1();
+		if (uECC_shared_secret2(pub, ecc_private_key, secret, curve)) {
+		return 0;
+		}
+
 	default:
 		hidprint("Error ECC type incorrect");
 		return 1;
@@ -1124,13 +1103,19 @@ void okcrypto_hkdf(const void *data, const void *inputKey, void *outputKey, cons
 	void *s;
 	uint8_t tmp[32];
 	int N = L / hash.hashSize();
-	uint8_t i;
-	uint8_t rpid[12];
+	int i = 0;
+	uint8_t rpid[255] ={0};
 	extern uint8_t ctap_buffer[CTAPHID_BUFFER_SIZE];
-	memcpy(rpid, ctap_buffer+4, 12); // i.e. app.crp.to
+	uint8_t *ptr = ctap_buffer+4;
+	while (*ptr != 0x02 && i<sizeof(rpid)) {
+		rpid[i] = *ptr;
+		i++;
+		ptr++;
+	}
+
 	#ifdef DEBUG
 	Serial.print ("RPID");
-	byteprint(rpid,12);
+	byteprint(rpid,i);
 	#endif
 
 	if (data == NULL) {
@@ -1243,8 +1228,7 @@ void okcrypto_aes_gcm_encrypt(uint8_t *state, uint8_t slot, uint8_t value, const
 	byteprint(state, len);
 	#endif
 
-	// OnlyKey Go encrypt outer
-	if (HW_ID==OK_GO) okcrypto_split_sundae(state, len, 1);
+	if (factory_config_flag == 0x01) okcrypto_split_sundae(state, iv2, len, 1);
 
 	gcm.clear();
 	gcm.setKey(aeskey, 32);
@@ -1252,7 +1236,7 @@ void okcrypto_aes_gcm_encrypt(uint8_t *state, uint8_t slot, uint8_t value, const
 	gcm.encrypt(state, state, len);
 
 	// OnlyKey Go encrypt inner
-	if (HW_ID==OK_GO) okcrypto_split_sundae(state, len, 2);
+	if (factory_config_flag == 0x01) okcrypto_split_sundae(state, iv2, len, 2);
 
 	#ifdef DEBUG
 	Serial.print("ENCRYPTED STATE");
@@ -1316,16 +1300,14 @@ void okcrypto_aes_gcm_decrypt(uint8_t *state, uint8_t slot, uint8_t value, const
 	byteprint(state, len);
 	#endif
 
-	// OnlyKey Go decrypt inner
-	if (HW_ID==OK_GO) okcrypto_split_sundae(state, len, 3);
+	if (factory_config_flag == 0x01) okcrypto_split_sundae(state, iv2, len, 3);
 
 	gcm.clear();
 	gcm.setKey(aeskey, 32);
 	gcm.setIV(iv2, 12);
 	gcm.decrypt(state, state, len);
 
-	// OnlyKey Go decrypt outer
-	if (HW_ID==OK_GO) okcrypto_split_sundae(state, len, 4);
+	if (factory_config_flag == 0x01) okcrypto_split_sundae(state, iv2, len, 4);
 
 	#ifdef DEBUG
 	Serial.print("DECRYPTED STATE");
@@ -1348,7 +1330,7 @@ void okcrypto_aes_gcm_encrypt2(uint8_t *state, uint8_t *iv1, const uint8_t *key,
 	#endif
 
 	// OnlyKey Go encrypt outer
-	if (HW_ID==OK_GO) okcrypto_split_sundae(state, len, 1);
+	if (factory_config_flag == 0x01) okcrypto_split_sundae(state, iv1, len, 1);
 
 	gcm.clear();
 	gcm.setKey(key, 32);
@@ -1356,7 +1338,7 @@ void okcrypto_aes_gcm_encrypt2(uint8_t *state, uint8_t *iv1, const uint8_t *key,
 	gcm.encrypt(state, state, len);
 
 	// OnlyKey Go encrypt inner
-	if (HW_ID==OK_GO) okcrypto_split_sundae(state, len, 2);
+	if (factory_config_flag == 0x01) okcrypto_split_sundae(state, iv1, len, 2);
 
 	#ifdef DEBUG
 	Serial.print("ENCRYPTED STATE");
@@ -1377,7 +1359,7 @@ void okcrypto_aes_gcm_decrypt2(uint8_t *state, uint8_t *iv1, const uint8_t *key,
 	#endif
 
 	// OnlyKey Go decrypt inner
-	if (HW_ID==OK_GO) okcrypto_split_sundae(state, len, 3);
+	if (factory_config_flag == 0x01) okcrypto_split_sundae(state, iv1, len, 3);
 
 	gcm.clear();
 	gcm.setKey(key, 32);
@@ -1385,7 +1367,7 @@ void okcrypto_aes_gcm_decrypt2(uint8_t *state, uint8_t *iv1, const uint8_t *key,
 	gcm.decrypt(state, state, len);
 
 	// OnlyKey Go decrypt outer
-	if (HW_ID==OK_GO) okcrypto_split_sundae(state, len, 4);
+	if (factory_config_flag == 0x01) okcrypto_split_sundae(state, iv1, len, 4);
 
 	#ifdef DEBUG
 	Serial.print("DECRYPTED STATE");
@@ -1397,14 +1379,10 @@ void okcrypto_aes_gcm_decrypt2(uint8_t *state, uint8_t *iv1, const uint8_t *key,
 	#endif
 }
 
-void okcrypto_aes_cbc_encrypt(uint8_t *state, const uint8_t *key, int len)
+void okcrypto_aes_cbc_encrypt(uint8_t *state, uint8_t *iv, const uint8_t *key, int len)
 {
 	#ifdef STD_VERSION
 	CBC<AES256> cbc;
-	uint8_t iv[16] = {0};
-	// newPinEnc uses IV=0
-	// https://fidoalliance.org/specs/fido-v2.0-id-20180227/fido-client-to-authenticator-protocol-v2.0-id-20180227.pdf
-
 	#ifdef DEBUG
 	Serial.print("DECRYPTED STATE");
 	byteprint(state, len);
@@ -1420,11 +1398,10 @@ void okcrypto_aes_cbc_encrypt(uint8_t *state, const uint8_t *key, int len)
 	#endif
 }
 
-void okcrypto_aes_cbc_decrypt(uint8_t *state, const uint8_t *key, int len)
+void okcrypto_aes_cbc_decrypt(uint8_t *state, uint8_t *iv, const uint8_t *key, int len)
 {
 	#ifdef STD_VERSION
 	CBC<AES256> cbc;
-	uint8_t iv[16] = {0};
 	#ifdef DEBUG
 	Serial.print("ENCRYPTED STATE");
 	byteprint(state, len);
@@ -1476,14 +1453,15 @@ void newhope_test ()
 	return;
 } */
 
-void okcrypto_split_sundae(uint8_t *state, int len, uint8_t function) {
+void okcrypto_split_sundae(uint8_t *state, uint8_t *iv, int len, uint8_t function) {
 	// Just like an ice cream sundae, this function mixes the best crypto algorithms 
-	// together in order to mitigate side channel attacks against a single algorithm 
-	// or key
+	// together with multiple keys in order to mitigate side channel attacks against 
+	// a single algorithm or key. State is split so that each crypto function only 
+	// has access to part of the state.
 	//
-	// Here is how it works, for example, a 32 byte uint8_t *state:
+	// Here is how it works for example on a 32 byte uint8_t *state:
 	// 
-	// Each Outer and inner crypto function only has access to half (or less) of the input/output
+	// Each outer and inner crypto function only has access to half (or less) of the input/output
 	//
 	// Inner
 	// crypto_inner1 has access to bytes 16-31
@@ -1497,26 +1475,27 @@ void okcrypto_split_sundae(uint8_t *state, int len, uint8_t function) {
 	// crypto_outer2 has access to bytes 0-7 
 	// crypto_outer3 has access to bytes 24-31
 	//
-	// Each byte is triple encrypted using three different algorithms
+	// Each byte is triple encrypted using different algorithms
 	// The middle algorithm is a FIPS 140-2 compliant algorithm for FIPS compliance
-	// Each algorithm uses a different key stored in a different location
-	// key1 - nonce2[0-15] - this is a random 16 byte value stored in Flash
-	// key2 - nonce[32] -  this is a random 32 byte value stored in Flash
-	// key3 - profilekey[32] - this is a derived 32 byte value stored in Flash
-	// key4 - ID[32] - this is a unique ID number assigned by manufacturer stored in ROM
-	// key5 - nonce2[16-31] - this is a random 16 byte string stored in Flash
 	//
-	// Inner
-	// crypto_inner1 - Algorithm1(key1) - Yubico Implementation of AES-128
-	// crypto_inner2 - Algorithm2(key2) - NACL crypto_stream_xsalsa20
+    // Ingredients for okcrypto_split_sundae function:
+    // key1 - banana[32] - crypto_inner1 key (NACL crypto_stream_xsalsa20)
+    // key2 - ice_cream[32] - crypto_inner2 key (NACL crypto_stream_salsa20)
+    // key3 - chocolate_syrup[32] - crypto_outer1 key (AES256-CBC)
+    // key4 - whipped_cream[32] - crypto_outer2 key (NACL crypto_stream_salsa20)
+    // key5 - cherry_on_top[32] - crypto_outer3 key (NACL crypto_stream_xsalsa20)
+	//
+	// Inner 
+	// crypto_inner1 - Algorithm1(key1) 
+	// crypto_inner2 - Algorithm2(key2) 
 	//
 	// Middle
-	// Algorithm3(key3) - AES256-GCM
+	// Algorithm3(profilekey) - AES256-GCM
 	//
 	// Outer
-	// crypto_outer1 - Algorithm4(key4) - AES256-CBC
-	// crypto_outer2 - Algorithm5(key5) - NACL crypto_stream_aes128ctr
-	// crypto_outer3 - Algorithm6(key2) - NACL crypto_stream_salsa20
+	// crypto_outer1 - Algorithm4(key3) 
+	// crypto_outer2 - Algorithm5(key4) 
+	// crypto_outer3 - Algorithm6(key5) 
 	//
 	// function variable selects from the following functions:
 	// 1 = encrypt outer
@@ -1525,40 +1504,89 @@ void okcrypto_split_sundae(uint8_t *state, int len, uint8_t function) {
 	// 4 = decrypt outer
 	//
 	// Encrypt usage:
-	// okcrypto_split_sundae(<plaintext>, <plaintext len>, <encrypt outer>)
+	// okcrypto_split_sundae(<plaintext>, <plaintext len>, <iv>, <encrypt outer>)
 	// return ciphertext
 	// middle encryption is completed in calling function
-	// okcrypto_split_sundae(<ciphertext>, <ciphertext len>, <encrypt inner>)
+	// okcrypto_split_sundae(<ciphertext>, <ciphertext len>, <iv>, <encrypt inner>)
 	// return ciphertext
 	//
 	// Decrypt usage:
-	// okcrypto_split_sundae(<ciphertext>, <ciphertext len>, <decrypt inner>)
+	// okcrypto_split_sundae(<ciphertext>, <ciphertext len>, <iv>, <decrypt inner>)
 	// return ciphertext
 	// middle decryption is completed in calling function
-	// okcrypto_split_sundae(<ciphertext>, <ciphertext len>, <decrypt outer>)
+	// okcrypto_split_sundae(<ciphertext>, <ciphertext len>, <iv>, <decrypt outer>)
 	// return plaintext
+	
+	// crypto_stream_xsalsa20 requires 24 NONCEBYTES, a difererent nonce is required for each message
+	// "...crypto_stream_xor with a different nonce for each message, the ciphertexts are indistinguishable 
+	// from uniform random strings of the same length" https://nacl.cr.yp.to/stream.html
+	uint8_t iv2[24]; 
+	memcpy(iv2,iv,12);
 
-	uint8_t key1[32];
-	uint8_t key2[32];
-
-	if(function==2 || function==3) {
-		// Retreive inner keys
-		// nonce2 & ID
-		// Retreive inner keys
-		// crypto_inner1 has access to bytes 16-31
-		// Yubico Implementation of AES-128 (len/2 to len)
-		// crypto_inner2 has access to bytes 0-15
-		// crypto_stream_xsalsa20 (0 to (len/2)-1)
-	} else {
-		// Retreive outer keys
-		// nonce2 & nonce
-		// Outer
+	if (function==1) { //encrypt outer
+		// chocolate_syrup[32] - crypto_outer1 key (AES256-CBC)
 		// crypto_outer1 has access to bytes 8-23
-		// AES256-CBC (len/4 to (len-1-(len/4)))
+		okcrypto_aes_cbc_encrypt(state+(len/4), iv2, chocolate_syrup, len-(len/4));
+
+    	// whipped_cream[32] - crypto_outer2 key (NACL crypto_stream_salsa20)
 		// crypto_outer2 has access to bytes 0-7
+		crypto_stream_salsa20_xor(state,state,(len/4),iv2,whipped_cream); 
+
+    	// cherry_on_top[32] - crypto_outer3 key (NACL crypto_stream_xsalsa20)
 		// crypto_outer3 has access to bytes 24-31
-		// crypto_stream_aes128ctr (0 to (len/4)-1)
-		// crypto_stream_salsa20 ((len-(len/4)) to len-1)
+		crypto_stream_xsalsa20_xor(state+(len-(len/4)),state+(len-(len/4)),(len/4),iv2,cherry_on_top); 
+
+	} else if (function==2) { //encrypt inner
+		// banana[32] - crypto_inner1 key (NACL crypto_stream_xsalsa20)
+		// crypto_inner1 has access to bytes 16-31
+		crypto_stream_xsalsa20_xor(state+(len/2),state+(len/2),(len/2),iv2,banana); 
+
+    	// ice_cream[32] - crypto_inner2 key (NACL crypto_stream_salsa20)
+		// crypto_inner2 has access to bytes 0-15
+		crypto_stream_salsa20_xor(state,state,(len/2),iv2,ice_cream); 
+
+	} else if (function==3) { //decrypt inner
+		// cherry_on_top[16] - crypto_outer3 key (NACL crypto_stream_xsalsa20)
+		// crypto_outer3 has access to bytes 24-31
+		crypto_stream_xsalsa20_xor(state+(len-(len/4)),state+(len-(len/4)),(len/4),iv2,cherry_on_top); 
+		
+		// whipped_cream[16] - crypto_outer2 key (NACL crypto_stream_salsa20)
+		// crypto_outer2 has access to bytes 0-7
+		crypto_stream_salsa20_xor(state,state,(len/4),iv2,whipped_cream); 
+
+		// chocolate_syrup[32] - crypto_outer1 key (AES256-CBC)
+		// crypto_outer1 has access to bytes 8-23
+		okcrypto_aes_cbc_decrypt(state+(len/4), iv2, chocolate_syrup, len-(len/4));
+
+	} else if (function==4) { //decrypt outer
+		// banana[32] - crypto_inner1 key (NACL crypto_stream_xsalsa20)
+		// crypto_inner1 has access to bytes 16-31
+		crypto_stream_xsalsa20_xor(state+(len/2),state+(len/2),(len/2),iv2,banana); 
+
+    	// ice_cream[32] - crypto_inner2 key (NACL crypto_stream_salsa20)
+		// crypto_inner2 has access to bytes 0-15
+		crypto_stream_salsa20_xor(state,state,(len/2),iv2,ice_cream); 
+	}
+}
+
+void okcrypto_compute_pubkey() {
+
+	if (type == KEYTYPE_ED25519) {
+		Ed25519::derivePublicKey(ecc_public_key, ecc_private_key);
+	}
+	else if (type == KEYTYPE_P256R1)
+	{
+		const struct uECC_Curve_t *curve = uECC_secp256r1();
+		uECC_compute_public_key(ecc_private_key, ecc_public_key, curve);
+	}
+	else if (type == KEYTYPE_P256K1)
+	{
+		const struct uECC_Curve_t *curve = uECC_secp256k1();
+		uECC_compute_public_key(ecc_private_key, ecc_public_key, curve);
+	}
+	else if (type == KEYTYPE_CURVE25519)
+	{
+		Curve25519::eval(ecc_public_key, ecc_private_key, 0);
 	}
 }
 

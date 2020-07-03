@@ -265,8 +265,8 @@ uint8_t Challenge_button1 = 0;
 uint8_t Challenge_button2 = 0;
 uint8_t Challenge_button3 = 0;
 uint8_t CRYPTO_AUTH = 0;
-uint8_t sshchallengemode = 0;
-uint8_t pgpchallengemode = 0;
+uint8_t derived_key_challenge_mode = 0;
+uint8_t stored_key_challenge_mode = 0;
 /*************************************/
 //RNG Assignments
 /*************************************/
@@ -768,12 +768,14 @@ void okcore_quick_setup(uint8_t step)
 		keytype("YOUR ONLYKEY SELF-DESTRUCT PIN IS:");
 		keytype((char *)buffer);
 
-	} else if (step == KEYBOARD_ONLYKEY_GO) {
-		keytype("*** WELCOME TO ONLYKEY GO QUICK SETUP ***");
-		keytype("RUN THIS SETUP FROM A TRUSTED COMPUTER AND CAREFULLY WRITE DOWN");
-		keytype("YOUR BACKUP PASSPHRASE. STORE IN A SECURE LOCATION SUCH AS A SAFE");
-		keytype("WHEN FINISHED DELETE THIS TEXT");
-		Keyboard.println();
+	} else if (step == KEYBOARD_ONLYKEY_GO || step == KEYBOARD_ONLYKEY_GO_NO_BACKUP) {
+		if (step == KEYBOARD_ONLYKEY_GO) {
+			keytype("*** WELCOME TO ONLYKEY GO QUICK SETUP ***");
+			keytype("RUN THIS SETUP FROM A TRUSTED COMPUTER AND CAREFULLY WRITE DOWN");
+			keytype("YOUR BACKUP PASSPHRASE. STORE IN A SECURE LOCATION SUCH AS A SAFE");
+			keytype("WHEN FINISHED DELETE THIS TEXT");
+			Keyboard.println();
+		}
 		pin_set = 3;
 		// First 7 bytes of chip ID used instead of primary PIN
 		set_primary_pin((uint8_t*)ID, KEYBOARD_AUTO_PIN_SET);
@@ -795,29 +797,34 @@ void okcore_quick_setup(uint8_t step)
 		}
 	} 
 
+	// Set randomly generated backup passphrase
 	buffer[5] = RESERVED_KEY_DEFAULT_BACKUP;
 	buffer[6] = 0xA1;
 	SHA256_CTX hash;
 	sha256_init(&hash);
-
 	if (recv_buffer[35]>=0x20 && step == SETUP_MANUAL) { //ASCII Space
 		sha256_update(&hash, recv_buffer+35, strlen((char*)(recv_buffer+35)));
 		sha256_final(&hash, buffer + 7);
 		set_private(buffer); //set backup ECC key
 	} else {
-		keytype("YOUR ONLYKEY BACKUP PASSPHRASE IS:");
-		generate_random_passphrase(buffer + 7);
-		keytype((char *)(buffer + 7));
-		//memset(buffer, 'a', 32);
-		Keyboard.println();
-		sha256_update(&hash, buffer + 7, 27);
-		sha256_final(&hash, buffer + 7);
-		set_private(buffer); //set backup ECC key
-		if (HW_ID!=OK_GO) keytype("To start using OnlyKey enter your primary or secondary PIN on the OnlyKey 6 button keypad");
-		keytype("OnlyKey is ready for use as a security key (FIDO2/U2F) and for challenge-response");
-		keytype("For additional features such as password management install the OnlyKey desktop app");
-		keytype("https://onlykey.io/app ");
-		keytype("*** SETUP COMPLETE, DELETE THIS TEXT ***");
+		if (step != KEYBOARD_ONLYKEY_GO_NO_BACKUP) {
+			keytype("YOUR ONLYKEY BACKUP PASSPHRASE IS:");
+			generate_random_passphrase(buffer + 7);
+			keytype((char *)(buffer + 7));
+			//memset(buffer, 'a', 32);
+			Keyboard.println();
+			sha256_update(&hash, buffer + 7, 27);
+			sha256_final(&hash, buffer + 7);
+			set_private(buffer); //set backup ECC key
+			if (HW_ID!=OK_GO) keytype("To start using OnlyKey enter your primary or secondary PIN on the OnlyKey 6 button keypad");
+			keytype("OnlyKey is ready for use as a security key (FIDO2/U2F) and for challenge-response");
+			keytype("For additional features such as password management install the OnlyKey desktop app");
+			keytype("https://onlykey.io/app ");
+			keytype("*** SETUP COMPLETE, DELETE THIS TEXT ***");
+		} else {
+			// Disable backups
+			okeeprom_eeset_backupkeymode((uint8_t*)1);
+		}
 	}
 	if (step!=SETUP_MANUAL) CPU_RESTART();
 }
@@ -1416,7 +1423,7 @@ uint8_t get_key_labels(uint8_t output)
 				return i - 24;
 		}
 	}
-	for (uint8_t i = 29; i <= 58; i++)
+	for (uint8_t i = 29; i <= 57; i++)
 	{ //30 labels for ECC keys
 		okcore_flashget_label(ptr, (offset + i));
 		label[0] = (uint8_t)i; //101-132
@@ -1465,7 +1472,7 @@ uint8_t get_key_labels(uint8_t output)
 		}
 	}
 	if (output == 1)
-		keytype("For additional OnlyKey info - https://docs.crp.to");
+		keytype("For OnlyKey on-the-go visit https://apps.crp.to");
 #endif
 	return 0;
 }
@@ -1870,9 +1877,9 @@ void set_slot(uint8_t *buffer)
 		{ //Only permit changing this on first use or while in config mode
 #ifdef DEBUG
 			Serial.println(); //newline
-			Serial.println("Writing sshchallengemode to EEPROM...");
+			Serial.println("Writing derived_key_challenge_mode to EEPROM...");
 #endif
-			okeeprom_eeset_sshchallengemode(buffer + 7);
+			okeeprom_eeset_derived_key_challenge_mode(buffer + 7);
 			hidprint("Successfully set SSH Challenge Mode");
 		}
 		else
@@ -1886,9 +1893,9 @@ void set_slot(uint8_t *buffer)
 		{ //Only permit changing this on first use or while in config mode
 #ifdef DEBUG
 			Serial.println(); //newline
-			Serial.println("Writing pgpchallengemode to EEPROM...");
+			Serial.println("Writing stored_key_challenge_mode to EEPROM...");
 #endif
-			okeeprom_eeset_pgpchallengemode(buffer + 7);
+			okeeprom_eeset_stored_key_challenge_mode(buffer + 7);
 			hidprint("Successfully set PGP Challenge Mode");
 		}
 		else
@@ -2388,12 +2395,17 @@ void send_transport_response(uint8_t *data, int len, uint8_t encrypt, uint8_t st
 	byteprint(data, len);
 	Serial.println(outputmode);
 	#endif
-
 	if (!outputmode)
 	{ //USB
 		for (int i = 0; i < len; i += 64)
 		{
-			RawHID.send2(data + i, 0);
+			if (len-i>=64) {
+				memcpy(resp_buffer, data, 64);
+			}
+			else {
+				memcpy(resp_buffer, data, len-i);
+			}
+			RawHID.send2(resp_buffer + i, 0);
 		}
 	}
 	else if (profilemode != NONENCRYPTEDPROFILE && outputmode == WEBAUTHN)
@@ -2746,7 +2758,7 @@ void okcore_flashset_common(uint8_t *ptr, unsigned long *adr, int len)
 }
 
 
-void onlykey_flashsector(uint8_t *ptr, unsigned long *adr, int len)
+void okcore_flashsector(uint8_t *ptr, unsigned long *adr, int len)
 {
 //Erase flash sector
 #ifdef DEBUG
@@ -2818,7 +2830,7 @@ void okcore_flashset_noncehash(uint8_t *ptr)
 	Serial.println(adr, HEX);
 	Serial.print("Nonce hash value =");
 #endif
-	onlykey_flashsector(tptr, (unsigned long *)adr, 254);
+	okcore_flashsector(tptr, (unsigned long *)adr, 254);
 	okcore_flashget_common(ptr, (unsigned long *)adr, EElen_noncehash);
 }
 
@@ -2878,7 +2890,7 @@ void okcore_flashset_pinhashpublic(uint8_t *ptr)
 	{
 		temp[z + EElen_noncehash] = ((uint8_t) * (ptr + z));
 	}
-	onlykey_flashsector(tptr, (unsigned long *)adr, 254);
+	okcore_flashsector(tptr, (unsigned long *)adr, 254);
 #ifdef DEBUG
 	Serial.print("Pin hash address =");
 	Serial.println(adr, HEX);
@@ -2942,7 +2954,7 @@ void okcore_flashset_selfdestructhash(uint8_t *ptr)
 	{
 		temp[z + EElen_noncehash + EElen_pinhash] = ((uint8_t) * (ptr + z));
 	}
-	onlykey_flashsector(tptr, (unsigned long *)adr, 254);
+	okcore_flashsector(tptr, (unsigned long *)adr, 254);
 #ifdef DEBUG
 	Serial.print("Self-Destruct PIN hash address =");
 	Serial.println(adr, HEX);
@@ -3023,7 +3035,7 @@ void okcore_flashset_2ndpinhashpublic(uint8_t *ptr)
 	{
 		temp[z + EElen_noncehash + EElen_pinhash + EElen_selfdestructhash] = ((uint8_t) * (ptr + z));
 	}
-	onlykey_flashsector(tptr, (unsigned long *)adr, 254);
+	okcore_flashsector(tptr, (unsigned long *)adr, 254);
 	#ifdef DEBUG
 	Serial.print("PIN hash address =");
 	Serial.println(adr, HEX);
@@ -3122,7 +3134,7 @@ void okcore_flashset_profilekey(uint8_t *secret)
 	Serial.println(adr, HEX);
 	Serial.print("profilekey hash value =");
 	#endif
-	onlykey_flashsector(tptr, (unsigned long *)adr, 254);
+	okcore_flashsector(tptr, (unsigned long *)adr, 254);
 	okcore_flashget_common(ptr, (unsigned long *)adr, EElen_profilekey);
 }
 
@@ -4656,17 +4668,18 @@ void okcore_flashset_totpkey(uint8_t *ptr, int size, int slot)
 void okcore_flashget_U2F()
 {
 
-	if (profilemode == NONENCRYPTEDPROFILE)
-		return;
-#ifdef STD_VERSION
-#ifdef DEBUG
+	if (profilemode == NONENCRYPTEDPROFILE) return;
+	#ifdef STD_VERSION
+	#ifdef DEBUG
 	Serial.println("Flashget U2F");
-#endif
+	#endif
 	uint8_t length[2];
 	uintptr_t adr = (unsigned long)flashstorestart;
 	adr = adr + 12288 + 1024; //2nd half of 7th flash sector
+	 
 	okcore_flashget_common((uint8_t *)attestation_key, (unsigned long *)adr, 32);
 	okcore_aes_gcm_decrypt((uint8_t *)attestation_key, 0, 200, profilekey, 32);
+
 #ifdef DEBUG
 	Serial.print("attestation_key =");
 #endif
@@ -4677,18 +4690,12 @@ void okcore_flashget_U2F()
 #endif
 	}
 	adr = adr + 32;
-	okeeprom_eeget_U2Fcertlen(length);
-	int length2 = length[0] << 8 | length[1];
-#ifdef DEBUG
-	Serial.print("attestation der length=");
-	Serial.println(length2);
-#endif
-	attestation_cert_der_size = length2;
-	okcore_flashget_common((uint8_t *)attestation_cert_der, (unsigned long *)adr, length2);
-	okcore_aes_gcm_decrypt((uint8_t *)attestation_cert_der, 0, 199, profilekey, length2);
+
+	okcore_flashget_common((uint8_t *)attestation_cert_der, (unsigned long *)adr, attestation_cert_der_size);
+	okcore_aes_gcm_decrypt((uint8_t *)attestation_cert_der, 0, 199, profilekey, attestation_cert_der_size);
 #ifdef DEBUG
 	Serial.print("attestation der =");
-	byteprint((uint8_t *)attestation_cert_der, sizeof(attestation_cert_der));
+	byteprint((uint8_t *)attestation_cert_der, attestation_cert_der_size);
 #endif
 #endif
 	return;
@@ -4983,7 +4990,7 @@ int okcore_flashget_ECC(uint8_t slot)
 #endif
 	extern uint8_t type;
 	uint8_t features;
-	if (slot < 101 || (slot > 132 && slot < 201) || slot > 203)
+	if (slot < 101 || slot > 132)
 	{
 #ifdef DEBUG
 		Serial.println("Error invalid ECC slot");
@@ -5026,21 +5033,7 @@ int okcore_flashget_ECC(uint8_t slot)
 #ifdef DEBUG
 	Serial.println("Read ECC Private Key");
 #endif
-	if (type == 1)
-		Ed25519::derivePublicKey(ecc_public_key, ecc_private_key);
-	else if (type == 2)
-	{
-		const struct uECC_Curve_t *curve = uECC_secp256r1();
-		uECC_compute_public_key(ecc_private_key, ecc_public_key, curve);
-	}
-	else if (type == 3)
-	{
-#ifdef DEBUG
-		Serial.println("Compute of public key begin");
-#endif
-		const struct uECC_Curve_t *curve = uECC_secp256k1();
-		uECC_compute_public_key(ecc_private_key, ecc_public_key, curve);
-	}
+	okcrypto_compute_pubkey();
 #ifdef DEBUG
 	Serial.println("Compute of public key complete");
 #endif
@@ -5657,7 +5650,8 @@ bool wipebuffersafter5sec(Task *me)
 		memset(keyboard_buffer, 0, KEYBOARD_BUFFER_SIZE);
 		memset(packet_buffer_details, 0, sizeof(packet_buffer_details));
 		setBuffer[7] = 0;
-		if (getBuffer[8]>= 0xC0) {
+		// Delete any unretrived data in getbuffer
+		if (getBuffer[7]>= 0xC0) {
 			getBuffer[0] = 0;
 			getBuffer[1] = 2;
 			getBuffer[2] = 2;
@@ -5667,14 +5661,15 @@ bool wipebuffersafter5sec(Task *me)
 			getBuffer[6] = 5;
 			getBuffer[7] = 0;
 			getBuffer[8] = 0;
+			memset(setBuffer, 0, 9);
 		}
 		large_resp_buffer_offset = 0;
 		CRYPTO_AUTH = 0;
 		Challenge_button1 = 0;
 		Challenge_button2 = 0;
 		Challenge_button3 = 0;
-		sshchallengemode = 0;
-		pgpchallengemode = 0;
+		derived_key_challenge_mode = 0;
+		stored_key_challenge_mode = 0;
 		pending_operation = 0;
 		if (isfade || CRYPTO_AUTH) {
 			fadeoff(1); //Fade Red, failed to complete within 5 seconds
@@ -5689,6 +5684,9 @@ bool fadeoffafter20sec(Task *me)
 	Serial.println("wipe buffers after 20 sec");
 #endif
 	if (isfade || CRYPTO_AUTH || pending_operation==CTAP2_ERR_DATA_WIPE) {
+		if (pending_operation==OKECDH_ERR_USER_ACTION_PENDING || pending_operation==OKECDSA_EDDSA_ERR_USER_ACTION_PENDING) {
+			hidprint("Timeout occured while waiting for confirmation on OnlyKey");
+		}
 		fadeoff(1); //Fade Red, failed to enter PIN in 20 Seconds
 	}
 	//Below used for keyboard OnlyKey setup
@@ -5754,6 +5752,8 @@ void wipedata()
 {
 	SoftTimer.remove(&Wipedata);
 	Wipedata.startDelayed();
+	packet_buffer_details[0] = 0;
+	packet_buffer_details[1] = 0;
 }
 
 void fadeoffafter20()
@@ -6331,7 +6331,7 @@ void backup()
 	else if (slot > 100)
 	{
 		uint8_t iv[12];
-		uint8_t secret[32];
+		uint8_t secret[64];
 		memcpy(iv, temp, 12);
 		okcore_flashget_ECC(slot);
 #ifdef DEBUG
@@ -7012,24 +7012,28 @@ void done_process_packets()
 {
 	uint8_t temp[32];
 	SoftTimer.remove(&Wipedata); //Cancel this we got all packets
+	SoftTimer.remove(&Endfade);
 	#ifdef DEBUG
 	Serial.println("done_process_packets");
 	#endif
 	isfade = 1;
-	sshchallengemode = 0;
-	pgpchallengemode = 0;
+	derived_key_challenge_mode = 0;
+	stored_key_challenge_mode = 0;
 	CRYPTO_AUTH = 1;
 	fadeoffafter20(); //Wipe and fadeoff after 20 seconds
-	// If support is added for PGP/GPG ssh challenge mode and pgp challenge mode may require change 
-	// Change to sign challenge mode and decrypt challenge mode based on key features of slot
 	if (packet_buffer_details[1] > 200) { //SSH request
-		okeeprom_eeget_sshchallengemode(&sshchallengemode);
+		okeeprom_eeget_derived_key_challenge_mode(&derived_key_challenge_mode);
 	}
-	if (packet_buffer_details[1] < 5 || (packet_buffer_details[1] > 100 && packet_buffer_details[1] <= 132)) { //PGP request
-		okeeprom_eeget_pgpchallengemode(&pgpchallengemode);
+	if (packet_buffer_details[1] < 5 || (packet_buffer_details[1] > 100 && packet_buffer_details[1] <= 132)) { 
+		okeeprom_eeget_stored_key_challenge_mode(&stored_key_challenge_mode);
 	}
-	if (sshchallengemode || pgpchallengemode || HW_ID==OK_GO) {
+	if (derived_key_challenge_mode || stored_key_challenge_mode || HW_ID==OK_GO) {
 		CRYPTO_AUTH = 3;
+		if (HW_ID==OK_GO) {
+			derived_key_challenge_mode=1;
+			stored_key_challenge_mode=1;
+		}
+
 	} else {
 		SHA256_CTX msg_hash;
 		sha256_init(&msg_hash);
@@ -7203,14 +7207,20 @@ void okcore_aes_gcm_decrypt(uint8_t *state, uint8_t slot, uint8_t value, const u
 void okcore_aes_cbc_encrypt (uint8_t * state, const uint8_t * key, int len)
 {
 	#ifdef STD_VERSION
-	okcrypto_aes_cbc_encrypt (state, key, len);
+	// newPinEnc uses IV=0
+	// https://fidoalliance.org/specs/fido-v2.0-id-20180227/fido-client-to-authenticator-protocol-v2.0-id-20180227.pdf
+	uint8_t iv[16] = {0};
+	okcrypto_aes_cbc_encrypt (state, NULL, key, len);
 	#endif
 }
 
 void okcore_aes_cbc_decrypt (uint8_t * state, const uint8_t * key, int len)
 {
 	#ifdef STD_VERSION
-	okcrypto_aes_cbc_decrypt (state, key, len);
+	// newPinEnc uses IV=0
+	// https://fidoalliance.org/specs/fido-v2.0-id-20180227/fido-client-to-authenticator-protocol-v2.0-id-20180227.pdf
+	uint8_t iv[16] = {0};
+	okcrypto_aes_cbc_decrypt (state, iv, key, len);
 	#endif
 }
 

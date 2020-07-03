@@ -50,17 +50,23 @@ void U2Finit()
   device_init();
   okeeprom_eeget_U2Fcertlen(length);
   int length2 = length[0] << 8 | length[1];
-  if (length2 != 0) {
+  if (length2 != 0 || factory_config_flag == 0x01) {
     extern uint16_t attestation_cert_der_size;
     attestation_cert_der_size=length2;
     okcore_flashget_U2F();
   } else {
-      // Future feature, built in attestation key
-      // Add checking here for built-in attestation key
-    #ifdef DEBUG
-    byteprint((uint8_t*)attestation_key,sizeof(attestation_key));
-    byteprint((uint8_t*)attestation_cert_der,sizeof(attestation_cert_der));
-    #endif
+    if (factory_config_flag == 0x01) { 
+		// New method decrypt attestation with device keys
+		memcpy((uint8_t *)attestation_key, encrypted_attestation_key, 32);
+		okcrypto_aes_gcm_decrypt2((uint8_t *)attestation_key, attestation_kek_iv, attestation_kek, 32);
+        memcpy(attestation_cert_der, attestation_cert_der_new, attestation_cert_der_size);
+	} else {
+		// Old method decrypt attestation 
+        #ifdef DEBUG
+        byteprint((uint8_t*)attestation_key,sizeof(attestation_key));
+        byteprint((uint8_t*)attestation_cert_der,sizeof(attestation_cert_der));
+        #endif
+	}
   }
   //okcrypto_derive_key(0 , (uint8_t*)attestation_key); //Derive key from default key in slot 32
   //memcpy(handlekey, ecc_private_key, 32); // Copy derived key to handlekey
@@ -89,9 +95,7 @@ void init_SHA256(const uECC_HashContext *base) {
     SHA256_HashContext *context = (SHA256_HashContext *)base;
     sha256_init(&context->ctx);
 }
-void update_SHA256(const uECC_HashContext *base,
-                   const uint8_t *message,
-                   unsigned message_size) {
+void update_SHA256(const uECC_HashContext *base, const uint8_t *message, unsigned message_size) {
     SHA256_HashContext *context = (SHA256_HashContext *)base;
     sha256_update(&context->ctx, message, message_size);
 }
@@ -105,12 +109,12 @@ int webcryptcheck (uint8_t * _appid, uint8_t * buffer) {
     //const char stored_appid_u2f[] = "\x23\xCD\xF4\x07\xFD\x90\x4F\xEE\x8B\x96\x40\x08\xB0\x49\xC5\x5E\xA8\x81\x13\x36\xA3\xA5\x17\x1B\x58\xD6\x6A\xEC\xF3\x79\xE7\x4A";
     //const char stored_clientDataHash[] = "\x57\x81\xAF\x14\xB9\x71\x6D\x87\x24\x61\x8E\x8A\x6F\xD6\x50\xEB\x6B\x02\x6B\xEC\x6B\xAD\xB3\xB1\xA3\x01\xAA\x0D\x75\xF6\x0C\x14";
     //const char stored_clientDataHash_u2f[] = "\x78\x4E\x39\xF2\xDA\xF8\xE6\xA4\xBB\xD7\x15\x0D\x39\x34\xCC\x81\x5F\x6E\xE7\x6F\x57\xBC\x02\x6A\x0E\x49\x33\x13\xF4\x36\x63\x47"; 
-    const char stored_apprpid[] = "\x61\x70\x70\x73\x2E\x63\x72\x70\x2E\x74\x6F\x02";
+    const char stored_apprpid[] = "\x61\x70\x70\x73\x2E\x63\x72\x70\x2E\x74\x6F\x02"; //apps.crp.to + 0x02 teminating character
 	uint8_t rpid[12];
     int appid_match1;
 	int appid_match2;
     extern uint8_t ctap_buffer[CTAPHID_BUFFER_SIZE];
-    memcpy(rpid, ctap_buffer+4, 12); // app.crp.to
+    memcpy(rpid, ctap_buffer+4, 12); 
     #ifdef DEBUG
 	Serial.println("Ctap buffer:");
     byteprint(ctap_buffer, 1024);
@@ -122,6 +126,7 @@ int webcryptcheck (uint8_t * _appid, uint8_t * buffer) {
     byteprint((uint8_t*)stored_appid, 32);
 	Serial.println("_appid:");
     byteprint(_appid, 32);
+    return 2; // Trust all origins for debug firmware
 	#endif
     
     appid_match1 = memcmp (stored_apprpid, rpid, 12);
@@ -431,5 +436,6 @@ void _Error_Handler(char *file, int line)
     {
     }
 }
+
 
 #endif

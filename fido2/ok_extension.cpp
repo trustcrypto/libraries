@@ -92,11 +92,6 @@
 #define DERIVE_SHAREDSEC 2
 #define DERIVE_SIGN 3
 #define DERIVE_DECRYPT 4
-// Type of key to derive 
-#define KEYTYPE_NACL 0
-#define KEYTYPE_P256R1 1
-#define KEYTYPE_P256K1 2
-#define KEYTYPE_CURVE25519 3
 // Option to encrypt response for end-to-end data in-transit encryption
 #define NO_ENCRYPT_RESP 0
 #define ENCRYPT_RESP 1
@@ -128,6 +123,7 @@ int16_t bridge_to_onlykey(uint8_t * _appid, uint8_t * keyh, int handle_len, uint
 	uint8_t browser;
 	uint8_t os;
 	uint8_t temp[256];
+	uint8_t pubsize;
 
 	memcpy(client_handle, keyh+10, handle_len);
 		
@@ -167,8 +163,9 @@ int16_t bridge_to_onlykey(uint8_t * _appid, uint8_t * keyh, int handle_len, uint
 			Serial.print("OS = ");
 			Serial.println((char)os);
 			#endif
-			uint8_t transit_key[32];
-			type = 1; //NACL
+			uint8_t transit_key[64];
+			//NACL for transit encryption, this setting isn't currently user configurable
+			type = 1; 
 			if (okcrypto_shared_secret (ecc_public_key, transit_key)) {
 				ret = CTAP2_ERR_OPERATION_DENIED;
 				printf2(TAG_ERR,"Error with ECC Shared Secret\n");
@@ -200,35 +197,32 @@ int16_t bridge_to_onlykey(uint8_t * _appid, uint8_t * keyh, int handle_len, uint
 				if (opt3) opt3=2; // 1=encrypt everything, 2=encrypt everything except transit public so app can derive shared secret
 				uint8_t *additional_data = client_handle+43; // 32 bytes of data to include in key derivation
 				uint8_t *input_pubkey = client_handle+43+32; // Use uncompressed ecc pubkeys, could use compressed in future
+				opt2++; 
 
 				memset(ecc_public_key, 0, sizeof(ecc_public_key));
 
 				//Similar format to SSH derivation but use RESERVED_KEY_WEB_DERIVATION key
-				if (opt2 == KEYTYPE_NACL) {
+				if (opt2 == KEYTYPE_NACL || KEYTYPE_CURVE25519) {
 					okcrypto_derive_key(4, additional_data, RESERVED_KEY_WEB_DERIVATION); //Curve25519
-					type = 1; //NACL
+					pubsize=32;
 				}
 				else if (opt2 == KEYTYPE_P256R1) {
 					okcrypto_derive_key(2, additional_data, RESERVED_KEY_WEB_DERIVATION);
-					type = 2; //P256R1
+					pubsize=64;
 				}
 				else if (opt2 == KEYTYPE_P256K1) {
 					okcrypto_derive_key(3, additional_data, RESERVED_KEY_WEB_DERIVATION);
-					type = 3; //P256K1
+					pubsize=64;
 				} 
-				else if (opt2 == KEYTYPE_CURVE25519) {
-					okcrypto_derive_key(4, additional_data, RESERVED_KEY_WEB_DERIVATION); //Curve25519
-					type = 4; 
-				}
 
 				// Derived private key stored in ecc_private_key
 				// Derived public key stored in ecc_public_key
 
-				memcpy(temp+32+sizeof(UNLOCKED)+1, ecc_public_key, sizeof(ecc_public_key)); // Copy derived public key to temp
+				memcpy(temp+32+sizeof(UNLOCKED)+1, ecc_public_key, pubsize); // Copy derived public key to temp
 
 				#ifdef DEBUG
 				Serial.println("Returned Public");
-				byteprint(ecc_public_key, sizeof(ecc_public_key));
+				byteprint(ecc_public_key, pubsize);
 				Serial.println("Derived Private");
 				byteprint(ecc_private_key, sizeof(ecc_private_key));
 				#endif
@@ -236,10 +230,10 @@ int16_t bridge_to_onlykey(uint8_t * _appid, uint8_t * keyh, int handle_len, uint
 				if (opt1==DERIVE_SHAREDSEC) { // Return DERIVE_PUBLIC_KEY and DERIVE_SHAREDSEC
 					#ifdef DEBUG
 					Serial.println("Input Pubkey");
-					byteprint(input_pubkey, 65);
+					byteprint(input_pubkey, pubsize);
 					#endif
 					// Use ecc_private_key and provided pubkey to generate shared secret
-					if (okcrypto_shared_secret (input_pubkey, temp+32+sizeof(UNLOCKED)+1+sizeof(ecc_public_key))) { // Generate derived key shared secret in temp
+					if (okcrypto_shared_secret (input_pubkey, temp+32+sizeof(UNLOCKED)+1+pubsize)) { // Generate derived key shared secret in temp
 						ret = CTAP2_ERR_OPERATION_DENIED;
 						printf2(TAG_ERR,"Error with ECC Shared Secret\n");
 						return ret;
@@ -247,7 +241,7 @@ int16_t bridge_to_onlykey(uint8_t * _appid, uint8_t * keyh, int handle_len, uint
 
 					#ifdef DEBUG
 					Serial.println("Shared Secret");
-					byteprint(temp+32+sizeof(UNLOCKED)+1+sizeof(ecc_public_key), sizeof(ecc_private_key));
+					byteprint(temp+32+sizeof(UNLOCKED)+1+pubsize, (sizeof(ecc_private_key)*2));
 					#endif
 
 					memcpy(ecc_private_key, transit_key, sizeof(transit_key)); // Copy transit key to ecc private 
@@ -255,7 +249,7 @@ int16_t bridge_to_onlykey(uint8_t * _appid, uint8_t * keyh, int handle_len, uint
 					//memset(temp+32+sizeof(UNLOCKED)+1+sizeof(ecc_public_key), 2, sizeof(ecc_private_key));
 					// For testing send pubkey of 1s
 					//memset(temp+32+sizeof(UNLOCKED)+1, 1, sizeof(ecc_public_key));
-					send_transport_response(temp, 32+sizeof(UNLOCKED)+1+sizeof(ecc_public_key)+sizeof(ecc_private_key), opt3, false); // Encrypt data in trasit using transit key if opt3 and send right away
+					send_transport_response(temp, 32+sizeof(UNLOCKED)+1+pubsize+sizeof(ecc_private_key), opt3, false); // Encrypt data in trasit using transit key if opt3 and send right away
 				} else if (opt1==DERIVE_SIGN) { // Return signed data
 					//TODO Implement this
 					return 0;
@@ -265,7 +259,7 @@ int16_t bridge_to_onlykey(uint8_t * _appid, uint8_t * keyh, int handle_len, uint
 				} else { // Just Return DERIVE_PUBLIC_KEY
 					// For testing send pubkey of 1s
 					//memset(temp+32+sizeof(UNLOCKED)+1, 1, sizeof(ecc_public_key));
-					send_transport_response(temp, 32+sizeof(UNLOCKED)+1+sizeof(ecc_public_key), opt3, false); //Encrypt if opt3 and send right away
+					send_transport_response(temp, 32+sizeof(UNLOCKED)+1+pubsize, opt3, false); //Encrypt if opt3 and send right away
 				}
 			} else {
 				send_transport_response (temp, 32+sizeof(UNLOCKED)+1, false, false); //Don't encrypt and send right away
