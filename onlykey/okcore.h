@@ -204,10 +204,6 @@ extern "C"
 
 extern void colorWipe(int color, int wait);
 extern int internal_temp ();
-extern void ByteToChar(uint8_t* bytes, char* chars, unsigned int count);
-extern void CharToByte(char* chars, uint8_t* bytes, unsigned int count);
-extern void ByteToChar2(uint8_t* bytes, char* chars, unsigned int count, unsigned int index);
-extern void CharToByte2(char* chars, uint8_t* bytes, unsigned int count, unsigned int index);
 extern void recvmsg(int n);
 extern void blink(int times);
 extern void fadein();
@@ -279,8 +275,8 @@ extern int okcore_flashget_username (uint8_t *ptr, int slot);
 extern void okcore_flashset_username (uint8_t *ptr, int size, int slot);
 extern int okcore_flashget_url (uint8_t *ptr, int slot);
 extern void okcore_flashset_url (uint8_t *ptr, int size, int slot);
-extern void okcore_flashget_label (uint8_t *ptr, int slot);
-extern void okcore_flashset_label (uint8_t *ptr, int slot);
+extern void okcore_flashget_label (uint8_t *ptr, uint8_t slot);
+extern void okcore_flashset_label (uint8_t *ptr, uint8_t slot);
 extern void okcore_flashget_U2F ();
 extern int okcore_flashget_ECC (uint8_t slot);
 extern int okcore_flashget_RSA (uint8_t slot);
@@ -326,6 +322,7 @@ extern void generate_random_pin (uint8_t *buffer);
 extern void generate_random_passphrase (uint8_t *buffer);
 extern int check_crc(uint8_t* buffer);
 extern char * HW_MODEL(char const * in);
+extern void ByteToChar2(uint8_t *bytes, char *chars, unsigned int count, unsigned int index);
 
 #ifdef __cplusplus
 }

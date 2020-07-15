@@ -437,7 +437,7 @@ void recvmsg(int n)
 			}
 			else
 			{
-				hidprint("Error device lockedD");
+				hidprint("Error device locked");
 				return;
 			}
 			return;
@@ -1384,91 +1384,73 @@ uint8_t get_key_labels(uint8_t output)
 	Serial.println();
 	Serial.println("OKGETKEYLABELS MESSAGE RECEIVED");
 #endif
-	uint8_t label[EElen_label + 3];
-	uint8_t *ptr;
-	char labelchar[EElen_label + 3];
-	int offset = 0;
-	int keyid_match;
-	char labeltype[EElen_label + 3 + 6];
-	ptr = label + 2;
+	uint8_t label[EElen_label + 7] = {0};
 
 	for (uint8_t i = 25; i <= 28; i++)
 	{ //4 labels for RSA keys
-		okcore_flashget_label(ptr, (offset + i));
+		okcore_flashget_label((uint8_t *)label+2, i);
 		label[0] = (uint8_t)i; //1-4
 		label[1] = (uint8_t)0x7C;
-		ByteToChar(label, labelchar, EElen_label + 3);
-#ifdef DEBUG
-		Serial.println(labelchar);
-#endif
 		if (output == 1)
 		{ //Output via keyboard
-			labeltype[0] = 'R';
-			labeltype[1] = 'S';
-			labeltype[2] = 'A';
-			labeltype[3] = ((i - 24) + '0');
-			labeltype[4] = 0x20;
-			memcpy(labeltype + 5, labelchar + 2, EElen_label + 1);
-			keytype(labeltype);
+			memmove(label+5, label+2, EElen_label);
+			label[0] = 'R';
+			label[1] = 'S';
+			label[2] = 'A';
+			label[3] = ((i - 24) + '0');
+			label[4] = 0x20;
+			label[21] = 0;
+			keytype((char *)label);
 		}
 		else if (output == 2)
 		{ //Output via outputmode
-			hidprint(labelchar);
+			send_transport_response(label, 21, false, false);
 			delay(20);
 		}
 		else if (output == 3)
-		{ //Output slot number of matching label
-			keyid_match = memcmp(ptr + 8, recv_buffer + 6, 8);
-			if (keyid_match == 0)
+		{ 	//Output slot number of matching label
+			// For future use, store origin hash or keyid in label
+			if (memcmp((uint8_t *)label+5, recv_buffer + 6, 16) == 0)
 				return i - 24;
 		}
 	}
-	for (uint8_t i = 29; i <= 57; i++)
+	for (uint8_t i = 29; i <= 44; i++)
 	{ //30 labels for ECC keys
-		okcore_flashget_label(ptr, (offset + i));
+		okcore_flashget_label((uint8_t *)label+2, i);
 		label[0] = (uint8_t)i; //101-132
 		label[1] = (uint8_t)0x7C;
-		ByteToChar(label, labelchar, EElen_label + 3);
-#ifdef DEBUG
-		Serial.println(labelchar);
-#endif
-		if (output == 1)
+		if (output == 3)
+		{ 	//Output slot number of matching label
+			// For future use, store origin hash or keyid in label
+			if (memcmp((uint8_t *)label+2, recv_buffer + 6, 16) == 0)
+				return i - 24;
+		}
+		else if (output == 1)
 		{ //Output via keyboard
-			labeltype[0] = 'E';
-			labeltype[1] = 'C';
-			labeltype[2] = 'C';
+			memmove(label+6, label+2, EElen_label);
+			label[0] = 'E';
+			label[1] = 'C';
+			label[2] = 'C';
 			if ((i - 28) < 10)
 			{
-				labeltype[3] = ((i - 28) + '0');
-				labeltype[4] = 0x20;
-				memcpy(labeltype + 5, labelchar + 2, EElen_label + 1);
+				label[3] = ('0');
+				label[4] = ((i - 28) + '0');
+				label[5] = 0x20;
+				label[22] = 0;
 			}
-			else if ((i - 28) < 20)
+			else if ((i - 28) < 17)
 			{
-				labeltype[3] = ('1');
-				labeltype[4] = ((i - 28 - 10) + '0');
-				labeltype[5] = 0x20;
-				memcpy(labeltype + 6, labelchar + 2, EElen_label + 1);
+				label[3] = ('1');
+				label[4] = ((i - 28 - 10) + '0');
+				label[5] = 0x20;
+				label[22] = 0;
 			}
-			else if ((i - 28) < 30)
-			{
-				labeltype[3] = ('2');
-				labeltype[4] = ((i - 28 - 20) + '0');
-				labeltype[5] = 0x20;
-				memcpy(labeltype + 6, labelchar + 2, EElen_label + 1);
-			}
-			keytype(labeltype);
+			keytype((char *)label);
 		}
 		else if (output == 2)
 		{ //Output via outputmode
-			hidprint(labelchar);
+			send_transport_response(label, 22, false, false);
 			delay(20);
-		}
-		else if (output == 3)
-		{ //Output slot number of matching label
-			keyid_match = memcmp(ptr + 8, recv_buffer + 6, 8);
-			if (keyid_match == 0)
-				return i + 103;
 		}
 	}
 	if (output == 1)
@@ -1483,46 +1465,37 @@ void get_slot_labels(uint8_t output)
 	Serial.println();
 	Serial.println("OKGETSLOTLABELS MESSAGE RECEIVED");
 #endif
-	uint8_t label[EElen_label + 3];
-	uint8_t *ptr;
-	char labelchar[EElen_label + 3];
+	uint8_t label[EElen_label + 4] = {0};
 	int offset = 0;
-	char labeltype[EElen_label + 3 + 3];
-	labeltype[2] = 0x20;
-	ptr = label + 2;
 	if (profilemode) offset = 12;
 	int maxslots = 12;
 	if (HW_ID==OK_GO) maxslots = 3;
 	for (int i = 1; i <= maxslots; i++)
 	{
-		okcore_flashget_label(ptr, (offset + i));
-		if (i <= 9)
-			label[0] = i;
-		else
-			label[0] = i + 6;
+		okcore_flashget_label((uint8_t *)label+2, (offset + i));
+		if (i <= 9) label[0] = i;
+		else label[0] = i + 6;
 		label[1] = (uint8_t)0x7C;
-		ByteToChar(label, labelchar, EElen_label + 3);
-#ifdef DEBUG
-		Serial.println(labelchar);
-#endif
 		if (output == 1)
 		{
 			if (i <= 6)
 			{
-				labeltype[0] = (i + '0');
-				labeltype[1] = 'a';
+				label[0] = (i + '0');
+				label[1] = 'a';
 			}
 			else
 			{
-				labeltype[0] = (i - 6 + '0');
-				labeltype[1] = 'b';
+				label[0] = (i - 6 + '0');
+				label[1] = 'b';
 			}
-			memcpy(labeltype + 3, labelchar + 2, EElen_label + 1);
-			keytype(labeltype);
+			memmove(label + 3, label + 2, EElen_label);
+			label[2] = 0x20;
+			label[19] = 0;
+			keytype((char *)label);
 		}
 		else
 		{
-			hidprint(labelchar);
+			send_transport_response(label, 18, false, false);
 			delay(20);
 		}
 	}
@@ -1880,7 +1853,7 @@ void set_slot(uint8_t *buffer)
 			Serial.println("Writing derived_key_challenge_mode to EEPROM...");
 #endif
 			okeeprom_eeset_derived_key_challenge_mode(buffer + 7);
-			hidprint("Successfully set SSH Challenge Mode");
+			hidprint("Successfully set derived key challenge mode");
 		}
 		else
 		{
@@ -1896,7 +1869,7 @@ void set_slot(uint8_t *buffer)
 			Serial.println("Writing stored_key_challenge_mode to EEPROM...");
 #endif
 			okeeprom_eeset_stored_key_challenge_mode(buffer + 7);
-			hidprint("Successfully set PGP Challenge Mode");
+			hidprint("Successfully set stored key challenge mode");
 		}
 		else
 		{
@@ -2348,30 +2321,6 @@ void printHex(const uint8_t *data, unsigned len)
 #endif
 }
 
-void ByteToChar(uint8_t *bytes, char *chars, unsigned int count)
-{
-	for (unsigned int i = 0; i < count; i++)
-		chars[i] = (char)bytes[i];
-}
-
-void CharToByte(char *chars, uint8_t *bytes, unsigned int count)
-{
-	for (unsigned int i = 0; i < count; i++)
-		bytes[i] = (uint8_t)chars[i];
-}
-
-void ByteToChar2(uint8_t *bytes, char *chars, unsigned int count, unsigned int index)
-{
-	for (unsigned int i = 0; i < count; i++)
-		chars[i + index] = (char)bytes[i];
-}
-
-void CharToByte2(char *chars, uint8_t *bytes, unsigned int count, unsigned int index)
-{
-	for (unsigned int i = 0; i < count; i++)
-		bytes[i + index] = (uint8_t)chars[i];
-}
-
 void hidprint(char const *chars)
 {
 	int i = 0;
@@ -2400,12 +2349,15 @@ void send_transport_response(uint8_t *data, int len, uint8_t encrypt, uint8_t st
 		for (int i = 0; i < len; i += 64)
 		{
 			if (len-i>=64) {
-				memcpy(resp_buffer, data, 64);
+				memcpy(resp_buffer, data+i, 64);
 			}
 			else {
-				memcpy(resp_buffer, data, len-i);
+				memcpy(resp_buffer, data+i, len-i);
 			}
-			RawHID.send2(resp_buffer + i, 0);
+			#ifdef DEBUG
+			byteprint(resp_buffer, 64);
+			#endif
+			RawHID.send2(resp_buffer, 0);
 		}
 	}
 	else if (profilemode != NONENCRYPTEDPROFILE && outputmode == WEBAUTHN)
@@ -4114,17 +4066,17 @@ void okcore_flashset_username(uint8_t *ptr, int size, int slot)
 
 /*********************************/
 
-void okcore_flashget_label(uint8_t *ptr, int slot)
+void okcore_flashget_label(uint8_t *ptr, uint8_t slot)
 {
 	uintptr_t adr = (unsigned long)flashstorestart;
 	adr = adr + 8192; //5th free sector
-	if (slot > 58 && slot < 0)
+	if (slot > 127) // Only 24 + 4 + 32 in use for slot and key labels
 		return;
 	adr = adr + ((EElen_label * slot) - EElen_label);
 	okcore_flashget_common(ptr, (unsigned long *)adr, EElen_label);
 }
 
-void okcore_flashset_label(uint8_t *ptr, int slot)
+void okcore_flashset_label(uint8_t *ptr, uint8_t slot)
 {
 
 	uintptr_t adr = (unsigned long)flashstorestart;
@@ -4132,7 +4084,7 @@ void okcore_flashset_label(uint8_t *ptr, int slot)
 	uint8_t temp[2048];
 	uint8_t *tptr;
 	tptr = temp;
-	if (slot > 58 && slot < 0)
+	if (slot > 127)
 		return;
 	//Copy current flash contents to buffer
 	okcore_flashget_common(tptr, (unsigned long *)adr, 2048);
@@ -5684,7 +5636,7 @@ bool fadeoffafter20sec(Task *me)
 	Serial.println("wipe buffers after 20 sec");
 #endif
 	if (isfade || CRYPTO_AUTH || pending_operation==CTAP2_ERR_DATA_WIPE) {
-		if (pending_operation==OKECDH_ERR_USER_ACTION_PENDING || pending_operation==OKECDSA_EDDSA_ERR_USER_ACTION_PENDING) {
+		if (pending_operation==OKDECRYPT_ERR_USER_ACTION_PENDING || pending_operation==OKSIGN_ERR_USER_ACTION_PENDING) {
 			hidprint("Timeout occured while waiting for confirmation on OnlyKey");
 		}
 		fadeoff(1); //Fade Red, failed to enter PIN in 20 Seconds
@@ -7021,10 +6973,10 @@ void done_process_packets()
 	stored_key_challenge_mode = 0;
 	CRYPTO_AUTH = 1;
 	fadeoffafter20(); //Wipe and fadeoff after 20 seconds
-	if (packet_buffer_details[1] > 200) { //SSH request
+	if (packet_buffer_details[1] > 200) { 
 		okeeprom_eeget_derived_key_challenge_mode(&derived_key_challenge_mode);
 	}
-	if (packet_buffer_details[1] < 5 || (packet_buffer_details[1] > 100 && packet_buffer_details[1] <= 132)) { 
+	if (packet_buffer_details[1] < 5 || (packet_buffer_details[1] > 100 && packet_buffer_details[1] <= 116)) { 
 		okeeprom_eeget_stored_key_challenge_mode(&stored_key_challenge_mode);
 	}
 	if (derived_key_challenge_mode || stored_key_challenge_mode || HW_ID==OK_GO) {
@@ -7253,4 +7205,10 @@ void okcore_pin_login ()
 		index++;
 	}
 	#endif
+}
+
+void ByteToChar2(uint8_t *bytes, char *chars, unsigned int count, unsigned int index)
+{
+	for (unsigned int i = 0; i < count; i++)
+		chars[i + index] = (char)bytes[i];
 }

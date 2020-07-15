@@ -196,7 +196,7 @@ void okcrypto_getpubkey (uint8_t *buffer) {
 	#endif
 	if (buffer[5] < 5 && !buffer[6]) { //Slot 101-132 are for ECC, 1-4 are for RSA
 		if (okcore_flashget_RSA ((int)buffer[5])) okcrypto_getrsapubkey(buffer);
-	} else if (buffer[5] < 128 && !buffer[6]) { //128-132 are reserved
+	} else if (buffer[5] < 117) { //128-132 are reserved
 		if (okcore_flashget_ECC ((int)buffer[5])) okcrypto_geteccpubkey(buffer);
 	} else if (buffer[5] == RESERVED_KEY_DERIVATION && buffer[6] <= KEYTYPE_CURVE25519) { // Generate key using provided data, return public
 	okcrypto_derive_key(buffer[6], buffer+7, NULL);
@@ -285,7 +285,15 @@ void okcrypto_getrsapubkey (uint8_t *buffer) {
 void okcrypto_rsasign (uint8_t *buffer) {
 	uint8_t rsa_signature[(type*128)];
 	uint8_t rsa_signaturetemp[64];
-    if(!CRYPTO_AUTH) process_packets (buffer, 0, 0);
+    if(!CRYPTO_AUTH) {
+		process_packets (buffer, 0, 0);
+		pending_operation=OKSIGN_ERR_USER_ACTION_PENDING;
+		if(CRYPTO_AUTH == 3 && outputmode == RAW_USB) {
+				keytype((char *)Challenge_button1);
+				keytype((char *)Challenge_button2);
+				keytype((char *)Challenge_button3);
+		}
+	}
 	else if (CRYPTO_AUTH == 4) {
 		if (large_buffer_offset != 28 && large_buffer_offset != 32 && large_buffer_offset != 48 && large_buffer_offset != 64) {
 			hidprint("Error with RSA data to sign invalid size");
@@ -334,7 +342,15 @@ void okcrypto_rsasign (uint8_t *buffer) {
 
 void okcrypto_rsadecrypt (uint8_t *buffer) {
 	unsigned int plaintext_len = 0;
-    if(!CRYPTO_AUTH) process_packets (buffer, 0, 0);
+    if(!CRYPTO_AUTH) {
+		process_packets (buffer, 0, 0);
+		pending_operation=OKDECRYPT_ERR_USER_ACTION_PENDING;
+		if (CRYPTO_AUTH == 3 && outputmode == RAW_USB) {
+			keytype((char *)Challenge_button1);
+			keytype((char *)Challenge_button2);
+			keytype((char *)Challenge_button3);
+		}
+	}
 	else if (CRYPTO_AUTH == 4) {
 		if (large_buffer_offset != (type*128)) {
 			hidprint("Error with RSA data to decrypt invalid size");
@@ -388,6 +404,10 @@ void okcrypto_rsadecrypt (uint8_t *buffer) {
 
 void okcrypto_geteccpubkey (uint8_t *buffer) {
 	okcore_flashget_ECC (buffer[5]);
+	if (type==KEYTYPE_NACL && buffer[6]==KEYTYPE_CURVE25519) {
+		type = KEYTYPE_CURVE25519;
+		okcrypto_compute_pubkey();
+	} 
 	#ifdef DEBUG
     Serial.println("okcrypto_geteccpubkey MESSAGE RECEIVED");
 	byteprint(ecc_public_key, sizeof(ecc_public_key));
@@ -430,7 +450,7 @@ void okcrypto_derive_key (uint8_t ktype, uint8_t *data, uint8_t slot) {
 void okcrypto_ecdsa_eddsa(uint8_t *buffer)
 {
 	uint8_t ecc_signature[64];
-	uint8_t sha256_hash[32];
+	uint8_t hash[64];
 	uint8_t len = 0;
 	#ifdef DEBUG
     Serial.println();
@@ -438,7 +458,12 @@ void okcrypto_ecdsa_eddsa(uint8_t *buffer)
 	#endif
     if (!CRYPTO_AUTH) {
 		process_packets (buffer, 0, 0);
-		pending_operation=OKECDSA_EDDSA_ERR_USER_ACTION_PENDING;
+		pending_operation=OKSIGN_ERR_USER_ACTION_PENDING;		
+		if (CRYPTO_AUTH == 3 && outputmode == RAW_USB) {
+			keytype((char *)Challenge_button1);
+			keytype((char *)Challenge_button2);
+			keytype((char *)Challenge_button3);
+		}
 	}
 	else if (CRYPTO_AUTH == 4) {
 		okcore_aes_gcm_decrypt(large_buffer, packet_buffer_details[0], packet_buffer_details[1], profilekey, large_buffer_offset);
@@ -465,30 +490,31 @@ void okcrypto_ecdsa_eddsa(uint8_t *buffer)
 		} 
 
 		if (large_buffer_offset > 32) large_buffer_offset = large_buffer_offset - 32;
-		if (large_buffer_offset == 32) { // Hash and sign data if larger than 32 bytes, if 32 bytes sign data
-			memcpy(sha256_hash, large_buffer, 32);
+		if (large_buffer_offset == 32 || large_buffer_offset == 64) { // Hash and sign data if larger than 32 bytes, if 32 bytes sign data
+			memcpy(hash, large_buffer, large_buffer_offset);
 		} else {
 			SHA256_CTX msghash;
 			sha256_init(&msghash);
 			sha256_update(&msghash, large_buffer, large_buffer_offset);
-			sha256_final(&msghash, sha256_hash); //Create hash and store
+			sha256_final(&msghash, hash); //Create hash and store
+			large_buffer_offset = 32;
 		}
 
 		#ifdef DEBUG
       	Serial.println("Signature Hash ");
-	  	byteprint(sha256_hash, 32);
+	  	byteprint(hash, large_buffer_offset);
 	  	Serial.print("Type");
 	  	Serial.println(type);
 		Serial.println("Private ");
 	  	byteprint(ecc_private_key, sizeof(ecc_private_key));
 		#endif
-
-		if (type==0x01) Ed25519::sign(ecc_signature, ecc_private_key, ecc_public_key, large_buffer, large_buffer_offset);
+		pending_operation=CTAP2_ERR_OPERATION_PENDING;			
+		if (type==0x01) Ed25519::sign(ecc_signature, ecc_private_key, ecc_public_key, hash, large_buffer_offset);
 		else if (type==0x02) {
 			const struct uECC_Curve_t * curve = uECC_secp256r1(); //P-256
 			if (!uECC_sign_deterministic(ecc_private_key,
-						sha256_hash,
-						32,
+						hash,
+						large_buffer_offset,
 						&ectx.uECC,
 						ecc_signature,
 						curve)) {
@@ -500,8 +526,8 @@ void okcrypto_ecdsa_eddsa(uint8_t *buffer)
 		else if (type==0x03) {
 			const struct uECC_Curve_t * curve = uECC_secp256k1();
 			if (!uECC_sign_deterministic(ecc_private_key,
-						sha256_hash,
-						32,
+						hash,
+						large_buffer_offset,
 						&ectx.uECC,
 						ecc_signature,
 						curve)) {
@@ -509,19 +535,7 @@ void okcrypto_ecdsa_eddsa(uint8_t *buffer)
       						Serial.println("Signature Failed ");
 							#endif
       		}
-		} else if (type==0x04) {
-			const struct uECC_Curve_t * curve = uECC_secp256k1();
-			if (!uECC_sign_deterministic(ecc_private_key,
-						sha256_hash,
-						32,
-						&ectx.uECC,
-						ecc_signature,
-						curve)) {
-							#ifdef DEBUG
-      						Serial.println("Signature Failed ");
-							#endif
-      		}
-		}
+		} 
 /*
 	if (type==0x03 || type==0x02) {
 	  memset(tmp, 0, sizeof(tmp));
@@ -556,6 +570,7 @@ void okcrypto_ecdsa_eddsa(uint8_t *buffer)
 		Serial.print("Signature=");
 		byteprint(ecc_signature, 64);
 		#endif
+		pending_operation=CTAP2_ERR_DATA_READY;
 		outputmode=packet_buffer_details[2]; // Outputmode set at start of operation
 		send_transport_response (ecc_signature, 64, false, false);
   		// Stop the fade in
@@ -568,6 +583,7 @@ void okcrypto_ecdsa_eddsa(uint8_t *buffer)
 		#ifdef DEBUG
     	Serial.println("Waiting for challenge buttons to be pressed");
 		#endif
+		pending_operation=CTAP2_ERR_USER_ACTION_PENDING;
 	}
 }
 
@@ -579,7 +595,12 @@ void okcrypto_ecdh(uint8_t *buffer) {
 	#endif
     if(!CRYPTO_AUTH) {
 		process_packets (buffer, 0, 0);
-		pending_operation=OKECDH_ERR_USER_ACTION_PENDING;
+		pending_operation=OKDECRYPT_ERR_USER_ACTION_PENDING;		
+		if (CRYPTO_AUTH == 3 && outputmode == RAW_USB) {
+			keytype((char *)Challenge_button1);
+			keytype((char *)Challenge_button2);
+			keytype((char *)Challenge_button3);
+		}
 	}
 	else if (CRYPTO_AUTH == 4) {
 		okcore_aes_gcm_decrypt(large_buffer, packet_buffer_details[0], packet_buffer_details[1], profilekey, large_buffer_offset);
@@ -604,6 +625,7 @@ void okcrypto_ecdh(uint8_t *buffer) {
 		}
 
 		if (type==2 || type==3) type+=100; // Different shared secret method required, multiply points and return x and y
+		if (type==1) type=4; // Use Curve25519 scalar multiply
 	
 		if (large_buffer_offset > 32) large_buffer_offset = large_buffer_offset - 32; //Remove derivation data hash
 
@@ -620,7 +642,7 @@ void okcrypto_ecdh(uint8_t *buffer) {
 	  	Serial.print("Type");
 	  	Serial.println(type);
 		#endif
-
+		pending_operation=CTAP2_ERR_USER_ACTION_PENDING;
 		// Use ecc_private_key and provided pubkey to generate shared secret
 		if (large_buffer_offset == 64 || large_buffer_offset == 32) { // Public key sizes
 			if (okcrypto_shared_secret (ecc_public_key, temp)) { 
@@ -638,8 +660,7 @@ void okcrypto_ecdh(uint8_t *buffer) {
 		Serial.print("my pub =");
 		byteprint(ecc_public_key, 64);
 		#endif
-
-
+		pending_operation=CTAP2_ERR_DATA_READY;
 		outputmode=packet_buffer_details[2]; // Outputmode set at start of operation
 		send_transport_response (temp, 64, false, false);
   		// Stop the fade in
