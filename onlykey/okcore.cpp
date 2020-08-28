@@ -159,6 +159,7 @@ bool initialized = false;
 bool configmode = false;
 uint8_t TIMEOUT[1] = {30};  //Default 30 Min
 uint8_t TYPESPEED[1] = {3}; //Default
+uint8_t mod_keys_enabled = 0; //Default
 extern uint8_t KeyboardLayout[1];
 elapsedMillis idletimer;
 uint8_t useinterface = 0;
@@ -326,7 +327,7 @@ void recvmsg(int n)
 		byteprint(recv_buffer, 64);
 #endif
 
-		if (configmode == true && recv_buffer[4] != OKSETSLOT && recv_buffer[4] != OKSETPRIV && recv_buffer[4] != OKRESTORE && recv_buffer[4] != OKFWUPDATE && recv_buffer[4] != OKWIPEPRIV && recv_buffer[4] != OKGETLABELS && recv_buffer[4] != OKPIN && recv_buffer[4] != OKPINSEC && recv_buffer[4] != OKPINSD)
+		if (configmode == true && recv_buffer[4] != OKCONNECT && recv_buffer[4] != OKSETSLOT && recv_buffer[4] != OKSETPRIV && recv_buffer[4] != OKRESTORE && recv_buffer[4] != OKFWUPDATE && recv_buffer[4] != OKWIPEPRIV && recv_buffer[4] != OKGETLABELS && recv_buffer[4] != OKPIN && recv_buffer[4] != OKPINSEC && recv_buffer[4] != OKPINSD)
 		{
 #ifdef DEBUG
 			Serial.println("ERROR NOT SUPPORTED IN CONFIG MODE");
@@ -340,11 +341,9 @@ void recvmsg(int n)
 			if (profilemode != NONENCRYPTEDPROFILE)
 			{
 				if (!initcheck || configmode == true) {
-					if (recv_buffer[5]>'0') okcore_quick_setup(SETUP_MANUAL); // Received request to set PINs/passphrase OnlyKey (Go)
-					else if (HW_ID!=OK_GO) set_primary_pin(recv_buffer, 0); // Received request to enter primary PIN on OnlyKey (not Go)
-				} else if (recv_buffer[5]>'0' && initialized == true && unlocked == false && HW_ID==OK_GO) {
-					if (recv_buffer[5]>'0') okcore_pin_login(); // Received PIN Login Attempt for OnlyKey Go
-				}
+					if (recv_buffer[5]>='0') okcore_quick_setup(SETUP_MANUAL); // Received request to set PINs/passphrase
+					else set_primary_pin(recv_buffer, 0); // Received request to enter primary PIN on OnlyKey (not Go)
+				} 
 			}
 			else
 			{
@@ -396,7 +395,10 @@ void recvmsg(int n)
 			else if ((initialized == true && unlocked == true && FTFL_FSEC == 0x44 && integrityctr1 == integrityctr2) || (!initcheck && unlocked == true && initialized == true && integrityctr1 == integrityctr2))
 			{
 				if (recv_buffer[0] != 0xBA)
-					set_slot(recv_buffer);
+					if (mod_keys_enabled && configmode == false) {
+						hidprint("Error not in config mode, hold button 6 down for 5 sec");
+						return;
+					} else set_slot(recv_buffer);
 			}
 			else
 			{
@@ -520,7 +522,15 @@ void recvmsg(int n)
 			{
 				hidprint("Error not in config mode, hold button 6 down for 5 sec");
 			}
-			else
+			else if (recv_buffer[6] > 0x80 && HW_ID == OK_GO && initialized == false) { // App Setup of backup key, no pin
+				memcpy(large_buffer, recv_buffer, 64);
+				set_built_in_pin();
+				set_private(large_buffer);
+				// Lock backup key since there is no PIN required
+				okeeprom_eeset_backupkeymode((uint8_t*)1);
+				memset(large_buffer, 0, 64);
+			}
+			else 
 			{
 				hidprint("Error device locked");
 				return;
@@ -532,7 +542,7 @@ void recvmsg(int n)
 				hidprint("No PIN set, You must set a PIN first");
 				return;
 			}
-			else if (initialized == true && unlocked == true && FTFL_FSEC == 0x44 && integrityctr1 == integrityctr2)
+			else if (initialized == true && unlocked == true && FTFL_FSEC == 0x44 && integrityctr1 == integrityctr2 && configmode == true)
 			{
 				if (profilemode != NONENCRYPTEDPROFILE)
 				{
@@ -768,33 +778,36 @@ void okcore_quick_setup(uint8_t step)
 		keytype("YOUR ONLYKEY SELF-DESTRUCT PIN IS:");
 		keytype((char *)buffer);
 
-	} else if (step == KEYBOARD_ONLYKEY_GO || step == KEYBOARD_ONLYKEY_GO_NO_BACKUP) {
-		if (step == KEYBOARD_ONLYKEY_GO) {
-			keytype("*** WELCOME TO ONLYKEY GO QUICK SETUP ***");
-			keytype("RUN THIS SETUP FROM A TRUSTED COMPUTER AND CAREFULLY WRITE DOWN");
-			keytype("YOUR BACKUP PASSPHRASE. STORE IN A SECURE LOCATION SUCH AS A SAFE");
-			keytype("WHEN FINISHED DELETE THIS TEXT");
-			Keyboard.println();
-		}
-		pin_set = 3;
-		// First 7 bytes of chip ID used instead of primary PIN
-		set_primary_pin((uint8_t*)ID, KEYBOARD_AUTO_PIN_SET);
-		pin_set = 9;
-		// Second 7 bytes of chip ID used instead of secondary PIN
-		set_secondary_pin((uint8_t*)(ID+7), KEYBOARD_AUTO_PIN_SET);
+	} else if (step == KEYBOARD_ONLYKEY_GO) {
+		keytype("*** WELCOME TO ONLYKEY GO QUICK SETUP ***");
+		keytype("RUN THIS SETUP FROM A TRUSTED COMPUTER AND CAREFULLY WRITE DOWN");
+		keytype("YOUR BACKUP PASSPHRASE. STORE IN A SECURE LOCATION SUCH AS A SAFE");
+		keytype("WHEN FINISHED DELETE THIS TEXT");
+		Keyboard.println();
+	} else if (step == KEYBOARD_ONLYKEY_GO_NO_BACKUP) {
+		set_built_in_pin();
 	} else if (step == SETUP_MANUAL) {
-		if (recv_buffer[5]>'0') {
+		changeoutputmode(RAW_USB); //USB
+		memcpy(buffer, recv_buffer, 64);
+		if (buffer[5]>='0') { // 16 max length
 			pin_set = 3;
-			set_primary_pin(recv_buffer+5, KEYBOARD_AUTO_PIN_SET);
+			Serial.println("SETTING PRIMARY PIN");
+			byteprint(buffer+5, 16);
+			set_primary_pin(buffer+5, SETUP_MANUAL);
 		}
-		if (recv_buffer[15]>'0') {
+		if (buffer[21]>='0') { // 16 max length
 			pin_set = 9;
-			set_secondary_pin(recv_buffer+15, KEYBOARD_AUTO_PIN_SET);
+			Serial.println("SETTING SEC PIN");
+			byteprint(buffer+21, 16);
+			set_secondary_pin(buffer+21, SETUP_MANUAL);
 		}
-		if (recv_buffer[25]>'0') {
+		if (buffer[37]>='0') { // 16 max length
+			Serial.println("SETTING SD PIN");
+			byteprint(buffer+37, 16);
 			pin_set = 6;
-			set_sd_pin(recv_buffer+25, KEYBOARD_AUTO_PIN_SET);
+			set_sd_pin(buffer+37, SETUP_MANUAL);
 		}
+		return;
 	} 
 
 	// Set randomly generated backup passphrase
@@ -802,31 +815,30 @@ void okcore_quick_setup(uint8_t step)
 	buffer[6] = 0xA1;
 	SHA256_CTX hash;
 	sha256_init(&hash);
-	if (recv_buffer[35]>=0x20 && step == SETUP_MANUAL) { //ASCII Space
-		sha256_update(&hash, recv_buffer+35, strlen((char*)(recv_buffer+35)));
+
+	if (step != KEYBOARD_ONLYKEY_GO_NO_BACKUP) {
+		keytype("YOUR ONLYKEY BACKUP PASSPHRASE IS:");
+		generate_random_passphrase(buffer + 7);
+		keytype((char *)(buffer + 7));
+		//memset(buffer, 'a', 32);
+		Keyboard.println();
+		sha256_update(&hash, buffer + 7, 27);
 		sha256_final(&hash, buffer + 7);
 		set_private(buffer); //set backup ECC key
-	} else {
-		if (step != KEYBOARD_ONLYKEY_GO_NO_BACKUP) {
-			keytype("YOUR ONLYKEY BACKUP PASSPHRASE IS:");
-			generate_random_passphrase(buffer + 7);
-			keytype((char *)(buffer + 7));
-			//memset(buffer, 'a', 32);
-			Keyboard.println();
-			sha256_update(&hash, buffer + 7, 27);
-			sha256_final(&hash, buffer + 7);
-			set_private(buffer); //set backup ECC key
-			if (HW_ID!=OK_GO) keytype("To start using OnlyKey enter your primary or secondary PIN on the OnlyKey 6 button keypad");
-			keytype("OnlyKey is ready for use as a security key (FIDO2/U2F) and for challenge-response");
-			keytype("For additional features such as password management install the OnlyKey desktop app");
-			keytype("https://onlykey.io/app ");
-			keytype("*** SETUP COMPLETE, DELETE THIS TEXT ***");
-		} else {
-			// Disable backups
-			okeeprom_eeset_backupkeymode((uint8_t*)1);
-		}
+		if (HW_ID!=OK_GO) keytype("To start using OnlyKey enter your primary or secondary PIN on the OnlyKey 6 button keypad");
+		keytype("OnlyKey is ready for use as a security key (FIDO2/U2F) and for challenge-response");
+		keytype("For additional features such as password management install the OnlyKey desktop app");
+		keytype("https://onlykey.io/app ");
+		keytype("*** SETUP COMPLETE, DELETE THIS TEXT ***");
+	} 
+
+	if (step == KEYBOARD_ONLYKEY_GO || step == KEYBOARD_ONLYKEY_GO_NO_BACKUP) {
+		// If KEYBOARD_ONLYKEY_GO this disables changing backup key
+		// If KEYBOARD_ONLYKEY_GO_NO_BACKUP this disables backup feature	
+		okeeprom_eeset_backupkeymode((uint8_t*)1);
 	}
-	if (step!=SETUP_MANUAL) CPU_RESTART();
+
+	CPU_RESTART();
 }
 
 void generate_random_pin(uint8_t *buffer)
@@ -852,6 +864,16 @@ void generate_random_passphrase(uint8_t *buffer)
 		if (buffer[i] > 122) buffer[i] = buffer[i] - 75; //Numeric
 	} 
 	buffer[27] = 0;
+}
+
+void set_built_in_pin() {
+	pin_set = 3;
+	// 19-35 bytes of chip ID used instead of primary PIN
+	set_primary_pin((uint8_t*)recv_buffer, KEYBOARD_AUTO_PIN_SET);
+	pin_set = 9;
+	// 20-36 bytes of chip ID used instead of secondary PIN
+	set_secondary_pin((uint8_t*)recv_buffer, KEYBOARD_AUTO_PIN_SET);
+	okeeprom_eeset_timeout(0); // No timeout as there is no PIN required
 }
 
 void set_primary_pin(uint8_t *buffer, uint8_t keyboard_mode)
@@ -930,10 +952,10 @@ void set_primary_pin(uint8_t *buffer, uint8_t keyboard_mode)
 		return;
 	case 3:
 		pin_set = 0;
-		if ((strlen(password.guess) >= 7 && strlen(password.guess) < 11) || keyboard_mode == KEYBOARD_AUTO_PIN_SET)
+		if ((strlen(password.guess) >= 7 && strlen(password.guess) < 11) || keyboard_mode == KEYBOARD_AUTO_PIN_SET || keyboard_mode == SETUP_MANUAL)
 		{
 
-			if ((password.evaluate()) || keyboard_mode == KEYBOARD_AUTO_PIN_SET)
+			if ((password.evaluate()) || keyboard_mode == KEYBOARD_AUTO_PIN_SET || keyboard_mode == SETUP_MANUAL)
 			{
 #ifdef DEBUG
 				Serial.println("Both PINs Match");
@@ -949,11 +971,12 @@ void set_primary_pin(uint8_t *buffer, uint8_t keyboard_mode)
 				SHA256_CTX pinhash;
 				sha256_init(&pinhash);
 				if (keyboard_mode == KEYBOARD_AUTO_PIN_SET) {
-					sha256_update(&pinhash, (uint8_t *)buffer, 7); 
-				} else {
-					sha256_update(&pinhash, (uint8_t *)password.guess, strlen(password.guess)); //Add new PIN to hash
+					if (HW_ID==OK_GO) memcpy(password.guess, (ID+18), 16);
+					else memcpy(password.guess, buffer, 7);
+				} else if (keyboard_mode == SETUP_MANUAL) {
+					memcpy(password.guess, buffer, 16);
 				}
-
+				sha256_update(&pinhash, (uint8_t *)password.guess, strlen(password.guess)); //Add new PIN to hash
 				// Set new nonce if none is set
 				if (!initcheck) {				
 					RNG2((uint8_t*)nonce, 32); //Fill temp with random data
@@ -1087,9 +1110,9 @@ void set_sd_pin(uint8_t *buffer, uint8_t keyboard_mode)
 		return;
 	case 6:
 		pin_set = 0;
-		if ((strlen(password.guess) >= 7 && strlen(password.guess) < 11) || keyboard_mode == KEYBOARD_AUTO_PIN_SET)
+		if ((strlen(password.guess) >= 7 && strlen(password.guess) < 11) || keyboard_mode == KEYBOARD_AUTO_PIN_SET || keyboard_mode == SETUP_MANUAL)
 		{
-			if ((password.evaluate()) || keyboard_mode == KEYBOARD_AUTO_PIN_SET)
+			if ((password.evaluate()) || keyboard_mode == KEYBOARD_AUTO_PIN_SET || keyboard_mode == SETUP_MANUAL)
 			{
 #ifdef DEBUG
 				Serial.println("Both PINs Match");
@@ -1098,8 +1121,8 @@ void set_sd_pin(uint8_t *buffer, uint8_t keyboard_mode)
 				uint8_t temp[32];
 
 				//Copy characters to byte array
-				if (keyboard_mode == KEYBOARD_AUTO_PIN_SET)
-					memcpy(password.guess, buffer, 7);
+				if (keyboard_mode == KEYBOARD_AUTO_PIN_SET) memcpy(password.guess, buffer, 7);
+				else if (keyboard_mode == SETUP_MANUAL) memcpy(password.guess, buffer, 16);
 				for (unsigned int i = 0; i <= strlen(password.guess); i++)
 				{
 					temp[i] = (uint8_t)password.guess[i];
@@ -1230,9 +1253,9 @@ void set_secondary_pin(uint8_t *buffer, uint8_t keyboard_mode)
 		return;
 	case 9:
 		pin_set = 0;
-		if ((strlen(password.guess) >= 7 && strlen(password.guess) < 11) || keyboard_mode == KEYBOARD_AUTO_PIN_SET)
+		if ((strlen(password.guess) >= 7 && strlen(password.guess) < 11) || keyboard_mode == KEYBOARD_AUTO_PIN_SET || keyboard_mode == SETUP_MANUAL)
 		{
-			if ((password.evaluate()) || keyboard_mode == KEYBOARD_AUTO_PIN_SET)
+			if ((password.evaluate()) || keyboard_mode == KEYBOARD_AUTO_PIN_SET || keyboard_mode == SETUP_MANUAL)
 			{
 #ifdef DEBUG
 				Serial.println("Both PINs Match");
@@ -1248,7 +1271,12 @@ void set_secondary_pin(uint8_t *buffer, uint8_t keyboard_mode)
 				//Hash PIN and Nonce
 				SHA256_CTX pinhash;
 				sha256_init(&pinhash);
-				if (keyboard_mode == KEYBOARD_AUTO_PIN_SET) memcpy(password.guess, buffer, 7);
+				if (keyboard_mode == KEYBOARD_AUTO_PIN_SET) {
+					if (HW_ID==OK_GO) memcpy(password.guess, (ID+19), 16);
+					else memcpy(password.guess, buffer, 7);
+				} else if (keyboard_mode == SETUP_MANUAL) {
+					memcpy(password.guess, buffer, 16);
+				}
 				sha256_update(&pinhash, (uint8_t *)password.guess, strlen(password.guess)); //Add new PIN to hash
 				if (!okcore_flashget_noncehash ((uint8_t*)nonce, 32)) {
 					RNG2((uint8_t*)nonce, 32); //Fill temp with random data
@@ -1453,8 +1481,6 @@ uint8_t get_key_labels(uint8_t output)
 			delay(20);
 		}
 	}
-	if (output == 1)
-		keytype("For OnlyKey on-the-go visit https://apps.crp.to");
 #endif
 	return 0;
 }
@@ -1469,7 +1495,6 @@ void get_slot_labels(uint8_t output)
 	int offset = 0;
 	if (profilemode) offset = 12;
 	int maxslots = 12;
-	if (HW_ID==OK_GO) maxslots = 3;
 	for (int i = 1; i <= maxslots; i++)
 	{
 		okcore_flashget_label((uint8_t *)label+2, (offset + i));
@@ -1499,6 +1524,7 @@ void get_slot_labels(uint8_t output)
 			delay(20);
 		}
 	}
+	if (output == 1) keytype("For OnlyKey on-the-go visit https://apps.crp.to");
 	return;
 }
 
@@ -1892,6 +1918,22 @@ void set_slot(uint8_t *buffer)
 			hidprint("Error not in config mode, hold button 6 down for 5 sec");
 		}
 		break;
+case 27:
+
+		if (configmode == true || !initcheck)
+		{ //Only permit changing this on first use or while in config mode
+#ifdef DEBUG
+			Serial.println(); //newline
+			Serial.println("Writing modkey mode to EEPROM...");
+#endif
+			okeeprom_eeset_modkey(buffer + 7);
+			hidprint("Successfully set Modkey Mode");
+		}
+		else
+		{
+			hidprint("Error not in config mode, hold button 6 down for 5 sec");
+		}
+		break;
 	case 23:
 #ifdef DEBUG
 		Serial.println(); //newline
@@ -2169,6 +2211,14 @@ int touch_sense_loop () {
 		button_selected = '2';
 		//Serial.println("touchread2");
 		//Serial.println(touchread2);
+		if (HW_ID==OK_GO) {
+			if (touchread3 > (touchread3ref+40)) button_selected = '3';
+			else {
+				delay(50);
+				if (touchRead(TOUCHPIN3) > (touchread3ref+40)) button_selected = '3';
+			}
+			if (button_selected = '3') Serial.println("Button3");
+		}
 	}
 	else if (touchread3 > (touchread3ref+40)) {
 		key_off = 0;
@@ -2201,13 +2251,7 @@ int touch_sense_loop () {
 		button_selected = '6';
 		//Serial.println("touchread6");
 		//Serial.println(touchread6);
-	}
-
-	if (HW_ID==OK_GO && button_selected == '2' && touchread3 > (touchread3ref+100)) {
-		button_selected = '3';
-	}
-
-	else {
+	} else {
 		if (key_on > THRESHOLD) key_press = key_on;
 		key_off += 1;
 		if (!unlocked){
@@ -5824,7 +5868,7 @@ void backup()
 		return;
 #ifdef STD_VERSION
 	uint8_t temp[MAX_RSA_KEY_SIZE];
-	uint8_t large_temp[17624];
+	uint8_t large_temp[17640];
 	int urllength;
 	int usernamelength;
 	int passwordlength;
@@ -6106,6 +6150,42 @@ void backup()
 		large_temp[large_buffer_offset] = 0xFF;   //delimiter
 		large_temp[large_buffer_offset + 1] = 0;  //slot 0
 		large_temp[large_buffer_offset + 2] = 11; //11 - Idle Timeout
+		large_temp[large_buffer_offset + 3] = temp[0];
+		large_buffer_offset = large_buffer_offset + 4;
+	}
+	okeeprom_eeget_hmac_challengemode(ptr);
+	if (*ptr != 0)
+	{
+		large_temp[large_buffer_offset] = 0xFF;   //delimiter
+		large_temp[large_buffer_offset + 1] = 0;  //slot 0
+		large_temp[large_buffer_offset + 2] = 26; //26 - hmac challenge mode
+		large_temp[large_buffer_offset + 3] = temp[0];
+		large_buffer_offset = large_buffer_offset + 4;
+	}
+	okeeprom_eeget_modkey(ptr);
+	if (*ptr != 0)
+	{
+		large_temp[large_buffer_offset] = 0xFF;   //delimiter
+		large_temp[large_buffer_offset + 1] = 0;  //slot 0
+		large_temp[large_buffer_offset + 2] = 27; //27 - modkey mode
+		large_temp[large_buffer_offset + 3] = temp[0];
+		large_buffer_offset = large_buffer_offset + 4;
+	}
+	okeeprom_eeget_stored_key_challenge_mode(ptr);
+	if (*ptr != 0)
+	{
+		large_temp[large_buffer_offset] = 0xFF;   //delimiter
+		large_temp[large_buffer_offset + 1] = 0;  //slot 0
+		large_temp[large_buffer_offset + 2] = 22; //22 - stored challenge mode
+		large_temp[large_buffer_offset + 3] = temp[0];
+		large_buffer_offset = large_buffer_offset + 4;
+	}
+	okeeprom_eeget_derived_key_challenge_mode(ptr);
+	if (*ptr != 0)
+	{
+		large_temp[large_buffer_offset] = 0xFF;   //delimiter
+		large_temp[large_buffer_offset + 1] = 0;  //slot 0
+		large_temp[large_buffer_offset + 2] = 21; //21 - derived challenge mode
 		large_temp[large_buffer_offset + 3] = temp[0];
 		large_buffer_offset = large_buffer_offset + 4;
 	}
@@ -6440,14 +6520,14 @@ void RESTORE(uint8_t *buffer)
 	
 	if (offset == 0) {
 		//free(large_temp);
-		large_temp = (uint8_t *)malloc(17624); //Max size for slots 7715 max size for keys 3072 + headers + Max RSA key size + 5895 for RKs + 208 Authenticator state
-		memset(large_temp, 0, 17624);
+		large_temp = (uint8_t *)malloc(17640); //Max size for slots 7731 max size for keys 3072 + headers + Max RSA key size + 5895 for RKs + 208 Authenticator state
+		memset(large_temp, 0, 17640);
 	}
 
 	//Slot restore
 	if (buffer[5] == 0xFF) //Not last packet
 	{
-		if (offset <= (17624 - 57))
+		if (offset <= (17640 - 57))
 		{
 			#ifdef DEBUG
 			Serial.print("Restore packet received =");
@@ -6471,7 +6551,7 @@ void RESTORE(uint8_t *buffer)
 	}
 	else
 	{ //last packet
-		if (offset <= (17624 - 57) && buffer[5] <= 57)
+		if (offset <= (17640 - 57) && buffer[5] <= 57)
 		{
 			#ifdef DEBUG
 			Serial.print("Restore packet received =");
@@ -6979,21 +7059,22 @@ void done_process_packets()
 	if (packet_buffer_details[1] < 5 || (packet_buffer_details[1] > 100 && packet_buffer_details[1] <= 116)) { 
 		okeeprom_eeget_stored_key_challenge_mode(&stored_key_challenge_mode);
 	}
-	if (derived_key_challenge_mode || stored_key_challenge_mode || HW_ID==OK_GO) {
+	if (derived_key_challenge_mode || stored_key_challenge_mode) {
 		CRYPTO_AUTH = 3;
-		if (HW_ID==OK_GO) {
-			derived_key_challenge_mode=1;
-			stored_key_challenge_mode=1;
-		}
-
 	} else {
 		SHA256_CTX msg_hash;
 		sha256_init(&msg_hash);
 		sha256_update(&msg_hash, packet_buffer, packet_buffer_offset); //add data to sign
 		sha256_final(&msg_hash, temp);					//Temporarily store hash
-		Challenge_button1 = (temp[0] % 6) + '0' + 1;	//Get value 1-6 for challenge 1
-		Challenge_button2 = (temp[15] % 6) + '0' + 1;	//Get value 1-6 for challenge 2
-		Challenge_button3 = (temp[31] % 6) + '0' + 1;	//Get value 1-6 for challenge 3
+		if (HW_ID==OK_GO) {
+			Challenge_button1 = (temp[0] % 3) + '0' + 1;	//Get value 1-3 for challenge 1
+			Challenge_button2 = (temp[15] % 3) + '0' + 1;	//Get value 1-3 for challenge 2
+			Challenge_button3 = (temp[31] % 3) + '0' + 1;	//Get value 1-3 for challenge 3
+		} else {
+			Challenge_button1 = (temp[0] % 6) + '0' + 1;	//Get value 1-6 for challenge 1
+			Challenge_button2 = (temp[15] % 6) + '0' + 1;	//Get value 1-6 for challenge 2
+			Challenge_button3 = (temp[31] % 6) + '0' + 1;	//Get value 1-6 for challenge 3	
+		}
 	}
 #ifdef DEBUG
 	Serial.println("Received Message");
@@ -7057,15 +7138,56 @@ void process_setreport()
 {
 	// HMACSHA1 - This is the HMACSHA1 Challenge default size is 32	bytes
 #ifdef DEBUG
-	Serial.println("Received USB Keyboard Packets");
-	byteprint(keyboard_buffer, KEYBOARD_BUFFER_SIZE);
+	//Serial.println("Received USB Keyboard Packets");
+	//byteprint(keyboard_buffer, KEYBOARD_BUFFER_SIZE);
 #endif
-	getBuffer[7] = 0xaf;
-	setBuffer[8] = 0;
+
 	uint8_t *ptr;
 	uint8_t index = 0;
 	ptr = keyboard_buffer + 22;
 	//while (*ptr && *ptr == *(ptr+1)) {
+
+	if (keyboard_buffer[64] == 1 || keyboard_buffer[64] == 3)
+	{ // Request to write key
+		getBuffer[5] = 0;
+		getBuffer[7] = 0x89;
+		memset(setBuffer, 0, 9);
+		extern int check_crc(uint8_t * buffer);
+		if (!check_crc(keyboard_buffer) || CRYPTO_AUTH)
+		{
+			memset(keyboard_buffer, 0, KEYBOARD_BUFFER_SIZE);
+			return;
+		}
+		outputmode=RAW_USB;
+		if (keyboard_buffer[46] == 0x60) { // Set HMAC Key
+			memmove(recv_buffer+23, keyboard_buffer+16, 4);
+			memmove(recv_buffer+7, keyboard_buffer+22, 16); // HMAC key split for some reason
+			memset(recv_buffer+27, 0, 37);
+			recv_buffer[4] = OKSETPRIV;
+			if (keyboard_buffer[64] == 1) recv_buffer[5] = RESERVED_KEY_HMACSHA1_1;
+			else recv_buffer[5] = RESERVED_KEY_HMACSHA1_2;
+			recv_buffer[6] = 9;
+			byteprint(recv_buffer,64);
+			recvmsg(1); 
+		} else if (keyboard_buffer[46] == 0x20) { // Set Yubi OTP Key
+			recv_buffer[4] = OKSETSLOT;
+			recv_buffer[6] = 10;
+			memmove(recv_buffer+7, keyboard_buffer, 6);
+			memmove(recv_buffer+7 + 6, keyboard_buffer+16, 6);	
+			memmove(recv_buffer+7 + 12, keyboard_buffer+22, 16);			
+			memset(recv_buffer+36, 0, 28);
+			byteprint(recv_buffer,64);
+			recvmsg(1);
+		}
+		getBuffer[4] = getBuffer[4]+1;
+		getBuffer[5] = 3;
+		getBuffer[7] = 0;
+		memset(keyboard_buffer, 0, KEYBOARD_BUFFER_SIZE);
+		return;
+	}
+
+	getBuffer[7] = 0xaf;
+	setBuffer[8] = 0;
 	while (*ptr && *ptr == 0x3f)
 	{
 		ptr++;
@@ -7075,18 +7197,24 @@ void process_setreport()
 	{ // Test
 		memset(setBuffer, 0, 9);
 		memset(keyboard_buffer, 0, KEYBOARD_BUFFER_SIZE);
-#ifdef DEBUG
+		#ifdef DEBUG
 		Serial.println("Received HMACSHA1 Test");
-#endif
+		#endif
 		return;
-	}
-	else if (keyboard_buffer[64] == 0x30 || keyboard_buffer[64] == 0x38)
+	} else if (keyboard_buffer[64] == 0x30 || keyboard_buffer[64] == 0x38)
 	{ //HMACSHA1}
 		if (profilemode != NONENCRYPTEDPROFILE)
 			{
 			#ifdef STD_VERSION
+			#ifdef DEBUG
+			Serial.println("Received HMACSHA1 Message");
+			#endif
 			uint8_t hmac_challenge_disabled = 0;
-			okeeprom_eeget_hmac_challengemode((uint8_t*)hmac_challenge_disabled);
+			okeeprom_eeget_hmac_challengemode(&hmac_challenge_disabled);
+			#ifdef DEBUG
+			Serial.println("Challenge Disabled");
+			Serial.println(hmac_challenge_disabled);
+			#endif
 			if (hmac_challenge_disabled) { // 0 = Default physical presence required, 1 = No physical presence required for HMAC
 				CRYPTO_AUTH = 4;
 				okcrypto_hmacsha1();
@@ -7102,7 +7230,17 @@ void process_setreport()
 			}
 			#endif
 		}
-	}
+	} else if (keyboard_buffer[64] == 0x20 || keyboard_buffer[64] == 0x28)
+	{ //Yubi OTP}
+		if (profilemode != NONENCRYPTEDPROFILE)
+			{
+			#ifdef STD_VERSION
+			#ifdef DEBUG
+			Serial.println("Received Yubi OTP Message");
+			#endif
+			#endif
+		}
+	} 
 	else if (keyboard_buffer[0] == 0xFF && keyboard_buffer[1] == 0xFF && keyboard_buffer[2] == 0xFF && keyboard_buffer[3] == 0xFF)
 	{ //Other
 		extern int check_crc(uint8_t * buffer);
@@ -7197,13 +7335,15 @@ void okcore_pin_login ()
 {
 	#ifdef STD_VERSION
 	//PIN attempt stored in recv_buffer
-	char *ptr = (char*)(recv_buffer+5);
-	uint8_t index=1;
-	while (index<=10) {
-		if (*ptr>='0' && *ptr<='9') password.append(*ptr);
-		else password.append('0');
+	char * ptr = (char *)recv_buffer+5;
+	uint8_t index=0;
+	while (index<=15 && *ptr >= '0') {
+		password.append(*ptr);
 		index++;
+		ptr++;
 	}
+	Serial.println("password entered = ");
+	Serial.println(password.guess);
 	#endif
 }
 

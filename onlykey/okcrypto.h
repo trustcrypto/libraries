@@ -109,6 +109,7 @@ extern void okcrypto_ecdsa_eddsa (uint8_t *buffer);
 extern void okcrypto_hkdf(const void *data, const void *inputKey, void *outputKey, const size_t L);
 extern void okcrypto_split_sundae(uint8_t *state, uint8_t *iv, int len, uint8_t function);
 extern void okcrypto_compute_pubkey();
+extern void swap_buffer (uint8_t start, uint8_t end, uint8_t * buffer);
 
 extern uint8_t Challenge_button1;
 extern uint8_t Challenge_button2;

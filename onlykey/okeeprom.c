@@ -177,6 +177,15 @@ void okeeprom_eeset_hmac_challengemode (uint8_t *ptr) {
 }
 /*********************************/
 /*********************************/
+int okeeprom_eeget_modkey (uint8_t *ptr) {
+    okeeprom_eeget_common(ptr, EEpos_modkey, EElen_modkey);
+    return EElen_modkey;
+}
+void okeeprom_eeset_modkey (uint8_t *ptr) {
+    okeeprom_eeset_common(ptr, EEpos_modkey, EElen_modkey);
+}
+/*********************************/
+/*********************************/
 int okeeprom_eeget_2ndprofilemode (uint8_t *ptr) {
     okeeprom_eeget_common(ptr, EEpos_2ndprofilemode, EElen_2ndprofilemode);
     return EElen_2ndprofilemode;

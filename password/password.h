@@ -42,7 +42,7 @@
 #include "WProgram.h"
 #endif
 
-#define MAX_PASSWORD_LENGTH 12
+#define MAX_PASSWORD_LENGTH 17
 
 #define STRING_TERMINATOR '\0'
 

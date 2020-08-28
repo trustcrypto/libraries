@@ -145,7 +145,7 @@ void store_FIDO_response (uint8_t *data, int len, uint8_t encrypt) {
 	if (encrypt==1) {
 		okcrypto_aes_crypto_box (data, len, false);
 	} else if (encrypt==2) {
-		okcrypto_aes_crypto_box (data+32, len-32, false);
+		okcrypto_aes_crypto_box (data+32, len-32, false); // Don't encrypt pubkey 
 	} else {
     // Unencrypted message, check if it's an error message
     if (strcmp((char*)data, "Error")) {

@@ -131,7 +131,7 @@ extern "C"
 #define EElen_rsakey	1
 #define EElen_nonce2	32
 #define EElen_ctap_authstate 208
-
+#define EElen_modkey 1
 
 #define EEpos_U2Fcounter	66 // 0 used for bootloader jump flag, 1 used for fwload flag, 2-65 used for fw integrity hash
 #define EEpos_aeskey	(EEpos_U2Fcounter + EElen_U2Fcounter)
@@ -450,6 +450,7 @@ extern "C"
 #define EEpos_autolockslot	(EEpos_ledbrightness + EElen_ledbrightness)
 #define EEpos_ctap_authstate	(EEpos_autolockslot + EElen_autolockslot)
 #define EEpos_hmac_challengemode	(EEpos_ctap_authstate + EElen_ctap_authstate)
+#define EEpos_modkey	(EEpos_hmac_challengemode + EElen_hmac_challengemode)
 
 
 extern int  okeeprom_eeget_ctap_authstate (uint8_t *ptr);
@@ -475,6 +476,9 @@ extern void okeeprom_eeset_stored_key_challenge_mode(uint8_t *ptr);
 
 extern int  okeeprom_eeget_hmac_challengemode (uint8_t *ptr);
 extern void okeeprom_eeset_hmac_challengemode(uint8_t *ptr);
+
+extern int  okeeprom_eeget_modkey (uint8_t *ptr);
+extern void okeeprom_eeset_modkey(uint8_t *ptr);
 
 extern int  okeeprom_eeget_2ndprofilemode (uint8_t *ptr);
 extern void okeeprom_eeset_2ndprofilemode(uint8_t *ptr);

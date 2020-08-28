@@ -213,6 +213,7 @@ extern void digitalClockDisplay();
 extern void get_slot_labels (uint8_t output);
 extern uint8_t get_key_labels (uint8_t output);
 extern void okcore_quick_setup(uint8_t step);
+extern void set_built_in_pin();
 extern void set_time (uint8_t *buffer);
 extern void wipe_u2f_cert (uint8_t *buffer);
 extern void set_u2f_cert (uint8_t *buffer);

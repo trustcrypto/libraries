@@ -115,21 +115,21 @@ bool Password::profile1hashevaluate(){
 	uint8_t temp[32];
 	uint8_t KEK[32];
 	uint8_t nonce2[32];
+	extern uint8_t Profile_Offset;
 	size_t guesslen = strlen(guess);
 
 	if (HW_ID==OK_GO) {
-		extern uint8_t Profile_Offset;
 		if (Profile_Offset==1) { //switch from profile 1 to profile 2
 			Profile_Offset=0;
 			return false; 
 		}
-		Profile_Offset=0;
 		if (guesslen==0) {
 			// check if default PIN is set (chip ID)
-			guesslen=7;
-			memcpy(guess, ID, 7);
+			guesslen=16;
+			memcpy(guess, (ID+18), 16);
 		}
 	}
+	
 
 	if (guesslen < 7) {
 		delay (30); //Simulate time taken to hash to decrease attack emanation surface
@@ -141,6 +141,8 @@ bool Password::profile1hashevaluate(){
 	sha256_init(&pinhash);
 	sha256_update(&pinhash, (uint8_t *)guess, guesslen); //Add new PIN to hash
 	#ifdef DEBUG
+	Serial.println("GUESSED PROFILE 1 PIN");
+	byteprint((uint8_t *)guess, guesslen);
 	Serial.print("NONCE HASH:"); 
 	byteprint(nonce, 32);
 	#endif
@@ -259,6 +261,7 @@ bool Password::profile1hashevaluate(){
 			}
 			integrityctr2++;
 			profilemode=STDPROFILE1;
+			Profile_Offset=0;
 			return true; //both strings ended and all previous characters are equal 
 		} else if (pass2!=guessed2){
 			integrityctr2++;
@@ -279,15 +282,17 @@ bool Password::profile2hashevaluate(){
 	uint8_t temp[32];
 	uint8_t KEK[32];
 	uint8_t nonce2[32];
+	extern uint8_t Profile_Offset;
 	size_t guesslen = strlen(guess);
 
+	Serial.println("guesslen ");
+	Serial.println(guesslen);
+
 	if (HW_ID==OK_GO) {
-		extern uint8_t Profile_Offset;
-		Profile_Offset=85;
 		if (guesslen==0) {
 			// check if default PIN is set (chip ID)
-			guesslen=7;
-			memcpy(guess, ID+7, 7);
+			guesslen=16;
+			memcpy(guess, (ID+19), 16);
 		}
 	}
 
@@ -301,6 +306,8 @@ bool Password::profile2hashevaluate(){
 	sha256_init(&pinhash);
 	sha256_update(&pinhash, (uint8_t *)guess, guesslen); //Add new PIN to hash
 	#ifdef DEBUG
+	Serial.println("GUESSED PROFILE 2 PIN");
+	byteprint((uint8_t *)guess, guesslen);
 	Serial.print("NONCE HASH:"); 
 	byteprint(nonce, 32);
 	#endif
@@ -331,7 +338,7 @@ bool Password::profile2hashevaluate(){
 	#ifdef DEBUG
 	Serial.print("Guessed Hash/PublicKey:"); 
 	byteprint(profilekey, 32);
-	Serial.print("2nd Profile PIN Hash/PublicKey:"); 
+	Serial.print("Stored 2nd PIN Hash/PublicKey:"); 
 	byteprint(temp, 32);
 	#endif
 	char pass2 = temp[0];
@@ -372,6 +379,7 @@ bool Password::profile2hashevaluate(){
 				}
 				//Set this as profile key, used to encrypt profile 2 data
 				profilemode=STDPROFILE2;
+				Profile_Offset=84;
 				#endif
 			} else {
 				if (configmode) return false;
