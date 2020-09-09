@@ -43,6 +43,8 @@ int16_t bridge_u2f_to_solo(uint8_t * _appid, uint8_t * output, uint8_t * keyh, i
 
     printf1(TAG_WALLET, "u2f-solo [%d]: ", keylen); dump_hex1(TAG_WALLET, keyh, keylen);
 
+
+
     switch(req->operation)
     {
         case WalletVersion:

@@ -61,7 +61,7 @@ static uint8_t master_secret[64];
 static uint8_t transport_secret[32];
 
 
-void crypto_sha256_init()
+void crypto_sha256_init(void)
 {
     sha256_init(&sha256_ctx);
 }
@@ -75,9 +75,9 @@ void crypto_load_master_secret(uint8_t * key)
     memmove(transport_secret, key+64, 32);
 }
 
-void crypto_reset_master_secret()
+void crypto_reset_master_secret(void)
 {
-	memset(master_secret, 0, 64);
+    memset(master_secret, 0, 64);
     memset(transport_secret, 0, 32);
     ctap_generate_rng(master_secret, 64);
     ctap_generate_rng(transport_secret, 32);
@@ -98,7 +98,6 @@ void crypto_sha256_final(uint8_t * hash)
 {
     sha256_final(&sha256_ctx, hash);
 }
-
 
 void crypto_sha256_hmac_init(uint8_t * key, uint32_t klen, uint8_t * hmac)
 {
@@ -171,14 +170,14 @@ void crypto_sha256_hmac_final(uint8_t * key, uint32_t klen, uint8_t * hmac)
 }
 
 
-void crypto_ecc256_init()
+void crypto_ecc256_init(void)
 {
     uECC_set_rng((uECC_RNG_Function)ctap_generate_rng);
     _es256_curve = uECC_secp256r1();
 }
 
 
-void crypto_ecc256_load_attestation_key()
+void crypto_ecc256_load_attestation_key(void)
 {
     _signing_key = attestation_key;
     _key_len = 32;
@@ -194,6 +193,7 @@ void crypto_ecc256_sign(uint8_t * data, int len, uint8_t * sig)
         exit(1);
     }
 }
+
 void crypto_ecc256_load_key(uint8_t * data, int len, uint8_t * data2, int len2)
 {
     static uint8_t privkey[32];
@@ -201,6 +201,7 @@ void crypto_ecc256_load_key(uint8_t * data, int len, uint8_t * data2, int len2)
     _signing_key = privkey;
     _key_len = 32;
 }
+
 void crypto_ecdsa_sign(uint8_t * data, int len, uint8_t * sig, int MBEDTLS_ECP_ID)
 { //use deterministic signing
   const struct uECC_Curve_t * curve = NULL;
@@ -268,12 +269,17 @@ void crypto_ecc256_derive_public_key(uint8_t * data, int len, uint8_t * x, uint8
     uint8_t pubkey[64];
 
     generate_private_key(data,len,NULL,0,privkey);
-	//Serial.println("crypto_ecc256_derive_public_key start");
+
     memset(pubkey,0,sizeof(pubkey));
     uECC_compute_public_key(privkey, pubkey, _es256_curve);
     memmove(x,pubkey,32);
     memmove(y,pubkey+32,32);
 }
+void crypto_ecc256_compute_public_key(uint8_t * privkey, uint8_t * pubkey)
+{
+    uECC_compute_public_key(privkey, pubkey, _es256_curve);
+}
+
 
 void crypto_load_external_key(uint8_t * key, int len)
 {

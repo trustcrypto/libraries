@@ -1835,7 +1835,7 @@ void set_slot(uint8_t *buffer)
 		Serial.println(); //newline
 		Serial.println("Writing wipemode to EEPROM...");
 #endif
-		if (buffer[7] == 2)
+		if (buffer[7] == 2 && (configmode == true || !initcheck))
 		{
 			okeeprom_eeset_wipemode(buffer + 7);
 			hidprint("Successfully set Wipe Mode to Full Wipe");
@@ -1855,7 +1855,7 @@ void set_slot(uint8_t *buffer)
 		Serial.println(); //newline
 		Serial.println("Writing backupkeymode to EEPROM...");
 #endif
-		if (buffer[7] == 1)
+		if (buffer[7] == 1 && (configmode == true || !initcheck))
 		{
 			okeeprom_eeset_backupkeymode(buffer + 7);
 			hidprint("Successfully set Backup Key Mode to Locked");
@@ -1924,10 +1924,10 @@ case 27:
 		{ //Only permit changing this on first use or while in config mode
 #ifdef DEBUG
 			Serial.println(); //newline
-			Serial.println("Writing modkey mode to EEPROM...");
+			Serial.println("Writing sysadmin mode to EEPROM...");
 #endif
 			okeeprom_eeset_modkey(buffer + 7);
-			hidprint("Successfully set Modkey Mode");
+			hidprint("Successfully set Sysadmin Mode");
 		}
 		else
 		{
