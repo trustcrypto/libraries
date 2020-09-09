@@ -791,19 +791,19 @@ void okcore_quick_setup(uint8_t step)
 		memcpy(buffer, recv_buffer, 64);
 		if (buffer[5]>='0') { // 16 max length
 			pin_set = 3;
-			Serial.println("SETTING PRIMARY PIN");
-			byteprint(buffer+5, 16);
+			//Serial.println("SETTING PRIMARY PIN");
+			//byteprint(buffer+5, 16);
 			set_primary_pin(buffer+5, SETUP_MANUAL);
 		}
 		if (buffer[21]>='0') { // 16 max length
 			pin_set = 9;
-			Serial.println("SETTING SEC PIN");
-			byteprint(buffer+21, 16);
+			//Serial.println("SETTING SEC PIN");
+			//byteprint(buffer+21, 16);
 			set_secondary_pin(buffer+21, SETUP_MANUAL);
 		}
 		if (buffer[37]>='0') { // 16 max length
-			Serial.println("SETTING SD PIN");
-			byteprint(buffer+37, 16);
+			//Serial.println("SETTING SD PIN");
+			//byteprint(buffer+37, 16);
 			pin_set = 6;
 			set_sd_pin(buffer+37, SETUP_MANUAL);
 		}
@@ -2217,7 +2217,7 @@ int touch_sense_loop () {
 				delay(50);
 				if (touchRead(TOUCHPIN3) > (touchread3ref+40)) button_selected = '3';
 			}
-			if (button_selected = '3') Serial.println("Button3");
+			//if (button_selected = '3') Serial.println("Button3");
 		}
 	}
 	else if (touchread3 > (touchread3ref+40)) {
@@ -7342,8 +7342,6 @@ void okcore_pin_login ()
 		index++;
 		ptr++;
 	}
-	Serial.println("password entered = ");
-	Serial.println(password.guess);
 	#endif
 }
 

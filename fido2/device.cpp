@@ -50,11 +50,11 @@ void U2Finit()
   device_init();
   okeeprom_eeget_U2Fcertlen(length);
   int length2 = length[0] << 8 | length[1];
-  if (length2 != 0 || factory_config_flag == 0x01) {
+  if (length2 != 0) {
     extern uint16_t attestation_cert_der_size;
     attestation_cert_der_size=length2;
     okcore_flashget_U2F();
-  } else {
+  } /*else {
     if (factory_config_flag == 0x01) { 
 		// New method decrypt attestation with device keys
 		memcpy((uint8_t *)attestation_key, encrypted_attestation_key, 32);
@@ -66,8 +66,8 @@ void U2Finit()
         byteprint((uint8_t*)attestation_key,sizeof(attestation_key));
         byteprint((uint8_t*)attestation_cert_der,sizeof(attestation_cert_der));
         #endif
-	}
-  }
+	} 
+  }*/
   //okcrypto_derive_key(0 , (uint8_t*)attestation_key); //Derive key from default key in slot 32
   //memcpy(handlekey, ecc_private_key, 32); // Copy derived key to handlekey
   //SHA256_CTX APPKEY;
@@ -76,10 +76,6 @@ void U2Finit()
   //sha256_update(&APPKEY, (uint8_t*)attestation_key, 32);
   //sha256_update(&APPKEY, handlekey, 32);
   //sha256_final(&APPKEY, apphandlekey); // Derivation key for app IDs
-#ifdef DEBUG
-  //Serial.println("HANDLE KEY =");
-  //byteprint(handlekey, 32);
-#endif
 }
 
 void fido_msg_timeout() {

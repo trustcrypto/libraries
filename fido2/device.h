@@ -46,6 +46,8 @@ void device_init();
 //#define RK_START_PAGE   (PAGES - 14)
 //#define RK_END_PAGE     (PAGES - 14 + RK_NUM_PAGES)     // not included
 #define DEBUG_LEVEL 0
+// Disable assert
+#define NDEBUG
 #define ENABLE_U2F
 #define ENABLE_U2F_EXTENSIONS
 #define BRIDGE_TO_WALLET

@@ -34,6 +34,7 @@
 #  define _DEFAULT_SOURCE
 #endif
 #ifndef assert
+#define NDEBUG
 #  include <assert.h>
 #endif
 #include <float.h>

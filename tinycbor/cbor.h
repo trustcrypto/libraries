@@ -26,6 +26,7 @@
 #define CBOR_H
 
 #ifndef assert
+#define NDEBUG
 #include <assert.h>
 #endif
 #include <limits.h>
