@@ -321,6 +321,7 @@ int ctap_user_presence_test(uint32_t wait)
 
     if (_up_disabled)
     {
+        Serial.println("ctap_user_presence_test return 2");
         return 2;
     }
     
@@ -332,6 +333,7 @@ int ctap_user_presence_test(uint32_t wait)
             if (t1 + (wait) < millis())
             {
             fadeoff(1);
+            Serial.println("ctap_user_presence_test return 0");
             return 0;
             }
             if (touch_sense_loop()) u2f_button=1;
@@ -339,6 +341,8 @@ int ctap_user_presence_test(uint32_t wait)
             if (blink==0) setcolor(170);
             if (blink==128) setcolor(0);
             blink++;
+            Serial.println("ctap_user_presence_test return ret");
+            Serial.println(ret);
             if (ret) return ret;
         }
         while (! IS_BUTTON_PRESSED());
@@ -348,8 +352,10 @@ int ctap_user_presence_test(uint32_t wait)
     if(IS_BUTTON_PRESSED()) {
         fadeoff(0);
         u2f_button=0;
+        Serial.println("ctap_user_presence_test return 1");
         return 1;
     } else {
+        Serial.println("ctap_user_presence_test return 0");
         return 0;
     }
 

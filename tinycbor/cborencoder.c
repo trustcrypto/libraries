@@ -76,7 +76,7 @@
  * \code
  *      uint8_t buf[16];
  *      CborEncoder encoder, mapEncoder;
- *      cbor_encoder_init(&encoder, &buf, sizeof(buf), 0);
+ *      cbor_encoder_init(&encoder, buf, sizeof(buf), 0);
  *      cbor_encoder_create_map(&encoder, &mapEncoder, 1);
  *      cbor_encode_text_stringz(&mapEncoder, "foo");
  *      cbor_encode_boolean(&mapEncoder, some_value);
@@ -115,7 +115,7 @@
  *      uint8_t buf[16];
  *      CborError err;
  *      CborEncoder encoder, mapEncoder;
- *      cbor_encoder_init(&encoder, &buf, sizeof(buf), 0);
+ *      cbor_encoder_init(&encoder, buf, sizeof(buf), 0);
  *      err = cbor_encoder_create_map(&encoder, &mapEncoder, 1);
  *      if (!err)
  *          return err;
@@ -155,7 +155,7 @@
  *             goto error;
  *         buf = nbuf;
  *
- *         cbor_encoder_init(&encoder, &buf, size, 0);
+ *         cbor_encoder_init(&encoder, buf, size, 0);
  *         err = cbor_encoder_create_array(&encoder, &arrayEncoder, n);
  *         cbor_assert(err);         // can't fail, the buffer is always big enough
  *
@@ -386,11 +386,12 @@ CborError cbor_encode_simple_value(CborEncoder *encoder, uint8_t value)
  */
 CborError cbor_encode_floating_point(CborEncoder *encoder, CborType fpType, const void *value)
 {
+    unsigned size;
     uint8_t buf[1 + sizeof(uint64_t)];
     cbor_assert(fpType == CborHalfFloatType || fpType == CborFloatType || fpType == CborDoubleType);
     buf[0] = fpType;
 
-    unsigned size = 2U << (fpType - CborHalfFloatType);
+    size = 2U << (fpType - CborHalfFloatType);
     if (size == 8)
         put64(buf + 1, *(const uint64_t*)value);
     else if (size == 4)

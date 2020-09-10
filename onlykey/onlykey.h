@@ -78,7 +78,7 @@
 #ifndef ONLYKEY_H
 #define ONLYKEY_H
 
-//#define DEBUG //Enable Serial Monitor
+#define DEBUG //Enable Serial Monitor
 #define STD_VERSION //Define for STD edition firmare, undefine for IN TRVL edition firmware
 #define OK_Color //Define for hardware with color LED
 #define OKversionmain "v2.1"

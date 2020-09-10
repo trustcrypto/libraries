@@ -5,24 +5,32 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 /*
- *  Wrapper for crypto implementation on device
+ *  Wrapper for crypto implementation on device.
+ * 
+ *  Can be replaced with different crypto implementation by
+ *  defining EXTERNAL_SOLO_CRYPTO
  *
  * */
+#ifndef EXTERNAL_SOLO_CRYPTO
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
 #include "util.h"
 #include "crypto.h"
 #include "WProgram.h"
 
-#ifdef USE_SOFTWARE_IMPLEMENTATION
-
 #include "sha256.h"
 #include "uECC.h"
 //#include "aes.h"
+//#include "ctap.h"
 #include "device.h"
-#include "log.h"
+// stuff for SHA512
+//#include "sha2.h"
+//#include "blockwise.h"
 //#include APP_CONFIG
+#include "log.h"
 #include "ctap.h"
 #include "okcrypto.h"
 
@@ -52,6 +60,7 @@ typedef enum
 
 
 static SHA256_CTX sha256_ctx;
+//static cf_sha512_context sha512_ctx;
 static const struct uECC_Curve_t * _es256_curve = NULL;
 static const uint8_t * _signing_key = NULL;
 static int _key_len = 0;
@@ -65,6 +74,11 @@ void crypto_sha256_init(void)
 {
     sha256_init(&sha256_ctx);
 }
+
+/*void crypto_sha512_init(void)
+{
+    cf_sha512_init(&sha512_ctx);
+}*/
 
 void crypto_load_master_secret(uint8_t * key)
 {
@@ -89,6 +103,10 @@ void crypto_sha256_update(uint8_t * data, size_t len)
     sha256_update(&sha256_ctx, data, len);
 }
 
+/*void crypto_sha512_update(const uint8_t * data, size_t len) {
+    cf_sha512_update(&sha512_ctx, data, len);
+}*/
+
 void crypto_sha256_update_secret()
 {
     sha256_update(&sha256_ctx, master_secret, 32);
@@ -98,6 +116,12 @@ void crypto_sha256_final(uint8_t * hash)
 {
     sha256_final(&sha256_ctx, hash);
 }
+
+/*void crypto_sha512_final(uint8_t * hash)
+{
+    // NB: there is also cf_sha512_digest
+    cf_sha512_digest_final(&sha512_ctx, hash);
+}*/
 
 void crypto_sha256_hmac_init(uint8_t * key, uint32_t klen, uint8_t * hmac)
 {
@@ -137,6 +161,7 @@ void crypto_sha256_hmac_final(uint8_t * key, uint32_t klen, uint8_t * hmac)
 {
     uint8_t buf[64];
     unsigned int i;
+
     crypto_sha256_final(hmac);
     memset(buf, 0, sizeof(buf));
     if (key == CRYPTO_MASTER_KEY)
@@ -209,7 +234,7 @@ void crypto_ecdsa_sign(uint8_t * data, int len, uint8_t * sig, int MBEDTLS_ECP_I
 	SHA256_HashContext ectx = {{&init_SHA256, &update_SHA256, &finish_SHA256, 64, 32, tmp}};
     switch(MBEDTLS_ECP_ID)
     {
-        /*
+        /* Legacy protocols 
         case MBEDTLS_ECP_DP_SECP192R1:
             curve = uECC_secp192r1();
             if (_key_len != 24)  goto fail;
@@ -233,15 +258,15 @@ void crypto_ecdsa_sign(uint8_t * data, int len, uint8_t * sig, int MBEDTLS_ECP_I
             exit(1);
     }
     
-	if ( uECC_sign_deterministic(_signing_key, data, len, &ectx.uECC, sig, curve)== 0)
+	if ( uECC_sign_deterministic(_signing_key, data, len, &ectx.uECC, sig, curve) == 0)
     {
-        printf2(TAG_ERR,"error, uECC failed\n");
+        printf2(TAG_ERR, "error, uECC failed\n");
         exit(1);
     }
     return;
 
 fail:
-    printf2(TAG_ERR,"error, invalid key length\n");
+    printf2(TAG_ERR, "error, invalid key length\n");
     exit(1);
     
 }
@@ -343,12 +368,12 @@ void crypto_aes256_reset_iv(uint8_t * nonce)
 
 void crypto_aes256_decrypt(uint8_t * buf, int length)
 {
-
+    AES_CBC_decrypt_buffer(&aes_ctx, buf, length);
 }
 
 void crypto_aes256_encrypt(uint8_t * buf, int length)
 {
-    okcrypto_aes_cbc_encrypt_buffer(&aes_ctx, buf, length);
+    AES_CBC_encrypt_buffer(&aes_ctx, buf, length);
 }
 */
 

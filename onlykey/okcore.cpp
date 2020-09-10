@@ -5346,6 +5346,7 @@ void ctap_flash(int index, uint8_t *buffer, int size, uint8_t mode)
 	else if (mode == 3)
 	{ // read auth state from EEPROM
 		okeeprom_eeget_ctap_authstate(buffer);
+		if (buffer[0]==0 && buffer[1]==0 && buffer[3]==0 && buffer[4]==0 && buffer[5]==0) return;
 		okcore_aes_gcm_decrypt(buffer, 0, 255, profilekey, size);
 		return;
 	}
@@ -5384,6 +5385,7 @@ void ctap_flash(int index, uint8_t *buffer, int size, uint8_t mode)
 	if (mode == 1)
 	{ // read RK
 		memcpy(buffer, tptr + ((index * size) - size), size);
+		if (buffer[0]==0xff && buffer[1]==0xff && buffer[3]==0xff && buffer[4]==0xff && buffer[5]==0xff) return;
 		okcore_aes_gcm_decrypt(buffer, 0, (255-slot), profilekey, size);
 		#ifdef DEBUG
 		Serial.print("CTAP value =");
@@ -7300,7 +7302,7 @@ void okcore_aes_cbc_encrypt (uint8_t * state, const uint8_t * key, int len)
 	// newPinEnc uses IV=0
 	// https://fidoalliance.org/specs/fido-v2.0-id-20180227/fido-client-to-authenticator-protocol-v2.0-id-20180227.pdf
 	uint8_t iv[16] = {0};
-	okcrypto_aes_cbc_encrypt (state, NULL, key, len);
+	okcrypto_aes_cbc_encrypt (state, iv, key, len);
 	#endif
 }
 
