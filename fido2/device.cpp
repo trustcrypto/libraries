@@ -215,7 +215,7 @@ void usbhid_send(uint8_t * msg)
 
 void device_wink()
 {
-    setcolor(170); //blue
+    setcolor(171); //blue
     delay(500);
 }
 
@@ -326,7 +326,7 @@ int ctap_user_presence_test(uint32_t wait)
     }
     
     if (wait > 750) {
-        fadeon(170);
+        fadeon(171);
 
         do
         {
@@ -338,7 +338,7 @@ int ctap_user_presence_test(uint32_t wait)
             }
             if (touch_sense_loop()) u2f_button=1;
             ret = handle_packets();
-            if (blink==0) setcolor(170);
+            if (blink==0) setcolor(171);
             if (blink==128) setcolor(0);
             blink++;
             Serial.println("ctap_user_presence_test return ret");

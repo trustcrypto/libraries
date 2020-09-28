@@ -19,8 +19,8 @@
 
 #include "util.h"
 #include "crypto.h"
-// OnlyKey required change start
 #include "WProgram.h"
+
 #include "sha256.h"
 #include "uECC.h"
 //#include "aes.h"
@@ -33,7 +33,6 @@
 #include "log.h"
 #include "ctap.h"
 #include "okcrypto.h"
-// OnlyKey required change end
 
 
 
@@ -61,9 +60,7 @@ typedef enum
 
 
 static SHA256_CTX sha256_ctx;
-// OnlyKey required change start
 //static cf_sha512_context sha512_ctx;
-// OnlyKey required change end
 static const struct uECC_Curve_t * _es256_curve = NULL;
 static const uint8_t * _signing_key = NULL;
 static int _key_len = 0;
@@ -77,12 +74,12 @@ void crypto_sha256_init(void)
 {
     sha256_init(&sha256_ctx);
 }
-// OnlyKey required change start
+
 /*void crypto_sha512_init(void)
 {
     cf_sha512_init(&sha512_ctx);
 }*/
-// OnlyKey required change end
+
 void crypto_load_master_secret(uint8_t * key)
 {
     #if KEY_SPACE_BYTES < 96
@@ -105,11 +102,11 @@ void crypto_sha256_update(uint8_t * data, size_t len)
 {
     sha256_update(&sha256_ctx, data, len);
 }
-// OnlyKey required change start
+
 /*void crypto_sha512_update(const uint8_t * data, size_t len) {
     cf_sha512_update(&sha512_ctx, data, len);
 }*/
-// OnlyKey required change end
+
 void crypto_sha256_update_secret()
 {
     sha256_update(&sha256_ctx, master_secret, 32);
@@ -119,13 +116,13 @@ void crypto_sha256_final(uint8_t * hash)
 {
     sha256_final(&sha256_ctx, hash);
 }
-// OnlyKey required change start
+
 /*void crypto_sha512_final(uint8_t * hash)
 {
     // NB: there is also cf_sha512_digest
     cf_sha512_digest_final(&sha512_ctx, hash);
 }*/
-// OnlyKey required change end
+
 void crypto_sha256_hmac_init(uint8_t * key, uint32_t klen, uint8_t * hmac)
 {
     uint8_t buf[64];
@@ -164,6 +161,7 @@ void crypto_sha256_hmac_final(uint8_t * key, uint32_t klen, uint8_t * hmac)
 {
     uint8_t buf[64];
     unsigned int i;
+
     crypto_sha256_final(hmac);
     memset(buf, 0, sizeof(buf));
     if (key == CRYPTO_MASTER_KEY)
@@ -206,16 +204,12 @@ void crypto_ecc256_init(void)
 
 void crypto_ecc256_load_attestation_key(void)
 {
-	// OnlyKey required change start
     _signing_key = attestation_key;
-    // OnlyKey required change end
     _key_len = 32;
 }
 
 void crypto_ecc256_sign(uint8_t * data, int len, uint8_t * sig)
-{ 
-	// OnlyKey required change start
-	//use deterministic signing
+{ //use deterministic signing
 	uint8_t tmp[32 + 32 + 64];
 	SHA256_HashContext ectx = {{&init_SHA256, &update_SHA256, &finish_SHA256, 64, 32, tmp}};
   if ( uECC_sign_deterministic(_signing_key, data, len, &ectx.uECC, sig, _es256_curve)== 0)
@@ -223,7 +217,6 @@ void crypto_ecc256_sign(uint8_t * data, int len, uint8_t * sig)
         printf2(TAG_ERR,"error, uECC failed\n");
         exit(1);
     }
-    // OnlyKey required change end
 }
 
 void crypto_ecc256_load_key(uint8_t * data, int len, uint8_t * data2, int len2)
@@ -235,10 +228,8 @@ void crypto_ecc256_load_key(uint8_t * data, int len, uint8_t * data2, int len2)
 }
 
 void crypto_ecdsa_sign(uint8_t * data, int len, uint8_t * sig, int MBEDTLS_ECP_ID)
-{ 
-	// OnlyKey required change start
-	//use deterministic signing
-  	const struct uECC_Curve_t * curve = NULL;
+{ //use deterministic signing
+  const struct uECC_Curve_t * curve = NULL;
 	uint8_t tmp[32 + 32 + 64];
 	SHA256_HashContext ectx = {{&init_SHA256, &update_SHA256, &finish_SHA256, 64, 32, tmp}};
     switch(MBEDTLS_ECP_ID)
@@ -273,7 +264,6 @@ void crypto_ecdsa_sign(uint8_t * data, int len, uint8_t * sig, int MBEDTLS_ECP_I
         exit(1);
     }
     return;
-    // OnlyKey required change end
 
 fail:
     printf2(TAG_ERR, "error, invalid key length\n");
@@ -288,12 +278,11 @@ void generate_private_key(uint8_t * data, int len, uint8_t * data2, int len2, ui
     crypto_sha256_update(data2, len2);
     crypto_sha256_update(master_secret, 32);    // TODO AES
     crypto_sha256_hmac_final(CRYPTO_MASTER_KEY, 0, privkey);
-	// OnlyKey required change start
+
 	//crypto_aes256_init(master_secret + 32, NULL);
     //crypto_aes256_encrypt(privkey, 32);
     //Replacing SOLO AES-CBC with OnlyKey AES-CBC
 	crypto_aes256_encrypt(privkey, master_secret + 32, 32);
-	// OnlyKey required change end
 
  }
 
@@ -342,7 +331,7 @@ void crypto_ecc256_shared_secret(const uint8_t * pubkey, const uint8_t * privkey
     }
 
 }
-/* OnlyKey required change start
+/*
 struct AES_ctx aes_ctx;
 void crypto_aes256_init(uint8_t * key, uint8_t * nonce)
 {
@@ -478,5 +467,4 @@ uint16_t attestation_key_size = sizeof(attestation_key)-1;
 
 #else
 #error "No crypto implementation defined"
-// OnlyKey required change end
 #endif

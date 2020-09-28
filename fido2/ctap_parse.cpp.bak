@@ -7,6 +7,7 @@
 #include <stdint.h>
 
 #include "cbor.h"
+
 #include "ctap.h"
 #include "u2f.h"
 #include "ctap_parse.h"
@@ -682,8 +683,8 @@ uint8_t ctap_parse_extensions(CborValue * val, CTAP_extensions * ext)
         if (ret == CborErrorOutOfMemory)
         {
             printf2(TAG_ERR,"Error, rp map key is too large. Ignoring.\n");
-            cbor_value_advance(&map);
-            cbor_value_advance(&map);
+            check_ret( cbor_value_advance(&map) );
+            check_ret( cbor_value_advance(&map) );
             continue;
         }
         check_ret(ret);
@@ -848,7 +849,7 @@ uint8_t ctap_parse_make_credential(CTAP_makeCredential * MC, CborEncoder * encod
                 ret = parse_options(&map, &MC->credInfo.rk, &MC->uv, &MC->up);
                 check_retr(ret);
                 break;
-           case MC_pinAuth: {
+            case MC_pinAuth: {
                 printf1(TAG_MC,"CTAP_pinAuth\n");
 
                 size_t pinSize;

@@ -330,9 +330,11 @@ static int ctap_generate_cose_key(CborEncoder * cose_key, uint8_t * hmac_input, 
     switch(algtype)
     {
         case COSE_ALG_ES256:
+        	// OnlyKey required change start
             //if (device_is_nfc() == NFC_IS_ACTIVE) device_set_clock_rate(DEVICE_LOW_POWER_FAST);
             crypto_ecc256_derive_public_key(hmac_input, len, x, y);
             //if (device_is_nfc() == NFC_IS_ACTIVE) device_set_clock_rate(DEVICE_LOW_POWER_IDLE);
+            // OnlyKey required change end
             break;
         default:
             printf2(TAG_ERR,"Error, COSE alg %d not supported\n", algtype);
@@ -467,10 +469,12 @@ static int ctap_make_extensions(CTAP_extensions * ext, uint8_t * ext_encoder_buf
         crypto_sha256_hmac_final(CRYPTO_TRANSPORT_KEY2, 0, credRandom);
 
         // Decrypt saltEnc
+        // OnlyKey required change start
         //crypto_aes256_init(shared_secret, NULL);
         //crypto_aes256_decrypt(ext->hmac_secret.saltEnc, ext->hmac_secret.saltLen);
 		//Replacing SOLO AES-CBC with OnlyKey AES-CBC
 		crypto_aes256_decrypt(saltEnc, shared_secret, ext->hmac_secret.saltLen);
+        // OnlyKey required change end
         // Generate outputs
         crypto_sha256_hmac_init(credRandom, 32, hmac_secret_output);
         crypto_sha256_update(saltEnc, 32);
@@ -484,21 +488,12 @@ static int ctap_make_extensions(CTAP_extensions * ext, uint8_t * ext_encoder_buf
         }
 
         // Encrypt for final output
+        // OnlyKey required change start
         //crypto_aes256_init(shared_secret, NULL);
         //crypto_aes256_encrypt(output, ext->hmac_secret.saltLen);
 		//Replacing SOLO AES-CBC with OnlyKey AES-CBC
 		crypto_aes256_encrypt(hmac_secret_output, shared_secret, ext->hmac_secret.saltLen);
-
-
-
-
-
-
-
-
-
-
-
+		// OnlyKey required change end
         extensions_used += 1;
         hmac_secret_output_is_valid = 1;
     }
@@ -655,7 +650,7 @@ static int ctap_make_auth_data(struct rpId * rp, CborEncoder * map, uint8_t * au
 
         cbor_encoder_init(&cose_key, cose_key_buf, *len - sizeof(CTAP_authData), 0);
 
-        memmove(authData->attest.aaguid, CTAP_AAGUID, 16);
+        device_read_aaguid(authData->attest.aaguid);
  		authData->attest.credLenL =  sizeof(CredentialId) & 0x00FF;
         authData->attest.credLenH = (sizeof(CredentialId) & 0xFF00) >> 8;
 
@@ -1106,6 +1101,7 @@ static void add_existing_user_info(CTAP_credentialDescriptor * cred)
     CTAP_residentKey rk;
     int index = STATE.rk_stored;
     int i;
+    // OnlyKey required change start
     if (!webcryptcheck(NULL, NULL)) {
         for (i = 0; i < index; i++)
         {
@@ -1118,6 +1114,7 @@ static void add_existing_user_info(CTAP_credentialDescriptor * cred)
             }
 
         }
+    // OnlyKey required change end
     }
     printf1(TAG_GREEN, "NO rk match for allowList item \r\n");
 }
@@ -1257,7 +1254,9 @@ uint8_t ctap_end_get_assertion(CborEncoder * map, CTAP_credentialDescriptor * cr
 {
     int ret;
     uint8_t sigbuf[64];
+    // OnlyKey required change start
     uint8_t sigder[514];
+    // OnlyKey required change end
     int sigder_sz;
 
     ret = cbor_encode_int(map, RESP_credential);
@@ -1277,6 +1276,7 @@ uint8_t ctap_end_get_assertion(CborEncoder * map, CTAP_credentialDescriptor * cr
     crypto_ecc256_load_key((uint8_t*)&cred->credential.id, cred_size, NULL, 0);
 
 #ifdef ENABLE_U2F_EXTENSIONS
+	// OnlyKey required change start
     if ( extend_fido2(&cred->credential.id, &cred->type, sigder) )
     {
         extern int large_resp_buffer_offset;
@@ -1286,6 +1286,7 @@ uint8_t ctap_end_get_assertion(CborEncoder * map, CTAP_credentialDescriptor * cr
             printf1(TAG_GA,"sigder");
             dump_hex1(TAG_GA, sigder,large_resp_buffer_offset);
         } else sigder_sz = 72;
+    // OnlyKey required change end
     }
     else
 #endif
@@ -1824,7 +1825,12 @@ uint8_t ctap_get_assertion(CborEncoder * encoder, uint8_t * request, int length)
     check_ret(ret);
 
     // if only one account for this RP, null out the user details
-    if (validCredCount < 2 || !getAssertionState.user_verified)
+    // OnlyKey required change start
+    // if (validCredCount < 2 || !getAssertionState.user_verified)
+    // For OnlyKey, check if its PUB_KEY_CRED_CUSTOM, if it is nulling out the user details causes an invalid response
+    CTAP_credentialDescriptor * cred = &GA.creds[0];
+    if ((validCredCount < 2 || !getAssertionState.user_verified) && cred->type != PUB_KEY_CRED_CUSTOM)
+    // OnlyKey required change end
     {
         printf1(TAG_GREEN, "Only one account, nulling out user details on response\r\n");
         memset(&GA.creds[0].credential.user.name, 0, USER_NAME_LIMIT);
@@ -1836,8 +1842,10 @@ uint8_t ctap_get_assertion(CborEncoder * encoder, uint8_t * request, int length)
     {
         printf1(TAG_GA,"CRED ID (# %d)\n", GA.creds[j].credential.id.count);
     }
-
-    CTAP_credentialDescriptor * cred = &GA.creds[0];
+    // OnlyKey required change start
+    // CTAP_credentialDescriptor * cred = &GA.creds[0];
+    cred = &GA.creds[0];
+    // OnlyKey required change end
 
     GA.extensions.hmac_secret.credential = &cred->credential;
 
@@ -1960,16 +1968,20 @@ uint8_t ctap_update_pin_if_verified(uint8_t * pinEnc, int len, uint8_t * platfor
         dump_hex1(TAG_ERR, pinAuth,16);
         return CTAP2_ERR_PIN_AUTH_INVALID;
     }
+    // OnlyKey required change start
     //crypto_aes256_init(shared_secret, NULL);
 	//Replacing SOLO AES-cbc with OnlyKey AES-CBC
+	// OnlyKey required change end
 
     while((len & 0xf) != 0) // round up to nearest  AES block size multiple
     {
         len++;
     }
+    // OnlyKey required change start
     //crypto_aes256_decrypt(pinEnc, len);
 	//Replacing SOLO AES-CBC with OnlyKey AES-CBC
 	crypto_aes256_decrypt(pinEnc, shared_secret, len);
+	// OnlyKey required change end
 
 //      validate new PIN (length)
 
@@ -1999,9 +2011,10 @@ uint8_t ctap_update_pin_if_verified(uint8_t * pinEnc, int len, uint8_t * platfor
         {
             return CTAP2_ERR_PIN_AUTH_BLOCKED;
         }
+        // OnlyKey required change start
         //crypto_aes256_reset_iv(NULL); //Replacing SOLO AES-CBC with OnlyKey AES-CBC //crypto_aes256_decrypt(pinHashEnc, 16);
 		crypto_aes256_decrypt(pinHashEnc, shared_secret, 16);
-
+    	// OnlyKey required change end
         uint8_t pinHashEncSalted[32];
         crypto_sha256_init();
         crypto_sha256_update(pinHashEnc, 16);
@@ -2039,12 +2052,12 @@ uint8_t ctap_add_pin_if_verified(uint8_t * pinTokenEnc, uint8_t * platform_pubke
     crypto_sha256_init();
     crypto_sha256_update(shared_secret, 32);
     crypto_sha256_final(shared_secret);
-
+	// OnlyKey required change start
     //crypto_aes256_init(shared_secret, NULL);
     //crypto_aes256_decrypt(pinHashEnc, 16);
 	//Replacing SOLO AES-CBC with OnlyKey AES-CBC
 	crypto_aes256_decrypt(pinHashEnc, shared_secret, 16);
-
+	// OnlyKey required change end
     uint8_t pinHashEncSalted[32];
     crypto_sha256_init();
     crypto_sha256_update(pinHashEnc, 16);
@@ -2069,11 +2082,12 @@ uint8_t ctap_add_pin_if_verified(uint8_t * pinTokenEnc, uint8_t * platform_pubke
     }
 
     ctap_reset_pin_attempts();
+    // OnlyKey required change start
     //crypto_aes256_reset_iv(NULL);
-
     memmove(pinTokenEnc, PIN_TOKEN, PIN_TOKEN_SIZE);
     //crypto_aes256_encrypt(pinTokenEnc, PIN_TOKEN_SIZE); //Replacing SOLO AES-CBC with OnlyKey AES-CBC
 	crypto_aes256_encrypt(pinTokenEnc, shared_secret, PIN_TOKEN_SIZE);
+    // OnlyKey required change end
     return 0;
 }
 
@@ -2131,11 +2145,11 @@ uint8_t ctap_client_pin(CborEncoder * encoder, uint8_t * request, int length)
 
             ret = cbor_encode_int(&map, RESP_keyAgreement);
             check_ret(ret);
-
+			// OnlyKey required change start
             //if (device_is_nfc() == NFC_IS_ACTIVE) device_set_clock_rate(DEVICE_LOW_POWER_FAST);
             crypto_ecc256_compute_public_key(KEY_AGREEMENT_PRIV, KEY_AGREEMENT_PUB);
             //if (device_is_nfc() == NFC_IS_ACTIVE) device_set_clock_rate(DEVICE_LOW_POWER_IDLE);
-
+			// OnlyKey required change end
             ret = ctap_add_cose_key(&map, KEY_AGREEMENT_PUB, KEY_AGREEMENT_PUB+32, PUB_KEY_CRED_PUB_KEY, COSE_ALG_ECDH_ES_HKDF_256);
             check_retr((CborError)ret);
 

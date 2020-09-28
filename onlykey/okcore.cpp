@@ -2189,6 +2189,8 @@ int touch_sense_loop () {
 	static int key_on=0;
 	static int key_off=0;
 	static int key_press=0;
+	static int button_3_on=0;
+	static int button_3_off=0;
 
 	//Uncomment to test RNG
 	//RNG2(data, 32);
@@ -2212,12 +2214,13 @@ int touch_sense_loop () {
 		//Serial.println("touchread2");
 		//Serial.println(touchread2);
 		if (HW_ID==OK_GO) {
-			if (touchread3 > (touchread3ref+40)) button_selected = '3';
-			else {
-				delay(50);
-				if (touchRead(TOUCHPIN3) > (touchread3ref+40)) button_selected = '3';
+			if (touchread3 > (touchread3ref+40)) {
+				button_3_on++;
+				button_3_off=0;
+			} else {
+				button_3_off++;
+				if (button_3_off>2) button_3_on=0;
 			}
-			//if (button_selected = '3') Serial.println("Button3");
 		}
 	}
 	else if (touchread3 > (touchread3ref+40)) {
@@ -2227,6 +2230,15 @@ int touch_sense_loop () {
 		button_selected = '1';
 		//Serial.println("touchread3");
 		//Serial.println(touchread3);
+		if (HW_ID==OK_GO) {
+			if (touchread2 > (touchread2ref+40)) {
+				button_3_on++;
+				button_3_off=0;
+			} else {
+				button_3_off++;
+				if (button_3_off>2) button_3_on=0;
+			}
+		}
 	}
 	else if (touchread4 > (touchread4ref+40)) {
 		key_off = 0;
@@ -2278,9 +2290,13 @@ int touch_sense_loop () {
 	}
 
 	if ((key_press > 0) && (key_off > 2)) {
+		if (HW_ID==OK_GO && button_3_on) button_selected = '3';
+		button_3_on = 0;
+		button_3_off = 0;
 		key_on = 0;
 		int duration = key_press;
 		key_press = 0;
+		
 		return duration;
 	}
 
@@ -5750,7 +5766,7 @@ void wipedata()
 {
 	SoftTimer.remove(&Wipedata);
 	Wipedata.startDelayed();
-	packet_buffer_details[0] = 0;
+	if (NEO_Color != 170) packet_buffer_details[0] = 0;
 	packet_buffer_details[1] = 0;
 }
 
