@@ -16,7 +16,6 @@ extern "C"
 {
 #endif
 
-#define HID_MESSAGE_SIZE        64
 #define TYPE_INIT               0x80
 #define TYPE_CONT               0x00
 
@@ -34,7 +33,10 @@ extern "C"
 #define CTAPHID_BOOT            (TYPE_INIT | 0x50)
 #define CTAPHID_ENTERBOOT       (TYPE_INIT | 0x51)
 #define CTAPHID_ENTERSTBOOT     (TYPE_INIT | 0x52)
+#define CTAPHID_REBOOT          (TYPE_INIT | 0x53)
 #define CTAPHID_GETRNG          (TYPE_INIT | 0x60)
+#define CTAPHID_GETVERSION      (TYPE_INIT | 0x61)
+#define CTAPHID_LOADKEY         (TYPE_INIT | 0x62)
 // reserved for debug, not implemented except for HACKER and DEBUG_LEVEl > 0
 #define CTAPHID_PROBE           (TYPE_INIT | 0x70)
 
@@ -63,6 +65,8 @@ extern "C"
 #define CAPABILITY_NMSG             0x08
 
 #define CTAP_CAPABILITIES           (CAPABILITY_WINK | CAPABILITY_CBOR)
+
+#define HID_MESSAGE_SIZE        64
 
 typedef struct
 {

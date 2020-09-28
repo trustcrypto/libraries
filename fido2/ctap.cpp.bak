@@ -2082,12 +2082,11 @@ uint8_t ctap_add_pin_if_verified(uint8_t * pinTokenEnc, uint8_t * platform_pubke
     }
 
     ctap_reset_pin_attempts();
-    // OnlyKey required change start
     //crypto_aes256_reset_iv(NULL);
+
     memmove(pinTokenEnc, PIN_TOKEN, PIN_TOKEN_SIZE);
     //crypto_aes256_encrypt(pinTokenEnc, PIN_TOKEN_SIZE); //Replacing SOLO AES-CBC with OnlyKey AES-CBC
 	crypto_aes256_encrypt(pinTokenEnc, shared_secret, PIN_TOKEN_SIZE);
-    // OnlyKey required change end
     return 0;
 }
 
@@ -2145,11 +2144,11 @@ uint8_t ctap_client_pin(CborEncoder * encoder, uint8_t * request, int length)
 
             ret = cbor_encode_int(&map, RESP_keyAgreement);
             check_ret(ret);
-			// OnlyKey required change start
+
             //if (device_is_nfc() == NFC_IS_ACTIVE) device_set_clock_rate(DEVICE_LOW_POWER_FAST);
             crypto_ecc256_compute_public_key(KEY_AGREEMENT_PRIV, KEY_AGREEMENT_PUB);
             //if (device_is_nfc() == NFC_IS_ACTIVE) device_set_clock_rate(DEVICE_LOW_POWER_IDLE);
-			// OnlyKey required change end
+
             ret = ctap_add_cose_key(&map, KEY_AGREEMENT_PUB, KEY_AGREEMENT_PUB+32, PUB_KEY_CRED_PUB_KEY, COSE_ALG_ECDH_ES_HKDF_256);
             check_retr((CborError)ret);
 

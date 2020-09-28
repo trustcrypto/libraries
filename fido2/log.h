@@ -53,6 +53,8 @@ typedef enum
     TAG_EXT      = (1 << 18),
     TAG_NFC      = (1 << 19),
     TAG_NFC_APDU = (1 << 20),
+    TAG_CCID     = (1 << 21),
+    TAG_CM       = (1 << 22),
 
     TAG_NO_TAG   = (1UL << 30),
     TAG_FILENO   = (1UL << 31)
@@ -83,11 +85,6 @@ void set_logging_mask(uint32_t mask);
             byteprint(data,len);\
            } while(0) 
 
-//#define printf1(tag,fmt, ...) LOG(tag & ~(TAG_FILENO), NULL, 0, fmt, ##__VA_ARGS__)
-//#define printf2(tag,fmt, ...) LOG(tag | TAG_FILENO,__FILE__, __LINE__, fmt, ##__VA_ARGS__)
-//#define printf3(tag,fmt, ...) LOG(tag | TAG_FILENO,__FILE__, __LINE__, fmt, ##__VA_ARGS__)
-
-//#define dump_hex1(tag,data,len) LOG_HEX(tag,data,len)
 
 //uint32_t timestamp();
 #define dump_hex1(tag,data,len) byteprint(data,len)
@@ -96,10 +93,10 @@ void set_logging_mask(uint32_t mask);
 #else
 
 #define set_logging_mask(mask)
-#define printf1(tag,fmt, ...) 
+#define printf1(tag,fmt, ...)
 #define printf2(tag,fmt, ...)
 #define printf3(tag,fmt, ...)
-#define dump_hex1(tag,data,len) 
+#define dump_hex1(tag,data,len)
 #define timestamp()
 
 #endif

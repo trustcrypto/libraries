@@ -50,11 +50,11 @@ void U2Finit()
   device_init();
   okeeprom_eeget_U2Fcertlen(length);
   int length2 = length[0] << 8 | length[1];
-  if (length2 != 0) {
+  if (length2 != 0 || factory_config_flag == 0x01) {
     extern uint16_t attestation_cert_der_size;
     attestation_cert_der_size=length2;
     okcore_flashget_U2F();
-  } /*else {
+  } else {
     if (factory_config_flag == 0x01) { 
 		// New method decrypt attestation with device keys
 		memcpy((uint8_t *)attestation_key, encrypted_attestation_key, 32);
@@ -66,8 +66,8 @@ void U2Finit()
         byteprint((uint8_t*)attestation_key,sizeof(attestation_key));
         byteprint((uint8_t*)attestation_cert_der,sizeof(attestation_cert_der));
         #endif
-	} 
-  }*/
+	}
+  }
   //okcrypto_derive_key(0 , (uint8_t*)attestation_key); //Derive key from default key in slot 32
   //memcpy(handlekey, ecc_private_key, 32); // Copy derived key to handlekey
   //SHA256_CTX APPKEY;
@@ -76,6 +76,10 @@ void U2Finit()
   //sha256_update(&APPKEY, (uint8_t*)attestation_key, 32);
   //sha256_update(&APPKEY, handlekey, 32);
   //sha256_final(&APPKEY, apphandlekey); // Derivation key for app IDs
+#ifdef DEBUG
+  //Serial.println("HANDLE KEY =");
+  //byteprint(handlekey, 32);
+#endif
 }
 
 void fido_msg_timeout() {
@@ -197,25 +201,25 @@ int device_is_nfc()
 }
 
 
-void usbhid_send(uint8_t * msg)
+void ctaphid_write_block(uint8_t * data)
 {
     printf1(TAG_GREEN, "Sending FIDO response block");
     #ifdef DEBUG
-	byteprint(msg, 64);
+	byteprint(data, 64);
     #endif
     extern uint8_t useinterface;
 
     if (useinterface == 2) {
-        RawHID.send2(msg, 100);
+        RawHID.send2(data, 100);
     } else {
-        RawHID.send(msg, 100);
+        RawHID.send(data, 100);
     }
 }
 
 
 void device_wink()
 {
-    setcolor(171); //blue
+    setcolor(170); //blue
     delay(500);
 }
 
@@ -244,7 +248,7 @@ int authenticator_is_backup_initialized()
 	return 0;
 }
 
-void authenticator_write_state(AuthenticatorState * a)
+void authenticator_write_state(AuthenticatorState * a, int backup)
 {
 
 	uint8_t buffer[sizeof(AuthenticatorState)];
@@ -302,13 +306,6 @@ void device_manage(void)
 //#endif
 }
 
-static bool _up_disabled = false;
-
-void device_disable_up(bool disable)
-{
-    _up_disabled = disable;
-}
-
 
 int ctap_user_presence_test(uint32_t wait)
 {
@@ -318,31 +315,23 @@ int ctap_user_presence_test(uint32_t wait)
     uint32_t t1 = millis();
     uint8_t blink = 0;
     extern uint8_t isfade;
-
-    if (_up_disabled)
-    {
-        Serial.println("ctap_user_presence_test return 2");
-        return 2;
-    }
     
+
     if (wait > 750) {
-        fadeon(171);
+        fadeon(170);
 
         do
         {
             if (t1 + (wait) < millis())
             {
             fadeoff(1);
-            Serial.println("ctap_user_presence_test return 0");
             return 0;
             }
             if (touch_sense_loop()) u2f_button=1;
             ret = handle_packets();
-            if (blink==0) setcolor(171);
+            if (blink==0) setcolor(170);
             if (blink==128) setcolor(0);
             blink++;
-            Serial.println("ctap_user_presence_test return ret");
-            Serial.println(ret);
             if (ret) return ret;
         }
         while (! IS_BUTTON_PRESSED());
@@ -352,10 +341,8 @@ int ctap_user_presence_test(uint32_t wait)
     if(IS_BUTTON_PRESSED()) {
         fadeoff(0);
         u2f_button=0;
-        Serial.println("ctap_user_presence_test return 1");
         return 1;
     } else {
-        Serial.println("ctap_user_presence_test return 0");
         return 0;
     }
 
@@ -398,13 +385,20 @@ int ctap_generate_rng(uint8_t * dst, size_t num)
     return 1;
 }
 
-void ctap_reset_rk(void)
+
+int ctap_user_verification(uint8_t arg)
+{
+    printf1(TAG_GREEN, "ctap_user_verification");
+    return 1;
+}
+
+void ctap_reset_rk()
 {
     printf1(TAG_GREEN, "ctap_reset_rk");
     ctap_flash(NULL, NULL, NULL, 5);
 }
 
-uint32_t ctap_rk_size(void)
+uint32_t ctap_rk_size()
 {
     printf1(TAG_GREEN, "15 RKs for now");
     return 16; //support 15 RKs for now
@@ -429,14 +423,6 @@ void ctap_overwrite_rk(int index,CTAP_residentKey * rk)
 	ctap_store_rk(index, rk);
 }
 
-void ctap_delete_rk(int index)
-{
-    CTAP_residentKey rk;
-    memset(&rk, 0xff, sizeof(CTAP_residentKey));
-    ctap_overwrite_rk(index, &rk);
-}
-
-
 void ctap_backup_rk(int index,CTAP_residentKey * rk)
 {
     /*
@@ -460,19 +446,6 @@ void _Error_Handler(char *file, int line)
     while(1)
     {
     }
-}
-
-void device_read_aaguid(uint8_t * dst){
-    memmove(dst, CTAP_AAGUID, 16);
-    dump_hex1(TAG_GREEN,dst, 16);
-}
-
-uint16_t device_attestation_cert_der_get_size() {
-    return attestation_cert_der_size;
-}
-
-void device_attestation_read_cert_der(uint8_t * dst) {
-    memmove(dst, attestation_cert_der, device_attestation_cert_der_get_size());
 }
 
 

@@ -791,19 +791,19 @@ void okcore_quick_setup(uint8_t step)
 		memcpy(buffer, recv_buffer, 64);
 		if (buffer[5]>='0') { // 16 max length
 			pin_set = 3;
-			Serial.println("SETTING PRIMARY PIN");
-			byteprint(buffer+5, 16);
+			//Serial.println("SETTING PRIMARY PIN");
+			//byteprint(buffer+5, 16);
 			set_primary_pin(buffer+5, SETUP_MANUAL);
 		}
 		if (buffer[21]>='0') { // 16 max length
 			pin_set = 9;
-			Serial.println("SETTING SEC PIN");
-			byteprint(buffer+21, 16);
+			//Serial.println("SETTING SEC PIN");
+			//byteprint(buffer+21, 16);
 			set_secondary_pin(buffer+21, SETUP_MANUAL);
 		}
 		if (buffer[37]>='0') { // 16 max length
-			Serial.println("SETTING SD PIN");
-			byteprint(buffer+37, 16);
+			//Serial.println("SETTING SD PIN");
+			//byteprint(buffer+37, 16);
 			pin_set = 6;
 			set_sd_pin(buffer+37, SETUP_MANUAL);
 		}
@@ -1835,7 +1835,7 @@ void set_slot(uint8_t *buffer)
 		Serial.println(); //newline
 		Serial.println("Writing wipemode to EEPROM...");
 #endif
-		if (buffer[7] == 2)
+		if (buffer[7] == 2 && (configmode == true || !initcheck))
 		{
 			okeeprom_eeset_wipemode(buffer + 7);
 			hidprint("Successfully set Wipe Mode to Full Wipe");
@@ -1855,7 +1855,7 @@ void set_slot(uint8_t *buffer)
 		Serial.println(); //newline
 		Serial.println("Writing backupkeymode to EEPROM...");
 #endif
-		if (buffer[7] == 1)
+		if (buffer[7] == 1 && (configmode == true || !initcheck))
 		{
 			okeeprom_eeset_backupkeymode(buffer + 7);
 			hidprint("Successfully set Backup Key Mode to Locked");
@@ -1924,10 +1924,10 @@ case 27:
 		{ //Only permit changing this on first use or while in config mode
 #ifdef DEBUG
 			Serial.println(); //newline
-			Serial.println("Writing modkey mode to EEPROM...");
+			Serial.println("Writing sysadmin mode to EEPROM...");
 #endif
 			okeeprom_eeset_modkey(buffer + 7);
-			hidprint("Successfully set Modkey Mode");
+			hidprint("Successfully set Sysadmin Mode");
 		}
 		else
 		{
@@ -2189,6 +2189,8 @@ int touch_sense_loop () {
 	static int key_on=0;
 	static int key_off=0;
 	static int key_press=0;
+	static int button_3_on=0;
+	static int button_3_off=0;
 
 	//Uncomment to test RNG
 	//RNG2(data, 32);
@@ -2212,12 +2214,13 @@ int touch_sense_loop () {
 		//Serial.println("touchread2");
 		//Serial.println(touchread2);
 		if (HW_ID==OK_GO) {
-			if (touchread3 > (touchread3ref+40)) button_selected = '3';
-			else {
-				delay(50);
-				if (touchRead(TOUCHPIN3) > (touchread3ref+40)) button_selected = '3';
+			if (touchread3 > (touchread3ref+40)) {
+				button_3_on++;
+				button_3_off=0;
+			} else {
+				button_3_off++;
+				if (button_3_off>2) button_3_on=0;
 			}
-			if (button_selected = '3') Serial.println("Button3");
 		}
 	}
 	else if (touchread3 > (touchread3ref+40)) {
@@ -2227,6 +2230,15 @@ int touch_sense_loop () {
 		button_selected = '1';
 		//Serial.println("touchread3");
 		//Serial.println(touchread3);
+		if (HW_ID==OK_GO) {
+			if (touchread2 > (touchread2ref+40)) {
+				button_3_on++;
+				button_3_off=0;
+			} else {
+				button_3_off++;
+				if (button_3_off>2) button_3_on=0;
+			}
+		}
 	}
 	else if (touchread4 > (touchread4ref+40)) {
 		key_off = 0;
@@ -2278,9 +2290,13 @@ int touch_sense_loop () {
 	}
 
 	if ((key_press > 0) && (key_off > 2)) {
+		if (HW_ID==OK_GO && button_3_on) button_selected = '3';
+		button_3_on = 0;
+		button_3_off = 0;
 		key_on = 0;
 		int duration = key_press;
 		key_press = 0;
+		
 		return duration;
 	}
 
@@ -5346,6 +5362,7 @@ void ctap_flash(int index, uint8_t *buffer, int size, uint8_t mode)
 	else if (mode == 3)
 	{ // read auth state from EEPROM
 		okeeprom_eeget_ctap_authstate(buffer);
+		if (buffer[0]==0 && buffer[1]==0 && buffer[3]==0 && buffer[4]==0 && buffer[5]==0) return;
 		okcore_aes_gcm_decrypt(buffer, 0, 255, profilekey, size);
 		return;
 	}
@@ -5384,6 +5401,7 @@ void ctap_flash(int index, uint8_t *buffer, int size, uint8_t mode)
 	if (mode == 1)
 	{ // read RK
 		memcpy(buffer, tptr + ((index * size) - size), size);
+		if (buffer[0]==0xff && buffer[1]==0xff && buffer[3]==0xff && buffer[4]==0xff && buffer[5]==0xff) return;
 		okcore_aes_gcm_decrypt(buffer, 0, (255-slot), profilekey, size);
 		#ifdef DEBUG
 		Serial.print("CTAP value =");
@@ -5748,7 +5766,7 @@ void wipedata()
 {
 	SoftTimer.remove(&Wipedata);
 	Wipedata.startDelayed();
-	packet_buffer_details[0] = 0;
+	if (NEO_Color != 170) packet_buffer_details[0] = 0;
 	packet_buffer_details[1] = 0;
 }
 
@@ -7300,7 +7318,7 @@ void okcore_aes_cbc_encrypt (uint8_t * state, const uint8_t * key, int len)
 	// newPinEnc uses IV=0
 	// https://fidoalliance.org/specs/fido-v2.0-id-20180227/fido-client-to-authenticator-protocol-v2.0-id-20180227.pdf
 	uint8_t iv[16] = {0};
-	okcrypto_aes_cbc_encrypt (state, NULL, key, len);
+	okcrypto_aes_cbc_encrypt (state, iv, key, len);
 	#endif
 }
 
@@ -7342,8 +7360,6 @@ void okcore_pin_login ()
 		index++;
 		ptr++;
 	}
-	Serial.println("password entered = ");
-	Serial.println(password.guess);
 	#endif
 }
 

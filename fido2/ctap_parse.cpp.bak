@@ -939,10 +939,6 @@ uint8_t parse_credential_descriptor(CborValue * arr, CTAP_credentialDescriptor *
         printf2(TAG_ERR,"Ignoring credential is incorrect length, treating as custom\n");
         cred->type = PUB_KEY_CRED_CUSTOM;
         buflen = 256;
-    	// OnlyKey required change start
-        ret = cbor_value_copy_byte_string(&val, (uint8_t*)&cred->credential.id, &buflen, NULL);
-        getAssertionState.customCredIdSize = buflen;
-        // OnlyKey required change end
         ret = cbor_value_copy_byte_string(&val, getAssertionState.customCredId, &buflen, NULL);
         getAssertionState.customCredIdSize = buflen;
     }

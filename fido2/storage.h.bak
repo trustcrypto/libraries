@@ -16,9 +16,6 @@ extern "C"
 
 #define KEY_SPACE_BYTES     128
 #define MAX_KEYS            (1)
-#define PIN_SALT_LEN        (32)
-#define STATE_VERSION        (1)
-
 
 #define BACKUP_MARKER       0x5A
 #define INITIALIZED_MARKER  0xA5

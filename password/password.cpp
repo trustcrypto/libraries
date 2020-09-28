@@ -285,9 +285,6 @@ bool Password::profile2hashevaluate(){
 	extern uint8_t Profile_Offset;
 	size_t guesslen = strlen(guess);
 
-	Serial.println("guesslen ");
-	Serial.println(guesslen);
-
 	if (HW_ID==OK_GO) {
 		if (guesslen==0) {
 			// check if default PIN is set (chip ID)
