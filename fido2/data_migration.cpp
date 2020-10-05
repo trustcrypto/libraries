@@ -78,6 +78,7 @@ void do_migration_if_required(AuthenticatorState* state_current){
             // FIXME discuss migration failure behavior
             goto return_cleanup;
         }
+
         dump_hex1(TAG_ERR, (uint8_t *)&state_tmp, sizeof(state_tmp));
         dump_hex1(TAG_ERR, (uint8_t *)&state_previous, sizeof(state_previous));
         save_migrated_state(&state_tmp);
