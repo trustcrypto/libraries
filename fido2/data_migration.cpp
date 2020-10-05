@@ -69,6 +69,7 @@ void do_migration_if_required(AuthenticatorState* state_current){
     AuthenticatorState state_previous;
     authenticator_read_state(&state_previous);
     authenticator_read_state(&state_tmp);
+    printf2(TAG_ERR, "Not Running migration\n");
     if(state_current->data_version == 0xFF){
         printf2(TAG_ERR, "Running migration\n");
         bool success = migrate_from_FF_to_01((AuthenticatorState_0xFF *) &state_previous, &state_tmp);
@@ -77,8 +78,8 @@ void do_migration_if_required(AuthenticatorState* state_current){
             // FIXME discuss migration failure behavior
             goto return_cleanup;
         }
-        //dump_hex1(TAG_ERR, (void*)&state_tmp, sizeof(state_tmp));
-        //dump_hex1(TAG_ERR, (void*)&state_previous, sizeof(state_previous));
+        dump_hex1(TAG_ERR, (uint8_t *)&state_tmp, sizeof(state_tmp));
+        dump_hex1(TAG_ERR, (uint8_t *)&state_previous, sizeof(state_previous));
         save_migrated_state(&state_tmp);
     }
 

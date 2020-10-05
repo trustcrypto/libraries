@@ -5334,7 +5334,7 @@ void rsa_priv_flash(uint8_t *buffer, bool wipe)
 }
 
 // Store auth state in EEPROM, RKs 1-5 in 10th flash sector, RKs 6-10 in 1st flash sector
-void ctap_flash(int index, uint8_t *buffer, int size, uint8_t mode)
+int ctap_flash(int index, uint8_t *buffer, int size, uint8_t mode)
 {
 	uintptr_t adr = (unsigned long)flashstorestart;
 	uint8_t temp[2048]; 
@@ -5357,20 +5357,20 @@ void ctap_flash(int index, uint8_t *buffer, int size, uint8_t mode)
 		adr = adr + 2048; //11th free flash sector
 		flashEraseSector((unsigned long *)adr);
 		delay(10);
-		return;
+		return 0;
 	}
 	else if (mode == 3)
 	{ // read auth state from EEPROM
 		okeeprom_eeget_ctap_authstate(buffer);
-		if (buffer[0]==0 && buffer[1]==0 && buffer[3]==0 && buffer[4]==0 && buffer[5]==0) return;
+		if (buffer[0]==0 && buffer[1]==0 && buffer[3]==0 && buffer[4]==0 && buffer[5]==0) return 0;
 		okcore_aes_gcm_decrypt(buffer, 0, 255, profilekey, size);
-		return;
+		return 1;
 	}
 	else if (mode == 4)
 	{ // write auth state to EEPROM
 		okcore_aes_gcm_decrypt(buffer, 0, 255, profilekey, size);
 		okeeprom_eeset_ctap_authstate(buffer);
-		return;
+		return 0;
 	}
 	#ifdef DEBUG
 	Serial.print("RK Index = ");
@@ -5379,7 +5379,7 @@ void ctap_flash(int index, uint8_t *buffer, int size, uint8_t mode)
 	// Max size RK 393
 	// Support 15 RKs for now, 0-14
 	if (index > 14 || index < 0)
-		return;
+		return 0;
 	else 
 		index++; // 1-15 instead of 0-14
 
@@ -5401,13 +5401,13 @@ void ctap_flash(int index, uint8_t *buffer, int size, uint8_t mode)
 	if (mode == 1)
 	{ // read RK
 		memcpy(buffer, tptr + ((index * size) - size), size);
-		if (buffer[0]==0xff && buffer[1]==0xff && buffer[3]==0xff && buffer[4]==0xff && buffer[5]==0xff) return;
+		if (buffer[0]==0xff && buffer[1]==0xff && buffer[3]==0xff && buffer[4]==0xff && buffer[5]==0xff) return 0;
 		okcore_aes_gcm_decrypt(buffer, 0, (255-slot), profilekey, size);
 		#ifdef DEBUG
 		Serial.print("CTAP value =");
 		byteprint(buffer, size);
 		#endif
-		return;
+		return 0;
 	}
 	else if (mode == 2)
 	{
@@ -5704,7 +5704,7 @@ bool fadeoffafter20sec(Task *me)
 		fadeoff(1); //Fade Red, failed to enter PIN in 20 Seconds
 	}
 	//Below used for keyboard OnlyKey setup
-	if (!initcheck || configmode)
+	if (!initcheck)
 	{
 		if (pin_set <= 3)
 		{
@@ -7367,4 +7367,19 @@ void ByteToChar2(uint8_t *bytes, char *chars, unsigned int count, unsigned int i
 {
 	for (unsigned int i = 0; i < count; i++)
 		chars[i + index] = (char)bytes[i];
+}
+
+void fw_version_changes() {
+	uint8_t keytype;
+	// todo get key from 128, if empty write key
+	okeeprom_eeget_ecckey(&keytype, RESERVED_KEY_WEB_DERIVATION); 
+	if (keytype!=0x61) { // Empty no Web Derivation Key, added in fw 2.1.0
+		outputmode = DISCARD;
+		recv_buffer[4] = OKSETPRIV;
+		recv_buffer[5] = RESERVED_KEY_WEB_DERIVATION;
+		recv_buffer[6] = 0x61;
+		RNG2(recv_buffer + 7, 32);
+		set_private(recv_buffer); //set RESERVED_KEY_WEB_DERIVATION slot 128
+		memset(recv_buffer, 0, sizeof(recv_buffer));
+	}
 }
