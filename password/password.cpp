@@ -399,7 +399,6 @@ bool Password::profile2hashevaluate(){
 
 
 bool Password::sdhashevaluate(){ 
-	if (HW_ID!=OK_GO) return false;
 	size_t guesslen = strlen(guess);
 	if (guesslen < 7) {
 		delay (30); //Simulate time taken to hash

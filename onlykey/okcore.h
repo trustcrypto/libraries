@@ -226,7 +226,7 @@ extern void set_secondary_pin (uint8_t *buffer, uint8_t keyboard_mode);
 extern void set_sd_pin (uint8_t *buffer, uint8_t keyboard_mode);
 extern void set_private (uint8_t *buffer);
 extern void wipe_private (uint8_t *buffer);
-extern void ctap_flash (int index, uint8_t *buffer, int size, uint8_t mode);
+extern int ctap_flash (int index, uint8_t *buffer, int size, uint8_t mode);
 extern void setOtherTimeout();
 extern void processPacket(uint8_t *buffer);
 extern void setCounter(uint32_t counter);
@@ -324,6 +324,7 @@ extern void generate_random_passphrase (uint8_t *buffer);
 extern int check_crc(uint8_t* buffer);
 extern char * HW_MODEL(char const * in);
 extern void ByteToChar2(uint8_t *bytes, char *chars, unsigned int count, unsigned int index);
+extern void fw_version_changes();
 
 #ifdef __cplusplus
 }

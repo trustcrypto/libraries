@@ -113,7 +113,7 @@ int webcryptcheck (uint8_t * _appid, uint8_t * buffer) {
     memcpy(rpid, ctap_buffer+4, 12); 
     #ifdef DEBUG
 	Serial.println("Ctap buffer:");
-    byteprint(ctap_buffer, 1024);
+    byteprint(ctap_buffer, 12);
 	Serial.println("stored_apprpid:");
     byteprint((uint8_t*)stored_apprpid, 12);
     Serial.println("rpid:");
@@ -222,12 +222,14 @@ void device_wink()
 int authenticator_read_state(AuthenticatorState * a)
 {
    	uint8_t buffer[sizeof(AuthenticatorState)];
+    int ret;
     printf1(TAG_GREEN, "authenticator_read_state");
-	ctap_flash (0, buffer, sizeof(AuthenticatorState), 3);
+	ret = ctap_flash (0, buffer, sizeof(AuthenticatorState), 3);
 	memcpy((uint8_t*)a, buffer, sizeof(AuthenticatorState));
     #ifdef DEBUG
 	byteprint(buffer,sizeof(AuthenticatorState));
     #endif
+    return ret;
 }
 
 void authenticator_read_backup_state(AuthenticatorState * a)
