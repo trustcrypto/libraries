@@ -5349,6 +5349,9 @@ int ctap_flash(int index, uint8_t *buffer, int size, uint8_t mode)
 	#endif
 	if (mode == 5)
 	{ // wipe RKs
+		#ifdef DEBUG
+		Serial.print("Wiping all resident keys!");
+		#endif
 		flashEraseSector((unsigned long *)adr); //1st free flash sector
 		delay(10);
 		adr = adr + 18432; //10th free flash sector

@@ -366,6 +366,7 @@ int handle_packets()
         if ( ctaphid_handle_packet(hidmsg) ==  CTAPHID_CANCEL)
         {
             printf1(TAG_GREEN, "CANCEL!\r\n");
+            fadeoff(1);
             return -1;
         }
         else
