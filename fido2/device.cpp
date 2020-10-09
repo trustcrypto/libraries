@@ -48,13 +48,15 @@ void U2Finit()
 {
   uint8_t length[2];
   device_init();
-  okeeprom_eeget_U2Fcertlen(length);
+
+  // Removed support for custom U2F cert
+  /* okeeprom_eeget_U2Fcertlen(length);
   int length2 = length[0] << 8 | length[1];
   if (length2 != 0) {
     extern uint16_t attestation_cert_der_size;
     attestation_cert_der_size=length2;
     okcore_flashget_U2F();
-  } /*else {
+  } else {
     if (factory_config_flag == 0x01) { 
 		// New method decrypt attestation with device keys
 		memcpy((uint8_t *)attestation_key, encrypted_attestation_key, 32);
@@ -403,8 +405,8 @@ void ctap_reset_rk(void)
 
 uint32_t ctap_rk_size(void)
 {
-    printf1(TAG_GREEN, "15 RKs for now");
-    return 16; //support 15 RKs for now
+    printf1(TAG_GREEN, "12 RKs for now");
+    return 13; //support 12 RKs for now
 }
 
 void ctap_store_rk(int index,CTAP_residentKey * rk)

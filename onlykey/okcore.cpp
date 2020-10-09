@@ -422,91 +422,6 @@ void recvmsg(int n)
 				return;
 			}
 			return;
-		case OKSETU2FPRIV:
-			if (initialized == false && unlocked == true)
-			{
-				hidprint("No PIN set, You must set a PIN first");
-				return;
-			}
-			else if (initialized == true && unlocked == true && FTFL_FSEC == 0x44 && integrityctr1 == integrityctr2)
-			{
-				if (profilemode != NONENCRYPTEDPROFILE)
-				{
-					#ifdef STD_VERSION
-					set_u2f_priv(recv_buffer);
-					#endif
-				}
-			}
-			else
-			{
-				hidprint("Error device locked");
-				return;
-			}
-			return;
-		case OKWIPEU2FPRIV:
-			if (initialized == false && unlocked == true)
-			{
-				hidprint("Error you must set a PIN first on OnlyKey");
-				return;
-			}
-			else if (initialized == true && unlocked == true && FTFL_FSEC == 0x44 && integrityctr1 == integrityctr2)
-			{
-				if (profilemode != NONENCRYPTEDPROFILE)
-				{
-					#ifdef STD_VERSION
-					wipe_u2f_priv(recv_buffer);
-					#endif
-				}
-			}
-			else
-			{
-				hidprint("Error device locked");
-				return;
-			}
-			return;
-		case OKSETU2FCERT:
-			if (initialized == false && unlocked == true)
-			{
-				hidprint("Error you must set a PIN first on OnlyKey");
-				return;
-			}
-			else if (initialized == true && unlocked == true && FTFL_FSEC == 0x44 && integrityctr1 == integrityctr2)
-			{
-				if (profilemode != NONENCRYPTEDPROFILE)
-				{
-					#ifdef STD_VERSION
-					if (recv_buffer[0] != 0xBA)
-						set_u2f_cert(recv_buffer);
-					#endif
-				}
-			}
-			else
-			{
-				hidprint("Error device locked");
-				return;
-			}
-			return;
-		case OKWIPEU2FCERT:
-			if (initialized == false && unlocked == true)
-			{
-				hidprint("Error you must set a PIN first on OnlyKey");
-				return;
-			}
-			else if (initialized == true && unlocked == true && FTFL_FSEC == 0x44 && integrityctr1 == integrityctr2)
-			{
-				if (profilemode != NONENCRYPTEDPROFILE)
-				{
-					#ifdef STD_VERSION
-					wipe_u2f_cert(recv_buffer);
-					#endif
-				}
-			}
-			else
-			{
-				hidprint("Error device locked");
-				return;
-			}
-			return;
 		case OKSETPRIV:
 			if ((initialized == true && unlocked == true && FTFL_FSEC == 0x44 && integrityctr1 == integrityctr2 && configmode == true) || (initialized == true && unlocked == true && !initcheck)) //Only permit loading keys on first use and while in config mode
 			{
@@ -680,6 +595,11 @@ void recvmsg(int n)
 					recv_fido_msg(recv_buffer);	
 				} else if (useinterface == n) {
 				recv_fido_msg(recv_buffer);	
+				} else {
+					// Fix for Android bug causes some OSes to select wrong interface if a user tries to do FIDO2 while OnlyKey is locked
+					useinterface = n;
+					recv_fido_msg(recv_buffer);	
+					useinterface = 0;
 				}
 				#endif
 			}
@@ -4571,7 +4491,6 @@ void okcore_flashset_totpkey(uint8_t *ptr, int size, int slot)
 		length = (uint8_t)size;
 		okeeprom_eeset_totpkeylen14(&length);
 		return;
-		;
 	case 15:
 		if (size > EElen_totpkey)
 			size = EElen_totpkey;
@@ -4673,257 +4592,6 @@ void okcore_flashset_totpkey(uint8_t *ptr, int size, int slot)
 		okeeprom_eeset_totpkeylen24(&length);
 		return;
 	}
-	return;
-}
-
-/*********************************/
-void okcore_flashget_U2F()
-{
-
-	if (profilemode == NONENCRYPTEDPROFILE) return;
-	#ifdef STD_VERSION
-	#ifdef DEBUG
-	Serial.println("Flashget U2F");
-	#endif
-	uint8_t length[2];
-	uintptr_t adr = (unsigned long)flashstorestart;
-	adr = adr + 12288 + 1024; //2nd half of 7th flash sector
-	 
-	okcore_flashget_common((uint8_t *)attestation_key, (unsigned long *)adr, 32);
-	okcore_aes_gcm_decrypt((uint8_t *)attestation_key, 0, 200, profilekey, 32);
-
-#ifdef DEBUG
-	Serial.print("attestation_key =");
-#endif
-	for (unsigned int i = 0; i < sizeof(attestation_key); i++)
-	{
-#ifdef DEBUG
-		Serial.println(attestation_key[i], HEX);
-#endif
-	}
-	adr = adr + 32;
-
-	okcore_flashget_common((uint8_t *)attestation_cert_der, (unsigned long *)adr, attestation_cert_der_size);
-	okcore_aes_gcm_decrypt((uint8_t *)attestation_cert_der, 0, 199, profilekey, attestation_cert_der_size);
-#ifdef DEBUG
-	Serial.print("attestation der =");
-	byteprint((uint8_t *)attestation_cert_der, attestation_cert_der_size);
-#endif
-#endif
-	return;
-}
-
-/*********************************/
-void set_u2f_priv(uint8_t *buffer)
-{
-
-	if (profilemode == NONENCRYPTEDPROFILE)
-		return;
-#ifdef STD_VERSION
-#ifdef DEBUG
-	Serial.println("OKSETU2FPRIV MESSAGE RECEIVED");
-#endif
-	uintptr_t adr = (unsigned long)flashstorestart;
-	adr = adr + 12288 + 1024; //2nd half of 7th flash sector
-	uint8_t *ptr;
-	uint8_t temp[1024];
-	uint8_t *tptr;
-	tptr = temp;
-	ptr = buffer + 5;
-	//Copy current flash contents to buffer
-	okcore_flashget_common(tptr, (unsigned long *)adr, 1024);
-	okcore_aes_gcm_encrypt(buffer, 0, 200, profilekey, 32);
-	//Add new flash contents to buffer
-	for (int z = 0; z < 32; z++)
-	{
-		temp[z] = ((uint8_t) * (ptr + z));
-	}
-	//Erase flash sector
-#ifdef DEBUG
-	Serial.println("Erase Sector");
-#endif
-	if (flashEraseSector((unsigned long *)adr))
-	{
-#ifdef DEBUG
-		Serial.println("NOT ");
-#endif
-	}
-
-#ifdef DEBUG
-	Serial.println("successful\r\n");
-#endif
-
-	//Write buffer to flash
-
-	okcore_flashset_common(tptr, (unsigned long *)adr, 1024);
-#ifdef DEBUG
-	Serial.print("U2F Private address =");
-	Serial.println(adr, HEX);
-	Serial.print("U2F Private value =");
-#endif
-	for (int i = 0; i < 32; i++)
-	{
-		attestation_key[i] = *(buffer + 5 + i);
-#ifdef DEBUG
-		Serial.print(attestation_key[i], HEX);
-#endif
-	}
-	hidprint("Successfully set U2F Private");
-
-	if (buffer[0] != 0xBA)
-		blink(2);
-#endif
-	return;
-}
-
-void wipe_u2f_priv(uint8_t *buffer)
-{
-
-	if (profilemode == NONENCRYPTEDPROFILE)
-		return;
-#ifdef STD_VERSION
-#ifdef DEBUG
-	Serial.println("OKWIPEU2FPRIV MESSAGE RECEIVED");
-#endif
-	uintptr_t adr = (unsigned long)flashstorestart;
-	adr = adr + 12288 + 1024; //2nd half of 7th flash sector
-					   //Erase flash sector
-#ifdef DEBUG
-	Serial.println("Erase Sector");
-#endif
-	if (flashEraseSector((unsigned long *)adr))
-	{
-#ifdef DEBUG
-		Serial.println("NOT ");
-#endif
-	}
-#ifdef DEBUG
-	Serial.println("successful\r\n");
-#endif
-	hidprint("Successfully wiped U2F Private");
-	blink(2);
-#endif
-	return;
-}
-
-void set_u2f_cert(uint8_t *buffer)
-{
-
-	if (profilemode == NONENCRYPTEDPROFILE)
-		return;
-#ifdef STD_VERSION
-#ifdef DEBUG
-	Serial.println("OKSETU2FCERT MESSAGE RECEIVED");
-#endif
-	uint8_t length[2];
-	uintptr_t adr = (unsigned long)flashstorestart;
-	adr = adr + 12288 + 1024; //2nd half of 7th flash sector
-	uint8_t *ptr;
-	uint8_t temp[1024];
-	uint8_t *tptr;
-	if (buffer[5] == 0xFF) //Not last packet
-	{
-		if (packet_buffer_offset <= 710)
-		{
-			memcpy(attestation_cert_der + packet_buffer_offset, buffer + 6, 58);
-			packet_buffer_offset = packet_buffer_offset + 58;
-		}
-		else
-		{
-			hidprint("Error U2F Cert larger than 768 bytes");
-		}
-		return;
-	}
-	else
-	{ //Last packet
-		if (packet_buffer_offset <= 710 && buffer[5] <= 58)
-		{
-			memcpy(attestation_cert_der + packet_buffer_offset, buffer + 6, buffer[5]);
-			packet_buffer_offset = packet_buffer_offset + buffer[5];
-		}
-		else if (packet_buffer_offset <= 768 && buffer[0] == 0xBA)
-		{ //Import from backup
-			memcpy(attestation_cert_der, buffer + 6, packet_buffer_offset);
-		}
-		else
-		{
-			hidprint("Error U2F Cert larger than 768 bytes");
-		}
-		length[0] = packet_buffer_offset >> 8 & 0xFF;
-		length[1] = packet_buffer_offset & 0xFF;
-		//Set U2F Certificate size
-		okeeprom_eeset_U2Fcertlen(length);
-		//Copy current flash contents to buffer
-		tptr = temp;
-		okcore_flashget_common(tptr, (unsigned long *)adr, 1024);
-		int length2 = length[0] << 8 | length[1];
-		okcore_aes_gcm_encrypt((uint8_t *)attestation_cert_der, 0, 199, profilekey, length2);
-		//Add new flash contents to buffer
-		ptr = (uint8_t *)attestation_cert_der;
-		for (int z = 0; z <= packet_buffer_offset; z++)
-		{
-			temp[z + 32] = ((uint8_t) * (ptr + z));
-		}
-#ifdef DEBUG
-		Serial.print("Length of U2F certificate = ");
-		Serial.println(packet_buffer_offset);
-		//Erase flash sector
-		Serial.println("Erase Sector");
-#endif
-		if (flashEraseSector((unsigned long *)adr))
-		{
-#ifdef DEBUG
-			Serial.println("NOT ");
-#endif
-		}
-#ifdef DEBUG
-		Serial.println("successful\r\n");
-#endif
-		//Write buffer to flash
-		okcore_flashset_common(tptr, (unsigned long *)adr, 1024);
-	}
-#ifdef DEBUG
-	Serial.print("U2F Cert value =");
-	byteprint((uint8_t *)attestation_cert_der, packet_buffer_offset);
-#endif
-	packet_buffer_offset = 0;
-	hidprint("Successfully set U2F Certificate");
-	if (buffer[0] != 0xBA)
-		blink(2);
-#endif
-	return;
-}
-
-void wipe_u2f_cert(uint8_t *buffer)
-{
-
-	if (profilemode == NONENCRYPTEDPROFILE)
-		return;
-#ifdef STD_VERSION
-#ifdef DEBUG
-	Serial.println("OKWIPEU2FCERT MESSAGE RECEIVED");
-#endif
-	uint8_t length[2] = {0x00, 0x00};
-	uintptr_t adr = (unsigned long)flashstorestart;
-	adr = adr + 12288 + 1024; //2nd half of 7th flash sector
-					   //Erase flash sector
-#ifdef DEBUG
-	Serial.println("Erase Sector");
-#endif
-	if (flashEraseSector((unsigned long *)adr))
-	{
-#ifdef DEBUG
-		Serial.println("NOT ");
-#endif
-	}
-#ifdef DEBUG
-	Serial.println("successful\r\n");
-
-#endif
-	okeeprom_eeset_U2Fcertlen(length);
-	hidprint("Successfully wiped U2F Certificate");
-	blink(2);
-#endif
 	return;
 }
 
@@ -5333,7 +5001,7 @@ void rsa_priv_flash(uint8_t *buffer, bool wipe)
 	return;
 }
 
-// Store auth state in EEPROM, RKs 1-5 in 10th flash sector, RKs 6-10 in 1st flash sector
+// Store auth state in EEPROM, RKs 1-4 in 7th flash sector, RKs 5-8 in 10th flash sector, RKs 9-12 in 11th flash sector
 int ctap_flash(int index, uint8_t *buffer, int size, uint8_t mode)
 {
 	uintptr_t adr = (unsigned long)flashstorestart;
@@ -5352,9 +5020,10 @@ int ctap_flash(int index, uint8_t *buffer, int size, uint8_t mode)
 		#ifdef DEBUG
 		Serial.print("Wiping all resident keys!");
 		#endif
-		flashEraseSector((unsigned long *)adr); //1st free flash sector
+		adr = adr + 12288; //7th free flash sector
+		flashEraseSector((unsigned long *)adr); 
 		delay(10);
-		adr = adr + 18432; //10th free flash sector
+		adr = adr + 6144; //10th free flash sector
 		flashEraseSector((unsigned long *)adr);
 		delay(10);
 		adr = adr + 2048; //11th free flash sector
@@ -5379,25 +5048,23 @@ int ctap_flash(int index, uint8_t *buffer, int size, uint8_t mode)
 	Serial.print("RK Index = ");
 	Serial.println(index);
 	#endif
-	// Max size RK 393
-	// Support 15 RKs for now, 0-14
-	if (index > 14 || index < 0)
+	// Max size RK 512, Solo uses 441
+	// Support 12 RKs for now, 0-11
+	if (index > 11 || index < 0 || size > 512)
 		return 0;
 	else 
-		index++; // 1-15 instead of 0-14
+		index++; // 1-12 instead of 0-11
 
 	slot=index;
 
-	if (index<6) {
-	} //1st free flash sector
-	else if (index<11) {
-		adr = adr + 18432; //10th free flash sector
-		index-=5;
-	}
-	else {
-		adr = adr + 20480; //11th free flash sector
-		index-=10;
-	}
+	if (index<=4) {
+		adr = adr + 12288; //7th free flash sector
+	} else if (index<=8) {
+		adr = adr + 6144 + 12288; //10th free flash sector
+	} else if (index<=12) {
+		adr = adr + 2048 + 6144 + 12288; //11th free flash sector
+	} 
+
 	//Copy current flash contents to buffer
 	okcore_flashget_common(tptr, (unsigned long *)adr, sizeof(temp));
 	//Add new flash contents to buffer
@@ -7384,5 +7051,8 @@ void fw_version_changes() {
 		RNG2(recv_buffer + 7, 32);
 		set_private(recv_buffer); //set RESERVED_KEY_WEB_DERIVATION slot 128
 		memset(recv_buffer, 0, sizeof(recv_buffer));
+		// Also wipe FIDO2 resident keys as these are now stored in new location
+		ctap_flash(NULL, NULL, NULL, 5);
 	}
+
 }

@@ -104,13 +104,17 @@ extern "C"
 #define encrypted_attestation_key    (uint8_t *) (factorysectoradr+1536+480)
 #define attestation_kek    (uint8_t *) (factorysectoradr+1536+448)
 #define attestation_kek_iv    (uint8_t *) (factorysectoradr+1536+436)
-#define factory_config_flag    (uint8_t) (factorysectoradr+1536+435)
+
+// TODO, enable factory config flag when factory keys are supported
+#define factory_config_flag 0
+// #define factory_config_flag    (uint8_t) (factorysectoradr+1536+435)
 // #define attestation_cert_der_stored 0x3DC20
 // Start of firmware
 // 0x0000_6060 - 0x0003_A05F used for firmware (13 blocks of 16384 = 212992 bytes max size fw)
 #define fwstartadr 0x6060
 // Start of flash storage
 // 0x0003_A800 - 0x0003_FFFF used for data storage 22528 bytes (11 sectors)
+// Note: 1st free flash sector get wiped by bootloader on firmware load so can only be used for temp data
 #define flashstorestart 0x3A800
 // End of flash storage
 #define flashend 0x3FFFF
@@ -140,10 +144,11 @@ extern "C"
 #define OKGETLABELS 		(TYPE_INIT | 0x65)
 #define OKSETSLOT  			(TYPE_INIT | 0x66)
 #define OKWIPESLOT  		(TYPE_INIT | 0x67)
-#define OKSETU2FPRIV 		(TYPE_INIT | 0x68)
-#define OKWIPEU2FPRIV 		(TYPE_INIT | 0x69)
-#define OKSETU2FCERT 		(TYPE_INIT | 0x6A)
-#define OKWIPEU2FCERT  		(TYPE_INIT | 0x6B)
+// Removed custom U2F cert feature, msg types available for future new features
+// #define OKSETU2FPRIV 		(TYPE_INIT | 0x68)
+// #define OKWIPEU2FPRIV 		(TYPE_INIT | 0x69)
+// #define OKSETU2FCERT 		(TYPE_INIT | 0x6A)
+// #define OKWIPEU2FCERT  		(TYPE_INIT | 0x6B)
 #define OKGETPUBKEY          (TYPE_INIT | 0x6C)
 #define OKSIGN      (TYPE_INIT | 0x6D)
 #define OKWIPEPRIV           (TYPE_INIT | 0x6E)
@@ -215,10 +220,6 @@ extern uint8_t get_key_labels (uint8_t output);
 extern void okcore_quick_setup(uint8_t step);
 extern void set_built_in_pin();
 extern void set_time (uint8_t *buffer);
-extern void wipe_u2f_cert (uint8_t *buffer);
-extern void set_u2f_cert (uint8_t *buffer);
-extern void wipe_u2f_priv (uint8_t *buffer);
-extern void set_u2f_priv (uint8_t *buffer);
 extern void wipe_slot (uint8_t *buffer);
 extern void set_slot (uint8_t *buffer);
 extern void set_primary_pin (uint8_t *buffer, uint8_t keyboard_mode);
@@ -278,7 +279,6 @@ extern int okcore_flashget_url (uint8_t *ptr, int slot);
 extern void okcore_flashset_url (uint8_t *ptr, int size, int slot);
 extern void okcore_flashget_label (uint8_t *ptr, uint8_t slot);
 extern void okcore_flashset_label (uint8_t *ptr, uint8_t slot);
-extern void okcore_flashget_U2F ();
 extern int okcore_flashget_ECC (uint8_t slot);
 extern int okcore_flashget_RSA (uint8_t slot);
 void okcore_aes_gcm_encrypt(uint8_t *state, uint8_t slot, uint8_t value, const uint8_t *key, int len);
