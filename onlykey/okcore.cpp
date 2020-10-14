@@ -327,7 +327,7 @@ void recvmsg(int n)
 		byteprint(recv_buffer, 64);
 #endif
 
-		if (configmode == true && recv_buffer[4] != OKCONNECT && recv_buffer[4] != OKSETSLOT && recv_buffer[4] != OKSETPRIV && recv_buffer[4] != OKRESTORE && recv_buffer[4] != OKFWUPDATE && recv_buffer[4] != OKWIPEPRIV && recv_buffer[4] != OKGETLABELS && recv_buffer[4] != OKPIN && recv_buffer[4] != OKPINSEC && recv_buffer[4] != OKPINSD)
+		if (configmode == true && recv_buffer[4] != OKCONNECT && recv_buffer[4] != OKWIPESLOT && recv_buffer[4] != OKSETSLOT && recv_buffer[4] != OKSETPRIV && recv_buffer[4] != OKRESTORE && recv_buffer[4] != OKFWUPDATE && recv_buffer[4] != OKWIPEPRIV && recv_buffer[4] != OKGETLABELS && recv_buffer[4] != OKPIN && recv_buffer[4] != OKPINSEC && recv_buffer[4] != OKPINSD)
 		{
 #ifdef DEBUG
 			Serial.println("ERROR NOT SUPPORTED IN CONFIG MODE");
@@ -6856,7 +6856,7 @@ void process_setreport()
 			else recv_buffer[5] = RESERVED_KEY_HMACSHA1_2;
 			recv_buffer[6] = 9;
 			byteprint(recv_buffer,64);
-			recvmsg(1); 
+			set_private(recv_buffer); 
 		} else if (keyboard_buffer[46] == 0x20) { // Set Yubi OTP Key
 			recv_buffer[4] = OKSETSLOT;
 			recv_buffer[6] = 10;
@@ -6871,6 +6871,7 @@ void process_setreport()
 		getBuffer[5] = 3;
 		getBuffer[7] = 0;
 		memset(keyboard_buffer, 0, KEYBOARD_BUFFER_SIZE);
+		memset(recv_buffer, 0, sizeof(recv_buffer));
 		return;
 	}
 
