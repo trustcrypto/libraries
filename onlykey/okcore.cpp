@@ -126,6 +126,8 @@ uint8_t Profile_Offset = 0;
 #define CTAP2_ERR_USER_ACTION_PENDING       0x23
 #define CTAP2_ERR_DATA_READY                0xF6
 #define CTAP2_ERR_DATA_WIPE                 0xF7
+#define OKSIGN_ERR_USER_ACTION_PENDING 0xF8
+#define OKDECRYPT_ERR_USER_ACTION_PENDING  0xF9
 
 uint16_t
 yubikey_crc16 (const uint8_t * buf, size_t buf_size)
