@@ -79,7 +79,7 @@
 #define ONLYKEY_H
 
 #define DEBUG //Enable Serial Monitor
-//#define STD_VERSION //Define for STD edition firmare, undefine for IN TRVL edition firmware
+#define STD_VERSION //Define for STD edition firmare, undefine for IN TRVL edition firmware
 #define OK_Color //Define for hardware with color LED
 #define OKversionmain "v2.1"
 
@@ -98,7 +98,7 @@
 #define UNLOCKED "UNLOCKED" OKversion
 #define UNINITIALIZED "UNINITIALIZED" OKversion
 #define HW_ID SIM_SDID_PINID // =9 if OnlyKey Go HW, =5 if OnlyKey HW
-#define OK_GO 9
+#define OK_GO 100 // =100 to disabled
 
 #ifdef __cplusplus
 extern "C"
