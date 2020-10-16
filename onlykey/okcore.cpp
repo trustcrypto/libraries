@@ -1757,7 +1757,7 @@ void set_slot(uint8_t *buffer)
 		Serial.println(); //newline
 		Serial.println("Writing wipemode to EEPROM...");
 #endif
-		if (buffer[7] == 2 && (configmode == true || !initcheck))
+		if (buffer[7] == 2 && (configmode == true || !initcheck || profilemode == NONENCRYPTEDPROFILE))
 		{
 			okeeprom_eeset_wipemode(buffer + 7);
 			hidprint("Successfully set Wipe Mode to Full Wipe");
