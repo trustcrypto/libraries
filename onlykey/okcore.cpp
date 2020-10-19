@@ -1769,7 +1769,7 @@ void set_slot(uint8_t *buffer)
 		}
 		else
 		{
-			hidprint("Wipe Mode may only be changed to default setting on first use");
+			hidprint("Error Wipe Mode may not be changed");
 		}
 		break;
 	case 20:
@@ -1789,7 +1789,7 @@ void set_slot(uint8_t *buffer)
 		}
 		else
 		{
-			hidprint("Backup Key Mode may only be changed to default setting on first use");
+			hidprint("Error Backup Key Mode may not be changed");
 		}
 		break;
 	case 21:
