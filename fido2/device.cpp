@@ -347,6 +347,18 @@ int ctap_user_presence_test(uint32_t wait)
         }
         while (! IS_BUTTON_PRESSED());
         
+    } else {
+        
+        do
+        {
+            if (t1 + (wait) < millis()) {
+                fadeoff(0);
+                break;
+            }
+            setcolor(170); //blue 
+            if (touch_sense_loop()) u2f_button=1;
+        }
+        while (! IS_BUTTON_PRESSED());
     }
 
     if(IS_BUTTON_PRESSED()) {
