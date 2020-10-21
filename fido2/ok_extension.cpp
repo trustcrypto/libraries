@@ -377,6 +377,7 @@ int16_t send_stored_response(uint8_t * output) {
 			// based on a timer
 			//memset(large_resp_buffer, 0, LARGE_RESP_BUFFER_SIZE);
 			wipedata(); // Wipe timer started
+			pending_operation=CTAP2_ERR_DATA_WIPE;
 		} else if (CRYPTO_AUTH || packet_buffer_offset) {
 			#ifdef DEBUG
 			Serial.println("Ping success");

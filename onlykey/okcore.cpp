@@ -5006,6 +5006,7 @@ void rsa_priv_flash(uint8_t *buffer, bool wipe)
 // Store auth state in EEPROM, RKs 1-4 in 7th flash sector, RKs 5-8 in 10th flash sector, RKs 9-12 in 11th flash sector
 int ctap_flash(int index, uint8_t *buffer, int size, uint8_t mode)
 {
+	#ifdef STD_VERSION
 	uintptr_t adr = (unsigned long)flashstorestart;
 	uint8_t temp[2048]; 
 	uint8_t *tptr;
@@ -5116,6 +5117,7 @@ int ctap_flash(int index, uint8_t *buffer, int size, uint8_t mode)
 		#endif
 		//hidprint("Successfully set CTAP Value");
 	}
+	#endif
 }
 
 void flash_modify(int index, uint8_t *sector, uint8_t *data, int size, bool wipe)
