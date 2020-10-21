@@ -97,8 +97,8 @@
 #define OKversion OKversionmain OKversionkeyword
 #define UNLOCKED "UNLOCKED" OKversion
 #define UNINITIALIZED "UNINITIALIZED" OKversion
-#define HW_ID SIM_SDID_PINID // =9 if OnlyKey Go HW, =5 if OnlyKey HW
-#define OK_GO 100 // =100 to disabled
+#define HW_ID SIM_SDID_PINID // SIM_SDID_PINID =9 if OnlyKey Go HW, =5 if OnlyKey HW
+#define OK_GO 9 
 
 #ifdef __cplusplus
 extern "C"

@@ -5012,8 +5012,8 @@ int ctap_flash(int index, uint8_t *buffer, int size, uint8_t mode)
 	int slot;
 	tptr = temp;
 	#ifdef DEBUG
-	Serial.println("CTAP Flash mode= ");
-	Serial.print(mode);
+	Serial.print("CTAP Flash mode= ");
+	Serial.println(mode);
 	Serial.print("Buffer Size= ");
 	Serial.println(size);
 	#endif
@@ -5059,22 +5059,32 @@ int ctap_flash(int index, uint8_t *buffer, int size, uint8_t mode)
 
 	slot=index;
 
-	if (index<=4) {
+	if (index<5) {
 		adr = adr + 12288; //7th free flash sector
-	} else if (index<=8) {
-		adr = adr + 6144 + 12288; //10th free flash sector
-	} else if (index<=12) {
-		adr = adr + 2048 + 6144 + 12288; //11th free flash sector
+	} else if (index<9) {
+		adr = adr + 18432; //10th free flash sector
+		index-=4;
+	} else if (index<13) {
+		adr = adr + 20480; //11th free flash sector
+		index-=8;
 	} 
 
 	//Copy current flash contents to buffer
 	okcore_flashget_common(tptr, (unsigned long *)adr, sizeof(temp));
 	//Add new flash contents to buffer
+
+	memset(rsa_private_key, 0, sizeof(rsa_private_key));
+	memcpy(rsa_private_key, buffer, size);
 	if (mode == 1)
 	{ // read RK
-		memcpy(buffer, tptr + ((index * size) - size), size);
-		if (buffer[0]==0xff && buffer[1]==0xff && buffer[3]==0xff && buffer[4]==0xff && buffer[5]==0xff) return 0;
-		okcore_aes_gcm_decrypt(buffer, 0, (255-slot), profilekey, size);
+		memcpy(rsa_private_key, tptr + ((index * 512) - 512), 512);
+		// Solo checks value in buffer to see if there is resident key (if rk->id.count > 0 && rk->id.count != 0xffffffff)
+		memcpy(buffer, tptr + ((index * 512) - 512), size);
+		if (rsa_private_key[0]==0xff && rsa_private_key[1]==0xff && rsa_private_key[3]==0xff && rsa_private_key[4]==0xff) return 0;
+		if (rsa_private_key[0]==0 && rsa_private_key[1]==0 && rsa_private_key[3]==0 && rsa_private_key[4]==0) return 0;
+		okcore_aes_gcm_decrypt(rsa_private_key, 0, (255-slot), profilekey, 512);
+		memcpy(buffer, rsa_private_key, size);
+		memset(rsa_private_key, 0, sizeof(rsa_private_key));
 		#ifdef DEBUG
 		Serial.print("CTAP value =");
 		byteprint(buffer, size);
@@ -5083,8 +5093,9 @@ int ctap_flash(int index, uint8_t *buffer, int size, uint8_t mode)
 	}
 	else if (mode == 2)
 	{
-		okcore_aes_gcm_encrypt(buffer, 0, (255-slot), profilekey, size);
-		flash_modify(index, temp, buffer, size, 0); //write RK
+		okcore_aes_gcm_encrypt(rsa_private_key, 0, (255-slot), profilekey, 512);
+		flash_modify(index, temp, rsa_private_key, 512, 0); //write RK
+		memset(rsa_private_key, 0, sizeof(rsa_private_key));
 
 		if (flashEraseSector((unsigned long *)adr))
 		{
@@ -5558,7 +5569,7 @@ void backup()
 		return;
 #ifdef STD_VERSION
 	uint8_t temp[MAX_RSA_KEY_SIZE];
-	uint8_t large_temp[17640];
+	uint8_t large_temp[17880];
 	int urllength;
 	int usernamelength;
 	int passwordlength;
@@ -6210,14 +6221,14 @@ void RESTORE(uint8_t *buffer)
 	
 	if (offset == 0) {
 		//free(large_temp);
-		large_temp = (uint8_t *)malloc(17640); //Max size for slots 7731 max size for keys 3072 + headers + Max RSA key size + 5895 for RKs + 208 Authenticator state
-		memset(large_temp, 0, 17640);
+		large_temp = (uint8_t *)malloc(17880); //Max size for slots 7731 max size for keys 3072 + headers + Max RSA key size + 6144 for RKs + 208 Authenticator state
+		memset(large_temp, 0, 17880);
 	}
 
 	//Slot restore
 	if (buffer[5] == 0xFF) //Not last packet
 	{
-		if (offset <= (17640 - 57))
+		if (offset <= (17880 - 57))
 		{
 			#ifdef DEBUG
 			Serial.print("Restore packet received =");
@@ -6241,7 +6252,7 @@ void RESTORE(uint8_t *buffer)
 	}
 	else
 	{ //last packet
-		if (offset <= (17640 - 57) && buffer[5] <= 57)
+		if (offset <= (17880 - 57) && buffer[5] <= 57)
 		{
 			#ifdef DEBUG
 			Serial.print("Restore packet received =");
@@ -6470,14 +6481,24 @@ void RESTORE(uint8_t *buffer)
 				} else if (*(ptr+1)>= 200) { //Resident Keys
 					ptr++;
 					//set rk # ptr - 200 
+					int rklen;
 					#ifdef DEBUG
 					Serial.print("Restore rk num = ");
-					Serial.print(*ptr);
+					Serial.println(*ptr);
 					byteprint(ptr+1, sizeof(CTAP_residentKey));
 					#endif
-					ctap_flash((*ptr-200), ptr+1, sizeof(CTAP_residentKey), 2);
-					ptr = ptr + sizeof(CTAP_residentKey) + 1;
-					offset = offset - (sizeof(CTAP_residentKey) + 2);
+					if (*(ptr + 392 + 1) == 0xFE && *(ptr + 392 + 2) > *ptr) { // 392 size in beta8 fw
+						rklen=392;
+					} else if (*(ptr + 441 + 1) == 0xFE && *(ptr + 441 + 2) > *ptr)  { // 441 size after beta8 fw
+						rklen=441;
+					} else if (*(ptr + 392 + 1) == 0) {
+						rklen=392;
+					} else if (*(ptr + 441 + 1) == 0) {
+						rklen=441;
+					}
+					ctap_flash((*ptr-200), ptr+1, rklen, 2);
+					ptr = ptr + rklen + 1;
+					offset = offset - rklen + 2;
 				}
 				else {
 					memset(temp, 0, sizeof(temp));

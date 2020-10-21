@@ -255,7 +255,7 @@ uint8_t ctap_get_info(CborEncoder * encoder)
         ret = cbor_encode_uint(&map, 0x08); // maxCredentialIdLength 
         check_ret(ret);
         {
-            ret = cbor_encode_uint(&map, 128);
+            ret = cbor_encode_uint(&map, 256);
             check_ret(ret);
         }
 
