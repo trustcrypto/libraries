@@ -227,6 +227,7 @@ int button_selected = 0;
 uint8_t setBuffer[9] = {0};
 uint8_t getBuffer[9] = {0, 2, 2, 3, 3, 3, 5, 0, 0};
 uint8_t keyboard_buffer[KEYBOARD_BUFFER_SIZE] = {0};
+uint8_t sess_counter = 3;
 /*************************************/
 //ECC key assignments
 /*************************************/
@@ -5317,6 +5318,7 @@ void decrement(Task *me)
 				getBuffer[6] = 0x05;
 				getBuffer[7] = 0x00;
 				getBuffer[8] = 0x00;
+				sess_counter = 3;
 				packet_buffer_details[0] = 0;
 				packet_buffer_details[1] = 0;
 			}
@@ -5344,37 +5346,41 @@ bool wipebuffersafter5sec(Task *me)
 
 	if (configmode == false)
 	{
-		packet_buffer_offset = 0;
-		memset(ctap_buffer, 0, CTAPHID_BUFFER_SIZE);
-		memset(keyboard_buffer, 0, KEYBOARD_BUFFER_SIZE);
-		memset(packet_buffer_details, 0, sizeof(packet_buffer_details));
-		setBuffer[7] = 0;
-		// Delete any unretrived data in getbuffer
-		if (getBuffer[7]>= 0xC0) {
-			getBuffer[0] = 0;
-			getBuffer[1] = 2;
-			getBuffer[2] = 2;
-			getBuffer[3] = 3;
-			getBuffer[4] = 3;
-			getBuffer[5] = 3;
-			getBuffer[6] = 5;
-			getBuffer[7] = 0;
-			getBuffer[8] = 0;
-			memset(setBuffer, 0, 9);
-		}
-		large_resp_buffer_offset = 0;
-		CRYPTO_AUTH = 0;
-		Challenge_button1 = 0;
-		Challenge_button2 = 0;
-		Challenge_button3 = 0;
-		derived_key_challenge_mode = 0;
-		stored_key_challenge_mode = 0;
-		pending_operation = 0;
-		if (isfade || CRYPTO_AUTH) {
-			fadeoff(1); //Fade Red, failed to complete within 5 seconds
-		}
+		wipetasks();
 	}
 	return false;
+}
+
+void wipetasks() {
+	packet_buffer_offset = 0;
+	memset(ctap_buffer, 0, CTAPHID_BUFFER_SIZE);
+	memset(keyboard_buffer, 0, KEYBOARD_BUFFER_SIZE);
+	memset(packet_buffer_details, 0, sizeof(packet_buffer_details));
+	setBuffer[7] = 0;
+	// Delete any unretrived data in getbuffer
+	if (getBuffer[7]>= 0xC0) {
+		getBuffer[0] = 0;
+		getBuffer[1] = 2;
+		getBuffer[2] = 2;
+		getBuffer[3] = 3;
+		getBuffer[4] = sess_counter;
+		getBuffer[5] = 3;
+		getBuffer[6] = 5;
+		getBuffer[7] = 0;
+		getBuffer[8] = 0;
+		memset(setBuffer, 0, 9);
+	}
+	large_resp_buffer_offset = 0;
+	CRYPTO_AUTH = 0;
+	Challenge_button1 = 0;
+	Challenge_button2 = 0;
+	Challenge_button3 = 0;
+	derived_key_challenge_mode = 0;
+	stored_key_challenge_mode = 0;
+	pending_operation = 0;
+	if (isfade || CRYPTO_AUTH) {
+		fadeoff(1); //Fade Red, failed to complete within 5 seconds
+	}
 }
 
 bool fadeoffafter20sec(Task *me)
@@ -6860,44 +6866,80 @@ void process_setreport()
 	ptr = keyboard_buffer + 22;
 	//while (*ptr && *ptr == *(ptr+1)) {
 
+	Serial.println("Received keyboard_buffer");
+	byteprint(keyboard_buffer, 65);
+	Serial.println("Current getBuffer");
+	byteprint(getBuffer, 8);
+
+
 	if (keyboard_buffer[64] == 1 || keyboard_buffer[64] == 3)
-	{ // Request to write key
-		getBuffer[5] = 0;
-		getBuffer[7] = 0x89;
-		memset(setBuffer, 0, 9);
-		extern int check_crc(uint8_t * buffer);
-		if (!check_crc(keyboard_buffer) || CRYPTO_AUTH)
-		{
+	{ 
+		if (keyboard_buffer[45] == 5) { // Request to write key
+			getBuffer[5] = 0;
+			getBuffer[7] = 0x89;
+			memset(setBuffer, 0, 9);
+			extern int check_crc(uint8_t * buffer);
+			if (!check_crc(keyboard_buffer) || CRYPTO_AUTH)
+			{
+				memset(keyboard_buffer, 0, KEYBOARD_BUFFER_SIZE);
+				return;
+			}
+			outputmode=RAW_USB;
+			// TODO if all 0s wipe slot
+			// 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1
+			if (keyboard_buffer[46] == 0x60 || keyboard_buffer[46] == 0x40) { // Set HMAC Key
+				memmove(recv_buffer+23, keyboard_buffer+16, 4);
+				memmove(recv_buffer+7, keyboard_buffer+22, 16); // HMAC key split for some reason
+				memset(recv_buffer+27, 0, 37);
+				recv_buffer[4] = OKSETPRIV;
+				if (keyboard_buffer[64] == 1) recv_buffer[5] = RESERVED_KEY_HMACSHA1_1;
+				else recv_buffer[5] = RESERVED_KEY_HMACSHA1_2;
+				recv_buffer[6] = 9;
+				byteprint(recv_buffer,64);
+				set_private(recv_buffer); 
+				sess_counter++;
+			} else if ((keyboard_buffer[46] == 0 && keyboard_buffer[44]) || keyboard_buffer[46] == TKTFLAG_APPEND_CR || keyboard_buffer[46] == TKTFLAG_APPEND_DELAY2 || keyboard_buffer[46] == TKTFLAG_APPEND_DELAY1 || keyboard_buffer[46] == TKTFLAG_APPEND_TAB2 || keyboard_buffer[46] == TKTFLAG_APPEND_TAB1 || keyboard_buffer[46] == TKTFLAG_TAB_FIRST) { // Set Yubi OTP Key
+				recv_buffer[4] = OKSETSLOT;
+				// Pacing
+				if (keyboard_buffer[47] == CFGFLAG_PACING_10MS) {
+					Serial.println("CFGFLAG_PACING_10MS");
+				} else if (keyboard_buffer[47] == CFGFLAG_PACING_20MS) {
+					Serial.println("CFGFLAG_PACING_20MS");
+				} else {
+					//No pacing
+				}
+				// After OTP
+				if (keyboard_buffer[46] == 0x04) {
+					Serial.println("TAB");
+				} else if (keyboard_buffer[46] == 0x20) {
+					Serial.println("ENTER");
+				} else {
+					//No after otp
+				}
+				// TODO multiple yubikey otp slots 
+				//if (keyboard_buffer[64] == 0x01) recv_buffer[5] = OTP_SLOT_1;
+				//else if (keyboard_buffer[64] == 0x03) recv_buffer[5] = OTP_SLOT_2;
+				//else if (keyboard_buffer[64] == 0x04) recv_buffer[5] = OTP_SLOT_3;
+				//... 
+				//else if (keyboard_buffer[64] == 0x25) recv_buffer[5] = OTP_SLOT_24;
+				recv_buffer[6] = 10;
+				memmove(recv_buffer+7, keyboard_buffer, 6);
+				memmove(recv_buffer+7 + 6, keyboard_buffer+16, 6);	
+				memmove(recv_buffer+7 + 12, keyboard_buffer+22, 16);			
+				memset(recv_buffer+36, 0, 28);
+				byteprint(recv_buffer,64);
+				recvmsg(1);
+				sess_counter++;
+			}
+			getBuffer[4] = sess_counter;
+			getBuffer[5] = 3;
+			getBuffer[7] = 0;
+			Serial.println("After getBuffer");
+			byteprint(getBuffer, 8);
 			memset(keyboard_buffer, 0, KEYBOARD_BUFFER_SIZE);
+			memset(recv_buffer, 0, sizeof(recv_buffer));
 			return;
 		}
-		outputmode=RAW_USB;
-		if (keyboard_buffer[46] == 0x60) { // Set HMAC Key
-			memmove(recv_buffer+23, keyboard_buffer+16, 4);
-			memmove(recv_buffer+7, keyboard_buffer+22, 16); // HMAC key split for some reason
-			memset(recv_buffer+27, 0, 37);
-			recv_buffer[4] = OKSETPRIV;
-			if (keyboard_buffer[64] == 1) recv_buffer[5] = RESERVED_KEY_HMACSHA1_1;
-			else recv_buffer[5] = RESERVED_KEY_HMACSHA1_2;
-			recv_buffer[6] = 9;
-			byteprint(recv_buffer,64);
-			set_private(recv_buffer); 
-		} else if (keyboard_buffer[46] == 0x20) { // Set Yubi OTP Key
-			recv_buffer[4] = OKSETSLOT;
-			recv_buffer[6] = 10;
-			memmove(recv_buffer+7, keyboard_buffer, 6);
-			memmove(recv_buffer+7 + 6, keyboard_buffer+16, 6);	
-			memmove(recv_buffer+7 + 12, keyboard_buffer+22, 16);			
-			memset(recv_buffer+36, 0, 28);
-			byteprint(recv_buffer,64);
-			recvmsg(1);
-		}
-		getBuffer[4] = getBuffer[4]+1;
-		getBuffer[5] = 3;
-		getBuffer[7] = 0;
-		memset(keyboard_buffer, 0, KEYBOARD_BUFFER_SIZE);
-		memset(recv_buffer, 0, sizeof(recv_buffer));
-		return;
 	}
 
 	getBuffer[7] = 0xaf;

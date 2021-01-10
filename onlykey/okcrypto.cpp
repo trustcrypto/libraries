@@ -320,8 +320,13 @@ void okcrypto_rsasign (uint8_t *buffer) {
 			byteprint(rsa_signature, sizeof(rsa_signature));
 			#endif
 			outputmode=packet_buffer_details[2]; // Outputmode set at start of operation
-			if (outputmode == WEBAUTHN) send_transport_response(rsa_signature, (type*128), true, true);
-			else send_transport_response(rsa_signature, (type*128), false, false);
+			if (outputmode == WEBAUTHN) {
+				send_transport_response(rsa_signature, (type*128), true, true);
+			}
+			else {
+				send_transport_response(rsa_signature, (type*128), false, false);
+				wipetasks();
+			}
 		} else {
 			pending_operation=0;
 			hidprint("Error with RSA signing");
@@ -379,8 +384,13 @@ void okcrypto_rsadecrypt (uint8_t *buffer) {
 			Serial.println();
 			#endif
 			outputmode=packet_buffer_details[2]; // Outputmode set at start of operation
-			if (outputmode == WEBAUTHN) send_transport_response(large_resp_buffer, plaintext_len,  true, true);
-			else send_transport_response(large_resp_buffer, plaintext_len,  false, false);
+			if (outputmode == WEBAUTHN) {
+				send_transport_response(large_resp_buffer, plaintext_len,  true, true);
+			}
+			else {
+				send_transport_response(large_resp_buffer, plaintext_len,  false, false);
+				wipetasks();
+			}
 		} else {
 			pending_operation=0;
 			hidprint("Error with RSA decryption");
@@ -554,7 +564,13 @@ void okcrypto_ecdsa_eddsa(uint8_t *buffer)
 		#endif
 		pending_operation=CTAP2_ERR_DATA_READY;
 		outputmode=packet_buffer_details[2]; // Outputmode set at start of operation
-		send_transport_response (ecc_signature, 64, true, true);
+		if (outputmode == WEBAUTHN) {
+			send_transport_response (ecc_signature, 64, true, true);
+		}
+		else {
+			send_transport_response (ecc_signature, 64, true, true);
+			wipetasks();
+		}
   		// Stop the fade in
   		fadeoff(85);
     	memset(large_buffer, 0, LARGE_BUFFER_SIZE);
@@ -646,10 +662,15 @@ void okcrypto_ecdh(uint8_t *buffer) {
 		Serial.print("Shared Secret =");
 		byteprint(temp, large_buffer_offset);
 		#endif
-
 		pending_operation=CTAP2_ERR_DATA_READY;
 		outputmode=packet_buffer_details[2]; // Outputmode set at start of operation
-		send_transport_response (temp, resplen, true, true);
+		if (outputmode == WEBAUTHN) {
+			send_transport_response (temp, resplen, true, true);
+		}
+		else {
+			send_transport_response (temp, resplen, true, true);
+			wipetasks();
+		}
   		// Stop the fade in
   		fadeoff(85);
     	memset(large_buffer, 0, LARGE_BUFFER_SIZE);

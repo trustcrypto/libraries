@@ -161,6 +161,25 @@ extern "C"
 #define OKHMAC           (TYPE_INIT | 0x75)
 #define OKWEBAUTHN           (TYPE_INIT | 0x76)
 /*************************************/
+//ykpers BSD license
+/*************************************/
+#define	TKTFLAG_TAB_FIRST	0x01	/* Send TAB before first part */
+#define	TKTFLAG_APPEND_TAB1	0x02	/* Send TAB after first part */
+#define	TKTFLAG_APPEND_TAB2	0x04	/* Send TAB after second part */
+#define	TKTFLAG_APPEND_DELAY1	0x08	/* Add 0.5s delay after first part */
+#define	TKTFLAG_APPEND_DELAY2	0x10	/* Add 0.5s delay after second part */
+#define	TKTFLAG_APPEND_CR	0x20	/* Append CR as final character */
+#define TKTFLAG_PROTECT_CFG2	0x80	/* Block update of config 2 unless config 2 is configured and has this bit set */
+#define SLOT_CHAL_OTP1		0x20	/* Write 6 byte challenge to slot 1, get Yubico OTP response */
+#define SLOT_CHAL_OTP2		0x28	/* Write 6 byte challenge to slot 2, get Yubico OTP response */
+#define CFGFLAG_SEND_REF	0x01	/* Send reference string (0..F) before data */
+#define CFGFLAG_PACING_10MS	0x04	/* Add 10ms intra-key pacing */
+#define CFGFLAG_PACING_20MS	0x08	/* Add 20ms intra-key pacing */
+#define CFGFLAG_STATIC_TICKET	0x20	/* Static ticket generation */
+#define EXTFLAG_SERIAL_BTN_VISIBLE	0x01	/* Serial number visible at startup (button press) */
+#define EXTFLAG_SERIAL_USB_VISIBLE	0x02	/* Serial number visible in USB iSerial field */
+#define EXTFLAG_SERIAL_API_VISIBLE	0x04	/* Serial number visible via API call */
+/*************************************/
 //Types of second profile
 /*************************************/
 #define STDPROFILE1 0
@@ -297,6 +316,7 @@ extern bool fadeoffafter20sec(Task* me);
 extern bool fadeendafter2sec(Task* me);
 extern void typeoutbackup(Task* me);
 extern void wipedata();
+extern void wipetasks();
 extern void fadeoffafter20();
 extern void cancelfadeoffafter20();
 extern void fadeoff(uint8_t color);
