@@ -1141,38 +1141,48 @@ void okeeprom_eeset_totpkeylen24 (uint8_t *ptr) {
 }
 /*********************************/
 /*********************************/
-int okeeprom_eeget_aeskey (uint8_t *ptr) {
+int okeeprom_eeget_aeskey_DEPRICATED (uint8_t *ptr) {
     okeeprom_eeget_common(ptr, EEpos_aeskey, EElen_aeskey);
     return EElen_aeskey;
 }
-void okeeprom_eeset_aeskey (uint8_t *ptr) {
+void okeeprom_eeset_aeskey_DEPRICATED (uint8_t *ptr) {
     okeeprom_eeset_common(ptr, EEpos_aeskey, EElen_aeskey);
 }
 /*********************************/
 /*********************************/
-int yubikey_eeget_counter (uint8_t *ptr) {
-    okeeprom_eeget_common(ptr, EEpos_counter, EElen_counter);
+int yubikey_eeget_counter (uint8_t *ptr, uint8_t slot) {
+	if (slot == 0) {
+		okeeprom_eeget_common(ptr, EEpos_counter_DEPRICATED, EElen_counter);
+	} else if (slot > 0 && slot < 25) {
+		okeeprom_eeget_common(ptr, EEpos_totpkey1len+slot-1, 1);
+		okeeprom_eeget_common(ptr+1, EEpos_yubicounterpart+slot-1, 1);
+	}
     return EElen_counter;
 }
-void yubikey_eeset_counter (uint8_t *ptr) {
-    okeeprom_eeset_common(ptr, EEpos_counter, EElen_counter);
+void yubikey_eeset_counter (uint8_t *ptr, uint8_t slot) {
+    if (slot == 0) {
+		okeeprom_eeset_common(ptr, EEpos_counter_DEPRICATED, EElen_counter);
+	} else if (slot > 0 && slot < 25) {
+		okeeprom_eeset_common(ptr, EEpos_totpkey1len+slot-1, 1);
+		okeeprom_eeset_common(ptr+1, EEpos_yubicounterpart+slot-1, 1);
+	}
 }
 /*********************************/
 /*********************************/
-int okeeprom_eeget_private (uint8_t *ptr) {
+int okeeprom_eeget_private_DEPRICATED (uint8_t *ptr) {
     okeeprom_eeget_common(ptr, EEpos_private, EElen_private);
     return EElen_private;
 }
-void okeeprom_eeset_private (uint8_t *ptr) {
+void okeeprom_eeset_private_DEPRICATED (uint8_t *ptr) {
     okeeprom_eeset_common(ptr, EEpos_private, EElen_private);
 }
 /*********************************/
 /*********************************/
-int okeeprom_eeget_public (uint8_t *ptr) {
+int okeeprom_eeget_public_DEPRICATED (uint8_t *ptr) {
     okeeprom_eeget_common(ptr, EEpos_public, EElen_public);
     return EElen_public;
 }
-void okeeprom_eeset_public (uint8_t *ptr) {
+void okeeprom_eeset_public_DEPRICATED (uint8_t *ptr) {
     okeeprom_eeset_common(ptr, EEpos_public, EElen_public);
 }
 /*********************************/

@@ -1710,7 +1710,7 @@ void set_slot(uint8_t *buffer)
 		byteprint(buffer + 7, 64);
 		Serial.println();
 #endif
-		okcore_flashset_totpkey(buffer + 7, length, slot);
+		okcore_flashset_2fa_key(buffer + 7, length, slot);
 		hidprint("Successfully set TOTP Key");
 		break;
 	case 10:
@@ -1719,28 +1719,23 @@ void set_slot(uint8_t *buffer)
 			//Encrypt and Set value in Flash
 #ifdef DEBUG
 			Serial.println("Writing AES Key, Private ID, and Public ID to EEPROM...");
-			Serial.println("Unencrypted Public ID");
-			byteprint(buffer + 7, 6);
-			Serial.println("Unencrypted Private ID");
-			byteprint(buffer + 7 + 6, 6);
-			Serial.println("Unencrypted AES Key");
-			byteprint(buffer + 7 + 12, 16);
-			Serial.println();
-#endif
-			okcore_aes_gcm_encrypt((buffer + 7), 0, value, profilekey, length);
-#ifdef DEBUG
-			Serial.println("Encrypted");
-			byteprint(buffer + 7, 32);
-			Serial.println();
 #endif
 			uint16_t counter = 0x0000;
 			uint8_t *ptr;
 			ptr = (uint8_t *)&counter;
-			yubikey_eeset_counter(ptr);
-			okeeprom_eeset_public(buffer + 7);
-			okeeprom_eeset_private((buffer + 7 + EElen_public));
-			okeeprom_eeset_aeskey(buffer + 7 + EElen_public + EElen_private);
-			yubikeyinit();
+			if (slot == 0) {
+				okcore_aes_gcm_encrypt((buffer + 7), slot, value, profilekey, (EElen_public+EElen_private+EElen_aeskey));	
+				okeeprom_eeset_public_DEPRICATED(buffer + 7);
+				okeeprom_eeset_private_DEPRICATED((buffer + 7 + EElen_public));
+				okeeprom_eeset_aeskey_DEPRICATED(buffer + 7 + EElen_public + EElen_private);
+			} else if (slot > 0 && slot < 13) {
+				okcore_aes_gcm_encrypt((buffer + 7), slot, value, profilekey, (16+EElen_private+EElen_aeskey));	
+				okcore_flashset_yubiotp(buffer + 7, slot);
+				Serial.print("Setting okeeprom_eeset_2FAtype");
+				uint8_t type = 'Y'; //89
+				okeeprom_eeset_2FAtype(&type, slot); 
+			}
+			yubikey_eeset_counter(ptr, slot);
 			hidprint("Successfully set AES Key, Private ID, and Public ID");
 		}
 		break;
@@ -1961,10 +1956,15 @@ void wipe_slot(uint8_t *buffer)
 		Serial.println(); //newline
 		Serial.print("Wiping OnlyKey AES Key, Private ID, and Public ID...");
 #endif
-		okeeprom_eeset_aeskey(buffer + 7);
-		okeeprom_eeset_private(buffer + 7 + EElen_aeskey);
-		okeeprom_eeset_public(buffer + 7 + EElen_aeskey + EElen_private);
-		yubikey_eeset_counter(buffer + 7);
+	if (slot == 0) {	
+		okeeprom_eeset_aeskey_DEPRICATED(buffer + 7);
+		okeeprom_eeset_private_DEPRICATED(buffer + 7 + EElen_aeskey);
+		okeeprom_eeset_public_DEPRICATED(buffer + 7 + EElen_aeskey + EElen_private);
+	} else if (slot > 0 && slot < 13) {
+		okcore_flashset_yubiotp(buffer + 7, slot);
+		okeeprom_eeset_2FAtype(0, slot); 
+	}
+		yubikey_eeset_counter(buffer + 7, slot);
 		hidprint("Successfully wiped AES Key, Private ID, and Public ID");
 	}
 	else if (slot >= 1 && slot <= 12)
@@ -2029,7 +2029,7 @@ void wipe_slot(uint8_t *buffer)
 		Serial.println(); //newline
 		Serial.print("Wiping TOTP Key from Flash...");
 #endif
-		okcore_flashset_totpkey((buffer + 7), 0, slot);
+		okcore_flashset_2fa_key((buffer + 7), 0, slot);
 		hidprint("Successfully wiped TOTP Key");
 	}
 	blink(1);
@@ -4099,7 +4099,7 @@ void okcore_flashset_label(uint8_t *ptr, uint8_t slot)
 
 /*********************************/
 
-int okcore_flashget_totpkey(uint8_t *ptr, int slot)
+int okcore_flashget_2fa_key(uint8_t *ptr, int slot)
 {
 
 	uintptr_t adr = (unsigned long)flashstorestart;
@@ -4111,7 +4111,7 @@ int okcore_flashget_totpkey(uint8_t *ptr, int slot)
 	case 1:
 		okeeprom_eeget_totpkeylen1(&length);
 		size = (int)length;
-		if (size > EElen_totpkey)
+		if (size > EElen_totpkey) 
 			size = EElen_totpkey;
 		okcore_flashget_common(ptr, (unsigned long *)adr, EElen_totpkey);
 		return size;
@@ -4327,7 +4327,7 @@ int okcore_flashget_totpkey(uint8_t *ptr, int slot)
 	return 0;
 }
 
-void okcore_flashset_totpkey(uint8_t *ptr, int size, int slot)
+void okcore_flashset_2fa_key(uint8_t *ptr, int size, int slot)
 {
 
 	uintptr_t adr = (unsigned long)flashstorestart;
@@ -4369,16 +4369,12 @@ void okcore_flashset_totpkey(uint8_t *ptr, int size, int slot)
 	case 2:
 		if (size > EElen_totpkey)
 			size = EElen_totpkey;
-		if (size > EElen_totpkey)
-			size = EElen_totpkey;
 		//Write buffer to flash
 		okcore_flashset_common(tptr, (unsigned long *)adr, 2048);
 		length = (uint8_t)size;
 		okeeprom_eeset_totpkeylen2(&length);
 		return;
 	case 3:
-		if (size > EElen_totpkey)
-			size = EElen_totpkey;
 		if (size > EElen_totpkey)
 			size = EElen_totpkey;
 		//Write buffer to flash
@@ -4389,16 +4385,12 @@ void okcore_flashset_totpkey(uint8_t *ptr, int size, int slot)
 	case 4:
 		if (size > EElen_totpkey)
 			size = EElen_totpkey;
-		if (size > EElen_totpkey)
-			size = EElen_totpkey;
 		//Write buffer to flash
 		okcore_flashset_common(tptr, (unsigned long *)adr, 2048);
 		length = (uint8_t)size;
 		okeeprom_eeset_totpkeylen4(&length);
 		return;
 	case 5:
-		if (size > EElen_totpkey)
-			size = EElen_totpkey;
 		if (size > EElen_totpkey)
 			size = EElen_totpkey;
 		//Write buffer to flash
@@ -4409,16 +4401,12 @@ void okcore_flashset_totpkey(uint8_t *ptr, int size, int slot)
 	case 6:
 		if (size > EElen_totpkey)
 			size = EElen_totpkey;
-		if (size > EElen_totpkey)
-			size = EElen_totpkey;
 		//Write buffer to flash
 		okcore_flashset_common(tptr, (unsigned long *)adr, 2048);
 		length = (uint8_t)size;
 		okeeprom_eeset_totpkeylen6(&length);
 		return;
 	case 7:
-		if (size > EElen_totpkey)
-			size = EElen_totpkey;
 		if (size > EElen_totpkey)
 			size = EElen_totpkey;
 		//Write buffer to flash
@@ -4429,16 +4417,12 @@ void okcore_flashset_totpkey(uint8_t *ptr, int size, int slot)
 	case 8:
 		if (size > EElen_totpkey)
 			size = EElen_totpkey;
-		if (size > EElen_totpkey)
-			size = EElen_totpkey;
 		//Write buffer to flash
 		okcore_flashset_common(tptr, (unsigned long *)adr, 2048);
 		length = (uint8_t)size;
 		okeeprom_eeset_totpkeylen8(&length);
 		return;
 	case 9:
-		if (size > EElen_totpkey)
-			size = EElen_totpkey;
 		if (size > EElen_totpkey)
 			size = EElen_totpkey;
 		//Write buffer to flash
@@ -4449,8 +4433,6 @@ void okcore_flashset_totpkey(uint8_t *ptr, int size, int slot)
 	case 10:
 		if (size > EElen_totpkey)
 			size = EElen_totpkey;
-		if (size > EElen_totpkey)
-			size = EElen_totpkey;
 		//Write buffer to flash
 		okcore_flashset_common(tptr, (unsigned long *)adr, 2048);
 		length = (uint8_t)size;
@@ -4459,16 +4441,12 @@ void okcore_flashset_totpkey(uint8_t *ptr, int size, int slot)
 	case 11:
 		if (size > EElen_totpkey)
 			size = EElen_totpkey;
-		if (size > EElen_totpkey)
-			size = EElen_totpkey;
 		//Write buffer to flash
 		okcore_flashset_common(tptr, (unsigned long *)adr, 2048);
 		length = (uint8_t)size;
 		okeeprom_eeset_totpkeylen11(&length);
 		return;
 	case 12:
-		if (size > EElen_totpkey)
-			size = EElen_totpkey;
 		if (size > EElen_totpkey)
 			size = EElen_totpkey;
 		//Write buffer to flash
@@ -4487,16 +4465,12 @@ void okcore_flashset_totpkey(uint8_t *ptr, int size, int slot)
 	case 14:
 		if (size > EElen_totpkey)
 			size = EElen_totpkey;
-		if (size > EElen_totpkey)
-			size = EElen_totpkey;
 		//Write buffer to flash
 		okcore_flashset_common(tptr, (unsigned long *)adr, 2048);
 		length = (uint8_t)size;
 		okeeprom_eeset_totpkeylen14(&length);
 		return;
 	case 15:
-		if (size > EElen_totpkey)
-			size = EElen_totpkey;
 		if (size > EElen_totpkey)
 			size = EElen_totpkey;
 		//Write buffer to flash
@@ -4507,16 +4481,12 @@ void okcore_flashset_totpkey(uint8_t *ptr, int size, int slot)
 	case 16:
 		if (size > EElen_totpkey)
 			size = EElen_totpkey;
-		if (size > EElen_totpkey)
-			size = EElen_totpkey;
 		//Write buffer to flash
 		okcore_flashset_common(tptr, (unsigned long *)adr, 2048);
 		length = (uint8_t)size;
 		okeeprom_eeset_totpkeylen16(&length);
 		return;
 	case 17:
-		if (size > EElen_totpkey)
-			size = EElen_totpkey;
 		if (size > EElen_totpkey)
 			size = EElen_totpkey;
 		//Write buffer to flash
@@ -4527,16 +4497,12 @@ void okcore_flashset_totpkey(uint8_t *ptr, int size, int slot)
 	case 18:
 		if (size > EElen_totpkey)
 			size = EElen_totpkey;
-		if (size > EElen_totpkey)
-			size = EElen_totpkey;
 		//Write buffer to flash
 		okcore_flashset_common(tptr, (unsigned long *)adr, 2048);
 		length = (uint8_t)size;
 		okeeprom_eeset_totpkeylen18(&length);
 		return;
 	case 19:
-		if (size > EElen_totpkey)
-			size = EElen_totpkey;
 		if (size > EElen_totpkey)
 			size = EElen_totpkey;
 		//Write buffer to flash
@@ -4547,16 +4513,12 @@ void okcore_flashset_totpkey(uint8_t *ptr, int size, int slot)
 	case 20:
 		if (size > EElen_totpkey)
 			size = EElen_totpkey;
-		if (size > EElen_totpkey)
-			size = EElen_totpkey;
 		//Write buffer to flash
 		okcore_flashset_common(tptr, (unsigned long *)adr, 2048);
 		length = (uint8_t)size;
 		okeeprom_eeset_totpkeylen20(&length);
 		return;
 	case 21:
-		if (size > EElen_totpkey)
-			size = EElen_totpkey;
 		if (size > EElen_totpkey)
 			size = EElen_totpkey;
 		//Write buffer to flash
@@ -4567,16 +4529,12 @@ void okcore_flashset_totpkey(uint8_t *ptr, int size, int slot)
 	case 22:
 		if (size > EElen_totpkey)
 			size = EElen_totpkey;
-		if (size > EElen_totpkey)
-			size = EElen_totpkey;
 		//Write buffer to flash
 		okcore_flashset_common(tptr, (unsigned long *)adr, 2048);
 		length = (uint8_t)size;
 		okeeprom_eeset_totpkeylen22(&length);
 		return;
 	case 23:
-		if (size > EElen_totpkey)
-			size = EElen_totpkey;
 		if (size > EElen_totpkey)
 			size = EElen_totpkey;
 		//Write buffer to flash
@@ -4587,8 +4545,6 @@ void okcore_flashset_totpkey(uint8_t *ptr, int size, int slot)
 	case 24:
 		if (size > EElen_totpkey)
 			size = EElen_totpkey;
-		if (size > EElen_totpkey)
-			size = EElen_totpkey;
 		//Write buffer to flash
 		okcore_flashset_common(tptr, (unsigned long *)adr, 2048);
 		length = (uint8_t)size;
@@ -4596,6 +4552,14 @@ void okcore_flashset_totpkey(uint8_t *ptr, int size, int slot)
 		return;
 	}
 	return;
+}
+
+void okcore_flashget_yubiotp(uint8_t *ptr, uint8_t slot) {
+	okcore_flashget_2fa_key(ptr, slot);
+}
+
+void okcore_flashset_yubiotp(uint8_t *ptr, uint8_t slot) {
+	okcore_flashset_2fa_key(ptr, (16+6+6), slot);
 }
 
 void set_private(uint8_t *buffer)
@@ -5135,107 +5099,99 @@ void flash_modify(int index, uint8_t *sector, uint8_t *data, int size, bool wipe
 /*************************************/
 //Initialize Yubico OTP
 /*************************************/
-void yubikeyinit()
+void yubikeyinit(uint8_t slot)
 {
 	if (profilemode == NONENCRYPTEDPROFILE)
 		return;
 	#ifdef STD_VERSION
 	uint32_t seed;
 	uint8_t *ptr = (uint8_t *)&seed;
-	RNG2(ptr, 32); //Seed the onlyKey with random data
+	RNG2((uint8_t *)&seed, 4); //Seed with random data
 
-	uint8_t temp[32];
+	uint8_t temp[64];
 	uint8_t yaeskey[16];
 	uint8_t privID[6];
-	uint8_t pubID[16];
+	uint8_t pubID[17] = {0};
 	uint8_t ctr[2];
 	uint16_t counter;
+	uint16_t usage;
 	char public_id[32 + 1];
 	char private_id[12 + 1];
 
 	#ifdef DEBUG
-	Serial.println("Initializing YubiKey OTP...");
+	Serial.print("Initializing YubiKey OTP for slot ");
+	Serial.println(slot);
 	#endif
-	memset(temp, 0, 32); //Clear temp buffer
+	memset(temp, 0, sizeof(temp)); //Clear temp buffer
 
 	ptr = temp;
-	okeeprom_eeget_public(ptr);
 
-	ptr = (temp + EElen_public);
-	okeeprom_eeget_private(ptr);
-
-	ptr = (temp + EElen_public + EElen_private);
-	okeeprom_eeget_aeskey(ptr);
-
-	okcore_aes_gcm_decrypt(temp, 0, 10, profilekey, (EElen_aeskey + EElen_private + EElen_public));
-	#ifdef DEBUG
-	Serial.println("public_id");
-	#endif
-	for (int i = 0; i < EElen_public; i++)
-	{
-		pubID[i] = temp[i];
-	#ifdef DEBUG
-		Serial.print(pubID[i], HEX);
-	#endif
+	if (slot == 0) {
+		okeeprom_eeget_public_DEPRICATED(ptr);
+		ptr = (temp + EElen_public);
+		okeeprom_eeget_private_DEPRICATED(ptr);
+		ptr = (temp + EElen_public + EElen_private);
+		okeeprom_eeget_aeskey_DEPRICATED(ptr);
+		okcore_aes_gcm_decrypt(temp, slot, 10, profilekey, (EElen_aeskey + EElen_private + EElen_public));
+		memcpy(pubID, temp, 6); // Old Yubikey method only supports default 6 len pubkey
+		memcpy(privID, temp+EElen_public, 6);
+		memcpy(yaeskey, temp+EElen_public+EElen_private, EElen_aeskey);
+		yubikey_hex_encode(public_id, (char *)pubID, 6);
+	} else if (slot > 0 && slot < 25) {
+		okcore_flashget_yubiotp(ptr, slot);
+		okcore_aes_gcm_decrypt(temp, slot, 10, profilekey, (EElen_aeskey + EElen_private + 16));
+		memcpy(pubID, temp, 16);
+		memcpy(privID, temp+16, 6);
+		memcpy(yaeskey, temp+16+EElen_private, EElen_aeskey);
+		yubikey_hex_encode(public_id, (char *)pubID, strlen((char *)pubID));
 	}
-	#ifdef DEBUG
-	Serial.println("private_id");
-	#endif
-	for (int i = 0; i < EElen_private; i++)
-	{
-		privID[i] = temp[i + EElen_public];
-	#ifdef DEBUG
-		Serial.print(privID[i], HEX);
-	#endif
-	}
-	#ifdef DEBUG
-	Serial.println("aes key");
-	#endif
-	for (int i = 0; i < EElen_aeskey; i++)
-	{
-		yaeskey[i] = temp[i + EElen_public + EElen_private];
-	#ifdef DEBUG
-		Serial.print(yaeskey[i], HEX);
-	#endif
-	}
-
-	memset(temp, 0, 32); //Clear temp buffer
-
-	yubikey_eeget_counter(ctr);
-	counter = ctr[0] << 8 | ctr[1];
 
 	yubikey_hex_encode(private_id, (char *)privID, 6);
-	yubikey_hex_encode(public_id, (char *)pubID, 6);
+
 	#ifdef DEBUG
 	Serial.println("public_id");
-	Serial.println(public_id);
+	byteprint(pubID, 16);
 	Serial.println("private_id");
-	Serial.println(private_id);
-	Serial.println("counter");
-	Serial.println(counter);
+	byteprint(privID, 6);
+	Serial.println("aes key");
+	byteprint(yaeskey, 16);
 	#endif
+
+	memset(temp, 0, sizeof(temp)); //Clear temp buffer
+
+	yubikey_eeget_counter(ctr, slot);
+	counter = ctr[0] << 8 | ctr[1];
 	uint32_t time = 0x010203;
-
+	usage = ctx.usage;
 	yubikey_init1(&ctx, yaeskey, public_id, private_id, counter, time, seed);
-
-	yubikey_incr_counter(&ctx);
-	ctr[0] = ctx.counter >> 8 & 0xFF;
-	ctr[1] = ctx.counter & 0xFF;
-
-	yubikey_eeset_counter(ctr);
+	ctx.usage = usage + 1;
 	#endif
 }
 /*************************************/
 //Generate Yubico OTP
 /*************************************/
-void yubikeysim(char *ptr)
+int yubikeysim(char *ptr, uint8_t slot)
 {
 	if (profilemode == NONENCRYPTEDPROFILE)
-		return;
+		return 0;
 	#ifdef STD_VERSION
+	uint8_t ctr[2];
+	yubikeyinit(slot);
+	Serial.println("Yubikey counter before");
+	Serial.println(ctx.counter);
+	Serial.println("Yubikey usage before");
+	Serial.println(ctx.usage);
+	yubikey_incr_counter(&ctx, slot);
+	ctr[0] = ctx.counter >> 8 & 0xFF;
+	ctr[1] = ctx.counter & 0xFF;
+	yubikey_eeset_counter(ctr, slot);
 	yubikey_simulate1(ptr, &ctx);
-	yubikey_incr_usage(&ctx);
+	Serial.println("Yubikey counter after");
+	Serial.println(ctx.counter);
+	Serial.println("Yubikey usage after");
+	Serial.println(ctx.usage);
 	#endif
+	return ctx.publen;
 }
 /*************************************/
 //Increment Yubico timestamp
@@ -5267,7 +5223,7 @@ void increment(Task *me)
 	} else if (NEO_Color < 214) {
 		pixels.setPixelColor(0, pixels.Color((fade / 2), 0, (fade / 2))); //Purple
 	}
-	pixels.show();														  // This sends the updated pixel color to the hardware.
+	pixels.show(); // This sends the updated pixel color to the hardware.
 	#endif
 	fade += 8;
 	if (fade == 0)
@@ -5577,7 +5533,7 @@ void backup()
 		return;
 #ifdef STD_VERSION
 	uint8_t temp[MAX_RSA_KEY_SIZE];
-	uint8_t large_temp[17880];
+	uint8_t large_temp[17904];
 	int urllength;
 	int usernamelength;
 	int passwordlength;
@@ -5587,7 +5543,6 @@ void backup()
 	unsigned char endbackup[] = "-----END ONLYKEY BACKUP-----";
 	unsigned char nobackupkey[] = "No Backup Key - Follow instructions here https://docs.crp.to/usersguide.html#secure-encrypted-backup-anywhere";
 	uint8_t ctr[2];
-	bool backupyubikey = false;
 	uint8_t slot;
 	uint8_t addchar1;
 	uint8_t addchar2;
@@ -5807,12 +5762,12 @@ void backup()
 #ifdef DEBUG
 			Serial.println("Reading TOTP Key from Flash...");
 #endif
-			otplength = okcore_flashget_totpkey(ptr, slot);
+			otplength = okcore_flashget_2fa_key(ptr, slot);
 #ifdef DEBUG
 			Serial.println("Encrypted");
 			byteprint(temp, otplength);
 			Serial.println();
-			Serial.print("TOTP Key Length = ");
+			Serial.print("Key Length = ");
 			Serial.println(otplength);
 #endif
 			if (slot <= 12 || (slot > 12 && p2mode != NONENCRYPTEDPROFILE))
@@ -5829,9 +5784,29 @@ void backup()
 			memcpy(large_temp + large_buffer_offset + 4, temp, otplength);
 			large_buffer_offset = large_buffer_offset + otplength + 4;
 		}
-		if (temp[0] == 121)
-		{ //Yubikey
-			backupyubikey = true;
+		if (temp[0] == 121  || temp[0] == 89)
+		{ //Old yubi otp or new yubi otp
+		if (temp[0] == 121) {
+			yubikey_eeget_counter(ctr, 0);
+			okeeprom_eeget_public_DEPRICATED(ptr);
+			ptr = (temp + EElen_public);
+			okeeprom_eeget_private_DEPRICATED(ptr);
+			ptr = (temp + EElen_public + EElen_private);
+			okeeprom_eeget_aeskey_DEPRICATED(ptr);
+		} else if (temp[0] == 89 && slot > 0 && slot < 25) {
+			yubikey_eeget_counter(ctr, slot);
+			okcore_flashget_yubiotp(ptr, slot);
+		}
+			okcore_aes_gcm_decrypt(temp, slot, 10, profilekey, (EElen_aeskey + EElen_private + EElen_public));
+			large_temp[large_buffer_offset] = 0xFF;   //delimiter
+			if (temp[0] == 121) large_temp[large_buffer_offset + 1] = 0;  //slot 0
+			else if (temp[0] == 89) large_temp[large_buffer_offset + 1] = slot;  //slot 
+			large_temp[large_buffer_offset + 2] = 10; //10 - Yubikey
+			memcpy(large_temp + large_buffer_offset + 3, temp, (EElen_aeskey + EElen_private + EElen_public));
+			large_buffer_offset = large_buffer_offset + (EElen_aeskey + EElen_private + EElen_public) + 3;
+			large_temp[large_buffer_offset] = ctr[0];	 //first part of counter
+			large_temp[large_buffer_offset + 1] = ctr[1]; //second part of counter
+			large_buffer_offset = large_buffer_offset + 2;
 		}
 	}
 	okeeprom_eeget_typespeed(ptr);
@@ -5897,28 +5872,6 @@ void backup()
 		large_temp[large_buffer_offset + 2] = 21; //21 - derived challenge mode
 		large_temp[large_buffer_offset + 3] = temp[0];
 		large_buffer_offset = large_buffer_offset + 4;
-	}
-	yubikey_eeget_counter(ctr);
-	if (backupyubikey)
-	{
-		okeeprom_eeget_public(ptr);
-
-		ptr = (temp + EElen_public);
-		okeeprom_eeget_private(ptr);
-
-		ptr = (temp + EElen_public + EElen_private);
-		okeeprom_eeget_aeskey(ptr);
-
-		okcore_aes_gcm_decrypt(temp, 0, 10, profilekey, (EElen_aeskey + EElen_private + EElen_public));
-
-		large_temp[large_buffer_offset] = 0xFF;   //delimiter
-		large_temp[large_buffer_offset + 1] = 0;  //slot 0
-		large_temp[large_buffer_offset + 2] = 10; //10 - Yubikey
-		memcpy(large_temp + large_buffer_offset + 3, temp, (EElen_aeskey + EElen_private + EElen_public));
-		large_buffer_offset = large_buffer_offset + (EElen_aeskey + EElen_private + EElen_public) + 3;
-		large_temp[large_buffer_offset] = ctr[0];	 //first part of counter
-		large_temp[large_buffer_offset + 1] = ctr[1]; //second part of counter
-		large_buffer_offset = large_buffer_offset + 2;
 	}
 
 #ifdef DEBUG
@@ -6229,14 +6182,14 @@ void RESTORE(uint8_t *buffer)
 	
 	if (offset == 0) {
 		//free(large_temp);
-		large_temp = (uint8_t *)malloc(17880); //Max size for slots 7731 max size for keys 3072 + headers + Max RSA key size + 6144 for RKs + 208 Authenticator state
-		memset(large_temp, 0, 17880);
+		large_temp = (uint8_t *)malloc(17904); //Max size for slots 7731 max size for keys 3072 + headers + Max RSA key size + 6144 for RKs + 208 Authenticator state + 24 for new yubiotp counters
+		memset(large_temp, 0, 17904);
 	}
 
 	//Slot restore
 	if (buffer[5] == 0xFF) //Not last packet
 	{
-		if (offset <= (17880 - 57))
+		if (offset <= (17904 - 57))
 		{
 			#ifdef DEBUG
 			Serial.print("Restore packet received =");
@@ -6260,7 +6213,7 @@ void RESTORE(uint8_t *buffer)
 	}
 	else
 	{ //last packet
-		if (offset <= (17880 - 57) && buffer[5] <= 57)
+		if (offset <= (17904 - 57) && buffer[5] <= 57)
 		{
 			#ifdef DEBUG
 			Serial.print("Restore packet received =");
@@ -6427,7 +6380,6 @@ void RESTORE(uint8_t *buffer)
 				{ //Yubikey OTP
 					memcpy(temp + 7, ptr, (EElen_aeskey + EElen_private + EElen_public));
 					set_slot(temp);
-					memset(temp, 0, sizeof(temp));
 					uint8_t ctr[2];
 					ptr = ptr + EElen_aeskey + EElen_private + EElen_public;
 					ctr[0] = *ptr;
@@ -6437,7 +6389,8 @@ void RESTORE(uint8_t *buffer)
 					counter += 300; //Increment by 300
 					ctr[0] = counter >> 8 & 0xFF;
 					ctr[1] = counter & 0xFF;
-					yubikey_eeset_counter(ctr);
+					yubikey_eeset_counter(ctr, temp[5]);
+					memset(temp, 0, sizeof(temp));
 #ifdef DEBUG
 					Serial.print("New Yubikey Counter =");
 					byteprint(ctr, 2);
@@ -6857,24 +6810,27 @@ void process_setreport()
 {
 	// HMACSHA1 - This is the HMACSHA1 Challenge default size is 32	bytes
 #ifdef DEBUG
-	//Serial.println("Received USB Keyboard Packets");
-	//byteprint(keyboard_buffer, KEYBOARD_BUFFER_SIZE);
+	Serial.println("Received USB Keyboard Packets");
+	byteprint(keyboard_buffer, KEYBOARD_BUFFER_SIZE);
 #endif
+
+	//if (initialized && !unlocked) {
+	//	hidprint("INITIALIZED");
+	//	memset(keyboard_buffer, 0, KEYBOARD_BUFFER_SIZE);
+	//	memset(setBuffer, 0, 9);
+	//	return;
+	//}
 
 	uint8_t *ptr;
 	uint8_t index = 0;
 	ptr = keyboard_buffer + 22;
-	//while (*ptr && *ptr == *(ptr+1)) {
 
-	Serial.println("Received keyboard_buffer");
-	byteprint(keyboard_buffer, 65);
-	Serial.println("Current getBuffer");
-	byteprint(getBuffer, 8);
-
-
-	if (keyboard_buffer[64] == 1 || keyboard_buffer[64] == 3)
+	if (keyboard_buffer[64] >= 1 && keyboard_buffer[64] < 14 && initialized && unlocked)
 	{ 
-		if (keyboard_buffer[45] == 5) { // Request to write key
+		uint8_t slot = keyboard_buffer[64];
+		if (slot < 3) slot = 1;
+		else slot = slot - 1;
+		if (keyboard_buffer[45] == 5 || keyboard_buffer[45] == 0) { // Request to write or wipe
 			getBuffer[5] = 0;
 			getBuffer[7] = 0x89;
 			memset(setBuffer, 0, 9);
@@ -6885,8 +6841,6 @@ void process_setreport()
 				return;
 			}
 			outputmode=RAW_USB;
-			// TODO if all 0s wipe slot
-			// 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1
 			if (keyboard_buffer[46] == 0x60 || keyboard_buffer[46] == 0x40) { // Set HMAC Key
 				memmove(recv_buffer+23, keyboard_buffer+16, 4);
 				memmove(recv_buffer+7, keyboard_buffer+22, 16); // HMAC key split for some reason
@@ -6896,41 +6850,65 @@ void process_setreport()
 				else recv_buffer[5] = RESERVED_KEY_HMACSHA1_2;
 				recv_buffer[6] = 9;
 				byteprint(recv_buffer,64);
-				set_private(recv_buffer); 
+				if (recv_buffer[7]+recv_buffer[8]+recv_buffer[9]+recv_buffer[10]+recv_buffer[11] == 0) wipe_private(recv_buffer); 
+				else set_private(recv_buffer); 
 				sess_counter++;
 			} else if ((keyboard_buffer[46] == 0 && keyboard_buffer[44]) || keyboard_buffer[46] == TKTFLAG_APPEND_CR || keyboard_buffer[46] == TKTFLAG_APPEND_DELAY2 || keyboard_buffer[46] == TKTFLAG_APPEND_DELAY1 || keyboard_buffer[46] == TKTFLAG_APPEND_TAB2 || keyboard_buffer[46] == TKTFLAG_APPEND_TAB1 || keyboard_buffer[46] == TKTFLAG_TAB_FIRST) { // Set Yubi OTP Key
 				recv_buffer[4] = OKSETSLOT;
 				// Pacing
 				if (keyboard_buffer[47] == CFGFLAG_PACING_10MS) {
 					Serial.println("CFGFLAG_PACING_10MS");
+					// set speed to medium
+					TYPESPEED[0] = 2;
+					okeeprom_eeset_typespeed((uint8_t*)TYPESPEED);
 				} else if (keyboard_buffer[47] == CFGFLAG_PACING_20MS) {
 					Serial.println("CFGFLAG_PACING_20MS");
+					// set speed to slow
+					TYPESPEED[0] = 4;
+					okeeprom_eeset_typespeed((uint8_t*)TYPESPEED);
 				} else {
-					//No pacing
+					//No pacing, set speed to fast
+					TYPESPEED[0] = 1;
+					okeeprom_eeset_typespeed((uint8_t*)TYPESPEED);
 				}
 				// After OTP
+				uint8_t temp;
+				uint8_t temp2;
+				uint8_t mask;
 				if (keyboard_buffer[46] == 0x04) {
 					Serial.println("TAB");
+					okeeprom_eeget_addchar(&temp, slot);
+					mask = 0b11000000;
+					temp2 = 1 << 7;
+					temp2 = (temp & ~mask) | (temp2 & mask);
+					okeeprom_eeset_addchar(&temp2, slot);
 				} else if (keyboard_buffer[46] == 0x20) {
 					Serial.println("ENTER");
+					okeeprom_eeget_addchar(&temp, slot);
+					mask = 0b11000000;
+					temp2 = 1 << 6;
+					temp2 = (temp & ~mask) | (temp2 & mask);
+					okeeprom_eeset_addchar(&temp2, slot);
 				} else {
 					//No after otp
+					Serial.println("NONE");
+					okeeprom_eeget_addchar(&temp, slot);
+					mask = 0b11000000;
+					temp2 = 0;
+					temp2 = (temp & ~mask) | (temp2 & mask);
+					okeeprom_eeset_addchar(&temp2, slot);
 				}
-				// TODO multiple yubikey otp slots 
-				//if (keyboard_buffer[64] == 0x01) recv_buffer[5] = OTP_SLOT_1;
-				//else if (keyboard_buffer[64] == 0x03) recv_buffer[5] = OTP_SLOT_2;
-				//else if (keyboard_buffer[64] == 0x04) recv_buffer[5] = OTP_SLOT_3;
-				//... 
-				//else if (keyboard_buffer[64] == 0x25) recv_buffer[5] = OTP_SLOT_24;
+				recv_buffer[5] = slot; //OTP_SLOT_1 - OTP_SLOT_12
 				recv_buffer[6] = 10;
-				memmove(recv_buffer+7, keyboard_buffer, 6);
-				memmove(recv_buffer+7 + 6, keyboard_buffer+16, 6);	
-				memmove(recv_buffer+7 + 12, keyboard_buffer+22, 16);			
-				memset(recv_buffer+36, 0, 28);
+				memmove(recv_buffer+7, keyboard_buffer, 16); //Public
+				memmove(recv_buffer+7 + 16, keyboard_buffer+16, 6); //Private
+				memmove(recv_buffer+7 + 22, keyboard_buffer+22, 16); //Secret			
+				memset(recv_buffer+46, 0, 18);
 				byteprint(recv_buffer,64);
-				recvmsg(1);
+				if (recv_buffer[7]+recv_buffer[8]+recv_buffer[9]+recv_buffer[10]+recv_buffer[11] == 0) wipe_slot(recv_buffer);
+				else recvmsg(1);
 				sess_counter++;
-			}
+			} 
 			getBuffer[4] = sess_counter;
 			getBuffer[5] = 3;
 			getBuffer[7] = 0;
@@ -6957,7 +6935,7 @@ void process_setreport()
 		Serial.println("Received HMACSHA1 Test");
 		#endif
 		return;
-	} else if (keyboard_buffer[64] == 0x30 || keyboard_buffer[64] == 0x38)
+	} else if ((keyboard_buffer[64] == 0x30 || keyboard_buffer[64] == 0x38) && initialized && unlocked)
 	{ //HMACSHA1}
 		if (profilemode != NONENCRYPTEDPROFILE)
 			{
@@ -6986,7 +6964,7 @@ void process_setreport()
 			}
 			#endif
 		}
-	} else if (keyboard_buffer[64] == 0x20 || keyboard_buffer[64] == 0x28)
+	} else if (keyboard_buffer[64] == 0x20 || keyboard_buffer[64] == 0x28 && initialized && unlocked)
 	{ //Yubi OTP}
 		if (profilemode != NONENCRYPTEDPROFILE)
 			{

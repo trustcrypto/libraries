@@ -132,14 +132,15 @@ extern "C"
 #define EElen_nonce2	32
 #define EElen_ctap_authstate 208
 #define EElen_modkey 1
+#define EElen_yubicounterpart 24
 
 #define EEpos_U2Fcounter	66 // 0 used for bootloader jump flag, 1 used for fwload flag, 2-65 used for fw integrity hash
 #define EEpos_aeskey	(EEpos_U2Fcounter + EElen_U2Fcounter)
 #define EEpos_public	(EEpos_aeskey + EElen_aeskey)
 #define EEpos_private	(EEpos_public + EElen_public)
-#define EEpos_counter	(EEpos_private + EElen_private)
+#define EEpos_counter_DEPRICATED	(EEpos_private + EElen_private)
 
-#define EEpos_url1len	(EEpos_counter + EElen_counter)
+#define EEpos_url1len	(EEpos_counter_DEPRICATED + EElen_counter)
 #define EEpos_url2len	(EEpos_url1len + EElen_urllen)
 #define EEpos_url3len	(EEpos_url2len + EElen_urllen)
 #define EEpos_url4len	(EEpos_url3len + EElen_urllen)
@@ -451,6 +452,7 @@ extern "C"
 #define EEpos_ctap_authstate	(EEpos_autolockslot + EElen_autolockslot)
 #define EEpos_hmac_challengemode	(EEpos_ctap_authstate + EElen_ctap_authstate)
 #define EEpos_modkey	(EEpos_hmac_challengemode + EElen_hmac_challengemode)
+#define EEpos_yubicounterpart (EEpos_modkey + EElen_modkey)
 
 extern int  okeeprom_eeget_ctap_authstate (uint8_t *ptr);
 extern void okeeprom_eeset_ctap_authstate(uint8_t *ptr);
@@ -503,17 +505,17 @@ extern void okeeprom_eeset_nonce2(uint8_t *ptr);
 extern int  okeeprom_eeget_sincelastregularlogin (uint8_t *ptr);
 extern void okeeprom_eeset_sincelastregularlogin(uint8_t *ptr);
 
-extern int  okeeprom_eeget_aeskey (uint8_t *ptr);
-extern void okeeprom_eeset_aeskey (uint8_t *ptr);
+extern int  okeeprom_eeget_aeskey_DEPRICATED (uint8_t *ptr);
+extern void okeeprom_eeset_aeskey_DEPRICATED (uint8_t *ptr);
 
-extern int  yubikey_eeget_counter (uint8_t *ptr);
-extern void yubikey_eeset_counter (uint8_t *ptr);
+extern int  yubikey_eeget_counter (uint8_t *ptr, uint8_t slot);
+extern void yubikey_eeset_counter (uint8_t *ptr, uint8_t slot);
 
-extern int  okeeprom_eeget_private (uint8_t *ptr);
-extern void okeeprom_eeset_private (uint8_t *ptr);
+extern int  okeeprom_eeget_private_DEPRICATED (uint8_t *ptr);
+extern void okeeprom_eeset_private_DEPRICATED (uint8_t *ptr);
 
-extern int  okeeprom_eeget_public (uint8_t *ptr);
-extern void okeeprom_eeset_public (uint8_t *ptr);
+extern int  okeeprom_eeget_public_DEPRICATED (uint8_t *ptr);
+extern void okeeprom_eeset_public_DEPRICATED (uint8_t *ptr);
 
 extern int  okeeprom_eeget_password (uint8_t *ptr, int slot);
 extern void okeeprom_eeset_password (uint8_t *ptr, int len, int slot);
@@ -835,7 +837,6 @@ extern void okeeprom_eeset_totpkeylen23 (uint8_t *ptr);
 
 extern int  okeeprom_eeget_totpkeylen24 (uint8_t *ptr);
 extern void okeeprom_eeset_totpkeylen24 (uint8_t *ptr);
-
 
 #ifdef __cplusplus
 }

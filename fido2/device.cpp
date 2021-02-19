@@ -418,7 +418,7 @@ void ctap_reset_rk(void)
 uint32_t ctap_rk_size(void)
 {
     printf1(TAG_GREEN, "12 RKs for now");
-    return 13; //support 12 RKs for now
+    return 12; //support 12 RKs for now
 }
 
 void ctap_store_rk(int index,CTAP_residentKey * rk)

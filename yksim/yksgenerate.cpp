@@ -152,33 +152,31 @@ void yubikey_incr_timestamp(
     ctx->timestamp += 1;
 }
 
-void yubikey_disable_eeprom()
+void yubikey_disable_eeprom(uint8_t slot)
 {
     uint8_t length [2] = {0};
-	yubikey_eeset_counter(length);
+	yubikey_eeset_counter(length, slot);
 }
 
-int yubikey_incr_counter(
-	yubikey_ctx_t	ctx)
+int yubikey_incr_counter(yubikey_ctx_t	ctx, uint8_t slot)
 {
     if (ctx->counter >= MAX_counter) {
 	// End-Of-Life for YubiKey 
-	yubikey_disable_eeprom();
+	yubikey_disable_eeprom(slot);
 	// Reset needed!
 	return EXIT_FAILURE;
     } else {
 	ctx->counter += 1;
-	yubikey_eeset_counter ((uint8_t *) &(ctx->counter));
+	yubikey_eeset_counter ((uint8_t *) &(ctx->counter), slot);
 	return EXIT_SUCCESS;
     }
 }
 
-int yubikey_incr_usage(
-	yubikey_ctx_t	ctx)
+int yubikey_incr_usage(yubikey_ctx_t ctx, uint8_t slot)
 {
     if (ctx->usage == 0xff) {
 	ctx->usage = 0;
-	return yubikey_incr_counter (ctx);
+	return yubikey_incr_counter (ctx, slot);
     } else {
 	ctx->usage += 1;
 	return EXIT_SUCCESS;

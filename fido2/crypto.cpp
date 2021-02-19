@@ -311,6 +311,50 @@ void crypto_ecc256_derive_public_key(uint8_t * data, int len, uint8_t * x, uint8
     memmove(x,pubkey,32);
     memmove(y,pubkey+32,32);
 }
+
+void crypto_ed25519_derive_public_key(uint8_t * data, int len, uint8_t * x)
+{
+    uint8_t seed[32];
+    generate_private_key(data, len, NULL, 0, seed);
+    //salty_public_key(&seed, (uint8_t (*)[32])x);
+    // REPLACING SALTY WITH ONLYKEY Ed25519
+    Ed25519::derivePublicKey(x, (uint8_t *)seed);
+}
+
+void crypto_ed25519_load_key(uint8_t * data, int len)
+{
+    static uint8_t seed[32];
+    generate_private_key(data, len, NULL, 0, seed);
+    _signing_key = seed;
+    _key_len = 32;
+}
+
+void crypto_ed25519_sign(uint8_t * data1, int len1, uint8_t * data2, int len2, uint8_t * sig)
+{
+    // ed25519 signature APIs need the message at once (by design!) and in one
+    // contiguous buffer (could be changed).
+
+    // 512 is an arbitrary sanity limit, could be less
+    if (len1 < 0 || len2 < 0 || len1 > 512 || len2 > 512)
+    {
+        memset(sig, 0, 64); // ed25519 signature len is 64 bytes
+        return;
+    }
+    // XXX: dynamically sized allocation on the stack
+    const int len = len1 + len2; // 0 <= len <= 1024
+    uint8_t data[len1 + len2];
+
+    memcpy(data,        data1, len1);
+    memcpy(data + len1, data2, len2);
+
+    // TODO: check that correct load_key() had been called?
+    // REPLACING SALTY WITH ONLYKEY Ed25519
+    //salty_sign((uint8_t (*)[32])_signing_key, data, len, (uint8_t (*)[64])sig);
+    uint8_t pubtemp[65];
+    Ed25519::derivePublicKey((uint8_t *)pubtemp, (uint8_t *)_signing_key);
+    Ed25519::sign(sig, (uint8_t *)_signing_key, (uint8_t *)pubtemp, (uint8_t *)data, len);
+}
+
 void crypto_ecc256_compute_public_key(uint8_t * privkey, uint8_t * pubkey)
 {
     uECC_compute_public_key(privkey, pubkey, _es256_curve);
