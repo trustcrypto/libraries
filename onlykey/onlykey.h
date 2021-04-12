@@ -89,9 +89,9 @@
 #endif
 
 #ifdef DEBUG
-#define OKversionkeyword ".0-test"
+#define OKversionkeyword ".1-test"
 #else
-#define OKversionkeyword ".0-prod"
+#define OKversionkeyword ".1-prod"
 #endif
 
 #define OKversion OKversionmain OKversionkeyword

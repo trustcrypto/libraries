@@ -221,6 +221,7 @@ unsigned int touchread5ref = 1350;
 unsigned int touchread6ref = 1450;
 unsigned int sumofall;
 int button_selected = 0; 
+uint8_t touchoffset;
 /*************************************/
 //HMCAC SHA1 Assignments
 /*************************************/
@@ -228,6 +229,7 @@ uint8_t setBuffer[9] = {0};
 uint8_t getBuffer[9] = {0, 2, 2, 3, 3, 3, 5, 0, 0};
 uint8_t keyboard_buffer[KEYBOARD_BUFFER_SIZE] = {0};
 uint8_t sess_counter = 3;
+uint8_t may_block = 5;
 /*************************************/
 //ECC key assignments
 /*************************************/
@@ -1460,26 +1462,26 @@ void set_slot(uint8_t *buffer)
 	uint8_t mode;
 	int length = 0;
 	char cmd = buffer[4]; //cmd or continuation
-#ifdef DEBUG
+	#ifdef DEBUG
 	Serial.print("OKSETSLOT MESSAGE RECEIVED:");
 	Serial.println((int)cmd - 0x80, HEX);
 	Serial.print("Setting Slot #");
 	Serial.println((int)slot, DEC);
 	Serial.print("Value #");
 	Serial.println((int)value, DEC);
-#endif
+	#endif
 	for (int z = 0; buffer[z + 7] + buffer[z + 8] + buffer[z + 9] + buffer[z + 10] != 0x00; z++)
 	{
 		length = z + 1;
-#ifdef DEBUG
+	#ifdef DEBUG
 		Serial.print(buffer[z + 7], HEX);
-#endif
+	#endif
 	}
-#ifdef DEBUG
+	#ifdef DEBUG
 	Serial.println(); //newline
 	Serial.print("Length = ");
 	Serial.println(length);
-#endif
+	#endif
 	if (buffer[0] == 0xBA && slot > 12)
 	{
 		okeeprom_eeget_2ndprofilemode(&mode);
@@ -1494,66 +1496,66 @@ void set_slot(uint8_t *buffer)
 	switch (value)
 	{
 	case 1:
-#ifdef DEBUG
+		#ifdef DEBUG
 		Serial.println(); //newline
 		Serial.print("Writing Label Value to Flash...");
-#endif
+		#endif
 		okcore_flashset_label(buffer + 7, slot);
 		hidprint("Successfully set Label");
 		break;
 	case 15:
-#ifdef DEBUG
+		#ifdef DEBUG
 		Serial.println("Writing URL Value to Flash...");
-#endif
+		#endif
 		if (mode != NONENCRYPTEDPROFILE)
 		{
-#ifdef DEBUG
+			#ifdef DEBUG
 			Serial.println("Unencrypted");
 			byteprint(buffer + 7, 32);
 			Serial.println();
-#endif
+			#endif
 			okcore_aes_gcm_encrypt((buffer + 7), slot, value, profilekey, length);
-#ifdef DEBUG
+			#ifdef DEBUG
 			Serial.println("Encrypted");
 			byteprint(buffer + 7, 32);
 			Serial.println();
-#endif
+			#endif
 		}
 		okcore_flashset_url(buffer + 7, length, slot);
 		hidprint("Successfully set URL");
 		break;
 	case 16:
-#ifdef DEBUG
+		#ifdef DEBUG
 		Serial.println(); //newline
 		Serial.print("Writing after Username Additional Character to EEPROM...");
-#endif
+		#endif
 		if (buffer[7] >= 0x30)
 			buffer[7] = buffer[7] - '0';
 		okeeprom_eeget_addchar(&temp, slot);
 		mask = 0b00000011;
 		buffer[7] = (temp & ~mask) | (buffer[7] & mask);
 		okeeprom_eeset_addchar(buffer + 7, slot);
-#ifdef DEBUG
+		#ifdef DEBUG
 		Serial.print(buffer[7]);
-#endif
+		#endif
 		hidprint("Successfully set after Username Additonal Character");
 		break;
 	case 17:
 		//Set value in EEPROM
-#ifdef DEBUG
+		#ifdef DEBUG
 		Serial.println(); //newline
 		Serial.print("Writing Delay1 to EEPROM...");
-#endif
+		#endif
 		if (buffer[7] > '0')
 			buffer[7] = (buffer[7] - '0');
 		okeeprom_eeset_delay1(buffer + 7, slot);
 		hidprint("Successfully set Delay1");
 		break;
 	case 18:
-#ifdef DEBUG
+		#ifdef DEBUG
 		Serial.println(); //newline
 		Serial.print("Writing before Username Additional Character to EEPROM...");
-#endif
+		#endif
 		if (buffer[7] >= 0x30)
 			buffer[7] = buffer[7] - '0';
 		okeeprom_eeget_addchar(&temp, slot);
@@ -1561,16 +1563,16 @@ void set_slot(uint8_t *buffer)
 		buffer[7] = buffer[7] << 2;
 		buffer[7] = (temp & ~mask) | (buffer[7] & mask);
 		okeeprom_eeset_addchar(buffer + 7, slot);
-#ifdef DEBUG
+		#ifdef DEBUG
 		Serial.print(buffer[7]);
-#endif
+		#endif
 		hidprint("Successfully set before Username Additional Character");
 		break;
 	case 19:
-#ifdef DEBUG
+		#ifdef DEBUG
 		Serial.println(); //newline
 		Serial.print("Writing before OTP Additional Character to EEPROM...");
-#endif
+		#endif
 		if (buffer[7] >= 0x30)
 			buffer[7] = buffer[7] - '0';
 		okeeprom_eeget_addchar(&temp, slot);
@@ -1578,39 +1580,39 @@ void set_slot(uint8_t *buffer)
 		buffer[7] = buffer[7] << 3;
 		buffer[7] = (temp & ~mask) | (buffer[7] & mask);
 		okeeprom_eeset_addchar(buffer + 7, slot);
-#ifdef DEBUG
+		#ifdef DEBUG
 		Serial.print(buffer[7]);
-#endif
+		#endif
 		hidprint("Successfully set before OTP Additional Character");
 		break;
 	case 2:
 		//Encrypt and Set value in EEPROM
-#ifdef DEBUG
+		#ifdef DEBUG
 		Serial.println("Writing Username Value to Flash...");
-#endif
+		#endif
 		if (mode != NONENCRYPTEDPROFILE)
 		{
-#ifdef DEBUG
+			#ifdef DEBUG
 			Serial.println("Unencrypted");
 			byteprint(buffer + 7, 32);
 			Serial.println();
-#endif
+			#endif
 			okcore_aes_gcm_encrypt((buffer + 7), slot, value, profilekey, length);
-#ifdef DEBUG
+			#ifdef DEBUG
 			Serial.println("Encrypted");
 			byteprint(buffer + 7, 32);
 			Serial.println();
-#endif
+			#endif
 		}
 		okcore_flashset_username(buffer + 7, length, slot);
 		hidprint("Successfully set Username");
 		break;
 	case 3:
 		//Set value in EEPROM
-#ifdef DEBUG
+		#ifdef DEBUG
 		Serial.println(); //newline
 		Serial.print("Writing Additional after password to EEPROM...");
-#endif
+		#endif
 		if (buffer[7] >= 0x30)
 			buffer[7] = buffer[7] - '0';
 		okeeprom_eeget_addchar(&temp, slot);
@@ -1618,17 +1620,17 @@ void set_slot(uint8_t *buffer)
 		buffer[7] = buffer[7] << 4;
 		buffer[7] = (temp & ~mask) | (buffer[7] & mask);
 		okeeprom_eeset_addchar(buffer + 7, slot);
-#ifdef DEBUG
+		#ifdef DEBUG
 		Serial.print(buffer[7]);
-#endif
+		#endif
 		hidprint("Successfully set additional character after password");
 		break;
 	case 4:
 		//Set value in EEPROM
-#ifdef DEBUG
+		#ifdef DEBUG
 		Serial.println(); //newline
 		Serial.print("Writing Delay2 to EEPROM...");
-#endif
+		#endif
 		if (buffer[7] > '0')
 			buffer[7] = (buffer[7] - '0');
 		okeeprom_eeset_delay2(buffer + 7, slot);
@@ -1636,52 +1638,56 @@ void set_slot(uint8_t *buffer)
 		break;
 	case 5:
 		//Encrypt and Set value in EEPROM
-#ifdef DEBUG
+		#ifdef DEBUG
 		Serial.println("Writing Password to EEPROM...");
-#endif
+		#endif
 		if (mode != NONENCRYPTEDPROFILE)
 		{
-#ifdef DEBUG
+			#ifdef DEBUG
 			Serial.println("Unencrypted");
 			byteprint(buffer + 7, 32);
 			Serial.println();
-#endif
+			#endif
 			okcore_aes_gcm_encrypt((buffer + 7), slot, value, profilekey, length);
-#ifdef DEBUG
+			#ifdef DEBUG
 			Serial.println("Encrypted");
 			byteprint(buffer + 7, 32);
 			Serial.println();
-#endif
+			#endif
 		}
 		okeeprom_eeset_password(buffer + 7, length, slot);
 		hidprint("Successfully set Password");
 		break;
 	case 6:
 		//Set value in EEPROM
-#ifdef DEBUG
+		#ifdef DEBUG
 		Serial.println(); //newline
 		Serial.print("Writing After OTP Additional Character to EEPROM...");
-#endif
+		#endif
 		if (buffer[7] >= 0x30)
 			buffer[7] = buffer[7] - '0';
-		if (buffer[7] == 2)
-			buffer[7]--; //Return only, no tab needed
 		okeeprom_eeget_addchar(&temp, slot);
-		mask = 0b01000000;
-		buffer[7] = buffer[7] << 6;
+		if (buffer[7] == 2) { // Return Only
+			buffer[7] = 1 << 6;
+		} else if (buffer[7] == 1) { // Tab Only
+			buffer[7] = 1 << 7;
+		} else if (buffer[7] == 3) { // Tab and Return
+			buffer[7] = 192;
+		}
+		mask = 0b11000000;
 		buffer[7] = (temp & ~mask) | (buffer[7] & mask);
 		okeeprom_eeset_addchar(buffer + 7, slot);
-#ifdef DEBUG
+		#ifdef DEBUG
 		Serial.print(buffer[7]);
-#endif
+		#endif
 		hidprint("Successfully set after OTP Character");
 		break;
 	case 7:
 		//Set value in EEPROM
-#ifdef DEBUG
+		#ifdef DEBUG
 		Serial.println(); //newline
 		Serial.print("Writing Delay3 to EEPROM...");
-#endif
+		#endif
 		if (buffer[7] > '0')
 			buffer[7] = (buffer[7] - '0');
 		okeeprom_eeset_delay3(buffer + 7, slot);
@@ -1689,27 +1695,27 @@ void set_slot(uint8_t *buffer)
 		break;
 	case 8:
 		//Set value in EEPROM
-#ifdef DEBUG
+		#ifdef DEBUG
 		Serial.println(); //newline
 		Serial.print("Writing 2FA Type to EEPROM...");
-#endif
+		#endif
 		okeeprom_eeset_2FAtype(buffer + 7, slot);
 		hidprint("Successfully set 2FA Type");
 		break;
 	case 9:
 		//Encrypt and Set value in EEPROM
-#ifdef DEBUG
+		#ifdef DEBUG
 		Serial.println("Writing TOTP Key to Flash...");
 		Serial.println("Unencrypted");
 		byteprint(buffer + 7, 32);
 		Serial.println();
-#endif
+		#endif
 		okcore_aes_gcm_encrypt((buffer + 7), slot, value, profilekey, length);
-#ifdef DEBUG
+		#ifdef DEBUG
 		Serial.println("Encrypted");
 		byteprint(buffer + 7, 64);
 		Serial.println();
-#endif
+		#endif
 		okcore_flashset_2fa_key(buffer + 7, length, slot);
 		hidprint("Successfully set TOTP Key");
 		break;
@@ -1717,9 +1723,9 @@ void set_slot(uint8_t *buffer)
 		if (mode != NONENCRYPTEDPROFILE)
 		{
 			//Encrypt and Set value in Flash
-#ifdef DEBUG
+			#ifdef DEBUG
 			Serial.println("Writing AES Key, Private ID, and Public ID to EEPROM...");
-#endif
+			#endif
 			uint16_t counter = 0x0000;
 			uint8_t *ptr;
 			ptr = (uint8_t *)&counter;
@@ -1728,9 +1734,9 @@ void set_slot(uint8_t *buffer)
 				okeeprom_eeset_public_DEPRICATED(buffer + 7);
 				okeeprom_eeset_private_DEPRICATED((buffer + 7 + EElen_public));
 				okeeprom_eeset_aeskey_DEPRICATED(buffer + 7 + EElen_public + EElen_private);
-			} else if (slot > 0 && slot < 13) {
+			} else if (slot > 0 && slot < 25) {
 				okcore_aes_gcm_encrypt((buffer + 7), slot, value, profilekey, (16+EElen_private+EElen_aeskey));	
-				okcore_flashset_yubiotp(buffer + 7, slot);
+				okcore_flashset_2fa_key(buffer + 7, (16+EElen_private+EElen_aeskey), slot);
 				Serial.print("Setting okeeprom_eeset_2FAtype");
 				uint8_t type = 'Y'; //89
 				okeeprom_eeset_2FAtype(&type, slot); 
@@ -1740,19 +1746,19 @@ void set_slot(uint8_t *buffer)
 		}
 		break;
 	case 11:
-#ifdef DEBUG
+		#ifdef DEBUG
 		Serial.println(); //newline
 		Serial.println("Writing idle timeout to EEPROM...");
-#endif
+		#endif
 		okeeprom_eeset_timeout(buffer + 7);
 		TIMEOUT[0] = buffer[7];
 		hidprint("Successfully set idle timeout");
 		break;
 	case 12:
-#ifdef DEBUG
+		#ifdef DEBUG
 		Serial.println(); //newline
 		Serial.println("Writing wipemode to EEPROM...");
-#endif
+		#endif
 		if (buffer[7] == 2 && (configmode == true || !initcheck || profilemode == NONENCRYPTEDPROFILE))
 		{
 			okeeprom_eeset_wipemode(buffer + 7);
@@ -1769,10 +1775,10 @@ void set_slot(uint8_t *buffer)
 		}
 		break;
 	case 20:
-#ifdef DEBUG
+		#ifdef DEBUG
 		Serial.println(); //newline
 		Serial.println("Writing backupkeymode to EEPROM...");
-#endif
+		#endif
 		if (buffer[7] == 1 && (configmode == true || !initcheck))
 		{
 			okeeprom_eeset_backupkeymode(buffer + 7);
@@ -1792,10 +1798,10 @@ void set_slot(uint8_t *buffer)
 
 		if (configmode == true || !initcheck)
 		{ //Only permit changing this on first use or while in config mode
-#ifdef DEBUG
+			#ifdef DEBUG
 			Serial.println(); //newline
 			Serial.println("Writing derived_key_challenge_mode to EEPROM...");
-#endif
+			#endif
 			okeeprom_eeset_derived_key_challenge_mode(buffer + 7);
 			hidprint("Successfully set derived key challenge mode");
 		}
@@ -1808,10 +1814,10 @@ void set_slot(uint8_t *buffer)
 
 		if (configmode == true || !initcheck)
 		{ //Only permit changing this on first use or while in config mode
-#ifdef DEBUG
+			#ifdef DEBUG
 			Serial.println(); //newline
 			Serial.println("Writing stored_key_challenge_mode to EEPROM...");
-#endif
+			#endif
 			okeeprom_eeset_stored_key_challenge_mode(buffer + 7);
 			hidprint("Successfully set stored key challenge mode");
 		}
@@ -1824,10 +1830,10 @@ void set_slot(uint8_t *buffer)
 
 		if (configmode == true || !initcheck)
 		{ //Only permit changing this on first use or while in config mode
-#ifdef DEBUG
+			#ifdef DEBUG
 			Serial.println(); //newline
 			Serial.println("Writing hmac_challengemode to EEPROM...");
-#endif
+			#endif
 			okeeprom_eeset_hmac_challengemode(buffer + 7);
 			hidprint("Successfully set HMAC Challenge Mode");
 		}
@@ -1836,14 +1842,14 @@ void set_slot(uint8_t *buffer)
 			hidprint("Error not in config mode, hold button 6 down for 5 sec");
 		}
 		break;
-case 27:
+	case 27:
 
 		if (configmode == true || !initcheck)
 		{ //Only permit changing this on first use or while in config mode
-#ifdef DEBUG
+			#ifdef DEBUG
 			Serial.println(); //newline
 			Serial.println("Writing sysadmin mode to EEPROM...");
-#endif
+			#endif
 			okeeprom_eeset_modkey(buffer + 7);
 			hidprint("Successfully set Sysadmin Mode");
 		}
@@ -1853,13 +1859,13 @@ case 27:
 		}
 		break;
 	case 23:
-#ifdef DEBUG
+		#ifdef DEBUG
 		Serial.println(); //newline
 		Serial.println("Writing 2ndprofilemode to EEPROM...");
-#endif
+		#endif
 		if (mode == NONENCRYPTEDPROFILE)
 			return;
-#ifdef STD_VERSION
+		#ifdef STD_VERSION
 		if (!initcheck)
 		{ //Only permit changing this on first use
 			okeeprom_eeset_2ndprofilemode(buffer + 7);
@@ -1869,25 +1875,45 @@ case 27:
 		{
 			hidprint("Second Profile Mode may only be changed on first use");
 		}
-#endif
+		#endif
 		break;
 	case 24:
-#ifdef DEBUG
+		#ifdef DEBUG
 		Serial.println(); //newline
 		Serial.println("Writing LED brightness to EEPROM...");
-#endif
+		#endif
 		okeeprom_eeset_ledbrightness(buffer + 7);
 		NEO_Brightness[0] = buffer[7];
 		pixels.setBrightness(NEO_Brightness[0] * 22);
 		hidprint("Successfully set LED brightness");
 		break;
+	case 28:
+		if (configmode == true || !initcheck)
+		{ //Only permit changing this on first use or while in config mode
+			#ifdef DEBUG
+			Serial.println(); //newline
+			Serial.println("Writing Touch Sensitivity to EEPROM...");
+			#endif
+			if (buffer[7] > 1 && buffer[7] <= 100) {
+				okeeprom_eeset_touchoffset(buffer + 7);
+				touchoffset = buffer[7];
+				hidprint("Successfully set Touch Sensitivity");
+			} else {
+				hidprint("Error touchsense value out of range");
+			}
+		}
+		else
+		{
+			hidprint("Error not in config mode, hold button 6 down for 5 sec");
+		}
+		break;
 	case 25:
-#ifdef DEBUG
-	Serial.println(); //newline
-	Serial.println("Writing lock button to EEPROM...");
-#endif
-	uint8_t temp;
-	okeeprom_eeget_autolockslot(&temp);
+		#ifdef DEBUG
+		Serial.println(); //newline
+		Serial.println("Writing lock button to EEPROM...");
+		#endif
+		uint8_t temp;
+		okeeprom_eeget_autolockslot(&temp);
 		if (profilemode) {
 			temp &= 0x0F;
 			temp += (buffer[7] << 4);
@@ -1900,10 +1926,10 @@ case 27:
 	hidprint("Successfully set lock button");
 	break;
 	case 13:
-#ifdef DEBUG
+		#ifdef DEBUG
 		Serial.println(); //newline
 		Serial.println("Writing keyboard type speed to EEPROM...");
-#endif
+		#endif
 
 		if (buffer[7] <= 10)
 		{
@@ -1914,10 +1940,10 @@ case 27:
 		hidprint("Successfully set keyboard typespeed");
 		break;
 	case 14:
-#ifdef DEBUG
+		#ifdef DEBUG
 		Serial.println(); //newline
 		Serial.println("Writing keyboard layout to EEPROM...");
-#endif
+		#endif
 		KeyboardLayout[0] = buffer[7];
 		okeeprom_eeset_keyboardlayout(buffer + 7);
 		update_keyboard_layout();
@@ -1936,101 +1962,97 @@ void wipe_slot(uint8_t *buffer)
 	int slot = buffer[5];
 	int value = buffer[6];
 	char cmd = buffer[4]; //cmd or continuation
-#ifdef DEBUG
+	#ifdef DEBUG
 	Serial.print("OKWIPESLOT MESSAGE RECEIVED:");
 	Serial.println((int)cmd - 0x80, HEX);
 	Serial.print("Wiping Slot #");
 	Serial.println((int)slot, DEC);
 	Serial.print("Value #");
 	Serial.println((int)value, DEC);
-#endif
+	#endif
 
 	memset(buffer, 0, 64);
-#ifdef DEBUG
+	#ifdef DEBUG
 	byteprint(buffer, 64);
 	Serial.print("Overwriting slot with 0s");
-#endif
+	#endif
 	if (value == 10)
 	{
-#ifdef DEBUG
+	#ifdef DEBUG
 		Serial.println(); //newline
 		Serial.print("Wiping OnlyKey AES Key, Private ID, and Public ID...");
-#endif
-	if (slot == 0) {	
+	#endif
 		okeeprom_eeset_aeskey_DEPRICATED(buffer + 7);
 		okeeprom_eeset_private_DEPRICATED(buffer + 7 + EElen_aeskey);
 		okeeprom_eeset_public_DEPRICATED(buffer + 7 + EElen_aeskey + EElen_private);
-	} else if (slot > 0 && slot < 13) {
-		okcore_flashset_yubiotp(buffer + 7, slot);
-		okeeprom_eeset_2FAtype(0, slot); 
-	}
-		yubikey_eeset_counter(buffer + 7, slot);
-		hidprint("Successfully wiped AES Key, Private ID, and Public ID");
 	}
 	else if (slot >= 1 && slot <= 12)
 	{
 		if (profilemode)
 			slot = slot + 12;
-#ifdef DEBUG
+		#ifdef DEBUG
 		Serial.println(); //newline
 		Serial.print("Wiping Label Value...");
-#endif
+		#endif
 		okcore_flashset_label((buffer + 7), slot);
 		hidprint("Successfully wiped Label");
-#ifdef DEBUG
+		#ifdef DEBUG
 		Serial.println(); //newline
 		Serial.print("Wiping URL Value...");
-#endif
+		#endif
 		okcore_flashset_url((buffer + 7), 0, slot);
 		hidprint("Successfully wiped URL");
-#ifdef DEBUG
+		#ifdef DEBUG
 		Serial.println(); //newline
 		Serial.print("Wiping Additional Character1 Value...");
-#endif
+		#endif
 		okeeprom_eeset_addchar((buffer + 7), slot);
 		hidprint("Successfully wiped Additional Characters");
-#ifdef DEBUG
+		#ifdef DEBUG
 		Serial.println(); //newline
 		Serial.print("Writing Delay1 to EEPROM...");
-#endif
+		#endif
 		okeeprom_eeset_delay1((buffer + 7), slot);
 		hidprint("Successfully wiped Delay 1");
-#ifdef DEBUG
+		#ifdef DEBUG
 		Serial.println(); //newline
 		Serial.print("Wiping Username Value...");
-#endif
+		#endif
 		okcore_flashset_username((buffer + 7), 0, slot);
 		hidprint("Successfully wiped Username");
-#ifdef DEBUG
+		#ifdef DEBUG
 		Serial.println(); //newline
 		Serial.print("Writing Delay2 to EEPROM...");
-#endif
+		#endif
 		okeeprom_eeset_delay2((buffer + 7), slot);
 		hidprint("Successfully wiped Delay 2");
-#ifdef DEBUG
+		#ifdef DEBUG
 		Serial.println(); //newline
 		Serial.print("Wiping Password Value...");
-#endif
+		#endif
 		okeeprom_eeset_password((buffer + 7), 0, slot);
 		hidprint("Successfully wiped Password");
-#ifdef DEBUG
+		#ifdef DEBUG
 		Serial.println(); //newline
 		Serial.print("Wiping Delay3 Value...");
-#endif
+		#endif
 		okeeprom_eeset_delay3((buffer + 7), slot);
 		hidprint("Successfully wiped Delay 3");
-#ifdef DEBUG
+		#ifdef DEBUG
 		Serial.println(); //newline
 		Serial.print("Wiping 2FA Type Value...");
-#endif
+		#endif
 		okeeprom_eeset_2FAtype((buffer + 7), slot);
 		hidprint("Successfully wiped 2FA Type");
-#ifdef DEBUG
+		#ifdef DEBUG
 		Serial.println(); //newline
 		Serial.print("Wiping TOTP Key from Flash...");
-#endif
+		#endif
 		okcore_flashset_2fa_key((buffer + 7), 0, slot);
 		hidprint("Successfully wiped TOTP Key");
+ 		okeeprom_eeset_2FAtype(0, slot); 
+		yubikey_eeset_counter(0, slot);
+		hidprint("Successfully wiped AES Key, Private ID, and Public ID");
 	}
 	blink(1);
 	return;
@@ -2121,7 +2143,11 @@ int touch_sense_loop () {
 
 	rngloop(); //Perform regular housekeeping on the random number generator.
 
-	if (touchread1 > (touchread1ref+40)) {
+	if (touchoffset == 0) touchoffset = 12; // DEFAULT
+	//Serial.println("touchoffset");
+	//Serial.println(touchoffset);
+
+	if (touchread1 > (touchread1ref+(touchoffset*10))) {
 		key_off = 0;
 		key_press = 0;
 		key_on += 1;
@@ -2129,7 +2155,7 @@ int touch_sense_loop () {
 		//Serial.println("touchread1");
 		//Serial.println(touchread1);
 	}
-	else if (touchread2 > (touchread2ref+40)) {
+	else if (touchread2 > (touchread2ref+(touchoffset*10))) {
 		key_off = 0;
 		key_press = 0;
 		key_on += 1;
@@ -2137,7 +2163,7 @@ int touch_sense_loop () {
 		//Serial.println("touchread2");
 		//Serial.println(touchread2);
 		if (HW_ID==OK_GO) {
-			if (touchread3 > (touchread3ref+40)) {
+			if (touchread3 > (touchread3ref+(touchoffset*10))) {
 				button_3_on++;
 				button_3_off=0;
 			} else {
@@ -2146,7 +2172,7 @@ int touch_sense_loop () {
 			}
 		}
 	}
-	else if (touchread3 > (touchread3ref+40)) {
+	else if (touchread3 > (touchread3ref+(touchoffset*10))) {
 		key_off = 0;
 		key_press = 0;
 		key_on += 1;
@@ -2154,7 +2180,7 @@ int touch_sense_loop () {
 		//Serial.println("touchread3");
 		//Serial.println(touchread3);
 		if (HW_ID==OK_GO) {
-			if (touchread2 > (touchread2ref+40)) {
+			if (touchread2 > (touchread2ref+(touchoffset*10))) {
 				button_3_on++;
 				button_3_off=0;
 			} else {
@@ -2163,7 +2189,7 @@ int touch_sense_loop () {
 			}
 		}
 	}
-	else if (touchread4 > (touchread4ref+40)) {
+	else if (touchread4 > (touchread4ref+(touchoffset*10))) {
 		key_off = 0;
 		key_press = 0;
 		key_on += 1;
@@ -2171,7 +2197,7 @@ int touch_sense_loop () {
 		//Serial.println("touchread4");
 		//Serial.println(touchread4);
 	}
-	else if (touchread5 > (touchread5ref+40)) {
+	else if (touchread5 > (touchread5ref+(touchoffset*10))) {
 		key_off = 0;
 		key_press = 0;
 		key_on += 1;
@@ -2179,7 +2205,7 @@ int touch_sense_loop () {
 		//Serial.println("touchread5");
 		//Serial.println(touchread5);
 	}
-	else if (touchread6 > (touchread6ref+40)) {
+	else if (touchread6 > (touchread6ref+(touchoffset*10))) {
 		key_off = 0;
 		key_press = 0;
 		key_on += 1;
@@ -4558,10 +4584,6 @@ void okcore_flashget_yubiotp(uint8_t *ptr, uint8_t slot) {
 	okcore_flashget_2fa_key(ptr, slot);
 }
 
-void okcore_flashset_yubiotp(uint8_t *ptr, uint8_t slot) {
-	okcore_flashset_2fa_key(ptr, (16+6+6), slot);
-}
-
 void set_private(uint8_t *buffer)
 {
 	uint8_t backupkeymode = 0;
@@ -4616,10 +4638,11 @@ void wipe_private(uint8_t *buffer)
 	}
 	else
 	{
-		for (int i = 6; i <= 32; i++)
+		for (int i = 6; i <= 38; i++)
 		{
 			buffer[i] = 0x00;
 		}
+
 		ecc_priv_flash(buffer);
 	}
 #endif
@@ -4701,7 +4724,8 @@ void ecc_priv_flash(uint8_t *buffer)
 	uintptr_t adr = (unsigned long)flashstorestart;
 	adr = adr + 14336; //8th free flash sector
 	//Write ID to EEPROM
-	if (buffer[5] < 101 || buffer[5] > 132)
+
+	if (buffer[5] < 101 || buffer[5] > 132 || ((buffer[5] == RESERVED_KEY_DERIVATION || buffer[5] == RESERVED_KEY_WEB_DERIVATION) && configmode == false && initcheck))
 	{
 #ifdef DEBUG
 		Serial.println("Error invalid ECC slot");
@@ -5053,7 +5077,7 @@ int ctap_flash(int index, uint8_t *buffer, int size, uint8_t mode)
 		memset(rsa_private_key, 0, sizeof(rsa_private_key));
 		#ifdef DEBUG
 		Serial.print("CTAP value =");
-		byteprint(buffer, size);
+		//byteprint(buffer, size);
 		#endif
 		return 0;
 	}
@@ -5078,7 +5102,7 @@ int ctap_flash(int index, uint8_t *buffer, int size, uint8_t mode)
 		Serial.print("CTAP address =");
 		Serial.println(adr, HEX);
 		Serial.print("CTAP value =");
-		byteprint(buffer, size);
+		//byteprint(buffer, size);
 		#endif
 		//hidprint("Successfully set CTAP Value");
 	}
@@ -5271,7 +5295,7 @@ void decrement(Task *me)
 				getBuffer[3] = 0x03;
 				getBuffer[4] = 0x03;
 				getBuffer[5] = 0x03;
-				getBuffer[6] = 0x05;
+				getBuffer[6] = may_block;
 				getBuffer[7] = 0x00;
 				getBuffer[8] = 0x00;
 				sess_counter = 3;
@@ -5321,7 +5345,7 @@ void wipetasks() {
 		getBuffer[3] = 3;
 		getBuffer[4] = sess_counter;
 		getBuffer[5] = 3;
-		getBuffer[6] = 5;
+		getBuffer[6] = may_block;
 		getBuffer[7] = 0;
 		getBuffer[8] = 0;
 		memset(setBuffer, 0, 9);
@@ -5549,6 +5573,7 @@ void backup()
 	uint8_t addchar3;
 	uint8_t addchar4;
 	uint8_t addchar5;
+	uint8_t addchar6;
 	uint8_t p2mode;
 	okeeprom_eeget_2ndprofilemode(&p2mode); //get 2nd profile mode
 	large_buffer_offset = 0;
@@ -5623,6 +5648,7 @@ void backup()
 		addchar1 = addchar5 & 0x3;		  //After Username
 		addchar2 = (addchar5 >> 4) & 0x3; //After Password
 		addchar3 = (addchar5 >> 6) & 0x1; //After OTP
+		addchar6 = (addchar5 >> 7) & 0x1; //After OTP 2
 		addchar4 = (addchar5 >> 2) & 0x1; //Before Username
 		addchar5 = (addchar5 >> 3) & 0x1; //Before OTP
 		if (addchar1 > 0)
@@ -5641,12 +5667,12 @@ void backup()
 			large_temp[large_buffer_offset + 3] = addchar2;
 			large_buffer_offset = large_buffer_offset + 4;
 		}
-		if (addchar3 > 0)
+		if (addchar3 > 0 || addchar6 > 0)
 		{
 			large_temp[large_buffer_offset] = 0xFF; //delimiter
 			large_temp[large_buffer_offset + 1] = slot;
 			large_temp[large_buffer_offset + 2] = 6; //6 - Add Char 3
-			large_temp[large_buffer_offset + 3] = addchar3;
+			large_temp[large_buffer_offset + 3] = (addchar3+1) + addchar6;
 			large_buffer_offset = large_buffer_offset + 4;
 		}
 		if (addchar4 > 0)
@@ -5793,17 +5819,22 @@ void backup()
 			okeeprom_eeget_private_DEPRICATED(ptr);
 			ptr = (temp + EElen_public + EElen_private);
 			okeeprom_eeget_aeskey_DEPRICATED(ptr);
+			okcore_aes_gcm_decrypt(temp, 0, 10, profilekey, (EElen_aeskey + EElen_private + EElen_public));
+			large_temp[large_buffer_offset] = 0xFF;   //delimiter
+			large_temp[large_buffer_offset + 1] = 0;  //slot 0
+			large_temp[large_buffer_offset + 2] = 10; //10 = Yubikey
+			memcpy(large_temp + large_buffer_offset + 3, temp, (EElen_aeskey + EElen_private + EElen_public));
+			large_buffer_offset = large_buffer_offset + (EElen_aeskey + EElen_private + EElen_public) + 3;
 		} else if (temp[0] == 89 && slot > 0 && slot < 25) {
 			yubikey_eeget_counter(ctr, slot);
 			okcore_flashget_yubiotp(ptr, slot);
-		}
-			okcore_aes_gcm_decrypt(temp, slot, 10, profilekey, (EElen_aeskey + EElen_private + EElen_public));
+			okcore_aes_gcm_decrypt(temp, slot, 10, profilekey, (EElen_aeskey + EElen_private + 16));
 			large_temp[large_buffer_offset] = 0xFF;   //delimiter
-			if (temp[0] == 121) large_temp[large_buffer_offset + 1] = 0;  //slot 0
-			else if (temp[0] == 89) large_temp[large_buffer_offset + 1] = slot;  //slot 
-			large_temp[large_buffer_offset + 2] = 10; //10 - Yubikey
-			memcpy(large_temp + large_buffer_offset + 3, temp, (EElen_aeskey + EElen_private + EElen_public));
-			large_buffer_offset = large_buffer_offset + (EElen_aeskey + EElen_private + EElen_public) + 3;
+			large_temp[large_buffer_offset + 1] = slot;  //slot
+			large_temp[large_buffer_offset + 2] = 10; //10 = Yubikey
+			memcpy(large_temp + large_buffer_offset + 3, temp, (EElen_aeskey + EElen_private + 16));
+			large_buffer_offset = large_buffer_offset + (EElen_aeskey + EElen_private + 16) + 3; 	
+		}
 			large_temp[large_buffer_offset] = ctr[0];	 //first part of counter
 			large_temp[large_buffer_offset + 1] = ctr[1]; //second part of counter
 			large_buffer_offset = large_buffer_offset + 2;
@@ -6378,10 +6409,16 @@ void RESTORE(uint8_t *buffer)
 				ptr++;
 				if (temp[6] == 10)
 				{ //Yubikey OTP
-					memcpy(temp + 7, ptr, (EElen_aeskey + EElen_private + EElen_public));
-					set_slot(temp);
 					uint8_t ctr[2];
-					ptr = ptr + EElen_aeskey + EElen_private + EElen_public;
+					if (temp[5] == 0) {
+						memcpy(temp + 7, ptr, (EElen_aeskey + EElen_private + EElen_public));
+						set_slot(temp);					
+						ptr = ptr + EElen_aeskey + EElen_private + EElen_public;
+					} else {
+						memcpy(temp + 7, ptr, (EElen_aeskey + EElen_private + 16));
+						set_slot(temp);
+						ptr = ptr + EElen_aeskey + EElen_private + 16;
+					}
 					ctr[0] = *ptr;
 					ptr++;
 					ctr[1] = *ptr;
@@ -6813,13 +6850,14 @@ void process_setreport()
 	Serial.println("Received USB Keyboard Packets");
 	byteprint(keyboard_buffer, KEYBOARD_BUFFER_SIZE);
 #endif
+	uint8_t temp[64];
 
-	//if (initialized && !unlocked) {
-	//	hidprint("INITIALIZED");
-	//	memset(keyboard_buffer, 0, KEYBOARD_BUFFER_SIZE);
-	//	memset(setBuffer, 0, 9);
-	//	return;
-	//}
+	if (initialized && !unlocked) {
+		memset(keyboard_buffer, 0, KEYBOARD_BUFFER_SIZE);
+		memset(setBuffer, 0, 9);
+		getBuffer[7] = 0;
+		return;
+	}
 
 	uint8_t *ptr;
 	uint8_t index = 0;
@@ -6827,96 +6865,152 @@ void process_setreport()
 
 	if (keyboard_buffer[64] >= 1 && keyboard_buffer[64] < 14 && initialized && unlocked)
 	{ 
-		uint8_t slot = keyboard_buffer[64];
-		if (slot < 3) slot = 1;
-		else slot = slot - 1;
-		if (keyboard_buffer[45] == 5 || keyboard_buffer[45] == 0) { // Request to write or wipe
-			getBuffer[5] = 0;
-			getBuffer[7] = 0x89;
-			memset(setBuffer, 0, 9);
-			extern int check_crc(uint8_t * buffer);
-			if (!check_crc(keyboard_buffer) || CRYPTO_AUTH)
+		if (profilemode != NONENCRYPTEDPROFILE)
 			{
+			#ifdef STD_VERSION
+			uint8_t slot = keyboard_buffer[64];
+			if (slot < 3) slot = 1;
+			else slot = slot - 1;
+			if (keyboard_buffer[45] == 5 || keyboard_buffer[45] == 0) { // Request to write or wipe
+				getBuffer[5] = 0;
+				getBuffer[7] = 0x89;
+				memset(setBuffer, 0, 9);
+				extern int check_crc(uint8_t * buffer);
+				if (!check_crc(keyboard_buffer) || CRYPTO_AUTH)
+				{
+					memset(keyboard_buffer, 0, KEYBOARD_BUFFER_SIZE);
+					return;
+				}
+				outputmode=RAW_USB;
+				if (keyboard_buffer[46] == 0x60 || keyboard_buffer[46] == 0x40) { // Set HMAC Key
+					memmove(recv_buffer+23, keyboard_buffer+16, 4);
+					memmove(recv_buffer+7, keyboard_buffer+22, 16); // HMAC key split for some reason
+					memset(recv_buffer+27, 0, 37);
+					recv_buffer[4] = OKSETPRIV;
+					if (keyboard_buffer[64] == 1) recv_buffer[5] = RESERVED_KEY_HMACSHA1_1;
+					else recv_buffer[5] = RESERVED_KEY_HMACSHA1_2;
+					recv_buffer[6] = 9;
+					byteprint(recv_buffer,64);
+					if (recv_buffer[7]+recv_buffer[8]+recv_buffer[9]+recv_buffer[10]+recv_buffer[11] == 0) {
+						// Wipe CR slot
+						temp[5] = recv_buffer[5];
+						okeeprom_eeset_hmac_challengemode(0); // Reset to default both slots require button press
+						wipe_private(temp);
+						Serial.println("wiping");
+						Serial.println(recv_buffer[5]);
+					}
+					else {
+						uint8_t mode = 0;	
+						uint8_t KEYtype = 0;		
+						// Authlite requires no press required
+						// Get current mode
+						okeeprom_eeget_hmac_challengemode(&mode); 
+						delay(100);
+						Serial.println("MODE");
+						Serial.println(mode);
+						if (mode==1) { // Both CR slots already require no button press
+						} else if (mode==recv_buffer[5]) { // Only current CR slot already require no button press
+						} else if (mode) { // Only NOT current CR slot already require no button press
+							mode = 1; // Now Both CR slots require no button press
+						} else { // Niether CR slot already require no button press
+							mode = recv_buffer[5]; // Now current CR slot require no button press
+						}
+
+						set_private(recv_buffer);
+
+						// Check if private set successfully
+						if (keyboard_buffer[64] == 1) {
+							okeeprom_eeget_ecckey(&KEYtype, RESERVED_KEY_HMACSHA1_1); //Key Type (1-4) and slot (101-132)
+						}
+						else {
+							okeeprom_eeget_ecckey(&KEYtype, RESERVED_KEY_HMACSHA1_2); //Key Type (1-4) and slot (101-132)
+						}
+						Serial.println("TYPE");
+						Serial.println(KEYtype);
+						// If private set, write challenge mode
+						if (KEYtype == 9) {
+							okeeprom_eeset_hmac_challengemode(&mode); 	
+						} else {
+							// Return CR error?
+						}
+					}
+					sess_counter++;
+				} else if ((keyboard_buffer[46] == 0 && keyboard_buffer[44]) || keyboard_buffer[46] == TKTFLAG_APPEND_CR || keyboard_buffer[46] == TKTFLAG_APPEND_DELAY2 || keyboard_buffer[46] == TKTFLAG_APPEND_DELAY1 || keyboard_buffer[46] == TKTFLAG_APPEND_TAB2 || keyboard_buffer[46] == TKTFLAG_APPEND_TAB1 || keyboard_buffer[46] == TKTFLAG_TAB_FIRST) { // Set Yubi OTP Key
+					recv_buffer[4] = OKSETSLOT;
+					// Pacing
+					if (keyboard_buffer[47] == CFGFLAG_PACING_10MS) {
+						Serial.println("CFGFLAG_PACING_10MS");
+						// set speed to medium
+						TYPESPEED[0] = 2;
+						okeeprom_eeset_typespeed((uint8_t*)TYPESPEED);
+					} else if (keyboard_buffer[47] == CFGFLAG_PACING_20MS) {
+						Serial.println("CFGFLAG_PACING_20MS");
+						// set speed to slow
+						TYPESPEED[0] = 4;
+						okeeprom_eeset_typespeed((uint8_t*)TYPESPEED);
+					} else {
+						// set speed to fast
+						TYPESPEED[0] = 1;
+						okeeprom_eeset_typespeed((uint8_t*)TYPESPEED);
+					}
+					// After OTP
+					uint8_t temp;
+					uint8_t temp2;
+					uint8_t mask;
+					uint8_t addcharslot = slot;
+					if (profilemode)
+						addcharslot = addcharslot + 12;
+					if (keyboard_buffer[46] == 0x04) {
+						Serial.println("TAB");
+						okeeprom_eeget_addchar(&temp, addcharslot);
+						mask = 0b11000000;
+						temp2 = 1 << 7;
+						temp2 = (temp & ~mask) | (temp2 & mask);
+						okeeprom_eeset_addchar(&temp2, addcharslot);
+					} else if (keyboard_buffer[46] == 0x20) {
+						Serial.println("ENTER");
+						okeeprom_eeget_addchar(&temp, addcharslot);
+						mask = 0b11000000;
+						temp2 = 1 << 6;
+						temp2 = (temp & ~mask) | (temp2 & mask);
+						okeeprom_eeset_addchar(&temp2, addcharslot);
+					} else {
+						//No after otp
+						Serial.println("NONE");
+						okeeprom_eeget_addchar(&temp, addcharslot);
+						mask = 0b11000000;
+						temp2 = 0;
+						temp2 = (temp & ~mask) | (temp2 & mask);
+						okeeprom_eeset_addchar(&temp2, addcharslot);
+					}
+					recv_buffer[5] = slot; //OTP_SLOT_1 - OTP_SLOT_12
+					recv_buffer[6] = 10;
+					memmove(recv_buffer+7, keyboard_buffer, 16); //Public
+					memmove(recv_buffer+7 + 16, keyboard_buffer+16, 6); //Private
+					memmove(recv_buffer+7 + 22, keyboard_buffer+22, 16); //Secret			
+					memset(recv_buffer+46, 0, 18);
+					byteprint(recv_buffer,64);
+					if (recv_buffer[7]+recv_buffer[8]+recv_buffer[9]+recv_buffer[10]+recv_buffer[11] == 0) {
+						wipe_slot(recv_buffer);
+						okeeprom_eeget_addchar(&temp, addcharslot);
+						mask = 0b11000000;
+						temp2 = 0;
+						temp2 = (temp & ~mask) | (temp2 & mask);
+						okeeprom_eeset_addchar(&temp2, addcharslot);
+					}
+					else recvmsg(1);
+					sess_counter++;
+				} 
+				getBuffer[4] = sess_counter;
+				getBuffer[5] = 3;
+				getBuffer[7] = 0;
+				Serial.println("After getBuffer");
+				byteprint(getBuffer, 8);
 				memset(keyboard_buffer, 0, KEYBOARD_BUFFER_SIZE);
+				memset(recv_buffer, 0, sizeof(recv_buffer));
 				return;
 			}
-			outputmode=RAW_USB;
-			if (keyboard_buffer[46] == 0x60 || keyboard_buffer[46] == 0x40) { // Set HMAC Key
-				memmove(recv_buffer+23, keyboard_buffer+16, 4);
-				memmove(recv_buffer+7, keyboard_buffer+22, 16); // HMAC key split for some reason
-				memset(recv_buffer+27, 0, 37);
-				recv_buffer[4] = OKSETPRIV;
-				if (keyboard_buffer[64] == 1) recv_buffer[5] = RESERVED_KEY_HMACSHA1_1;
-				else recv_buffer[5] = RESERVED_KEY_HMACSHA1_2;
-				recv_buffer[6] = 9;
-				byteprint(recv_buffer,64);
-				if (recv_buffer[7]+recv_buffer[8]+recv_buffer[9]+recv_buffer[10]+recv_buffer[11] == 0) wipe_private(recv_buffer); 
-				else set_private(recv_buffer); 
-				sess_counter++;
-			} else if ((keyboard_buffer[46] == 0 && keyboard_buffer[44]) || keyboard_buffer[46] == TKTFLAG_APPEND_CR || keyboard_buffer[46] == TKTFLAG_APPEND_DELAY2 || keyboard_buffer[46] == TKTFLAG_APPEND_DELAY1 || keyboard_buffer[46] == TKTFLAG_APPEND_TAB2 || keyboard_buffer[46] == TKTFLAG_APPEND_TAB1 || keyboard_buffer[46] == TKTFLAG_TAB_FIRST) { // Set Yubi OTP Key
-				recv_buffer[4] = OKSETSLOT;
-				// Pacing
-				if (keyboard_buffer[47] == CFGFLAG_PACING_10MS) {
-					Serial.println("CFGFLAG_PACING_10MS");
-					// set speed to medium
-					TYPESPEED[0] = 2;
-					okeeprom_eeset_typespeed((uint8_t*)TYPESPEED);
-				} else if (keyboard_buffer[47] == CFGFLAG_PACING_20MS) {
-					Serial.println("CFGFLAG_PACING_20MS");
-					// set speed to slow
-					TYPESPEED[0] = 4;
-					okeeprom_eeset_typespeed((uint8_t*)TYPESPEED);
-				} else {
-					//No pacing, set speed to fast
-					TYPESPEED[0] = 1;
-					okeeprom_eeset_typespeed((uint8_t*)TYPESPEED);
-				}
-				// After OTP
-				uint8_t temp;
-				uint8_t temp2;
-				uint8_t mask;
-				if (keyboard_buffer[46] == 0x04) {
-					Serial.println("TAB");
-					okeeprom_eeget_addchar(&temp, slot);
-					mask = 0b11000000;
-					temp2 = 1 << 7;
-					temp2 = (temp & ~mask) | (temp2 & mask);
-					okeeprom_eeset_addchar(&temp2, slot);
-				} else if (keyboard_buffer[46] == 0x20) {
-					Serial.println("ENTER");
-					okeeprom_eeget_addchar(&temp, slot);
-					mask = 0b11000000;
-					temp2 = 1 << 6;
-					temp2 = (temp & ~mask) | (temp2 & mask);
-					okeeprom_eeset_addchar(&temp2, slot);
-				} else {
-					//No after otp
-					Serial.println("NONE");
-					okeeprom_eeget_addchar(&temp, slot);
-					mask = 0b11000000;
-					temp2 = 0;
-					temp2 = (temp & ~mask) | (temp2 & mask);
-					okeeprom_eeset_addchar(&temp2, slot);
-				}
-				recv_buffer[5] = slot; //OTP_SLOT_1 - OTP_SLOT_12
-				recv_buffer[6] = 10;
-				memmove(recv_buffer+7, keyboard_buffer, 16); //Public
-				memmove(recv_buffer+7 + 16, keyboard_buffer+16, 6); //Private
-				memmove(recv_buffer+7 + 22, keyboard_buffer+22, 16); //Secret			
-				memset(recv_buffer+46, 0, 18);
-				byteprint(recv_buffer,64);
-				if (recv_buffer[7]+recv_buffer[8]+recv_buffer[9]+recv_buffer[10]+recv_buffer[11] == 0) wipe_slot(recv_buffer);
-				else recvmsg(1);
-				sess_counter++;
-			} 
-			getBuffer[4] = sess_counter;
-			getBuffer[5] = 3;
-			getBuffer[7] = 0;
-			Serial.println("After getBuffer");
-			byteprint(getBuffer, 8);
-			memset(keyboard_buffer, 0, KEYBOARD_BUFFER_SIZE);
-			memset(recv_buffer, 0, sizeof(recv_buffer));
-			return;
+		#endif
 		}
 	}
 
@@ -6944,12 +7038,16 @@ void process_setreport()
 			Serial.println("Received HMACSHA1 Message");
 			#endif
 			uint8_t hmac_challenge_disabled = 0;
+			uint8_t crslot = RESERVED_KEY_HMACSHA1_1;
+			if ((keyboard_buffer[64] & 0x0f) == 0x08 ) { //HMAC Slot 2 selected, 0x08 for slot 2, 0x00 for slot 1
+				crslot = RESERVED_KEY_HMACSHA1_2;
+			}
 			okeeprom_eeget_hmac_challengemode(&hmac_challenge_disabled);
 			#ifdef DEBUG
 			Serial.println("Challenge Disabled");
 			Serial.println(hmac_challenge_disabled);
 			#endif
-			if (hmac_challenge_disabled) { // 0 = Default physical presence required, 1 = No physical presence required for HMAC
+			if (hmac_challenge_disabled == 1 || hmac_challenge_disabled == crslot) { // 0 = Default physical presence required, 1 = No physical presence required for HMAC
 				CRYPTO_AUTH = 4;
 				okcrypto_hmacsha1();
 				CRYPTO_AUTH = 0;

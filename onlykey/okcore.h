@@ -292,7 +292,6 @@ extern void okcore_flashget_common (uint8_t *ptr, unsigned long *adr, int len);
 extern void okcore_flashsector(uint8_t *ptr, unsigned long *adr, int len);
 extern int okcore_flashget_2fa_key (uint8_t *ptr, int slot);
 extern void okcore_flashset_2fa_key (uint8_t *ptr, int size, int slot);
-extern void okcore_flashset_yubiotp(uint8_t *ptr, uint8_t slot);
 extern void okcore_flashget_yubiotp(uint8_t *ptr, uint8_t slot);
 extern int okcore_flashget_username (uint8_t *ptr, int slot);
 extern void okcore_flashset_username (uint8_t *ptr, int size, int slot);

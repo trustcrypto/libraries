@@ -222,6 +222,15 @@ void okeeprom_eeset_ledbrightness (uint8_t *ptr) {
 }
 /*********************************/
 /*********************************/
+int okeeprom_eeget_touchoffset (uint8_t *ptr) {
+    okeeprom_eeget_common(ptr, EEpos_touchoffset, EElen_touchoffset);
+    return EElen_ledbrightness;
+}
+void okeeprom_eeset_touchoffset (uint8_t *ptr) {
+    okeeprom_eeset_common(ptr, EEpos_touchoffset, EElen_touchoffset);
+}
+/*********************************/
+/*********************************/
 int okeeprom_eeget_autolockslot (uint8_t *ptr) {
     okeeprom_eeget_common(ptr, EEpos_autolockslot, EElen_autolockslot);
     return EElen_autolockslot;

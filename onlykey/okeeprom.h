@@ -126,6 +126,7 @@ extern "C"
 #define EElen_typespeed	1
 #define EElen_keyboardlayout	1
 #define EElen_ledbrightness	1
+#define EElen_touchoffset	1
 #define EElen_autolockslot	1
 #define EElen_ecckey	1
 #define EElen_rsakey	1
@@ -453,6 +454,7 @@ extern "C"
 #define EEpos_hmac_challengemode	(EEpos_ctap_authstate + EElen_ctap_authstate)
 #define EEpos_modkey	(EEpos_hmac_challengemode + EElen_hmac_challengemode)
 #define EEpos_yubicounterpart (EEpos_modkey + EElen_modkey)
+#define EEpos_touchoffset (EEpos_yubicounterpart + EElen_yubicounterpart)
 
 extern int  okeeprom_eeget_ctap_authstate (uint8_t *ptr);
 extern void okeeprom_eeset_ctap_authstate(uint8_t *ptr);
@@ -492,6 +494,9 @@ extern void okeeprom_eeset_keyboardlayout(uint8_t *ptr);
 
 extern int  okeeprom_eeget_ledbrightness (uint8_t *ptr);
 extern void okeeprom_eeset_ledbrightness (uint8_t *ptr);
+
+extern int  okeeprom_eeget_touchoffset (uint8_t *ptr);
+extern void okeeprom_eeset_touchoffset (uint8_t *ptr);
 
 extern int  okeeprom_eeget_autolockslot (uint8_t *ptr);
 extern void okeeprom_eeset_autolockslot (uint8_t *ptr);

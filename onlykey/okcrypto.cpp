@@ -706,7 +706,7 @@ void okcrypto_hmacsha1 () {
 		} else {
 			okcore_flashget_ECC (RESERVED_KEY_HMACSHA1_1); //ECC slot 130 reserved for HMAC Slot 1 key
 		}
-		if (type == 0) { //Generate a key using the default key in slot 130 if there is no key set
+		if (type == 0) { //Generate a key using the default key in slot 132 if there is no key set
 		 	// Derive key from SHA256 hash of default key and added data temp
 			for(int i=0; i<32; i++) {
 				temp[i] = i + (keyboard_buffer[64] & 0x0f);
@@ -718,12 +718,14 @@ void okcrypto_hmacsha1 () {
 		// Any challenge less than 16 bytes in size is treated as 16 bytes, this means response will be different than Yubikey response
 		if (keyboard_buffer[57] == 0x20 && keyboard_buffer[58] == 0x20 && keyboard_buffer[59] == 0x20 && keyboard_buffer[60] == 0x20 && keyboard_buffer[61] == 0x20 && keyboard_buffer[62] == 0x20 && keyboard_buffer[63] == 0x20) {
 			inputlen = 32; //KeepassXC uses 0x20 for empty buffer
-		} else if (keyboard_buffer[16] == 0 && keyboard_buffer[17] == 0 && keyboard_buffer[18] == 0 && keyboard_buffer[19] == 0 && keyboard_buffer[20] == 0 && keyboard_buffer[21] == 0 && keyboard_buffer[22] == 0) {
-			inputlen = 16; 
-		} else if (keyboard_buffer[57] == 0 && keyboard_buffer[58] == 0 && keyboard_buffer[59] == 0 && keyboard_buffer[60] == 0 && keyboard_buffer[61] == 0 && keyboard_buffer[62] == 0 && keyboard_buffer[63] == 0) {
-			inputlen = 32; //YubiKey personalization tool uses 0 for empty buffer
 		} else {
-			inputlen = 64;
+			int i;
+			for (i = 63; i >= 15; i--) {
+				if (keyboard_buffer[i] != 0) { //YubiKey personalization tool uses 0 for empty buffer
+					break;
+				}	
+			}
+			inputlen = i+1;
 		}
 		#ifdef DEBUG
 		Serial.print("HMACSHA1 Input = ");
