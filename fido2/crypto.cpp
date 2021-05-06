@@ -11,7 +11,7 @@
  *  defining EXTERNAL_SOLO_CRYPTO
  *
  * */
-#ifndef EXTERNAL_SOLO_CRYPTO
+//#ifndef EXTERNAL_SOLO_CRYPTO
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -33,6 +33,7 @@
 #include "log.h"
 #include "ctap.h"
 #include "okcrypto.h"
+#ifdef STD_VERSION
 // OnlyKey required change end
 
 
@@ -520,7 +521,9 @@ uint8_t attestation_key[33] = "\x11\xc5\xd7\xe3\x2b\xd5\x64\x2d\xf8\x1c\xea\x3b\
 
 uint16_t attestation_key_size = sizeof(attestation_key)-1;
 
-#else
-#error "No crypto implementation defined"
+//#else
+//#error "No crypto implementation defined"
 // OnlyKey required change end
+//#endif
+
 #endif

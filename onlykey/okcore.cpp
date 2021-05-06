@@ -1737,7 +1737,6 @@ void set_slot(uint8_t *buffer)
 			} else if (slot > 0 && slot < 25) {
 				okcore_aes_gcm_encrypt((buffer + 7), slot, value, profilekey, (16+EElen_private+EElen_aeskey));	
 				okcore_flashset_2fa_key(buffer + 7, (16+EElen_private+EElen_aeskey), slot);
-				Serial.print("Setting okeeprom_eeset_2FAtype");
 				uint8_t type = 'Y'; //89
 				okeeprom_eeset_2FAtype(&type, slot); 
 			}
@@ -5201,21 +5200,13 @@ int yubikeysim(char *ptr, uint8_t slot)
 	#ifdef STD_VERSION
 	uint8_t ctr[2];
 	yubikeyinit(slot);
-	Serial.println("Yubikey counter before");
-	Serial.println(ctx.counter);
-	Serial.println("Yubikey usage before");
-	Serial.println(ctx.usage);
 	yubikey_incr_counter(&ctx, slot);
 	ctr[0] = ctx.counter >> 8 & 0xFF;
 	ctr[1] = ctx.counter & 0xFF;
 	yubikey_eeset_counter(ctr, slot);
 	yubikey_simulate1(ptr, &ctx);
-	Serial.println("Yubikey counter after");
-	Serial.println(ctx.counter);
-	Serial.println("Yubikey usage after");
-	Serial.println(ctx.usage);
-	#endif
 	return ctx.publen;
+	#endif
 }
 /*************************************/
 //Increment Yubico timestamp
@@ -6896,8 +6887,6 @@ void process_setreport()
 						temp[5] = recv_buffer[5];
 						okeeprom_eeset_hmac_challengemode(0); // Reset to default both slots require button press
 						wipe_private(temp);
-						Serial.println("wiping");
-						Serial.println(recv_buffer[5]);
 					}
 					else {
 						uint8_t mode = 0;	
@@ -6906,8 +6895,6 @@ void process_setreport()
 						// Get current mode
 						okeeprom_eeget_hmac_challengemode(&mode); 
 						delay(100);
-						Serial.println("MODE");
-						Serial.println(mode);
 						if (mode==1) { // Both CR slots already require no button press
 						} else if (mode==recv_buffer[5]) { // Only current CR slot already require no button press
 						} else if (mode) { // Only NOT current CR slot already require no button press
@@ -6925,8 +6912,6 @@ void process_setreport()
 						else {
 							okeeprom_eeget_ecckey(&KEYtype, RESERVED_KEY_HMACSHA1_2); //Key Type (1-4) and slot (101-132)
 						}
-						Serial.println("TYPE");
-						Serial.println(KEYtype);
 						// If private set, write challenge mode
 						if (KEYtype == 9) {
 							okeeprom_eeset_hmac_challengemode(&mode); 	
@@ -6939,12 +6924,11 @@ void process_setreport()
 					recv_buffer[4] = OKSETSLOT;
 					// Pacing
 					if (keyboard_buffer[47] == CFGFLAG_PACING_10MS) {
-						Serial.println("CFGFLAG_PACING_10MS");
+		
 						// set speed to medium
 						TYPESPEED[0] = 2;
 						okeeprom_eeset_typespeed((uint8_t*)TYPESPEED);
 					} else if (keyboard_buffer[47] == CFGFLAG_PACING_20MS) {
-						Serial.println("CFGFLAG_PACING_20MS");
 						// set speed to slow
 						TYPESPEED[0] = 4;
 						okeeprom_eeset_typespeed((uint8_t*)TYPESPEED);
@@ -6961,14 +6945,12 @@ void process_setreport()
 					if (profilemode)
 						addcharslot = addcharslot + 12;
 					if (keyboard_buffer[46] == 0x04) {
-						Serial.println("TAB");
 						okeeprom_eeget_addchar(&temp, addcharslot);
 						mask = 0b11000000;
 						temp2 = 1 << 7;
 						temp2 = (temp & ~mask) | (temp2 & mask);
 						okeeprom_eeset_addchar(&temp2, addcharslot);
 					} else if (keyboard_buffer[46] == 0x20) {
-						Serial.println("ENTER");
 						okeeprom_eeget_addchar(&temp, addcharslot);
 						mask = 0b11000000;
 						temp2 = 1 << 6;
@@ -6976,7 +6958,6 @@ void process_setreport()
 						okeeprom_eeset_addchar(&temp2, addcharslot);
 					} else {
 						//No after otp
-						Serial.println("NONE");
 						okeeprom_eeget_addchar(&temp, addcharslot);
 						mask = 0b11000000;
 						temp2 = 0;
@@ -7004,7 +6985,6 @@ void process_setreport()
 				getBuffer[4] = sess_counter;
 				getBuffer[5] = 3;
 				getBuffer[7] = 0;
-				Serial.println("After getBuffer");
 				byteprint(getBuffer, 8);
 				memset(keyboard_buffer, 0, KEYBOARD_BUFFER_SIZE);
 				memset(recv_buffer, 0, sizeof(recv_buffer));
@@ -7062,7 +7042,7 @@ void process_setreport()
 			}
 			#endif
 		}
-	} else if (keyboard_buffer[64] == 0x20 || keyboard_buffer[64] == 0x28 && initialized && unlocked)
+	} else if ((keyboard_buffer[64] == 0x20 || keyboard_buffer[64] == 0x28) && initialized && unlocked)
 	{ //Yubi OTP}
 		if (profilemode != NONENCRYPTEDPROFILE)
 			{
