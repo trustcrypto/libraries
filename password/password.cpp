@@ -118,7 +118,7 @@ bool Password::profile1hashevaluate(){
 	extern uint8_t Profile_Offset;
 	size_t guesslen = strlen(guess);
 
-	if (HW_ID==OK_GO) {
+	if (HW_ID==OK_DUO) {
 		if (Profile_Offset==1) { //switch from profile 1 to profile 2
 			Profile_Offset=0;
 			return false; 
@@ -285,7 +285,7 @@ bool Password::profile2hashevaluate(){
 	extern uint8_t Profile_Offset;
 	size_t guesslen = strlen(guess);
 
-	if (HW_ID==OK_GO) {
+	if (HW_ID==OK_DUO) {
 		if (guesslen==0) {
 			// check if default PIN is set (chip ID)
 			guesslen=16;

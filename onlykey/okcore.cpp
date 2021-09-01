@@ -442,7 +442,7 @@ void recvmsg(int n)
 			{
 				hidprint("Error not in config mode, hold button 6 down for 5 sec");
 			}
-			else if (recv_buffer[6] > 0x80 && HW_ID == OK_GO && initialized == false) { // App Setup of backup key, no pin
+			else if (recv_buffer[6] > 0x80 && HW_ID == OK_DUO && initialized == false) { // App Setup of backup key, no pin
 				memcpy(large_buffer, recv_buffer, 64);
 				set_built_in_pin();
 				set_private(large_buffer);
@@ -467,7 +467,7 @@ void recvmsg(int n)
 				if (profilemode != NONENCRYPTEDPROFILE)
 				{
 					#ifdef STD_VERSION
-					wipe_private(recv_buffer);
+					wipe_private(recv_buffer, true);
 					#endif
 				}
 			}
@@ -750,7 +750,7 @@ void okcore_quick_setup(uint8_t step)
 		sha256_update(&hash, buffer + 7, 27);
 		sha256_final(&hash, buffer + 7);
 		set_private(buffer); //set backup ECC key
-		if (HW_ID!=OK_GO) keytype("To start using OnlyKey enter your primary or secondary PIN on the OnlyKey 6 button keypad");
+		if (HW_ID!=OK_DUO) keytype("To start using OnlyKey enter your primary or secondary PIN on the OnlyKey 6 button keypad");
 		keytype("OnlyKey is ready for use as a security key (FIDO2/U2F) and for challenge-response");
 		keytype("For additional features such as password management install the OnlyKey desktop app");
 		keytype("https://onlykey.io/app ");
@@ -896,7 +896,7 @@ void set_primary_pin(uint8_t *buffer, uint8_t keyboard_mode)
 				SHA256_CTX pinhash;
 				sha256_init(&pinhash);
 				if (keyboard_mode == KEYBOARD_AUTO_PIN_SET) {
-					if (HW_ID==OK_GO) memcpy(password.guess, (ID+18), 16);
+					if (HW_ID==OK_DUO) memcpy(password.guess, (ID+18), 16);
 					else memcpy(password.guess, buffer, 7);
 				} else if (keyboard_mode == SETUP_MANUAL) {
 					memcpy(password.guess, buffer, 16);
@@ -1197,7 +1197,7 @@ void set_secondary_pin(uint8_t *buffer, uint8_t keyboard_mode)
 				SHA256_CTX pinhash;
 				sha256_init(&pinhash);
 				if (keyboard_mode == KEYBOARD_AUTO_PIN_SET) {
-					if (HW_ID==OK_GO) memcpy(password.guess, (ID+19), 16);
+					if (HW_ID==OK_DUO) memcpy(password.guess, (ID+19), 16);
 					else memcpy(password.guess, buffer, 7);
 				} else if (keyboard_mode == SETUP_MANUAL) {
 					memcpy(password.guess, buffer, 16);
@@ -1705,19 +1705,24 @@ void set_slot(uint8_t *buffer)
 	case 9:
 		//Encrypt and Set value in EEPROM
 		#ifdef DEBUG
-		Serial.println("Writing TOTP Key to Flash...");
+		Serial.println("Writing 2FA Key to Flash...");
 		Serial.println("Unencrypted");
 		byteprint(buffer + 7, 32);
 		Serial.println();
 		#endif
-		okcore_aes_gcm_encrypt((buffer + 7), slot, value, profilekey, length);
+		okeeprom_eeget_2FAtype(&temp, slot);
+		if (temp == MFAYUBIOTP || temp == MFAHMACSHA1 || temp == MFAYUBIOTPandHMACSHA1) {
+			okcore_aes_gcm_encrypt((buffer + 7), slot, 10, profilekey, length);
+		} else {
+			okcore_aes_gcm_encrypt((buffer + 7), slot, value, profilekey, length);
+		}
 		#ifdef DEBUG
 		Serial.println("Encrypted");
 		byteprint(buffer + 7, 64);
 		Serial.println();
 		#endif
 		okcore_flashset_2fa_key(buffer + 7, length, slot);
-		hidprint("Successfully set TOTP Key");
+		hidprint("Successfully set 2FA Key");
 		break;
 	case 10:
 		if (mode != NONENCRYPTEDPROFILE)
@@ -1975,7 +1980,7 @@ void wipe_slot(uint8_t *buffer)
 	byteprint(buffer, 64);
 	Serial.print("Overwriting slot with 0s");
 	#endif
-	if (value == 10)
+	if (value == 10 && slot == 0)
 	{
 	#ifdef DEBUG
 		Serial.println(); //newline
@@ -2045,13 +2050,12 @@ void wipe_slot(uint8_t *buffer)
 		hidprint("Successfully wiped 2FA Type");
 		#ifdef DEBUG
 		Serial.println(); //newline
-		Serial.print("Wiping TOTP Key from Flash...");
+		Serial.print("Wiping 2FA Key from Flash...");
 		#endif
 		okcore_flashset_2fa_key((buffer + 7), 0, slot);
-		hidprint("Successfully wiped TOTP Key");
+		hidprint("Successfully wiped 2FA Key");
  		okeeprom_eeset_2FAtype(0, slot); 
 		yubikey_eeset_counter(0, slot);
-		hidprint("Successfully wiped AES Key, Private ID, and Public ID");
 	}
 	blink(1);
 	return;
@@ -2161,7 +2165,7 @@ int touch_sense_loop () {
 		button_selected = '2';
 		//Serial.println("touchread2");
 		//Serial.println(touchread2);
-		if (HW_ID==OK_GO) {
+		if (HW_ID==OK_DUO) {
 			if (touchread3 > (touchread3ref+(touchoffset*10))) {
 				button_3_on++;
 				button_3_off=0;
@@ -2178,7 +2182,7 @@ int touch_sense_loop () {
 		button_selected = '1';
 		//Serial.println("touchread3");
 		//Serial.println(touchread3);
-		if (HW_ID==OK_GO) {
+		if (HW_ID==OK_DUO) {
 			if (touchread2 > (touchread2ref+(touchoffset*10))) {
 				button_3_on++;
 				button_3_off=0;
@@ -2238,7 +2242,7 @@ int touch_sense_loop () {
 	}
 
 	if ((key_press > 0) && (key_off > 2)) {
-		if (HW_ID==OK_GO && button_3_on) button_selected = '3';
+		if (HW_ID==OK_DUO && button_3_on) button_selected = '3';
 		button_3_on = 0;
 		button_3_off = 0;
 		key_on = 0;
@@ -2275,7 +2279,7 @@ void rngloop()
 	// Two bytes, 2 credits
 	RNG.stir((uint8_t *)&analog1, 2, 2);
 	touchread1 = touchRead(TOUCHPIN1);
-	if(HW_ID==OK_GO) {
+	if(HW_ID==OK_DUO) {
 		touchread2 = touchRead(TOUCHPIN5);
 		touchread5 = touchRead(TOUCHPIN2);
 	} else {
@@ -4581,6 +4585,18 @@ void okcore_flashset_2fa_key(uint8_t *ptr, int size, int slot)
 
 void okcore_flashget_yubiotp(uint8_t *ptr, uint8_t slot) {
 	okcore_flashget_2fa_key(ptr, slot);
+	memset(ptr+38, 0, 26);
+}
+
+void okcore_flashget_hmac(uint8_t *ptr, uint8_t slot) {
+	okeeprom_eeget_2FAtype(&type, slot);
+	if (type == MFAHMACSHA1 || type == MFAYUBIOTPandHMACSHA1) {
+		okcore_flashget_2fa_key(ptr, slot);
+		memmove(ptr, ptr+44, 20);
+		memset(ptr+20, 0, 44);
+		okcore_aes_gcm_decrypt(ptr, slot, 10, profilekey, 20);
+		type = KEYTYPE_HMACSHA1;
+	}
 }
 
 void set_private(uint8_t *buffer)
@@ -4599,7 +4615,7 @@ void set_private(uint8_t *buffer)
 	Serial.print("Profile Key "); 
 	byteprint(profilekey, 32);
 	#endif
-	if ((buffer[6] > 0x80 && backupkeymode && initcheck) || ((backupkeymode || HW_ID==OK_GO) && backupkeyslot == buffer[5] && initcheck))
+	if ((buffer[6] > 0x80 && backupkeymode && initcheck) || ((backupkeymode || HW_ID==OK_DUO) && backupkeyslot == buffer[5] && initcheck))
 	{
 		hidprint("Error backup key mode set to locked");
 		integrityctr1++;
@@ -4626,14 +4642,14 @@ void set_private(uint8_t *buffer)
 #endif
 }
 
-void wipe_private(uint8_t *buffer)
+void wipe_private(uint8_t *buffer, bool response)
 {
 	if (profilemode == NONENCRYPTEDPROFILE)
 		return;
 #ifdef STD_VERSION
 	if (buffer[5] <= 4 && buffer[5] >= 1)
 	{
-		rsa_priv_flash(buffer, true);
+		rsa_priv_flash(buffer, response);
 	}
 	else
 	{
@@ -4642,7 +4658,7 @@ void wipe_private(uint8_t *buffer)
 			buffer[i] = 0x00;
 		}
 
-		ecc_priv_flash(buffer);
+		ecc_priv_flash(buffer, response);
 	}
 #endif
 }
@@ -4711,7 +4727,7 @@ int okcore_flashget_ECC(uint8_t slot)
 	return 0;
 }
 
-void ecc_priv_flash(uint8_t *buffer)
+void ecc_priv_flash(uint8_t *buffer, bool wipe)
 {
 
 	if (profilemode == NONENCRYPTEDPROFILE)
@@ -4788,8 +4804,11 @@ void ecc_priv_flash(uint8_t *buffer)
 	else if (gen_key != 0 && initcheck)
 	{
 		hidprint("Successfully set ECC Key");
-		if (buffer[0] != 0xBA)
+		if (buffer[0] != 0xBA) 
 			blink(2);
+	} else if (wipe) {
+		hidprint("Successfully wiped ECC Key");
+		blink(2);
 	}
 #endif
 	return;
@@ -4862,10 +4881,10 @@ void rsa_priv_flash(uint8_t *buffer, bool wipe)
 
 	if (profilemode == NONENCRYPTEDPROFILE)
 		return;
-#ifdef STD_VERSION
-#ifdef DEBUG
+	#ifdef STD_VERSION
+	#ifdef DEBUG
 	Serial.println("OKSETRSAPRIV MESSAGE RECEIVED");
-#endif
+	#endif
 	extern uint8_t rsa_private_key[MAX_RSA_KEY_SIZE];
 	int keysize;
 	uint8_t temp[2048];
@@ -4887,20 +4906,20 @@ void rsa_priv_flash(uint8_t *buffer, bool wipe)
 	}
 	if (buffer[5] < 1 || buffer[5] > 4)
 	{
-#ifdef DEBUG
+	#ifdef DEBUG
 		Serial.println("Error invalid RSA slot");
-#endif
+	#endif
 		hidprint("Error invalid RSA slot");
 		return;
 	}
 	else
 	{
-#ifdef DEBUG
+	#ifdef DEBUG
 		Serial.println("Slot = ");
 		Serial.println(buffer[5]);
 		Serial.println("Type = ");
 		Serial.println(buffer[6]);
-#endif
+	#endif
 	}
 	if ((buffer[6] & 0x0F) == 1) //Expect 128 Bytes, if buffer[0] != FF we know this is import from backup
 	{
@@ -5518,7 +5537,7 @@ void initColor()
 {
 	pixels.begin(); // This initializes the NeoPixel library.
 	uint8_t modifier = 22;
-	if (HW_ID==OK_GO) modifier=modifier/2;
+	if (HW_ID==OK_DUO) modifier=modifier/2;
 	if (NEO_Brightness[0] != 0) {
 		pixels.setBrightness(NEO_Brightness[0] * modifier);
 	} else {
@@ -5556,6 +5575,7 @@ void backup()
 	uint8_t *ptr;
 	unsigned char beginbackup[] = "-----BEGIN ONLYKEY BACKUP-----";
 	unsigned char endbackup[] = "-----END ONLYKEY BACKUP-----";
+	unsigned char dashes[] = "-----";
 	unsigned char nobackupkey[] = "No Backup Key - Follow instructions here https://docs.crp.to/usersguide.html#secure-encrypted-backup-anywhere";
 	uint8_t ctr[2];
 	uint8_t slot;
@@ -5774,7 +5794,7 @@ void backup()
 			large_temp[large_buffer_offset + 3] = temp[0];
 			large_buffer_offset = large_buffer_offset + 4;
 		}
-		if (temp[0] == 103)
+		if (temp[0] == MFAGOOGLEAUTH)
 		{ //Google Auth
 #ifdef DEBUG
 			Serial.println("Reading TOTP Key from Flash...");
@@ -5801,9 +5821,9 @@ void backup()
 			memcpy(large_temp + large_buffer_offset + 4, temp, otplength);
 			large_buffer_offset = large_buffer_offset + otplength + 4;
 		}
-		if (temp[0] == 121  || temp[0] == 89)
+		if (temp[0] == MFAOLDYUBIOTP  || temp[0] == MFAYUBIOTP)
 		{ //Old yubi otp or new yubi otp
-		if (temp[0] == 121) {
+		if (temp[0] == MFAOLDYUBIOTP) {
 			yubikey_eeget_counter(ctr, 0);
 			okeeprom_eeget_public_DEPRICATED(ptr);
 			ptr = (temp + EElen_public);
@@ -5816,7 +5836,7 @@ void backup()
 			large_temp[large_buffer_offset + 2] = 10; //10 = Yubikey
 			memcpy(large_temp + large_buffer_offset + 3, temp, (EElen_aeskey + EElen_private + EElen_public));
 			large_buffer_offset = large_buffer_offset + (EElen_aeskey + EElen_private + EElen_public) + 3;
-		} else if (temp[0] == 89 && slot > 0 && slot < 25) {
+		} else if (temp[0] == MFAYUBIOTP && slot > 0 && slot < 25) {
 			yubikey_eeget_counter(ctr, slot);
 			okcore_flashget_yubiotp(ptr, slot);
 			okcore_aes_gcm_decrypt(temp, slot, 10, profilekey, (EElen_aeskey + EElen_private + 16));
@@ -6139,14 +6159,21 @@ void backup()
 #endif
 
 	int i = 0;
+	uint8_t backuphash[32] = {0};
+	SHA256_CTX bhash;
 	while (i <= large_buffer_offset && i < (int)sizeof(large_temp))
 	{
 		Keyboard.press(KEY_RETURN);
 		delay((TYPESPEED[0] * TYPESPEED[0] / 3) * 8);
 		Keyboard.releaseAll();
 		delay((TYPESPEED[0] * TYPESPEED[0] / 3) * 8);
+		crc = yubikey_crc16 (temp, 20);
 		if ((large_buffer_offset - i) < 57)
 		{
+			sha256_init(&bhash);
+			sha256_update(&bhash, backuphash, 32);
+			sha256_update(&bhash, large_temp + i, large_buffer_offset - i);
+			sha256_final(&bhash, backuphash);
 			int enclen = base64_encode(large_temp + i, temp, (large_buffer_offset - i), 0);
 			for (int z = 0; z < enclen; z++)
 			{
@@ -6158,6 +6185,10 @@ void backup()
 		}
 		else
 		{
+			sha256_init(&bhash);
+			sha256_update(&bhash, backuphash, 32);
+			sha256_update(&bhash, large_temp + i, 57);
+			sha256_final(&bhash, backuphash);
 			base64_encode(large_temp + i, temp, 57, 0);
 			for (int z = 0; z < 4 * (57 / 3); z++)
 			{
@@ -6180,6 +6211,29 @@ void backup()
 	Serial.println();
 #endif
 
+	// backup hash
+	int enclen = base64_encode(backuphash, temp, 32, 0);
+	for (uint8_t z = 0; z < sizeof(dashes); z++)
+	{
+		Keyboard.press(dashes[z]);
+		delay((TYPESPEED[0] * TYPESPEED[0] / 3) * 8);
+		Keyboard.releaseAll();
+		delay((TYPESPEED[0] * TYPESPEED[0] / 3) * 8);
+	}
+	for (uint8_t z = 0; z < enclen; z++)
+	{
+		Keyboard.press(temp[z]);
+		delay((TYPESPEED[0] * TYPESPEED[0] / 3) * 8);
+		Keyboard.releaseAll();
+		delay((TYPESPEED[0] * TYPESPEED[0] / 3) * 8);
+	}
+	for (uint8_t z = 0; z < sizeof(dashes); z++)
+	{
+		Keyboard.press(dashes[z]);
+		delay((TYPESPEED[0] * TYPESPEED[0] / 3) * 8);
+		Keyboard.releaseAll();
+		delay((TYPESPEED[0] * TYPESPEED[0] / 3) * 8);
+	}
 	//End backup footer
 	for (uint8_t z = 0; z < sizeof(endbackup); z++)
 	{
@@ -6188,6 +6242,7 @@ void backup()
 		Keyboard.releaseAll();
 		delay((TYPESPEED[0] * TYPESPEED[0] / 3) * 8);
 	}
+	backuphash
 	Keyboard.println();
 	large_buffer_offset = 0;
 	memset(large_temp, 0, sizeof(large_temp));
@@ -6766,7 +6821,7 @@ void done_process_packets()
 		sha256_init(&msg_hash);
 		sha256_update(&msg_hash, packet_buffer, packet_buffer_offset); //add data to sign
 		sha256_final(&msg_hash, temp);					//Temporarily store hash
-		if (HW_ID==OK_GO) {
+		if (HW_ID==OK_DUO) {
 			Challenge_button1 = (temp[0] % 3) + '0' + 1;	//Get value 1-3 for challenge 1
 			Challenge_button2 = (temp[15] % 3) + '0' + 1;	//Get value 1-3 for challenge 2
 			Challenge_button3 = (temp[31] % 3) + '0' + 1;	//Get value 1-3 for challenge 3
@@ -6880,13 +6935,15 @@ void process_setreport()
 					recv_buffer[4] = OKSETPRIV;
 					if (keyboard_buffer[64] == 1) recv_buffer[5] = RESERVED_KEY_HMACSHA1_1;
 					else recv_buffer[5] = RESERVED_KEY_HMACSHA1_2;
-					recv_buffer[6] = 9;
+					recv_buffer[6] = KEYTYPE_HMACSHA1;
 					byteprint(recv_buffer,64);
 					if (recv_buffer[7]+recv_buffer[8]+recv_buffer[9]+recv_buffer[10]+recv_buffer[11] == 0) {
 						// Wipe CR slot
 						temp[5] = recv_buffer[5];
 						okeeprom_eeset_hmac_challengemode(0); // Reset to default both slots require button press
-						wipe_private(temp);
+						if (recv_buffer[5] == RESERVED_KEY_HMACSHA1_1 || recv_buffer[5] == RESERVED_KEY_HMACSHA1_2) {
+							wipe_private(temp, false);
+						} //TODO wipe new hmac keys
 					}
 					else {
 						uint8_t mode = 0;	
@@ -7131,7 +7188,7 @@ char * HW_MODEL(char const * in) {
 	char out[strlen(in)+2];
 	memcpy(out,in,strlen(in));
 	#ifdef OK_Color
-	if (HW_ID==OK_GO) {
+	if (HW_ID==OK_DUO) {
 		out[sizeof(out)-2] = 'g';
 	} else {
 		out[sizeof(out)-2] = 'c';

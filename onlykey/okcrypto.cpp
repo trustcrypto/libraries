@@ -703,9 +703,22 @@ void okcrypto_hmacsha1 () {
 		outputmode=RAW_USB;
 		if ((keyboard_buffer[64] & 0x0f) == 0x08 ) { //HMAC Slot 2 selected, 0x08 for slot 2, 0x00 for slot 1
 			okcore_flashget_ECC (RESERVED_KEY_HMACSHA1_2); //ECC slot 129 reserved for HMAC Slot 2 key
-		} else {
+			if (type != KEYTYPE_HMACSHA1) { // Use new HMAC 
+				okcore_flashget_hmac(ecc_private_key, 2); 
+			}
+		} else if ((keyboard_buffer[64] & 0x0f) == 0x00 ){
 			okcore_flashget_ECC (RESERVED_KEY_HMACSHA1_1); //ECC slot 130 reserved for HMAC Slot 1 key
-		}
+			if (type != KEYTYPE_HMACSHA1) { // Use new HMAC 
+				okcore_flashget_hmac(ecc_private_key, 1); 
+			}
+		} else if ((keyboard_buffer[64] & 0x0f) <= 0x07 ) { 
+			okcore_flashget_hmac(ecc_private_key, (keyboard_buffer[64] & 0x0f)+2); 
+			// 0x01-slot3, 0x02-slot4, 0x03-slot5, 0x04-slot6, 0x05-slot7, 0x06-slot8, 0x07-slot9
+
+		} else if ((keyboard_buffer[64] & 0x0f) <= 0x0c ) { 
+			okcore_flashget_hmac(ecc_private_key, (keyboard_buffer[64] & 0x0f)+2); 
+			// 0x09-slot10, 0x0a-slot11, 0x0b-slot12
+		} 
 		if (type == 0) { //Generate a key using the default key in slot 132 if there is no key set
 		 	// Derive key from SHA256 hash of default key and added data temp
 			for(int i=0; i<32; i++) {

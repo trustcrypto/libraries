@@ -89,16 +89,18 @@
 #endif
 
 #ifdef DEBUG
-#define OKversionkeyword ".1-test"
+#define OKversionkeyword ".2-test"
 #else
-#define OKversionkeyword ".1-prod"
+#define OKversionkeyword ".2-prod"
 #endif
 
 #define OKversion OKversionmain OKversionkeyword
 #define UNLOCKED "UNLOCKED" OKversion
 #define UNINITIALIZED "UNINITIALIZED" OKversion
-#define HW_ID SIM_SDID_PINID // SIM_SDID_PINID =9 if OnlyKey Go HW, =5 if OnlyKey HW
-#define OK_GO 9 
+#define HW_ID SIM_SDID_PINID // SIM_SDID_PINID =9 if MK20 BGA, =5 if MK20 LQFP
+#define OK_DUO 9 
+// TODO Add 3rd HW Model
+// If HW_ID == 9 and analogread(11) is high detect as OnlyKey HW w/two LEDs
 
 #ifdef __cplusplus
 extern "C"

@@ -180,6 +180,15 @@ extern "C"
 #define EXTFLAG_SERIAL_USB_VISIBLE	0x02	/* Serial number visible in USB iSerial field */
 #define EXTFLAG_SERIAL_API_VISIBLE	0x04	/* Serial number visible via API call */
 /*************************************/
+//Types of MFA (one per slot)
+/*************************************/
+#define MFAGOOGLEAUTH 103 // g
+#define MFAOLDYUBIOTP 121 // y
+#define MFAOLDU2F 117 // u
+#define MFAYUBIOTP 89 // Y
+#define MFAHMACSHA1 72 // H
+#define MFAYUBIOTPandHMACSHA1 50 // 2
+/*************************************/
 //Types of second profile
 /*************************************/
 #define STDPROFILE1 0
@@ -216,6 +225,7 @@ extern "C"
 #define KEYTYPE_P256R1 2
 #define KEYTYPE_P256K1 3
 #define KEYTYPE_CURVE25519 4
+#define KEYTYPE_HMACSHA1 9
 #define KEYTYPE_ECDH_P256R   102
 #define KEYTYPE_ECDH_P256K   103
 #define KEYTYPE_ECDH_CURVE25519  104
