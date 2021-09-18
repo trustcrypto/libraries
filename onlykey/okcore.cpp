@@ -2596,6 +2596,7 @@ void byteprint(uint8_t *bytes, int size)
 {
 #ifdef DEBUG
 	Serial.println();
+	Serial.print("HEX: ");
 	for (int i = 0; i < size; i++)
 	{
 		Serial.print(bytes[i], HEX);
