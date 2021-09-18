@@ -2128,6 +2128,10 @@ void fadeout()
 	}
 }
 
+#ifdef DEBUG
+int lastIncomingSerialByte = 0;
+#endif
+
 int touch_sense_loop () {
 
 	static int key_on=0;
@@ -2236,7 +2240,41 @@ int touch_sense_loop () {
 		analogWrite(BLINKPIN, 255); //LED ON
 		#endif
 	}
+	
+#ifdef DEBUG
+	if (Serial.available() > 0) {//if we have any data in the Serial input
+	    int incomingByte = Serial.read();//trim off the first byte off Serial input buffer
+	
+	    if(incomingByte == 10 || incomingByte == 32){//return or space
+		Serial.print("I received from DEBUG: ");
+		Serial.println(lastIncomingSerialByte, DEC);
 
+		if(lastIncomingSerialByte == 49){//1
+			button_selected = '1';
+			key_press = 1;
+		}else if(lastIncomingSerialByte == 50){//2
+			button_selected = '2';
+			key_press = 1;
+		}else if(lastIncomingSerialByte == 51){//3
+			button_selected = '3';
+			key_press = 1;
+		}else if(lastIncomingSerialByte == 52){//4
+			button_selected = '4';
+			key_press = 1;
+		}else if(lastIncomingSerialByte == 53){//5
+			button_selected = '5';
+			key_press = 1;
+		}else if(lastIncomingSerialByte == 54){//6
+			button_selected = '6';
+			key_press = 1;
+	    	}
+	    	if(key_press == 1 && incomingByte == 32)//space
+	    		key_press = 128;//make it long press
+		}
+	    lastIncomingSerialByte = incomingByte;//save the byte for next loop
+	}
+#endif
+	
 	if ((key_press > 0) && (key_off > 2)) {
 		if (HW_ID==OK_GO && button_3_on) button_selected = '3';
 		button_3_on = 0;
