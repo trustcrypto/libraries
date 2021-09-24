@@ -160,6 +160,7 @@ extern "C"
 #define OKFWUPDATE           (TYPE_INIT | 0x74)
 #define OKHMAC           (TYPE_INIT | 0x75)
 #define OKWEBAUTHN           (TYPE_INIT | 0x76)
+
 /*************************************/
 //ykpers BSD license
 /*************************************/
@@ -255,7 +256,7 @@ extern void set_primary_pin (uint8_t *buffer, uint8_t keyboard_mode);
 extern void set_secondary_pin (uint8_t *buffer, uint8_t keyboard_mode);
 extern void set_sd_pin (uint8_t *buffer, uint8_t keyboard_mode);
 extern void set_private (uint8_t *buffer);
-extern void wipe_private (uint8_t *buffer);
+extern void wipe_private (uint8_t *buffer, bool response);
 extern int ctap_flash (int index, uint8_t *buffer, int size, uint8_t mode);
 extern void setOtherTimeout();
 extern void processPacket(uint8_t *buffer);
@@ -311,6 +312,7 @@ extern void okcore_flashget_label (uint8_t *ptr, uint8_t slot);
 extern void okcore_flashset_label (uint8_t *ptr, uint8_t slot);
 extern int okcore_flashget_ECC (uint8_t slot);
 extern int okcore_flashget_RSA (uint8_t slot);
+extern uint8_t okcore_flashget_hmac(uint8_t *ptr, uint8_t slot);
 void okcore_aes_gcm_encrypt(uint8_t *state, uint8_t slot, uint8_t value, const uint8_t *key, int len);
 void okcore_aes_gcm_decrypt(uint8_t *state, uint8_t slot, uint8_t value, const uint8_t *key, int len);
 void okcore_aes_cbc_decrypt (uint8_t * state, const uint8_t * key, int len);
@@ -337,7 +339,7 @@ extern void initColor();
 extern void setcolor (uint8_t Color);
 extern void backup();
 extern void rsa_priv_flash (uint8_t *buffer, bool wipe);
-extern void ecc_priv_flash (uint8_t *buffer);
+extern void ecc_priv_flash (uint8_t *buffer, bool wipe);
 extern void flash_modify (int index, uint8_t *sector, uint8_t *data, int size, bool wipe);
 extern void RESTORE (uint8_t *buffer);
 extern void process_packets (uint8_t *buffer, int len, uint8_t *blocknum);

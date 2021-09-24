@@ -78,8 +78,8 @@
 #ifndef ONLYKEY_H
 #define ONLYKEY_H
 
-//#define DEBUG //Enable Serial Monitor
-//#define STD_VERSION //Define for STD edition firmare, undefine for IN TRVL edition firmware
+#define DEBUG //Enable Serial Monitor
+#define STD_VERSION //Define for STD edition firmare, undefine for IN TRVL edition firmware
 #define OK_Color //Define for hardware with color LED
 #define OKversionmain "v2.1"
 
@@ -99,8 +99,9 @@
 #define UNINITIALIZED "UNINITIALIZED" OKversion
 #define HW_ID SIM_SDID_PINID // SIM_SDID_PINID =9 if MK20 BGA, =5 if MK20 LQFP
 #define OK_DUO 9 
-// TODO Add 3rd HW Model
-// If HW_ID == 9 and analogread(11) is high detect as OnlyKey HW w/two LEDs
+#define OK_BGA 10 
+#define OK_LQFP 5 
+
 
 #ifdef __cplusplus
 extern "C"

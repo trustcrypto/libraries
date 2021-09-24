@@ -687,12 +687,15 @@ void okcrypto_ecdh(uint8_t *buffer) {
 void okcrypto_hmacsha1 () {
 	uint8_t temp[32];
 	uint8_t inputlen;
+	uint8_t slot = keyboard_buffer[64];
 	uint16_t crc;
 	extern uint8_t setBuffer[9];
 	uint8_t *ptr;
 	#ifdef DEBUG
 	Serial.println();
 	Serial.println("GENERATE HMACSHA1 MESSAGE RECEIVED");
+	Serial.print("SLOT = ");
+	Serial.println(slot);
 	#endif
     if (CRYPTO_AUTH == 4) {
 		if(!check_crc(keyboard_buffer)) {
@@ -701,28 +704,17 @@ void okcrypto_hmacsha1 () {
 			return;
 		}
 		outputmode=RAW_USB;
-		if ((keyboard_buffer[64] & 0x0f) == 0x08 ) { //HMAC Slot 2 selected, 0x08 for slot 2, 0x00 for slot 1
+		if (slot == 0x38) { //HMAC Slot 2 selected, 0x08 for slot 2, 0x00 for slot 1
 			okcore_flashget_ECC (RESERVED_KEY_HMACSHA1_2); //ECC slot 129 reserved for HMAC Slot 2 key
-			if (type != KEYTYPE_HMACSHA1) { // Use new HMAC 
-				okcore_flashget_hmac(ecc_private_key, 2); 
-			}
-		} else if ((keyboard_buffer[64] & 0x0f) == 0x00 ){
+		} else if (slot == 0x30){ //HMAC Slot 2 selected, 0x00 for slot 1
 			okcore_flashget_ECC (RESERVED_KEY_HMACSHA1_1); //ECC slot 130 reserved for HMAC Slot 1 key
-			if (type != KEYTYPE_HMACSHA1) { // Use new HMAC 
-				okcore_flashget_hmac(ecc_private_key, 1); 
-			}
-		} else if ((keyboard_buffer[64] & 0x0f) <= 0x07 ) { 
-			okcore_flashget_hmac(ecc_private_key, (keyboard_buffer[64] & 0x0f)+2); 
-			// 0x01-slot3, 0x02-slot4, 0x03-slot5, 0x04-slot6, 0x05-slot7, 0x06-slot8, 0x07-slot9
-
-		} else if ((keyboard_buffer[64] & 0x0f) <= 0x0c ) { 
-			okcore_flashget_hmac(ecc_private_key, (keyboard_buffer[64] & 0x0f)+2); 
-			// 0x09-slot10, 0x0a-slot11, 0x0b-slot12
+		} else if (slot >= 1 &&  slot <= 24) { 
+			okcore_flashget_hmac(ecc_private_key, slot); 
 		} 
-		if (type == 0) { //Generate a key using the default key in slot 132 if there is no key set
-		 	// Derive key from SHA256 hash of default key and added data temp
+		if (type == 0) { //Generate a key using the default key in slot 132 if there is no key set in slot
+			// Derive key from SHA256 hash of default key and added data temp
 			for(int i=0; i<32; i++) {
-				temp[i] = i + (keyboard_buffer[64] & 0x0f);
+				temp[i] = i + slot;
 			}
 			okcrypto_derive_key(0, temp, NULL);
 		}
@@ -1634,6 +1626,7 @@ void okcrypto_split_sundae(uint8_t *state, uint8_t *iv, int len, uint8_t functio
 }
 
 void okcrypto_compute_pubkey() {
+	memset(ecc_public_key, 0, sizeof(ecc_public_key));
 
 	if (type == KEYTYPE_ED25519) {
 		Ed25519::derivePublicKey(ecc_public_key, ecc_private_key);
