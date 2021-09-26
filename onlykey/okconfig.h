@@ -75,42 +75,15 @@
  */
 
 
-#ifndef ONLYKEY_H
-#define ONLYKEY_H
 
-#include "okconfig.h"
-
-#define OKversionmain "v2.1"
-
-#ifndef OKCORE_H
-#include "okcore.h"
-#define OKCORE_H
-#endif
-
-#ifdef DEBUG
-#define OKversionkeyword ".1-test"
-#else
-#define OKversionkeyword ".1-prod"
-#endif
-
-#define OKversion OKversionmain OKversionkeyword
-#define UNLOCKED "UNLOCKED" OKversion
-#define UNINITIALIZED "UNINITIALIZED" OKversion
-#define HW_ID SIM_SDID_PINID // SIM_SDID_PINID =9 if OnlyKey Go HW, =5 if OnlyKey HW
-#define OK_GO 9 
-
-#ifdef __cplusplus
-extern "C"
-{
-#endif
-
-#include "okeeprom.h"
-#ifdef STD_VERSION
-#include "okcrypto.h"
-#endif
+#ifndef OKCONFIG_H
+#define OKCONFIGE_H
 
 
-#ifdef __cplusplus
-}
-#endif
+
+// #define DEBUG //Enable Serial Monitor
+// #define STD_VERSION //Define for STD edition firmare, undefine for IN TRVL edition firmware
+#define OK_Color //Define for hardware with color LED
+
+
 #endif
