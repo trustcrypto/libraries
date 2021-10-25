@@ -1238,6 +1238,8 @@ void okcrypto_aes_gcm_encrypt(uint8_t *state, uint8_t slot, uint8_t value, const
 	uint8_t iv2[12];
 	uint8_t aeskey[32];
 	uint8_t data[2];
+	uint8_t function1 = 1;
+	uint8_t function2 = 2;
 	data[0] = slot;
 	data[1] = value;
 
@@ -1284,7 +1286,13 @@ void okcrypto_aes_gcm_encrypt(uint8_t *state, uint8_t slot, uint8_t value, const
 	byteprint(state, len);
 	#endif
 
-	if (factory_config_flag == 0x01) okcrypto_split_sundae(state, iv2, len, 1);
+	// Even/Odd IV different encryption algorithms
+	if (iv2[0] % 2 == 0) {
+		function1 = 2;
+		function2 = 1;
+	}
+
+	if (factory_config_flag == 0x01) okcrypto_split_sundae(state, iv2, len, function1);
 
 	gcm.clear();
 	gcm.setKey(aeskey, 32);
@@ -1292,7 +1300,7 @@ void okcrypto_aes_gcm_encrypt(uint8_t *state, uint8_t slot, uint8_t value, const
 	gcm.encrypt(state, state, len);
 
 	// OnlyKey Go encrypt inner
-	if (factory_config_flag == 0x01) okcrypto_split_sundae(state, iv2, len, 2);
+	if (factory_config_flag == 0x01) okcrypto_split_sundae(state, iv2, len, function2);
 
 	#ifdef DEBUG
 	Serial.print("ENCRYPTED STATE");
@@ -1309,6 +1317,8 @@ void okcrypto_aes_gcm_decrypt(uint8_t *state, uint8_t slot, uint8_t value, const
 	uint8_t iv2[12];
 	uint8_t aeskey[32];
 	uint8_t data[2];
+	uint8_t function3 = 3;
+	uint8_t function4 = 4;
 	data[0] = slot;
 	data[1] = value;
 
@@ -1356,14 +1366,20 @@ void okcrypto_aes_gcm_decrypt(uint8_t *state, uint8_t slot, uint8_t value, const
 	byteprint(state, len);
 	#endif
 
-	if (factory_config_flag == 0x01) okcrypto_split_sundae(state, iv2, len, 3);
+	// Even/Odd IV different encryption algorithms
+	if (iv2[0] % 2 == 0) {
+		function3 = 4;
+		function4 = 3;
+	}
+
+	if (factory_config_flag == 0x01) okcrypto_split_sundae(state, iv2, len, function3);
 
 	gcm.clear();
 	gcm.setKey(aeskey, 32);
 	gcm.setIV(iv2, 12);
 	gcm.decrypt(state, state, len);
 
-	if (factory_config_flag == 0x01) okcrypto_split_sundae(state, iv2, len, 4);
+	if (factory_config_flag == 0x01) okcrypto_split_sundae(state, iv2, len, function4);
 
 	#ifdef DEBUG
 	Serial.print("DECRYPTED STATE");
@@ -1380,13 +1396,21 @@ void okcrypto_aes_gcm_encrypt2(uint8_t *state, uint8_t *iv1, const uint8_t *key,
 	#ifdef STD_VERSION
 	GCM<AES256> gcm;
 	//uint8_t tag[16];
+	uint8_t function1 = 1;
+	uint8_t function2 = 2;
 	#ifdef DEBUG
 	Serial.print("DECRYPTED STATE");
 	byteprint(state, len);
 	#endif
 
+	// Even/Odd IV different encryption algorithms
+	if (iv1[0] % 2 == 0) {
+		function1 = 2;
+		function2 = 1;
+	}
+
 	// OnlyKey Go encrypt outer
-	if (factory_config_flag == 0x01) okcrypto_split_sundae(state, iv1, len, 1);
+	if (factory_config_flag == 0x01) okcrypto_split_sundae(state, iv1, len, function1);
 
 	gcm.clear();
 	gcm.setKey(key, 32);
@@ -1394,7 +1418,7 @@ void okcrypto_aes_gcm_encrypt2(uint8_t *state, uint8_t *iv1, const uint8_t *key,
 	gcm.encrypt(state, state, len);
 
 	// OnlyKey Go encrypt inner
-	if (factory_config_flag == 0x01) okcrypto_split_sundae(state, iv1, len, 2);
+	if (factory_config_flag == 0x01) okcrypto_split_sundae(state, iv1, len, function2);
 
 	#ifdef DEBUG
 	Serial.print("ENCRYPTED STATE");
@@ -1409,13 +1433,21 @@ void okcrypto_aes_gcm_decrypt2(uint8_t *state, uint8_t *iv1, const uint8_t *key,
 	#ifdef STD_VERSION
 	GCM<AES256> gcm;
 	//uint8_t tag[16];
+	uint8_t function3 = 3;
+	uint8_t function4 = 4;
 	#ifdef DEBUG
 	Serial.print("ENCRYPTED STATE");
 	byteprint(state, len);
 	#endif
 
+	// Even/Odd IV different encryption algorithm sequence
+	if (iv1[0] % 2 == 0) {
+		function3 = 4;
+		function4 = 3;
+	}
+
 	// OnlyKey Go decrypt inner
-	if (factory_config_flag == 0x01) okcrypto_split_sundae(state, iv1, len, 3);
+	if (factory_config_flag == 0x01) okcrypto_split_sundae(state, iv1, len, function3);
 
 	gcm.clear();
 	gcm.setKey(key, 32);
@@ -1423,7 +1455,7 @@ void okcrypto_aes_gcm_decrypt2(uint8_t *state, uint8_t *iv1, const uint8_t *key,
 	gcm.decrypt(state, state, len);
 
 	// OnlyKey Go decrypt outer
-	if (factory_config_flag == 0x01) okcrypto_split_sundae(state, iv1, len, 4);
+	if (factory_config_flag == 0x01) okcrypto_split_sundae(state, iv1, len, function4);
 
 	#ifdef DEBUG
 	Serial.print("DECRYPTED STATE");

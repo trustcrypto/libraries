@@ -1733,10 +1733,14 @@ void set_slot(uint8_t *buffer)
 		okcore_flashget_2fa_key(buffer, slot);
 		memmove(buffer + 43, tempbuf, 21);
 		if (temp == MFAYUBIOTPandHMACSHA1 || temp == MFAYUBIOTP) {
-			okeeprom_eeset_2FAtype((uint8_t *)MFAYUBIOTPandHMACSHA1, slot);
+			temp = MFAYUBIOTPandHMACSHA1;
+			Serial.print(temp);
+			okeeprom_eeset_2FAtype(&temp, slot);
 		}
 		else {
-			okeeprom_eeset_2FAtype((uint8_t *)MFAHMACSHA1, slot);
+			Serial.print(temp);
+			temp = MFAHMACSHA1;
+			okeeprom_eeset_2FAtype(&temp, slot);
 			memset(buffer, 0, 43);
 		}
 		okcore_flashset_2fa_key(buffer, 64, slot);
@@ -1762,7 +1766,7 @@ void set_slot(uint8_t *buffer)
 				okeeprom_eeset_public_DEPRICATED(buffer + 7);
 				okeeprom_eeset_private_DEPRICATED((buffer + 7 + EElen_public));
 				okeeprom_eeset_aeskey_DEPRICATED(buffer + 7 + EElen_public + EElen_private);
-			} else if (slot > 0 && slot < 25) {
+			} else if (slot >= 1 && slot <= 12) {
 				okeeprom_eeget_2FAtype(&temp, slot);
 				uint8_t tempbuf[38];
 				okcore_aes_gcm_encrypt((buffer + 7), slot, 10, profilekey, (16+EElen_private+EElen_aeskey));
@@ -1770,11 +1774,15 @@ void set_slot(uint8_t *buffer)
 				okcore_flashget_2fa_key(buffer, slot);
 				memmove(buffer, tempbuf, 38);
 				if (temp == MFAYUBIOTPandHMACSHA1 || temp == MFAHMACSHA1) {
-					okeeprom_eeset_2FAtype((uint8_t *)MFAYUBIOTPandHMACSHA1, slot);
+					temp = MFAYUBIOTPandHMACSHA1;
+					Serial.print(temp);
+					okeeprom_eeset_2FAtype(&temp, slot);
 					okcore_flashset_2fa_key(buffer, 64, slot);
 				}
 				else {
-					okeeprom_eeset_2FAtype((uint8_t *)MFAYUBIOTP, slot);
+					Serial.print(temp);
+					temp = MFAYUBIOTP;
+					okeeprom_eeset_2FAtype(&temp, slot);
 					memset(buffer+43, 0, 21);
 					okcore_flashset_2fa_key(buffer, (16+EElen_private+EElen_aeskey), slot);
 				}
@@ -2183,18 +2191,18 @@ int touch_sense_loop () {
 	if (touchoffset == 0) touchoffset = 12; // DEFAULT
 	//Serial.println("touchoffset");
 	//Serial.println(touchoffset);
-	Serial.println("touchread1");
-	Serial.println(touchread1);
-	Serial.println("touchread2");
-	Serial.println(touchread2);
-	Serial.println("touchread3");
-	Serial.println(touchread3);
-	Serial.println("touchread4");
-	Serial.println(touchread4);
-	Serial.println("touchread5");
-	Serial.println(touchread5);
-	Serial.println("touchread6");
-	Serial.println(touchread6);
+	//Serial.println("touchread1");
+	//Serial.println(touchread1);
+	//Serial.println("touchread2");
+	//Serial.println(touchread2);
+	//Serial.println("touchread3");
+	//Serial.println(touchread3);
+	//Serial.println("touchread4");
+	//Serial.println(touchread4);
+	//Serial.println("touchread5");
+	//Serial.println(touchread5);
+	//Serial.println("touchread6");
+	//Serial.println(touchread6);
 
 	// Any Button reads 10% lower than ref, recalibrate
 	if (touchread1+(touchread1/10)<touchread1ref || touchread2+(touchread2/10)<touchread2ref || touchread3+(touchread3/10)<touchread3ref || touchread4+(touchread4/10)<touchread4ref || touchread5+(touchread5/10)<touchread5ref || touchread6+(touchread6/10)<touchread6ref) {
@@ -6324,7 +6332,7 @@ void backup()
 
 	// backup hash
 	int enclen = base64_encode(backuphash, temp, 32, 0);
-	for (uint8_t z = 0; z < sizeof(dashes); z++)
+	for (uint8_t z = 0; z < 2; z++)
 	{
 		Keyboard.press(dashes[z]);
 		delay((TYPESPEED[0] * TYPESPEED[0] / 3) * 8);
@@ -6338,6 +6346,7 @@ void backup()
 		Keyboard.releaseAll();
 		delay((TYPESPEED[0] * TYPESPEED[0] / 3) * 8);
 	}
+	Keyboard.println();
 	for (uint8_t z = 0; z < sizeof(dashes); z++)
 	{
 		Keyboard.press(dashes[z]);
@@ -7036,6 +7045,8 @@ void process_setreport()
 				}
 				outputmode=RAW_USB;
 				if (keyboard_buffer[46] == 0x60 || keyboard_buffer[46] == 0x40) { // Set HMAC Key using Yklib 
+					if (slot < 3) slot = 1;
+					else slot = slot - 3;
 					memmove(recv_buffer+23, keyboard_buffer+16, 4);
 					memmove(recv_buffer+7, keyboard_buffer+22, 16); // HMAC key split for some reason
 					memset(recv_buffer+27, 0, 37);
@@ -7054,8 +7065,8 @@ void process_setreport()
 						} else {
 							recv_buffer[4] = OKWIPESLOT;
 							recv_buffer[5] = slot;
-							recv_buffer[6] = 26; // HMAC
-							recv_buffer[6] = 1; // Authlite no button press required
+							recv_buffer[6] = 29; // HMAC
+							recv_buffer[7] = 1; // Authlite no button press required
 							recvmsg(1);
 						}
 					}
@@ -7089,9 +7100,11 @@ void process_setreport()
 								// Return CR error?
 							}
 						} else if (recv_buffer[5]) {
+							Serial.print("OKSETSLOT VALUES");
+							byteprint(recv_buffer+4, 5);
 							recv_buffer[4] = OKSETSLOT;
 							recv_buffer[5] = slot;
-							recv_buffer[6] = 26; // HMAC
+							recv_buffer[6] = 29; // HMAC
 							memmove(recv_buffer + 8, recv_buffer + 7, 20);
 							recv_buffer[7] = 1; // Authlite no button press required
 							recvmsg(1);
@@ -7099,10 +7112,11 @@ void process_setreport()
 					}
 					sess_counter++;
 				} else if ((keyboard_buffer[46] == 0 && keyboard_buffer[44]) || keyboard_buffer[46] == TKTFLAG_APPEND_CR || keyboard_buffer[46] == TKTFLAG_APPEND_DELAY2 || keyboard_buffer[46] == TKTFLAG_APPEND_DELAY1 || keyboard_buffer[46] == TKTFLAG_APPEND_TAB2 || keyboard_buffer[46] == TKTFLAG_APPEND_TAB1 || keyboard_buffer[46] == TKTFLAG_TAB_FIRST) { // Set Yubi OTP Key
+					if (slot < 3) slot = 1;
+					else slot = slot - 1;
 					recv_buffer[4] = OKSETSLOT;
 					// Pacing
 					if (keyboard_buffer[47] == CFGFLAG_PACING_10MS) {
-		
 						// set speed to medium
 						TYPESPEED[0] = 2;
 						okeeprom_eeset_typespeed((uint8_t*)TYPESPEED);
@@ -7187,7 +7201,7 @@ void process_setreport()
 		Serial.println("Received HMACSHA1 Test");
 		#endif
 		return;
-	} else if ((keyboard_buffer[64] == 0x30 || keyboard_buffer[64] == 0x38 || (keyboard_buffer[64] >= 1 && keyboard_buffer[64] <= 24)) && initialized && unlocked)
+	} else if ((keyboard_buffer[64] == 0x30 || keyboard_buffer[64] == 0x38 || (keyboard_buffer[64] >= 1 && keyboard_buffer[64] <= 12)) && initialized && unlocked)
 	{ //HMACSHA1}
 		if (profilemode != NONENCRYPTEDPROFILE)
 			{
@@ -7204,8 +7218,13 @@ void process_setreport()
 			else if (keyboard_buffer[64] == 0x38 ) { // Yklib HMAC Slot 2 selected, 0x08 for slot 2
 				crslot = RESERVED_KEY_HMACSHA1_2;
     		} else { // Use new HMAC slot format (24 slots)
-				hmac_challenge_disabled = okcore_flashget_hmac(ecc_private_key, keyboard_buffer[64]);
-				memset(ecc_private_key, 0, sizeof(ecc_private_key));
+				if (profilemode) keyboard_buffer[64] = keyboard_buffer[64] + 12; // 2nd profile slots 12 -24 
+				if (keyboard_buffer[64] >= 1 && keyboard_buffer[64] <= 24) {
+					hmac_challenge_disabled = okcore_flashget_hmac(ecc_private_key, keyboard_buffer[64]);
+					memset(ecc_private_key, 0, sizeof(ecc_private_key));
+				} else {
+					return;
+				}
     		} 
 			#ifdef DEBUG
 			Serial.println("Challenge Disabled");

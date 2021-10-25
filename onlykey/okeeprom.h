@@ -455,6 +455,7 @@ extern "C"
 #define EEpos_modkey	(EEpos_hmac_challengemode + EElen_hmac_challengemode)
 #define EEpos_yubicounterpart (EEpos_modkey + EElen_modkey)
 #define EEpos_touchoffset (EEpos_yubicounterpart + EElen_yubicounterpart)
+#define EEpos_fwvermaj (EEpos_touchoffset + 1)
 
 extern int  okeeprom_eeget_ctap_authstate (uint8_t *ptr);
 extern void okeeprom_eeset_ctap_authstate(uint8_t *ptr);
