@@ -188,7 +188,7 @@ int16_t bridge_to_onlykey(uint8_t * _appid, uint8_t * keyh, int handle_len, uint
 			// OnlyKey Private Web (beta)
 			// This is a simple way of providing web apps with a shared secret
 			// for use in encryption/signing. This shared secret is derived
-			// based on input public key, domain (origin)and allowing  
+			// based on input public key, domain (origin) and allowing  
 			// additional data as input to private derivation (HKDF). Key types supported 
 			// include NACL, P256R1, P256K1, and Curve25519. No user presence is 
 			// required making this useful for encrypted/private web pages that may
@@ -206,17 +206,17 @@ int16_t bridge_to_onlykey(uint8_t * _appid, uint8_t * keyh, int handle_len, uint
 
 				//Similar format to SSH derivation but use RESERVED_KEY_WEB_DERIVATION key
 				if (opt2 == KEYTYPE_NACL || opt2 == KEYTYPE_CURVE25519) {
-					okcrypto_derive_key(4, additional_data, RESERVED_KEY_WEB_DERIVATION); //Curve25519
+					okcrypto_derive_key(KEYTYPE_CURVE25519, additional_data, RESERVED_KEY_WEB_DERIVATION); //Curve25519
 					pubsize=32;
 				}
 				else if (opt2 == KEYTYPE_P256R1) {
-					okcrypto_derive_key(2, additional_data, RESERVED_KEY_WEB_DERIVATION);
+					okcrypto_derive_key(KEYTYPE_P256R1, additional_data, RESERVED_KEY_WEB_DERIVATION);
 					memmove(ecc_public_key+1, ecc_public_key, 64);
 					ecc_public_key[0] = 4;
 					pubsize=65;
 				}
 				else if (opt2 == KEYTYPE_P256K1) {
-					okcrypto_derive_key(3, additional_data, RESERVED_KEY_WEB_DERIVATION);
+					okcrypto_derive_key(KEYTYPE_P256K1, additional_data, RESERVED_KEY_WEB_DERIVATION);
 					memmove(ecc_public_key+1, ecc_public_key, 64);
 					ecc_public_key[0] = 4;
 					pubsize=65;
@@ -239,41 +239,47 @@ int16_t bridge_to_onlykey(uint8_t * _appid, uint8_t * keyh, int handle_len, uint
 					Serial.println("Input Pubkey");
 					byteprint(input_pubkey, pubsize);
 					#endif
-					if (opt1==DERIVE_SHAREDSEC_REQ_PRESS) {
-						int but;
-						but = ctap_user_presence_test(5000); //5 seconds
-						if (!but)
-						{
-							printf1(TAG_ERR,"CTAP2_ERR_OPERATION_DENIED");
-							pending_operation=0;
-							return CTAP2_ERR_OPERATION_DENIED;
-						}
-						else if (but < 0)   // Cancel
-						{
-							printf1(TAG_ERR,"CTAP2_ERR_KEEPALIVE_CANCEL");
-							return CTAP2_ERR_KEEPALIVE_CANCEL;
-						}
-					}
-					// Use ecc_private_key and provided pubkey to generate shared secret
-					if (okcrypto_shared_secret (input_pubkey, temp+32+sizeof(UNLOCKED)+1+pubsize)) { // Generate derived key shared secret in temp
-						ret = CTAP2_ERR_OPERATION_DENIED;
-						printf2(TAG_ERR,"Error with ECC Shared Secret\n");
+					if (os == 'W' && packet_buffer_details[3] == 'W') {
+						// Already generated shared secret, Windows duplicate request
+						packet_buffer_details[3] = 0; 
+						ret = send_stored_response(output);
 						return ret;
 					}
-
-					#ifdef DEBUG
-					Serial.println("Shared Secret");
-					byteprint(temp+32+sizeof(UNLOCKED)+1+pubsize, 32);
-					#endif
-
-					// For testing send shared secret of 2s
-					//memset(temp+32+sizeof(UNLOCKED)+1+sizeof(ecc_public_key), 2, sizeof(ecc_private_key));
-					// For testing send pubkey of 1s
-					//memset(temp+32+sizeof(UNLOCKED)+1, 1, sizeof(ecc_public_key));
-					send_transport_response(temp, 32+sizeof(UNLOCKED)+1+pubsize+sizeof(ecc_private_key), opt3, false); // Encrypt data in trasit using transit key if opt3 and send right away
+					else { 
+						// Generate Shared Secret
+						if (opt1==DERIVE_SHAREDSEC_REQ_PRESS) {
+							int but;
+							device_set_status(CTAPHID_STATUS_UPNEEDED);
+							but = ctap_user_presence_test(CTAP2_UP_DELAY_MS);
+							if ( but > 1 )
+							{
+								return CTAP2_ERR_PROCESSING;
+							}
+							else if (but < 0)
+							{
+								return CTAP2_ERR_KEEPALIVE_CANCEL;
+							}
+							else if (but == 0)
+							{
+								pending_operation=0;
+								return CTAP2_ERR_ACTION_TIMEOUT;
+							} else if (os == 'W') {
+								packet_buffer_details[3] = 'W';
+							}
+						}
+						// Use ecc_private_key and provided pubkey to generate shared secret
+						if (okcrypto_shared_secret (input_pubkey, temp+32+sizeof(UNLOCKED)+1+pubsize)) { // Generate derived key shared secret in temp
+							ret = CTAP2_ERR_OPERATION_DENIED;
+							printf2(TAG_ERR,"Error with ECC Shared Secret\n");
+							return ret;
+						}
+						#ifdef DEBUG
+						Serial.println("Shared Secret");
+						byteprint(temp+32+sizeof(UNLOCKED)+1+pubsize, 32);
+						#endif
+						send_transport_response(temp, 32+sizeof(UNLOCKED)+1+pubsize+sizeof(ecc_private_key), opt3, false); // Encrypt data in trasit using transit key if opt3 and send right away
+					}
 				} else { // Just Return DERIVE_PUBLIC_KEY
-					// For testing send pubkey of 1s
-					//memset(temp+32+sizeof(UNLOCKED)+1, 1, sizeof(ecc_public_key));
 					send_transport_response(temp, 32+sizeof(UNLOCKED)+1+pubsize, opt3, false); //Encrypt if opt3 and send right away
 				}
 			} else {

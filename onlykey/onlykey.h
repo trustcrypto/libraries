@@ -78,10 +78,13 @@
 #ifndef ONLYKEY_H
 #define ONLYKEY_H
 
-//#define DEBUG //Enable Serial Monitor
-//#define STD_VERSION //Define for STD edition firmare, undefine for IN TRVL edition firmware
+#define DEBUG //Enable Serial Monitor
+#define STD_VERSION //Define for STD edition firmare, undefine for IN TRVL edition firmware
 #define OK_Color //Define for hardware with color LED
-#define OKversionmain "v2.1"
+//#define FACTORYKEYS // Attestation key and other keys encrypted using CHIP ID and RNG for unique keys per device
+#define OKversionmaj "2"
+#define OKversionmin "1"
+#define OKversionpat "2"
 
 #ifndef OKCORE_H
 #include "okcore.h"
@@ -89,16 +92,19 @@
 #endif
 
 #ifdef DEBUG
-#define OKversionkeyword ".1-test"
+#define OKversionkeyword "-test"
 #else
-#define OKversionkeyword ".1-prod"
+#define OKversionkeyword "-prod"
 #endif
 
-#define OKversion OKversionmain OKversionkeyword
+#define OKversion "v" OKversionmaj "." OKversionmin "." OKversionpat OKversionkeyword
 #define UNLOCKED "UNLOCKED" OKversion
 #define UNINITIALIZED "UNINITIALIZED" OKversion
-#define HW_ID SIM_SDID_PINID // SIM_SDID_PINID =9 if OnlyKey Go HW, =5 if OnlyKey HW
-#define OK_GO 9 
+#define HW_ID SIM_SDID_PINID // SIM_SDID_PINID =9 if MK20 BGA, =5 if MK20 LQFP
+#define OK_HW_DUO 9 
+#define OK_HW_COLOR 5
+#define DEFINED_HWID OK_HW_COLOR
+
 
 #ifdef __cplusplus
 extern "C"

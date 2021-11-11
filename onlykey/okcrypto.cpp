@@ -687,12 +687,15 @@ void okcrypto_ecdh(uint8_t *buffer) {
 void okcrypto_hmacsha1 () {
 	uint8_t temp[32];
 	uint8_t inputlen;
+	uint8_t slot = keyboard_buffer[64];
 	uint16_t crc;
 	extern uint8_t setBuffer[9];
 	uint8_t *ptr;
 	#ifdef DEBUG
 	Serial.println();
 	Serial.println("GENERATE HMACSHA1 MESSAGE RECEIVED");
+	Serial.print("SLOT = ");
+	Serial.println(slot);
 	#endif
     if (CRYPTO_AUTH == 4) {
 		if(!check_crc(keyboard_buffer)) {
@@ -701,15 +704,17 @@ void okcrypto_hmacsha1 () {
 			return;
 		}
 		outputmode=RAW_USB;
-		if ((keyboard_buffer[64] & 0x0f) == 0x08 ) { //HMAC Slot 2 selected, 0x08 for slot 2, 0x00 for slot 1
+		if (slot == 0x38) { //HMAC Slot 2 selected, 0x08 for slot 2, 0x00 for slot 1
 			okcore_flashget_ECC (RESERVED_KEY_HMACSHA1_2); //ECC slot 129 reserved for HMAC Slot 2 key
-		} else {
+		} else if (slot == 0x30){ //HMAC Slot 2 selected, 0x00 for slot 1
 			okcore_flashget_ECC (RESERVED_KEY_HMACSHA1_1); //ECC slot 130 reserved for HMAC Slot 1 key
-		}
-		if (type == 0) { //Generate a key using the default key in slot 132 if there is no key set
-		 	// Derive key from SHA256 hash of default key and added data temp
+		} else if (slot >= 1 &&  slot <= 24) { 
+			okcore_flashget_hmac(ecc_private_key, slot); 
+		} 
+		if (type == 0) { //Generate a key using the default key in slot 132 if there is no key set in slot
+			// Derive key from SHA256 hash of default key and added data temp
 			for(int i=0; i<32; i++) {
-				temp[i] = i + (keyboard_buffer[64] & 0x0f);
+				temp[i] = i + slot;
 			}
 			okcrypto_derive_key(0, temp, NULL);
 		}
@@ -1233,6 +1238,8 @@ void okcrypto_aes_gcm_encrypt(uint8_t *state, uint8_t slot, uint8_t value, const
 	uint8_t iv2[12];
 	uint8_t aeskey[32];
 	uint8_t data[2];
+	uint8_t function1 = 1;
+	uint8_t function2 = 2;
 	data[0] = slot;
 	data[1] = value;
 
@@ -1279,15 +1286,24 @@ void okcrypto_aes_gcm_encrypt(uint8_t *state, uint8_t slot, uint8_t value, const
 	byteprint(state, len);
 	#endif
 
-	if (factory_config_flag == 0x01) okcrypto_split_sundae(state, iv2, len, 1);
+	#ifdef FACTORYKEYS
+	// Even/Odd IV different encryption algorithms
+	if (iv2[0] % 2 == 0) {
+		function1 = 2;
+		function2 = 1;
+	}
+	okcrypto_split_sundae(state, iv2, len, function1);
+	#endif
 
 	gcm.clear();
 	gcm.setKey(aeskey, 32);
 	gcm.setIV(iv2, 12);
 	gcm.encrypt(state, state, len);
-
+	
+	#ifdef FACTORYKEYS
 	// OnlyKey Go encrypt inner
-	if (factory_config_flag == 0x01) okcrypto_split_sundae(state, iv2, len, 2);
+	okcrypto_split_sundae(state, iv2, len, function2);
+	#endif
 
 	#ifdef DEBUG
 	Serial.print("ENCRYPTED STATE");
@@ -1304,6 +1320,8 @@ void okcrypto_aes_gcm_decrypt(uint8_t *state, uint8_t slot, uint8_t value, const
 	uint8_t iv2[12];
 	uint8_t aeskey[32];
 	uint8_t data[2];
+	uint8_t function3 = 3;
+	uint8_t function4 = 4;
 	data[0] = slot;
 	data[1] = value;
 
@@ -1351,14 +1369,24 @@ void okcrypto_aes_gcm_decrypt(uint8_t *state, uint8_t slot, uint8_t value, const
 	byteprint(state, len);
 	#endif
 
-	if (factory_config_flag == 0x01) okcrypto_split_sundae(state, iv2, len, 3);
+	#ifdef FACTORYKEYS
+	// Even/Odd IV different encryption algorithms
+	if (iv2[0] % 2 == 0) {
+		function3 = 4;
+		function4 = 3;
+	}
+
+	okcrypto_split_sundae(state, iv2, len, function3);
+	#endif
 
 	gcm.clear();
 	gcm.setKey(aeskey, 32);
 	gcm.setIV(iv2, 12);
 	gcm.decrypt(state, state, len);
 
-	if (factory_config_flag == 0x01) okcrypto_split_sundae(state, iv2, len, 4);
+	#ifdef FACTORYKEYS
+	okcrypto_split_sundae(state, iv2, len, function4);
+	#endif
 
 	#ifdef DEBUG
 	Serial.print("DECRYPTED STATE");
@@ -1375,21 +1403,32 @@ void okcrypto_aes_gcm_encrypt2(uint8_t *state, uint8_t *iv1, const uint8_t *key,
 	#ifdef STD_VERSION
 	GCM<AES256> gcm;
 	//uint8_t tag[16];
+	uint8_t function1 = 1;
+	uint8_t function2 = 2;
 	#ifdef DEBUG
 	Serial.print("DECRYPTED STATE");
 	byteprint(state, len);
 	#endif
 
+	#ifdef FACTORYKEYS
+	// Even/Odd IV different encryption algorithms
+	if (iv1[0] % 2 == 0) {
+		function1 = 2;
+		function2 = 1;
+	}
 	// OnlyKey Go encrypt outer
-	if (factory_config_flag == 0x01) okcrypto_split_sundae(state, iv1, len, 1);
+	okcrypto_split_sundae(state, iv1, len, function1);
+	#endif
 
 	gcm.clear();
 	gcm.setKey(key, 32);
 	gcm.setIV(iv1, 12);
 	gcm.encrypt(state, state, len);
 
+	#ifdef FACTORYKEYS
 	// OnlyKey Go encrypt inner
-	if (factory_config_flag == 0x01) okcrypto_split_sundae(state, iv1, len, 2);
+	okcrypto_split_sundae(state, iv1, len, function2);
+	#endif
 
 	#ifdef DEBUG
 	Serial.print("ENCRYPTED STATE");
@@ -1404,21 +1443,32 @@ void okcrypto_aes_gcm_decrypt2(uint8_t *state, uint8_t *iv1, const uint8_t *key,
 	#ifdef STD_VERSION
 	GCM<AES256> gcm;
 	//uint8_t tag[16];
+	uint8_t function3 = 3;
+	uint8_t function4 = 4;
 	#ifdef DEBUG
 	Serial.print("ENCRYPTED STATE");
 	byteprint(state, len);
 	#endif
 
+	#ifdef FACTORYKEYS
+	// Even/Odd IV different encryption algorithm sequence
+	if (iv1[0] % 2 == 0) {
+		function3 = 4;
+		function4 = 3;
+	}
 	// OnlyKey Go decrypt inner
-	if (factory_config_flag == 0x01) okcrypto_split_sundae(state, iv1, len, 3);
+	okcrypto_split_sundae(state, iv1, len, function3);
+	#endif
 
 	gcm.clear();
 	gcm.setKey(key, 32);
 	gcm.setIV(iv1, 12);
 	gcm.decrypt(state, state, len);
 
+	#ifdef FACTORYKEYS
 	// OnlyKey Go decrypt outer
-	if (factory_config_flag == 0x01) okcrypto_split_sundae(state, iv1, len, 4);
+	okcrypto_split_sundae(state, iv1, len, function4);
+	#endif
 
 	#ifdef DEBUG
 	Serial.print("DECRYPTED STATE");
@@ -1621,6 +1671,7 @@ void okcrypto_split_sundae(uint8_t *state, uint8_t *iv, int len, uint8_t functio
 }
 
 void okcrypto_compute_pubkey() {
+	memset(ecc_public_key, 0, sizeof(ecc_public_key));
 
 	if (type == KEYTYPE_ED25519) {
 		Ed25519::derivePublicKey(ecc_public_key, ecc_private_key);

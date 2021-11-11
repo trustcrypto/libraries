@@ -91,24 +91,19 @@ extern "C"
 //Firmware Memory Locations
 /*************************************/
 // Factory Values
-#define factorysectoradr 0x5800
-// Last 512 bytes of factorysectoradr in use
-// 0x0000_5E00 - 0x0000_6000
-// okcrypto_split_sundae keys
-#define banana    (uint8_t *) (factorysectoradr+1536)
-#define ice_cream    (uint8_t *) (factorysectoradr+1536+32)
-#define chocolate_syrup    (uint8_t *) (factorysectoradr+1536+64)
-#define whipped_cream    (uint8_t *) (factorysectoradr+1536+96)
-#define cherry_on_top    (uint8_t *) (factorysectoradr+1536+128)
-// FIDO attestation key
-#define encrypted_attestation_key    (uint8_t *) (factorysectoradr+1536+480)
-#define attestation_kek    (uint8_t *) (factorysectoradr+1536+448)
-#define attestation_kek_iv    (uint8_t *) (factorysectoradr+1536+436)
-
-// TODO, enable factory config flag when factory keys are supported
-#define factory_config_flag 0
-// #define factory_config_flag    (uint8_t) (factorysectoradr+1536+435)
-// #define attestation_cert_der_stored 0x3DC20
+#define factorysectoradr 0x5800 //22528 - 23551
+// Encrypted Values
+#define enckeysectoradr (factorysectoradr + 512) //23552 - 24575
+// Crypto Split Sundae keys
+#define banana    (uint8_t *) (enckeysectoradr) // 32 byte AES/ECC key
+#define ice_cream    (uint8_t *) (enckeysectoradr+32) // 32 byte AES/ECC key
+#define chocolate_syrup    (uint8_t *) (enckeysectoradr+64) // 32 byte AES/ECC key
+#define whipped_cream    (uint8_t *) (enckeysectoradr+96) // 32 byte AES/ECC key
+#define cherry_on_top    (uint8_t *) (enckeysectoradr+128) // 32 byte AES/ECC key
+// FIDO2 attestation key
+#define encrypted_attestation_key    (uint8_t *) (enckeysectoradr+480) // 32 byte ecc key
+#define attestation_kek    (uint8_t *) (enckeysectoradr+448) // 32 byte AES-256 key
+#define attestation_kek_iv    (uint8_t *) (enckeysectoradr+436) // 12 byte AES-GCM IV
 // Start of firmware
 // 0x0000_6060 - 0x0003_A05F used for firmware (13 blocks of 16384 = 212992 bytes max size fw)
 #define fwstartadr 0x6060
@@ -160,6 +155,7 @@ extern "C"
 #define OKFWUPDATE           (TYPE_INIT | 0x74)
 #define OKHMAC           (TYPE_INIT | 0x75)
 #define OKWEBAUTHN           (TYPE_INIT | 0x76)
+
 /*************************************/
 //ykpers BSD license
 /*************************************/
@@ -179,6 +175,15 @@ extern "C"
 #define EXTFLAG_SERIAL_BTN_VISIBLE	0x01	/* Serial number visible at startup (button press) */
 #define EXTFLAG_SERIAL_USB_VISIBLE	0x02	/* Serial number visible in USB iSerial field */
 #define EXTFLAG_SERIAL_API_VISIBLE	0x04	/* Serial number visible via API call */
+/*************************************/
+//Types of MFA (one per slot)
+/*************************************/
+#define MFAGOOGLEAUTH 103 // g
+#define MFAOLDYUBIOTP 121 // y
+#define MFAOLDU2F 117 // u
+#define MFAYUBIOTP 89 // Y
+#define MFAHMACSHA1 72 // H
+#define MFAYUBIOTPandHMACSHA1 50 // 2
 /*************************************/
 //Types of second profile
 /*************************************/
@@ -216,6 +221,7 @@ extern "C"
 #define KEYTYPE_P256R1 2
 #define KEYTYPE_P256K1 3
 #define KEYTYPE_CURVE25519 4
+#define KEYTYPE_HMACSHA1 9
 #define KEYTYPE_ECDH_P256R   102
 #define KEYTYPE_ECDH_P256K   103
 #define KEYTYPE_ECDH_CURVE25519  104
@@ -245,7 +251,7 @@ extern void set_primary_pin (uint8_t *buffer, uint8_t keyboard_mode);
 extern void set_secondary_pin (uint8_t *buffer, uint8_t keyboard_mode);
 extern void set_sd_pin (uint8_t *buffer, uint8_t keyboard_mode);
 extern void set_private (uint8_t *buffer);
-extern void wipe_private (uint8_t *buffer);
+extern void wipe_private (uint8_t *buffer, bool response);
 extern int ctap_flash (int index, uint8_t *buffer, int size, uint8_t mode);
 extern void setOtherTimeout();
 extern void processPacket(uint8_t *buffer);
@@ -301,6 +307,7 @@ extern void okcore_flashget_label (uint8_t *ptr, uint8_t slot);
 extern void okcore_flashset_label (uint8_t *ptr, uint8_t slot);
 extern int okcore_flashget_ECC (uint8_t slot);
 extern int okcore_flashget_RSA (uint8_t slot);
+extern uint8_t okcore_flashget_hmac(uint8_t *ptr, uint8_t slot);
 void okcore_aes_gcm_encrypt(uint8_t *state, uint8_t slot, uint8_t value, const uint8_t *key, int len);
 void okcore_aes_gcm_decrypt(uint8_t *state, uint8_t slot, uint8_t value, const uint8_t *key, int len);
 void okcore_aes_cbc_decrypt (uint8_t * state, const uint8_t * key, int len);
@@ -327,7 +334,7 @@ extern void initColor();
 extern void setcolor (uint8_t Color);
 extern void backup();
 extern void rsa_priv_flash (uint8_t *buffer, bool wipe);
-extern void ecc_priv_flash (uint8_t *buffer);
+extern void ecc_priv_flash (uint8_t *buffer, bool wipe);
 extern void flash_modify (int index, uint8_t *sector, uint8_t *data, int size, bool wipe);
 extern void RESTORE (uint8_t *buffer);
 extern void process_packets (uint8_t *buffer, int len, uint8_t *blocknum);
