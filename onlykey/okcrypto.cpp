@@ -1286,21 +1286,24 @@ void okcrypto_aes_gcm_encrypt(uint8_t *state, uint8_t slot, uint8_t value, const
 	byteprint(state, len);
 	#endif
 
+	#ifdef FACTORYKEYS
 	// Even/Odd IV different encryption algorithms
 	if (iv2[0] % 2 == 0) {
 		function1 = 2;
 		function2 = 1;
 	}
-
-	if (factory_config_flag == 0x01) okcrypto_split_sundae(state, iv2, len, function1);
+	okcrypto_split_sundae(state, iv2, len, function1);
+	#endif
 
 	gcm.clear();
 	gcm.setKey(aeskey, 32);
 	gcm.setIV(iv2, 12);
 	gcm.encrypt(state, state, len);
-
+	
+	#ifdef FACTORYKEYS
 	// OnlyKey Go encrypt inner
-	if (factory_config_flag == 0x01) okcrypto_split_sundae(state, iv2, len, function2);
+	okcrypto_split_sundae(state, iv2, len, function2);
+	#endif
 
 	#ifdef DEBUG
 	Serial.print("ENCRYPTED STATE");
@@ -1366,20 +1369,24 @@ void okcrypto_aes_gcm_decrypt(uint8_t *state, uint8_t slot, uint8_t value, const
 	byteprint(state, len);
 	#endif
 
+	#ifdef FACTORYKEYS
 	// Even/Odd IV different encryption algorithms
 	if (iv2[0] % 2 == 0) {
 		function3 = 4;
 		function4 = 3;
 	}
 
-	if (factory_config_flag == 0x01) okcrypto_split_sundae(state, iv2, len, function3);
+	okcrypto_split_sundae(state, iv2, len, function3);
+	#endif
 
 	gcm.clear();
 	gcm.setKey(aeskey, 32);
 	gcm.setIV(iv2, 12);
 	gcm.decrypt(state, state, len);
 
-	if (factory_config_flag == 0x01) okcrypto_split_sundae(state, iv2, len, function4);
+	#ifdef FACTORYKEYS
+	okcrypto_split_sundae(state, iv2, len, function4);
+	#endif
 
 	#ifdef DEBUG
 	Serial.print("DECRYPTED STATE");
@@ -1403,22 +1410,25 @@ void okcrypto_aes_gcm_encrypt2(uint8_t *state, uint8_t *iv1, const uint8_t *key,
 	byteprint(state, len);
 	#endif
 
+	#ifdef FACTORYKEYS
 	// Even/Odd IV different encryption algorithms
 	if (iv1[0] % 2 == 0) {
 		function1 = 2;
 		function2 = 1;
 	}
-
 	// OnlyKey Go encrypt outer
-	if (factory_config_flag == 0x01) okcrypto_split_sundae(state, iv1, len, function1);
+	okcrypto_split_sundae(state, iv1, len, function1);
+	#endif
 
 	gcm.clear();
 	gcm.setKey(key, 32);
 	gcm.setIV(iv1, 12);
 	gcm.encrypt(state, state, len);
 
+	#ifdef FACTORYKEYS
 	// OnlyKey Go encrypt inner
-	if (factory_config_flag == 0x01) okcrypto_split_sundae(state, iv1, len, function2);
+	okcrypto_split_sundae(state, iv1, len, function2);
+	#endif
 
 	#ifdef DEBUG
 	Serial.print("ENCRYPTED STATE");
@@ -1440,22 +1450,25 @@ void okcrypto_aes_gcm_decrypt2(uint8_t *state, uint8_t *iv1, const uint8_t *key,
 	byteprint(state, len);
 	#endif
 
+	#ifdef FACTORYKEYS
 	// Even/Odd IV different encryption algorithm sequence
 	if (iv1[0] % 2 == 0) {
 		function3 = 4;
 		function4 = 3;
 	}
-
 	// OnlyKey Go decrypt inner
-	if (factory_config_flag == 0x01) okcrypto_split_sundae(state, iv1, len, function3);
+	okcrypto_split_sundae(state, iv1, len, function3);
+	#endif
 
 	gcm.clear();
 	gcm.setKey(key, 32);
 	gcm.setIV(iv1, 12);
 	gcm.decrypt(state, state, len);
 
+	#ifdef FACTORYKEYS
 	// OnlyKey Go decrypt outer
-	if (factory_config_flag == 0x01) okcrypto_split_sundae(state, iv1, len, function4);
+	okcrypto_split_sundae(state, iv1, len, function4);
+	#endif
 
 	#ifdef DEBUG
 	Serial.print("DECRYPTED STATE");

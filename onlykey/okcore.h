@@ -93,7 +93,7 @@ extern "C"
 // Factory Values
 #define factorysectoradr 0x5800 //22528 - 23551
 // Encrypted Values
-#define enckeysectoradr 0x5C00 //23552 - 24575
+#define enckeysectoradr (factorysectoradr + 512) //23552 - 24575
 // Crypto Split Sundae keys
 #define banana    (uint8_t *) (enckeysectoradr) // 32 byte AES/ECC key
 #define ice_cream    (uint8_t *) (enckeysectoradr+32) // 32 byte AES/ECC key
@@ -104,9 +104,6 @@ extern "C"
 #define encrypted_attestation_key    (uint8_t *) (enckeysectoradr+480) // 32 byte ecc key
 #define attestation_kek    (uint8_t *) (enckeysectoradr+448) // 32 byte AES-256 key
 #define attestation_kek_iv    (uint8_t *) (enckeysectoradr+436) // 12 byte AES-GCM IV
-// Enable factory config flag when factory keys are supported
-#define factory_config_flag 0
-// #define attestation_cert_der_stored 0x3DC20
 // Start of firmware
 // 0x0000_6060 - 0x0003_A05F used for firmware (13 blocks of 16384 = 212992 bytes max size fw)
 #define fwstartadr 0x6060

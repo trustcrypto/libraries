@@ -165,7 +165,7 @@ uint8_t mod_keys_enabled = 0; //Default
 extern uint8_t KeyboardLayout[1];
 elapsedMillis idletimer;
 uint8_t useinterface = 0;
-uint8_t onlykeyhw = HW_ID;
+uint8_t onlykeyhw = OK_HW_COLOR;
 /*************************************/
 //SoftTimer Tasks
 /*************************************/
@@ -213,12 +213,12 @@ unsigned int touchread3; // OnlyKey Go Button #1
 unsigned int touchread4;
 unsigned int touchread5; // OnlyKey Go Button #2
 unsigned int touchread6;
-unsigned int touchread1ref = 1350;
-unsigned int touchread2ref = 1350;
-unsigned int touchread3ref = 1350;
-unsigned int touchread4ref = 1350;
-unsigned int touchread5ref = 1350;
-unsigned int touchread6ref = 1450;
+unsigned int touchread1ref;
+unsigned int touchread2ref;
+unsigned int touchread3ref;
+unsigned int touchread4ref;
+unsigned int touchread5ref;
+unsigned int touchread6ref;
 unsigned int sumofall;
 int button_selected = 0; 
 uint8_t touchoffset;
@@ -442,7 +442,7 @@ void recvmsg(int n)
 			{
 				hidprint("Error not in config mode, hold button 6 down for 5 sec");
 			}
-			else if (recv_buffer[6] > 0x80 && onlykeyhw == OK_DUO && initialized == false) { // App Setup of backup key, no pin
+			else if (recv_buffer[6] > 0x80 && onlykeyhw == OK_HW_DUO && initialized == false) { // App Setup of backup key, no pin
 				memcpy(large_buffer, recv_buffer, 64);
 				set_built_in_pin();
 				set_private(large_buffer);
@@ -750,7 +750,7 @@ void okcore_quick_setup(uint8_t step)
 		sha256_update(&hash, buffer + 7, 27);
 		sha256_final(&hash, buffer + 7);
 		set_private(buffer); //set backup ECC key
-		if (onlykeyhw!=OK_DUO) keytype("To start using OnlyKey enter your primary or secondary PIN on the OnlyKey 6 button keypad");
+		if (onlykeyhw!=OK_HW_DUO) keytype("To start using OnlyKey enter your primary or secondary PIN on the OnlyKey 6 button keypad");
 		keytype("OnlyKey is ready for use as a security key (FIDO2/U2F) and for challenge-response");
 		keytype("For additional features such as password management install the OnlyKey desktop app");
 		keytype("https://onlykey.io/app ");
@@ -896,7 +896,7 @@ void set_primary_pin(uint8_t *buffer, uint8_t keyboard_mode)
 				SHA256_CTX pinhash;
 				sha256_init(&pinhash);
 				if (keyboard_mode == KEYBOARD_AUTO_PIN_SET) {
-					if (onlykeyhw==OK_DUO) memcpy(password.guess, (ID+18), 16);
+					if (onlykeyhw==OK_HW_DUO) memcpy(password.guess, (ID+18), 16);
 					else memcpy(password.guess, buffer, 7);
 				} else if (keyboard_mode == SETUP_MANUAL) {
 					memcpy(password.guess, buffer, 16);
@@ -1197,7 +1197,7 @@ void set_secondary_pin(uint8_t *buffer, uint8_t keyboard_mode)
 				SHA256_CTX pinhash;
 				sha256_init(&pinhash);
 				if (keyboard_mode == KEYBOARD_AUTO_PIN_SET) {
-					if (onlykeyhw==OK_DUO) memcpy(password.guess, (ID+19), 16);
+					if (onlykeyhw==OK_HW_DUO) memcpy(password.guess, (ID+19), 16);
 					else memcpy(password.guess, buffer, 7);
 				} else if (keyboard_mode == SETUP_MANUAL) {
 					memcpy(password.guess, buffer, 16);
@@ -2189,23 +2189,9 @@ int touch_sense_loop () {
 	rngloop(); //Perform regular housekeeping on the random number generator.
 
 	if (touchoffset == 0) touchoffset = 12; // DEFAULT
-	//Serial.println("touchoffset");
-	//Serial.println(touchoffset);
-	//Serial.println("touchread1");
-	//Serial.println(touchread1);
-	//Serial.println("touchread2");
-	//Serial.println(touchread2);
-	//Serial.println("touchread3");
-	//Serial.println(touchread3);
-	//Serial.println("touchread4");
-	//Serial.println(touchread4);
-	//Serial.println("touchread5");
-	//Serial.println(touchread5);
-	//Serial.println("touchread6");
-	//Serial.println(touchread6);
 
-	// Any Button reads 10% lower than ref, recalibrate
-	if (touchread1+(touchread1/10)<touchread1ref || touchread2+(touchread2/10)<touchread2ref || touchread3+(touchread3/10)<touchread3ref || touchread4+(touchread4/10)<touchread4ref || touchread5+(touchread5/10)<touchread5ref || touchread6+(touchread6/10)<touchread6ref) {
+	// Any Button reads 20% lower than ref, recalibrate
+	if (touchread1+(touchread1/5)<touchread1ref || touchread2+(touchread2/5)<touchread2ref || touchread3+(touchread3/5)<touchread3ref || touchread4+(touchread4/5)<touchread4ref || touchread5+(touchread5/5)<touchread5ref || touchread6+(touchread6/5)<touchread6ref) {
 		key_on = 0;
 		key_press = 0;
 		rainbowCycle();
@@ -2213,31 +2199,31 @@ int touch_sense_loop () {
 	}
 
 	// All Buttons reads 5% higher than ref, recalibrate
-	if ((touchread1ref+(touchread1ref/20)<touchread1 && touchread2ref+(touchread2ref/20)<touchread2 && touchread3ref+(touchread3ref/20)<touchread3 && touchread4ref+(touchread4ref/20)<touchread4 && touchread5ref+(touchread5ref/20)<touchread5 && touchread6ref+(touchread6ref/20)<touchread6) || (onlykeyhw==OK_DUO && touchread2ref+(touchread2ref/20)<touchread2 && touchread3ref+(touchread3ref/20)<touchread3)) {
+	if (onlykeyhw!=OK_HW_DUO && (touchread1ref+(touchread1ref/20)<touchread1 && touchread2ref+(touchread2ref/20)<touchread2 && touchread3ref+(touchread3ref/20)<touchread3 && touchread4ref+(touchread4ref/20)<touchread4 && touchread5ref+(touchread5ref/20)<touchread5 && touchread6ref+(touchread6ref/20)<touchread6)) {
 		key_on = 0;
 		key_press = 0;
 		rainbowCycle();
 		return 0;
 	}
 
-	// Button reads ~240 (default 12) higher than ref, register touch
-	if (onlykeyhw!=OK_DUO && touchread1 > (touchread1ref+(touchoffset*(touchread1ref/70)))) {
+	// Button reads ~348 (default 12) higher than ref, which is ~25%, register touch
+	if (onlykeyhw!=OK_HW_DUO && touchread1 > (touchread1ref+(touchoffset*(touchread1ref/50)))) {
 		key_off = 0;
 		key_press = 0;
 		key_on += 1;
 		button_selected = '5';
-		//Serial.println("touchread1");
-		//Serial.println(touchread1);
+		Serial.println("touchread1");
+		Serial.println(touchread1);
 	}
-	else if (touchread2 > (touchread2ref+(touchoffset*(touchread2ref/70)))) {
+	else if (touchread2 > (touchread2ref+(touchoffset*(touchread2ref/50)))) {
 		key_off = 0;
 		key_press = 0;
 		key_on += 1;
 		button_selected = '2';
-		//Serial.println("touchread2");
-		//Serial.println(touchread2);
-		if (onlykeyhw==OK_DUO) {
-			if (touchread3 > (touchread3ref+(touchoffset*(touchread3ref/70)))) {
+		Serial.println("touchread2");
+		Serial.println(touchread2);
+		if (onlykeyhw==OK_HW_DUO) {
+			if (touchread3 > (touchread3ref+(touchoffset*(touchread3ref/50)))) {
 				button_3_on++;
 				button_3_off=0;
 			} else {
@@ -2246,15 +2232,15 @@ int touch_sense_loop () {
 			}
 		}
 	}
-	else if (touchread3 > (touchread3ref+(touchoffset*(touchread3ref/70)))) {
+	else if (touchread3 > (touchread3ref+(touchoffset*(touchread3ref/50)))) {
 		key_off = 0;
 		key_press = 0;
 		key_on += 1;
 		button_selected = '1';
-		//Serial.println("touchread3");
-		//Serial.println(touchread3);
-		if (onlykeyhw==OK_DUO) {
-			if (touchread2 > (touchread2ref+(touchoffset*(touchread2ref/70)))) {
+		Serial.println("touchread3");
+		Serial.println(touchread3);
+		if (onlykeyhw==OK_HW_DUO) {
+			if (touchread2 > (touchread2ref+(touchoffset*(touchread2ref/50)))) {
 				button_3_on++;
 				button_3_off=0;
 			} else {
@@ -2263,29 +2249,29 @@ int touch_sense_loop () {
 			}
 		}
 	}
-	else if (onlykeyhw!=OK_DUO && touchread4 > (touchread4ref+(touchoffset*(touchread4ref/70)))) {
+	else if (onlykeyhw!=OK_HW_DUO && touchread4 > (touchread4ref+(touchoffset*(touchread4ref/50)))) {
 		key_off = 0;
 		key_press = 0;
 		key_on += 1;
 		button_selected = '3';
-		//Serial.println("touchread4");
-		//Serial.println(touchread4);
+		Serial.println("touchread4");
+		Serial.println(touchread4);
 	}
-	else if (onlykeyhw!=OK_DUO && touchread5 > (touchread5ref+(touchoffset*(touchread5ref/70)))) {
+	else if (onlykeyhw!=OK_HW_DUO && touchread5 > (touchread5ref+(touchoffset*(touchread5ref/50)))) {
 		key_off = 0;
 		key_press = 0;
 		key_on += 1;
 		button_selected = '4';
-		//Serial.println("touchread5");
-		//Serial.println(touchread5);
+		Serial.println("touchread5");
+		Serial.println(touchread5);
 	}
-	else if (onlykeyhw!=OK_DUO && touchread6 > (touchread6ref+(touchoffset*(touchread6ref/70)))) {
+	else if (onlykeyhw!=OK_HW_DUO && touchread6 > (touchread6ref+(touchoffset*(touchread6ref/50)))) {
 		key_off = 0;
 		key_press = 0;
 		key_on += 1;
 		button_selected = '6';
-		//Serial.println("touchread6");
-		//Serial.println(touchread6);
+		Serial.println("touchread6");
+		Serial.println(touchread6);
 	} else {
 		if (key_on > THRESHOLD) key_press = key_on;
 		key_off += 1;
@@ -2313,7 +2299,10 @@ int touch_sense_loop () {
 	}
 
 	if ((key_press > 0) && (key_off > 2)) {
-		if (onlykeyhw==OK_DUO && button_3_on) button_selected = '3';
+		if (onlykeyhw==OK_HW_DUO && button_3_on) {
+			button_selected = '3';
+			Serial.println("OnlyKey DUO Button 3");
+		}
 		button_3_on = 0;
 		button_3_off = 0;
 		key_on = 0;
@@ -2350,7 +2339,7 @@ void rngloop()
 	// Two bytes, 2 credits
 	RNG.stir((uint8_t *)&analog1, 2, 2);
 	touchread1 = touchRead(TOUCHPIN1);
-	if(onlykeyhw==OK_DUO) {
+	if(onlykeyhw==OK_HW_DUO) {
 		touchread2 = touchRead(TOUCHPIN5);
 		touchread5 = touchRead(TOUCHPIN2);
 	} else {
@@ -4690,7 +4679,7 @@ void set_private(uint8_t *buffer)
 	Serial.print("Profile Key "); 
 	byteprint(profilekey, 32);
 	#endif
-	if ((buffer[6] > 0x80 && backupkeymode && initcheck) || ((backupkeymode || onlykeyhw==OK_DUO) && backupkeyslot == buffer[5] && initcheck))
+	if ((buffer[6] > 0x80 && backupkeymode && initcheck) || ((backupkeymode || onlykeyhw==OK_HW_DUO) && backupkeyslot == buffer[5] && initcheck))
 	{
 		hidprint("Error backup key mode set to locked");
 		integrityctr1++;
@@ -5582,7 +5571,7 @@ void rainbowCycle()
 int calibratecaptouch(uint16_t j)
 {
 	rngloop();
-	if (((touchread1 + touchread3 + touchread5) * 1.0) / ((touchread2 + touchread4 + touchread6) * 1.0) > .6 && ((touchread1 + touchread3 + touchread5) * 1.0) / ((touchread2 + touchread4 + touchread6) * 1.0) < 1.6)
+	if (onlykeyhw==OK_HW_DUO || ((touchread1 + touchread4 + touchread5) * 1.0) / ((touchread2 + touchread3 + touchread6) * 1.0) > .6 && ((touchread1 + touchread4 + touchread5) * 1.0) / ((touchread2 + touchread3 + touchread6) * 1.0) < 1.6)
 	{
 		if (j >= 200)
 		{
@@ -5594,22 +5583,34 @@ int calibratecaptouch(uint16_t j)
 				touchread4ref = touchread4;
 				touchread5ref = touchread5;
 				touchread6ref = touchread6;
-#ifdef DEBUG
-				Serial.println(touchread1);
-				Serial.println(touchread2);
-				Serial.println(touchread3);
-				Serial.println(touchread4);
-				Serial.println(touchread5);
-				Serial.println(touchread6);
-#endif
 			}
-			// button reads 20% higher than ref, start over
-			if (touchread1ref+(touchread1ref/5)<touchread1) return 1;
-			if (touchread2ref+(touchread2ref/5)<touchread2) return 1;
-			if (touchread3ref+(touchread3ref/5)<touchread3) return 1;
-			if (touchread4ref+(touchread4ref/5)<touchread4) return 1;
-			if (touchread5ref+(touchread5ref/5)<touchread5) return 1;
-			if (touchread6ref+(touchread6ref/5)<touchread6) return 1;
+			#ifdef DEBUG
+				Serial.println("touchread1 and touchread1ref");
+				Serial.println(touchread1);
+				Serial.println(touchread1ref);
+				Serial.println("touchread2 and touchread2ref");
+				Serial.println(touchread2);
+				Serial.println(touchread2ref);
+				Serial.println("touchread3 and touchread3ref");
+				Serial.println(touchread3);
+				Serial.println(touchread3ref);
+				Serial.println("touchread4 and touchread4ref");
+				Serial.println(touchread4);
+				Serial.println(touchread4ref);
+				Serial.println("touchread5 and touchread5ref");
+				Serial.println(touchread5);
+				Serial.println(touchread5ref);
+				Serial.println("touchread6 and touchread6ref");
+				Serial.println(touchread6);
+				Serial.println(touchread6ref);
+			#endif
+			// A button reads 50% higher than its ref, start over
+			if (touchread1ref+(touchread1ref/2)<touchread1) return 1;
+			if (touchread2ref+(touchread2ref/2)<touchread2) return 1;
+			if (touchread3ref+(touchread3ref/2)<touchread3) return 1;
+			if (touchread4ref+(touchread4ref/2)<touchread4) return 1;
+			if (touchread5ref+(touchread5ref/2)<touchread5) return 1;
+			if (touchread6ref+(touchread6ref/2)<touchread6) return 1;
 			touchread1ref = (touchread1 + touchread1ref) / 2;
 			touchread2ref = (touchread2 + touchread2ref) / 2;
 			touchread3ref = (touchread3 + touchread3ref) / 2;
@@ -5621,12 +5622,17 @@ int calibratecaptouch(uint16_t j)
 				int duopins = (touchread2ref + touchread3ref)/2;
 				int otherpins = (touchread1ref + touchread4ref + touchread5ref + touchread6ref)/4;
 				if (HW_ID==5) {
-					onlykeyhw = HW_ID; // OK_LQFP
+					onlykeyhw = OK_HW_COLOR; // OK_Color LQFP
 				} else if (duopins > (otherpins + (otherpins/7))) {
-					onlykeyhw = HW_ID; // OK_DUO
+					onlykeyhw = HW_ID; // OK_HW_DUO
 				} else {
-					onlykeyhw = HW_ID+1; // OK_BGA
+					onlykeyhw = OK_HW_COLOR; // OK_Color BGA
 				}
+				#ifdef DEFINED_HWID
+				onlykeyhw = DEFINED_HWID; // override auto hw detection, hardcoded
+				#endif
+				Serial.println("onlykeyhw");
+				Serial.println(onlykeyhw);
 			}
 		}
 	}
@@ -5644,7 +5650,7 @@ void initColor()
 {
 	pixels.begin(); // This initializes the NeoPixel library.
 	uint8_t modifier = 22;
-	if (onlykeyhw==OK_DUO) modifier=modifier/2;
+	if (onlykeyhw==OK_HW_DUO) modifier=modifier/2;
 	if (NEO_Brightness[0] != 0) {
 		pixels.setBrightness(NEO_Brightness[0] * modifier);
 	} else {
@@ -6291,8 +6297,15 @@ void backup()
 		{
 			sha256_init(&bhash);
 			sha256_update(&bhash, backuphash, 32);
+			Serial.println("Before Backup Hash");
+			byteprint(backuphash, 32);
 			sha256_update(&bhash, large_temp + i, large_buffer_offset - i);
+			Serial.println("Data");
+			byteprint(large_temp + i, large_buffer_offset - i);
 			sha256_final(&bhash, backuphash);
+			Serial.println("After Backup Hash");
+			byteprint(backuphash, 32);
+
 			int enclen = base64_encode(large_temp + i, temp, (large_buffer_offset - i), 0);
 			for (int z = 0; z < enclen; z++)
 			{
@@ -6305,9 +6318,15 @@ void backup()
 		else
 		{
 			sha256_init(&bhash);
+						Serial.println("Before Backup Hash");
+			byteprint(backuphash, 32);
 			sha256_update(&bhash, backuphash, 32);
+						Serial.println("Data");
+			byteprint(large_temp + i, 57);
 			sha256_update(&bhash, large_temp + i, 57);
 			sha256_final(&bhash, backuphash);
+						Serial.println("After Backup Hash");
+			byteprint(backuphash, 32);
 			base64_encode(large_temp + i, temp, 57, 0);
 			for (int z = 0; z < 4 * (57 / 3); z++)
 			{
@@ -6347,13 +6366,6 @@ void backup()
 		delay((TYPESPEED[0] * TYPESPEED[0] / 3) * 8);
 	}
 	Keyboard.println();
-	for (uint8_t z = 0; z < sizeof(dashes); z++)
-	{
-		Keyboard.press(dashes[z]);
-		delay((TYPESPEED[0] * TYPESPEED[0] / 3) * 8);
-		Keyboard.releaseAll();
-		delay((TYPESPEED[0] * TYPESPEED[0] / 3) * 8);
-	}
 	//End backup footer
 	for (uint8_t z = 0; z < sizeof(endbackup); z++)
 	{
@@ -6940,7 +6952,7 @@ void done_process_packets()
 		sha256_init(&msg_hash);
 		sha256_update(&msg_hash, packet_buffer, packet_buffer_offset); //add data to sign
 		sha256_final(&msg_hash, temp);					//Temporarily store hash
-		if (onlykeyhw==OK_DUO) {
+		if (onlykeyhw==OK_HW_DUO) {
 			Challenge_button1 = (temp[0] % 3) + '0' + 1;	//Get value 1-3 for challenge 1
 			Challenge_button2 = (temp[15] % 3) + '0' + 1;	//Get value 1-3 for challenge 2
 			Challenge_button3 = (temp[31] % 3) + '0' + 1;	//Get value 1-3 for challenge 3
@@ -7334,12 +7346,10 @@ char * HW_MODEL(char const * in) {
 	char out[strlen(in)+2];
 	memcpy(out,in,strlen(in));
 	#ifdef OK_Color
-	if (onlykeyhw==OK_DUO) {
+	if (onlykeyhw==OK_HW_DUO) {
 		out[sizeof(out)-2] = 'p';
 		// TODO read state of DUO, with pin (p) or without (n)
 		//out[sizeof(out)-2] = 'p';
-	} else if (onlykeyhw==OK_BGA) {
-		out[sizeof(out)-2] = 'd';
 	} else {
 		out[sizeof(out)-2] = 'c';
 	}
