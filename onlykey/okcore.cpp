@@ -1189,9 +1189,13 @@ void set_secondary_pin(uint8_t *buffer, uint8_t keyboard_mode)
 
 				uint8_t temp[32];
 				uint8_t nonce2[32];
+				uint8_t p2mode;
 
-				RNG2((uint8_t*)nonce2, 32); //Fill temp with random data
-				okeeprom_eeset_nonce2((uint8_t*)nonce2);
+				okeeprom_eeget_2ndprofilemode(&p2mode);
+				if (p2mode!=NONENCRYPTEDPROFILE) {
+					RNG2((uint8_t*)nonce2, 32); //Fill temp with random data
+					okeeprom_eeset_nonce2((uint8_t*)nonce2);
+				}
 
 				//Hash PIN and Nonce
 				SHA256_CTX pinhash;
@@ -1711,7 +1715,8 @@ void set_slot(uint8_t *buffer)
 		#endif
 		okcore_aes_gcm_encrypt((buffer + 7), slot, value, profilekey, length);
 		okcore_flashset_2fa_key(buffer + 7, length, slot);
-		okeeprom_eeset_2FAtype((uint8_t *)MFAGOOGLEAUTH, slot);
+		temp = MFAGOOGLEAUTH;
+		okeeprom_eeset_2FAtype(&temp, slot);
 		#ifdef DEBUG
 		Serial.println("Encrypted");
 		byteprint(buffer + 7, 57);
@@ -1743,7 +1748,7 @@ void set_slot(uint8_t *buffer)
 			okeeprom_eeset_2FAtype(&temp, slot);
 			memset(buffer, 0, 43);
 		}
-		okcore_flashset_2fa_key(buffer, 64, slot);
+		okcore_flashset_2fa_key(buffer, 0, slot);
 		#ifdef DEBUG
 		Serial.println("Encrypted");
 		byteprint(buffer + 7, 57);
@@ -1758,15 +1763,12 @@ void set_slot(uint8_t *buffer)
 			#ifdef DEBUG
 			Serial.println("Writing AES Key, Private ID, and Public ID to EEPROM...");
 			#endif
-			uint16_t counter = 0x0000;
-			uint8_t *ptr;
-			ptr = (uint8_t *)&counter;
 			if (slot == 0) {
 				okcore_aes_gcm_encrypt((buffer + 7), slot, value, profilekey, (EElen_public+EElen_private+EElen_aeskey));	
 				okeeprom_eeset_public_DEPRICATED(buffer + 7);
 				okeeprom_eeset_private_DEPRICATED((buffer + 7 + EElen_public));
 				okeeprom_eeset_aeskey_DEPRICATED(buffer + 7 + EElen_public + EElen_private);
-			} else if (slot >= 1 && slot <= 12) {
+			} else if (slot >= 1 && slot <= 24) {
 				okeeprom_eeget_2FAtype(&temp, slot);
 				uint8_t tempbuf[38];
 				okcore_aes_gcm_encrypt((buffer + 7), slot, 10, profilekey, (16+EElen_private+EElen_aeskey));
@@ -1777,17 +1779,18 @@ void set_slot(uint8_t *buffer)
 					temp = MFAYUBIOTPandHMACSHA1;
 					Serial.print(temp);
 					okeeprom_eeset_2FAtype(&temp, slot);
-					okcore_flashset_2fa_key(buffer, 64, slot);
+					okcore_flashset_2fa_key(buffer, 0, slot);
 				}
 				else {
 					Serial.print(temp);
 					temp = MFAYUBIOTP;
 					okeeprom_eeset_2FAtype(&temp, slot);
 					memset(buffer+43, 0, 21);
-					okcore_flashset_2fa_key(buffer, (16+EElen_private+EElen_aeskey), slot);
+					okcore_flashset_2fa_key(buffer, 0, slot);
 				}
 			}
-			yubikey_eeset_counter(ptr, slot);
+			uint8_t ctr[2] = {0};
+			yubikey_eeset_counter(ctr, slot);
 			hidprint("Successfully set AES Key, Private ID, and Public ID");
 		}
 		break;
@@ -2902,8 +2905,12 @@ void okcore_flashset_pinhashpublic(uint8_t *ptr)
 #endif
 	//Generate shared secret 
 	okeeprom_eeget_2ndprofilemode(&p2mode);
-	if (p2mode==STDPROFILE2) Curve25519::eval(secret, ptr, p2hash);
-	else Curve25519::eval(secret, ptr, p1hash);
+	if (p2mode==STDPROFILE2) {
+		Curve25519::eval(secret, ptr, p2hash);
+	}
+	else {
+		Curve25519::eval(secret, ptr, p1hash);
+	}
 	okcore_flashset_profilekey((uint8_t*)secret);
 	//Copy public key to ptr for writing to flash
 	memcpy(ptr, p1hash, 32);
@@ -3016,6 +3023,7 @@ int okcore_flashget_2ndpinhashpublic(uint8_t *ptr)
 		return 1;
 	}
 }
+
 void okcore_flashset_2ndpinhashpublic(uint8_t *ptr)
 {
 
@@ -4660,6 +4668,7 @@ uint8_t okcore_flashget_hmac(uint8_t *ptr, uint8_t slot) {
 		type = KEYTYPE_HMACSHA1;
 		if (tempbuf[43] == 1) return 1;
 	}
+	return 0;
 	#endif
 }
 
@@ -5223,6 +5232,7 @@ void yubikeyinit(uint8_t slot)
 	uint16_t usage;
 	char public_id[32 + 1];
 	char private_id[12 + 1];
+	uint8_t publen = 16; // Max public size
 
 	#ifdef DEBUG
 	Serial.print("Initializing YubiKey OTP for slot ");
@@ -5246,21 +5256,28 @@ void yubikeyinit(uint8_t slot)
 	} else if (slot > 0 && slot < 25) {
 		okcore_flashget_yubiotp(ptr, slot);
 		okcore_aes_gcm_decrypt(temp, slot, 10, profilekey, (EElen_aeskey + EElen_private + 16));
-		memcpy(pubID, temp, 16);
-		memcpy(privID, temp+16, 6);
-		memcpy(yaeskey, temp+16+EElen_private, EElen_aeskey);
-		yubikey_hex_encode(public_id, (char *)pubID, strlen((char *)pubID));
+		for (int i = 37; i > 27; i--) {
+			 if (temp[i]!=0) {
+				 break;
+			 }
+			 publen--;
+		}
+		memcpy(pubID, temp, publen);
+		memcpy(privID, temp+publen, 6);
+		memcpy(yaeskey, temp+publen+EElen_private, EElen_aeskey);
+		yubikey_hex_encode(public_id, (char *)pubID, publen);
 	}
 
 	yubikey_hex_encode(private_id, (char *)privID, 6);
 
 	#ifdef DEBUG
 	Serial.println("public_id");
-	byteprint(pubID, 16);
+	byteprint(pubID, publen);
 	Serial.println("private_id");
 	byteprint(privID, 6);
 	Serial.println("aes key");
 	byteprint(yaeskey, 16);
+	
 	#endif
 
 	memset(temp, 0, sizeof(temp)); //Clear temp buffer
@@ -5910,7 +5927,8 @@ void backup()
 			large_temp[large_buffer_offset + 3] = temp[0];
 			large_buffer_offset = large_buffer_offset + 4;
 		}
-		if (temp[0] == MFAGOOGLEAUTH || temp[0] == MFAYUBIOTPandHMACSHA1 || temp[0] == MFAHMACSHA1)
+		uint8_t whichtype = temp[0];
+		if (whichtype == MFAGOOGLEAUTH || whichtype == MFAYUBIOTPandHMACSHA1 || whichtype == MFAHMACSHA1)
 		{ //Google Auth or HMAC
 #ifdef DEBUG
 			Serial.println("Reading 2FA Key from Flash...");
@@ -5926,7 +5944,7 @@ void backup()
 
 			large_temp[large_buffer_offset] = 0xFF; //delimiter
 			large_temp[large_buffer_offset + 1] = slot;
-			if (temp[0] == MFAGOOGLEAUTH) {
+			if (whichtype == MFAGOOGLEAUTH) {
 				if (slot <= 12 || (slot > 12 && p2mode != NONENCRYPTEDPROFILE)) okcore_aes_gcm_decrypt(temp, slot, 9, profilekey, otplength);
 				memcpy(large_temp + large_buffer_offset + 4, temp, otplength);
 				large_temp[large_buffer_offset + 2] = 9; //9 - TOTP Key
@@ -5943,12 +5961,13 @@ void backup()
 			byteprint(temp, otplength);
 			Serial.println();
 			#endif
+
 			large_temp[large_buffer_offset + 3] = otplength;
 			large_buffer_offset = large_buffer_offset + otplength + 4;
 		}
-		if (temp[0] == MFAOLDYUBIOTP  || temp[0] == MFAYUBIOTP)
+		if (whichtype == MFAOLDYUBIOTP || whichtype == MFAYUBIOTP || whichtype == MFAYUBIOTPandHMACSHA1)
 		{ //Old yubi otp or new yubi otp
-		if (temp[0] == MFAOLDYUBIOTP) {
+		if (whichtype == MFAOLDYUBIOTP) {
 			yubikey_eeget_counter(ctr, 0);
 			okeeprom_eeget_public_DEPRICATED(ptr);
 			ptr = (temp + EElen_public);
@@ -5961,7 +5980,7 @@ void backup()
 			large_temp[large_buffer_offset + 2] = 10; //10 = Yubikey
 			memcpy(large_temp + large_buffer_offset + 3, temp, (EElen_aeskey + EElen_private + EElen_public));
 			large_buffer_offset = large_buffer_offset + (EElen_aeskey + EElen_private + EElen_public) + 3;
-		} else if (temp[0] == MFAYUBIOTP && slot > 0 && slot < 25) {
+		} else if ((whichtype == MFAYUBIOTP || whichtype ==MFAYUBIOTPandHMACSHA1) && slot > 0 && slot < 25) {
 			yubikey_eeget_counter(ctr, slot);
 			okcore_flashget_yubiotp(ptr, slot);
 			okcore_aes_gcm_decrypt(temp, slot, 10, profilekey, (EElen_aeskey + EElen_private + 16));
@@ -5969,7 +5988,7 @@ void backup()
 			large_temp[large_buffer_offset + 1] = slot;  //slot
 			large_temp[large_buffer_offset + 2] = 10; //10 = Yubikey
 			memcpy(large_temp + large_buffer_offset + 3, temp, (EElen_aeskey + EElen_private + 16));
-			large_buffer_offset = large_buffer_offset + (EElen_aeskey + EElen_private + 16) + 3; 	
+			large_buffer_offset = large_buffer_offset + (EElen_aeskey + EElen_private + 16) + 3; 
 		}
 			large_temp[large_buffer_offset] = ctr[0];	 //first part of counter
 			large_temp[large_buffer_offset + 1] = ctr[1]; //second part of counter
@@ -6297,14 +6316,8 @@ void backup()
 		{
 			sha256_init(&bhash);
 			sha256_update(&bhash, backuphash, 32);
-			Serial.println("Before Backup Hash");
-			byteprint(backuphash, 32);
 			sha256_update(&bhash, large_temp + i, large_buffer_offset - i);
-			Serial.println("Data");
-			byteprint(large_temp + i, large_buffer_offset - i);
 			sha256_final(&bhash, backuphash);
-			Serial.println("After Backup Hash");
-			byteprint(backuphash, 32);
 
 			int enclen = base64_encode(large_temp + i, temp, (large_buffer_offset - i), 0);
 			for (int z = 0; z < enclen; z++)
@@ -6318,15 +6331,9 @@ void backup()
 		else
 		{
 			sha256_init(&bhash);
-						Serial.println("Before Backup Hash");
-			byteprint(backuphash, 32);
 			sha256_update(&bhash, backuphash, 32);
-						Serial.println("Data");
-			byteprint(large_temp + i, 57);
 			sha256_update(&bhash, large_temp + i, 57);
 			sha256_final(&bhash, backuphash);
-						Serial.println("After Backup Hash");
-			byteprint(backuphash, 32);
 			base64_encode(large_temp + i, temp, 57, 0);
 			for (int z = 0; z < 4 * (57 / 3); z++)
 			{
@@ -6587,7 +6594,8 @@ void RESTORE(uint8_t *buffer)
 				if (temp[6] == 10)
 				{ //Yubikey OTP
 					uint8_t ctr[2];
-					if (temp[5] == 0) {
+					uint8_t ykslot = temp[5];
+					if (ykslot == 0) {
 						memcpy(temp + 7, ptr, (EElen_aeskey + EElen_private + EElen_public));
 						set_slot(temp);					
 						ptr = ptr + EElen_aeskey + EElen_private + EElen_public;
@@ -6603,7 +6611,8 @@ void RESTORE(uint8_t *buffer)
 					counter += 300; //Increment by 300
 					ctr[0] = counter >> 8 & 0xFF;
 					ctr[1] = counter & 0xFF;
-					yubikey_eeset_counter(ctr, temp[5]);				
+
+					yubikey_eeset_counter(ctr, ykslot);				
 					#ifdef DEBUG
 					Serial.print("New Yubikey Counter =");
 					byteprint(ctr, 2);
@@ -7065,7 +7074,7 @@ void process_setreport()
 					recv_buffer[4] = OKSETPRIV;
 					if (keyboard_buffer[64] == 1) recv_buffer[5] = RESERVED_KEY_HMACSHA1_1;
 					else if (keyboard_buffer[64] == 3) recv_buffer[5] = RESERVED_KEY_HMACSHA1_2;
-					else recv_buffer[5] = slot - 3;
+					else recv_buffer[5] = slot;
 					recv_buffer[6] = KEYTYPE_HMACSHA1;
 					byteprint(recv_buffer,64);
 					if (recv_buffer[7]+recv_buffer[8]+recv_buffer[9]+recv_buffer[10]+recv_buffer[11] == 0) {
@@ -7096,6 +7105,7 @@ void process_setreport()
 						} else { // Niether CR slot already require no button press
 							mode = recv_buffer[5]; // Now current CR slot require no button press
 						}
+						
 						if (recv_buffer[5] == RESERVED_KEY_HMACSHA1_1 || recv_buffer[5] == RESERVED_KEY_HMACSHA1_2) {
 							set_private(recv_buffer);
 							// Check if private set successfully
