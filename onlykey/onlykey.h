@@ -103,7 +103,7 @@
 #define HW_ID SIM_SDID_PINID // SIM_SDID_PINID =9 if MK20 BGA, =5 if MK20 LQFP
 #define OK_HW_DUO 9 
 #define OK_HW_COLOR 5
-#define DEFINED_HWID OK_HW_COLOR
+//#define DEFINED_HWID OK_HW_COLOR
 
 
 #ifdef __cplusplus

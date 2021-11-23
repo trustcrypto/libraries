@@ -313,6 +313,7 @@ void okcore_aes_gcm_decrypt(uint8_t *state, uint8_t slot, uint8_t value, const u
 void okcore_aes_cbc_decrypt (uint8_t * state, const uint8_t * key, int len);
 void okcore_aes_cbc_encrypt (uint8_t * state, const uint8_t * key, int len);
 void okcore_pin_login ();
+int avganalog ();
 
 extern void yubikeyinit(uint8_t slot);
 extern int yubikeysim(char *ptr, uint8_t slot);

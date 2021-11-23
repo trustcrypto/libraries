@@ -1739,11 +1739,9 @@ void set_slot(uint8_t *buffer)
 		memmove(buffer + 43, tempbuf, 21);
 		if (temp == MFAYUBIOTPandHMACSHA1 || temp == MFAYUBIOTP) {
 			temp = MFAYUBIOTPandHMACSHA1;
-			Serial.print(temp);
 			okeeprom_eeset_2FAtype(&temp, slot);
 		}
 		else {
-			Serial.print(temp);
 			temp = MFAHMACSHA1;
 			okeeprom_eeset_2FAtype(&temp, slot);
 			memset(buffer, 0, 43);
@@ -1777,12 +1775,10 @@ void set_slot(uint8_t *buffer)
 				memmove(buffer, tempbuf, 38);
 				if (temp == MFAYUBIOTPandHMACSHA1 || temp == MFAHMACSHA1) {
 					temp = MFAYUBIOTPandHMACSHA1;
-					Serial.print(temp);
 					okeeprom_eeset_2FAtype(&temp, slot);
 					okcore_flashset_2fa_key(buffer, 0, slot);
 				}
 				else {
-					Serial.print(temp);
 					temp = MFAYUBIOTP;
 					okeeprom_eeset_2FAtype(&temp, slot);
 					memset(buffer+43, 0, 21);
@@ -2209,22 +2205,36 @@ int touch_sense_loop () {
 		return 0;
 	}
 
+	/*
+	Serial.println("touchread1");
+	Serial.println(touchread1);
+	Serial.println("touchread2");
+	Serial.println(touchread2);
+	Serial.println("touchread3");
+	Serial.println(touchread3);
+	Serial.println("touchread4");
+	Serial.println(touchread4);
+	Serial.println("touchread5");
+	Serial.println(touchread5);
+	Serial.println("touchread6");
+	Serial.println(touchread6);
+	Serial.println("AnalogreadA12");
+	Serial.println(analogRead(A12));
+	*/
+
 	// Button reads ~348 (default 12) higher than ref, which is ~25%, register touch
 	if (onlykeyhw!=OK_HW_DUO && touchread1 > (touchread1ref+(touchoffset*(touchread1ref/50)))) {
 		key_off = 0;
 		key_press = 0;
 		key_on += 1;
 		button_selected = '5';
-		Serial.println("touchread1");
-		Serial.println(touchread1);
+
 	}
 	else if (touchread2 > (touchread2ref+(touchoffset*(touchread2ref/50)))) {
 		key_off = 0;
 		key_press = 0;
 		key_on += 1;
 		button_selected = '2';
-		Serial.println("touchread2");
-		Serial.println(touchread2);
 		if (onlykeyhw==OK_HW_DUO) {
 			if (touchread3 > (touchread3ref+(touchoffset*(touchread3ref/50)))) {
 				button_3_on++;
@@ -2240,8 +2250,6 @@ int touch_sense_loop () {
 		key_press = 0;
 		key_on += 1;
 		button_selected = '1';
-		Serial.println("touchread3");
-		Serial.println(touchread3);
 		if (onlykeyhw==OK_HW_DUO) {
 			if (touchread2 > (touchread2ref+(touchoffset*(touchread2ref/50)))) {
 				button_3_on++;
@@ -2257,24 +2265,18 @@ int touch_sense_loop () {
 		key_press = 0;
 		key_on += 1;
 		button_selected = '3';
-		Serial.println("touchread4");
-		Serial.println(touchread4);
 	}
 	else if (onlykeyhw!=OK_HW_DUO && touchread5 > (touchread5ref+(touchoffset*(touchread5ref/50)))) {
 		key_off = 0;
 		key_press = 0;
 		key_on += 1;
 		button_selected = '4';
-		Serial.println("touchread5");
-		Serial.println(touchread5);
 	}
 	else if (onlykeyhw!=OK_HW_DUO && touchread6 > (touchread6ref+(touchoffset*(touchread6ref/50)))) {
 		key_off = 0;
 		key_press = 0;
 		key_on += 1;
 		button_selected = '6';
-		Serial.println("touchread6");
-		Serial.println(touchread6);
 	} else {
 		if (key_on > THRESHOLD) key_press = key_on;
 		key_off += 1;
@@ -2304,7 +2306,6 @@ int touch_sense_loop () {
 	if ((key_press > 0) && (key_off > 2)) {
 		if (onlykeyhw==OK_HW_DUO && button_3_on) {
 			button_selected = '3';
-			Serial.println("OnlyKey DUO Button 3");
 		}
 		button_3_on = 0;
 		button_3_off = 0;
@@ -2623,7 +2624,7 @@ void keytype(char const *chars)
 
 void byteprint(uint8_t *bytes, int size)
 {
-//#ifdef DEBUG
+#ifdef DEBUG
 	Serial.println();
 	for (int i = 0; i < size; i++)
 	{
@@ -2631,7 +2632,7 @@ void byteprint(uint8_t *bytes, int size)
 		Serial.print(" ");
 	}
 	Serial.println();
-//#endif
+#endif
 }
 
 void factorydefault()
@@ -5636,20 +5637,30 @@ int calibratecaptouch(uint16_t j)
 			touchread6ref = (touchread6 + touchread6ref) / 2;
 			if (j == 299) { //Check how many touch pins connected
 				// ~15% greater than pins 
-				int duopins = (touchread2ref + touchread3ref)/2;
-				int otherpins = (touchread1ref + touchread4ref + touchread5ref + touchread6ref)/4;
 				if (HW_ID==5) {
 					onlykeyhw = OK_HW_COLOR; // OK_Color LQFP
-				} else if (duopins > (otherpins + (otherpins/7))) {
+				} else if (!avganalog()) {
+					// Double check just to make sure in case of glitch
+					if (avganalog()) CPU_RESTART();
+					if (avganalog()) CPU_RESTART();
+					if (avganalog()) CPU_RESTART();
+					if (avganalog()) CPU_RESTART();
 					onlykeyhw = HW_ID; // OK_HW_DUO
 				} else {
+					if (onlykeyhw==OK_HW_DUO) {
+						// Was detected as OnlyKey DUO previously, this should not happen
+						CPU_RESTART();
+					}
+					// Double check just to make sure in case of glitch
+					if (!avganalog()) CPU_RESTART();
+					if (!avganalog()) CPU_RESTART();
+					if (!avganalog()) CPU_RESTART();
+					if (!avganalog()) CPU_RESTART();
 					onlykeyhw = OK_HW_COLOR; // OK_Color BGA
 				}
 				#ifdef DEFINED_HWID
 				onlykeyhw = DEFINED_HWID; // override auto hw detection, hardcoded
 				#endif
-				Serial.println("onlykeyhw");
-				Serial.println(onlykeyhw);
 			}
 		}
 	}
@@ -5661,6 +5672,22 @@ int calibratecaptouch(uint16_t j)
 		return 1;
 	}
 	return 0;
+}
+
+int avganalog() {
+	int analogavg = 0;
+	for (int i=0; i < 10; i++) {
+		analogavg = analogavg + analogRead(A12);
+		// OK_Color has PIN connected to 3.3v, OK_HW_DUO has floating PIN
+		delay(1);
+	}
+	analogavg = analogavg/10;
+	if (analogavg>62000 && analogavg<67000) {
+		return 1;
+	} else {
+		return 0;
+	}
+	
 }
 
 void initColor()
@@ -7122,8 +7149,6 @@ void process_setreport()
 								// Return CR error?
 							}
 						} else if (recv_buffer[5]) {
-							Serial.print("OKSETSLOT VALUES");
-							byteprint(recv_buffer+4, 5);
 							recv_buffer[4] = OKSETSLOT;
 							recv_buffer[5] = slot;
 							recv_buffer[6] = 29; // HMAC
