@@ -195,12 +195,33 @@ void okeeprom_eeset_2ndprofilemode (uint8_t *ptr) {
 }
 /*********************************/
 /*********************************/
-int okeeprom_eeget_typespeed (uint8_t *ptr) {
-    okeeprom_eeget_common(ptr, EEpos_typespeed, EElen_typespeed);
+int okeeprom_eeget_typespeed (uint8_t *ptr, int slot) {
+	if (slot == 0) {
+    	okeeprom_eeget_common(ptr, EEpos_typespeed, EElen_typespeed);
+	} else if (slot > 0 && slot < 13) {
+		okeeprom_eeget_common(ptr, EEpos_slottypespeed+slot-1, EElen_typespeed);
+		*ptr &= 0x0F;
+	} else if (slot > 12 && slot < 25) {
+		okeeprom_eeget_common(ptr, EEpos_slottypespeed+slot-1, EElen_typespeed);
+		*ptr &= 0xF0;
+		*ptr = (*ptr>>4);
+	}
     return EElen_typespeed;
 }
-void okeeprom_eeset_typespeed (uint8_t *ptr) {
-    okeeprom_eeset_common(ptr, EEpos_typespeed, EElen_typespeed);
+void okeeprom_eeset_typespeed (uint8_t *ptr, int slot) {
+	uint8_t temp;
+	okeeprom_eeget_common(temp, EEpos_slottypespeed+slot-1, EElen_typespeed);
+	if (slot == 0) {
+		okeeprom_eeset_common(ptr, EEpos_typespeed, EElen_typespeed);
+	} else if (slot > 0 && slot < 13) {
+		temp &= 0xF0;
+		temp += *ptr;
+		okeeprom_eeset_common((uint8_t *)temp, EEpos_slottypespeed+slot-1, EElen_typespeed);
+	} else if (slot > 12 && slot < 25) {
+		temp &= 0x0F;
+		temp += (*ptr<<4);
+		okeeprom_eeset_common((uint8_t *)temp, EEpos_slottypespeed+slot-1, EElen_typespeed);
+	}
 }
 /*********************************/
 /*********************************/

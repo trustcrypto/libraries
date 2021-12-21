@@ -1422,8 +1422,13 @@ void get_slot_labels(uint8_t output)
 #endif
 	uint8_t label[EElen_label + 4] = {0};
 	int offset = 0;
+	int maxslots;
 	if (profilemode) offset = 12;
-	int maxslots = 12;
+	if (onlykeyhw==OK_HW_DUO) {
+		maxslots = 24;
+	} else {
+		maxslots = 12;
+	}
 	for (int i = 1; i <= maxslots; i++)
 	{
 		okcore_flashget_label((uint8_t *)label+2, (offset + i));
@@ -1979,8 +1984,10 @@ void set_slot(uint8_t *buffer)
 		if (buffer[7] <= 10)
 		{
 			buffer[7] = 11 - buffer[7];
-			okeeprom_eeset_typespeed(buffer + 7);
-			TYPESPEED[0] = buffer[7];
+			okeeprom_eeset_typespeed(buffer + 7, buffer[8]);
+			if (buffer[8] == 0) {
+				TYPESPEED[0] = buffer[7];
+			}
 		}
 		hidprint("Successfully set keyboard typespeed");
 		break;
@@ -5727,7 +5734,7 @@ void backup()
 		return;
 #ifdef STD_VERSION
 	uint8_t temp[MAX_RSA_KEY_SIZE];
-	uint8_t large_temp[17904];
+	uint8_t large_temp[18000];
 	int urllength;
 	int usernamelength;
 	int passwordlength;
@@ -6021,8 +6028,18 @@ void backup()
 			large_temp[large_buffer_offset + 1] = ctr[1]; //second part of counter
 			large_buffer_offset = large_buffer_offset + 2;
 		}
+		okeeprom_eeget_typespeed(ptr, slot);
+		if (*ptr != 0)
+		{
+			*ptr = 11 - *ptr;
+			large_temp[large_buffer_offset] = 0xFF;   //delimiter
+			large_temp[large_buffer_offset + 1] = slot;  //slot 0
+			large_temp[large_buffer_offset + 2] = 13; //13 - Keyboard type speed
+			large_temp[large_buffer_offset + 3] = temp[0];
+			large_buffer_offset = large_buffer_offset + 4;
+		}
 	}
-	okeeprom_eeget_typespeed(ptr);
+	okeeprom_eeget_typespeed(ptr, 0);
 	if (*ptr != 0)
 	{
 		*ptr = 11 - *ptr;
@@ -6032,6 +6049,7 @@ void backup()
 		large_temp[large_buffer_offset + 3] = temp[0];
 		large_buffer_offset = large_buffer_offset + 4;
 	}
+
 	okeeprom_eeget_keyboardlayout(ptr);
 	if (*ptr != 0)
 	{
@@ -6424,14 +6442,14 @@ void RESTORE(uint8_t *buffer)
 	
 	if (offset == 0) {
 		//free(large_temp);
-		large_temp = (uint8_t *)malloc(17904); //Max size for slots 7731 max size for keys 3072 + headers + Max RSA key size + 6144 for RKs + 208 Authenticator state + 24 for new yubiotp counters
-		memset(large_temp, 0, 17904);
+		large_temp = (uint8_t *)malloc(18000); //Max size for slots 7827 max size for keys 3072 + headers + Max RSA key size + 6144 for RKs + 208 Authenticator state + 24 for new yubiotp counters
+		memset(large_temp, 0, 18000);
 	}
 
 	//Slot restore
 	if (buffer[5] == 0xFF) //Not last packet
 	{
-		if (offset <= (17904 - 57))
+		if (offset <= (18000 - 57))
 		{
 			#ifdef DEBUG
 			Serial.print("Restore packet received =");
@@ -6455,7 +6473,7 @@ void RESTORE(uint8_t *buffer)
 	}
 	else
 	{ //last packet
-		if (offset <= (17904 - 57) && buffer[5] <= 57)
+		if (offset <= (18000 - 57) && buffer[5] <= 57)
 		{
 			#ifdef DEBUG
 			Serial.print("Restore packet received =");
@@ -7166,15 +7184,15 @@ void process_setreport()
 					if (keyboard_buffer[47] == CFGFLAG_PACING_10MS) {
 						// set speed to medium
 						TYPESPEED[0] = 2;
-						okeeprom_eeset_typespeed((uint8_t*)TYPESPEED);
+						okeeprom_eeset_typespeed((uint8_t*)TYPESPEED, 0);
 					} else if (keyboard_buffer[47] == CFGFLAG_PACING_20MS) {
 						// set speed to slow
 						TYPESPEED[0] = 4;
-						okeeprom_eeset_typespeed((uint8_t*)TYPESPEED);
+						okeeprom_eeset_typespeed((uint8_t*)TYPESPEED, 0);
 					} else {
 						// set speed to fast
 						TYPESPEED[0] = 1;
-						okeeprom_eeset_typespeed((uint8_t*)TYPESPEED);
+						okeeprom_eeset_typespeed((uint8_t*)TYPESPEED, 0);
 					}
 					// After OTP
 					uint8_t temp;
