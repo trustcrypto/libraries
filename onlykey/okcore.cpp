@@ -2190,12 +2190,12 @@ int touch_sense_loop () {
 	if (touchoffset == 0) touchoffset = 12; // DEFAULT
 
 	// Any Button reads 20% lower than ref, recalibrate
-	if (touchread1+(touchread1/5)<touchread1ref || touchread2+(touchread2/5)<touchread2ref || touchread3+(touchread3/5)<touchread3ref || touchread4+(touchread4/5)<touchread4ref || touchread5+(touchread5/5)<touchread5ref || touchread6+(touchread6/5)<touchread6ref) {
-		key_on = 0;
-		key_press = 0;
-		rainbowCycle();
-		return 0;
-	}
+	//if (touchread1+(touchread1/5)<touchread1ref || touchread2+(touchread2/5)<touchread2ref || touchread3+(touchread3/5)<touchread3ref || touchread4+(touchread4/5)<touchread4ref || touchread5+(touchread5/5)<touchread5ref || touchread6+(touchread6/5)<touchread6ref) {
+	//	key_on = 0;
+	//	key_press = 0;
+	//	rainbowCycle();
+	//	return 0;
+	//}
 
 	// All Buttons reads 5% higher than ref, recalibrate
 	if (onlykeyhw!=OK_HW_DUO && (touchread1ref+(touchread1ref/20)<touchread1 && touchread2ref+(touchread2ref/20)<touchread2 && touchread3ref+(touchread3ref/20)<touchread3 && touchread4ref+(touchread4ref/20)<touchread4 && touchread5ref+(touchread5ref/20)<touchread5 && touchread6ref+(touchread6ref/20)<touchread6)) {
