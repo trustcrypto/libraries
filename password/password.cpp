@@ -115,24 +115,22 @@ bool Password::profile1hashevaluate(){
 	uint8_t temp[32];
 	uint8_t KEK[32];
 	uint8_t nonce2[32];
-	extern uint8_t Profile_Offset;
+	extern int Profile_Offset;
 	extern uint8_t onlykeyhw;
+	extern uint8_t Duo_config[2];
 
 	size_t guesslen = strlen(guess);
 
+	Duo_config[0]=0;
 	if (onlykeyhw==OK_HW_DUO) {
-		if (Profile_Offset==1) { //switch from profile 1 to profile 2
-			Profile_Offset=0;
-			return false; 
-		}
 		if (guesslen==0) {
 			// check if default PIN is set (chip ID)
 			guesslen=16;
 			memcpy(guess, (ID+18), 16);
+			Duo_config[0]=1;
 		}
 	}
 	
-
 	if (guesslen < 7) {
 		delay (30); //Simulate time taken to hash to decrease attack emanation surface
 		return false; //PIN length must be 7 - 10 digits
@@ -288,14 +286,6 @@ bool Password::profile2hashevaluate(){
 	extern uint8_t onlykeyhw;
 
 	size_t guesslen = strlen(guess);
-
-	if (onlykeyhw==OK_HW_DUO) {
-		if (guesslen==0) {
-			// check if default PIN is set (chip ID)
-			guesslen=16;
-			memcpy(guess, (ID+19), 16);
-		}
-	}
 
 	if (guesslen < 7) {
 		delay (30); //Simulate time taken to hash to decrease emanation attack surface

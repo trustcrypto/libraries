@@ -28,7 +28,7 @@ extern "C"
 #define CTAP_VENDOR_LAST            0xBF
 
 // AAGUID For certified Onlykey 998f358b-2dd2-4cbe-a43a-e8107438dfb3
-// #define CTAP_AAGUID                 ((uint8_t*)"\x99\x8f\x35\x8b\x2d\xd2\x4c\xbe\xa4\x3a\xe8\x10\x74\x38\xdf\xb3")
+ #define CERTIFIED_CTAP_AAGUID                 ((uint8_t*)"\x99\x8f\x35\x8b\x2d\xd2\x4c\xbe\xa4\x3a\xe8\x10\x74\x38\xdf\xb3")
 // AAGUID For non-fido2-certified Onlykey
 #define CTAP_AAGUID                 ((uint8_t*)"\x79\xd6\x99\xdf\x01\x91\x4b\x10\xb9\x03\x54\x67\xe7\xce\x82\x31")
 #define MC_clientDataHash         0x01

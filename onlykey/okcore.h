@@ -95,15 +95,17 @@ extern "C"
 // Encrypted Values
 #define enckeysectoradr (factorysectoradr + 512) //23552 - 24575
 // Crypto Split Sundae keys
-#define banana    (uint8_t *) (enckeysectoradr) // 32 byte AES/ECC key
-#define ice_cream    (uint8_t *) (enckeysectoradr+32) // 32 byte AES/ECC key
-#define chocolate_syrup    (uint8_t *) (enckeysectoradr+64) // 32 byte AES/ECC key
-#define whipped_cream    (uint8_t *) (enckeysectoradr+96) // 32 byte AES/ECC key
-#define cherry_on_top    (uint8_t *) (enckeysectoradr+128) // 32 byte AES/ECC key
+#define banana    (enckeysectoradr) // 32 byte AES/ECC key
+#define ice_cream    (enckeysectoradr+32) // 32 byte AES/ECC key
+#define chocolate_syrup    (enckeysectoradr+64) // 32 byte AES/ECC key
+#define whipped_cream    (enckeysectoradr+96) // 32 byte AES/ECC key
+#define cherry_on_top    (enckeysectoradr+128) // 32 byte AES/ECC key
+// FIDO2 attestation kek
+#define attestation_kek    (enckeysectoradr+448) // 32 byte AES-256 key
+#define attestation_kek_iv    (enckeysectoradr+436) // 12 byte AES-GCM IV
 // FIDO2 attestation key
-#define encrypted_attestation_key    (uint8_t *) (enckeysectoradr+480) // 32 byte ecc key
-#define attestation_kek    (uint8_t *) (enckeysectoradr+448) // 32 byte AES-256 key
-#define attestation_kek_iv    (uint8_t *) (enckeysectoradr+436) // 12 byte AES-GCM IV
+#define encrypted_attestation_key    (enckeysectoradr+480) // 32 byte ecc key (0x0000_5BE0)
+#define certified_hw (enckeysectoradr+447)
 // Start of firmware
 // 0x0000_6060 - 0x0003_A05F used for firmware (13 blocks of 16384 = 212992 bytes max size fw)
 #define fwstartadr 0x6060
@@ -197,8 +199,8 @@ extern "C"
 #define KEYBOARD_AUTO_PIN_SET 2
 #define SETUP_MANUAL 3
 #define SETUP_AUTO 4
-#define KEYBOARD_ONLYKEY_GO 5
-#define KEYBOARD_ONLYKEY_GO_NO_BACKUP 6
+#define KEYBOARD_ONLYKEY_DUO_BACKUP 5
+#define KEYBOARD_ONLYKEY_DUO_NO_BACKUP 6
 /*************************************/
 // Output Modes
 /*************************************/

@@ -81,10 +81,10 @@
 #define DEBUG //Enable Serial Monitor
 #define STD_VERSION //Define for STD edition firmare, undefine for IN TRVL edition firmware
 #define OK_Color //Define for hardware with color LED
-//#define FACTORYKEYS // Attestation key and other keys encrypted using CHIP ID and RNG for unique keys per device
-#define OKversionmaj "2"
-#define OKversionmin "1"
-#define OKversionpat "3"
+#define FACTORYKEYS // Attestation key and other keys encrypted using CHIP ID and RNG for unique keys per device
+#define OKversionmaj "3"
+#define OKversionmin "0"
+#define OKversionpat "0"
 
 #ifndef OKCORE_H
 #include "okcore.h"
@@ -103,7 +103,7 @@
 #define HW_ID SIM_SDID_PINID // SIM_SDID_PINID =9 if MK20 BGA, =5 if MK20 LQFP
 #define OK_HW_DUO 9 
 #define OK_HW_COLOR 5
-//#define DEFINED_HWID OK_HW_COLOR
+#define DEFINED_HWID OK_HW_DUO
 
 
 #ifdef __cplusplus

@@ -47,11 +47,17 @@ int u2f_button = 0;
 void U2Finit()
 {
     uint8_t length[2];
+    uint8_t kek[32];
+    uint8_t iv[12];
     device_init();
     #ifdef FACTORYKEYS
-    // New method decrypt attestation with device keys
-    memcpy((uint8_t *)attestation_key, encrypted_attestation_key, 32);
-    okcrypto_aes_gcm_decrypt2((uint8_t *)attestation_key, attestation_kek_iv, attestation_kek, 32);
+    if (certified_hw == 1) {
+        // New method decrypt attestation with device keys
+        memcpy((uint8_t *)attestation_key, (uint8_t *)encrypted_attestation_key, 32);
+        memcpy((uint8_t *)kek, (uint8_t *)attestation_kek, 32);
+        memcpy((uint8_t *)iv, (uint8_t *)attestation_kek_iv, 12);
+        okcrypto_aes_gcm_decrypt2((uint8_t *)attestation_key, (uint8_t *)iv, (uint8_t *)kek, 32);
+    }
     #endif
 }
 
@@ -449,16 +455,28 @@ void _Error_Handler(char *file, int line)
 }
 
 void device_read_aaguid(uint8_t * dst){
-    memmove(dst, CTAP_AAGUID, 16);
+    if (certified_hw == 1) {
+        memmove(dst, CERTIFIED_CTAP_AAGUID, 16);
+    } else {
+        memmove(dst, CTAP_AAGUID, 16);
+    }
     dump_hex1(TAG_GREEN,dst, 16);
 }
 
 uint16_t device_attestation_cert_der_get_size() {
-    return attestation_cert_der_size;
+    if (certified_hw == 1) {
+        return certified_attestation_cert_der_size;
+    } else {
+       return attestation_cert_der_size;
+    }
 }
 
 void device_attestation_read_cert_der(uint8_t * dst) {
-    memmove(dst, attestation_cert_der, device_attestation_cert_der_get_size());
+    if (certified_hw == 1) {
+        memmove(dst, certified_attestation_cert_der, device_attestation_cert_der_get_size());
+    } else {
+        memmove(dst, attestation_cert_der, device_attestation_cert_der_get_size());
+    }
 }
 
 

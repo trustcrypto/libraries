@@ -84,6 +84,7 @@
 #include <AES.h>
 #include <CBC.h>
 #include <GCM.h>
+#include <ChaCha.h>
 #include <Crypto.h>
 #include "sha1.h"
 #include "sha512.h"
@@ -1301,7 +1302,6 @@ void okcrypto_aes_gcm_encrypt(uint8_t *state, uint8_t slot, uint8_t value, const
 	gcm.encrypt(state, state, len);
 	
 	#ifdef FACTORYKEYS
-	// OnlyKey Go encrypt inner
 	okcrypto_split_sundae(state, iv2, len, function2);
 	#endif
 
@@ -1320,8 +1320,8 @@ void okcrypto_aes_gcm_decrypt(uint8_t *state, uint8_t slot, uint8_t value, const
 	uint8_t iv2[12];
 	uint8_t aeskey[32];
 	uint8_t data[2];
-	uint8_t function3 = 3;
-	uint8_t function4 = 4;
+	uint8_t function3 = 4;
+	uint8_t function4 = 3;
 	data[0] = slot;
 	data[1] = value;
 
@@ -1372,10 +1372,9 @@ void okcrypto_aes_gcm_decrypt(uint8_t *state, uint8_t slot, uint8_t value, const
 	#ifdef FACTORYKEYS
 	// Even/Odd IV different encryption algorithms
 	if (iv2[0] % 2 == 0) {
-		function3 = 4;
-		function4 = 3;
+		function3 = 3;
+		function4 = 4;
 	}
-
 	okcrypto_split_sundae(state, iv2, len, function3);
 	#endif
 
@@ -1416,7 +1415,6 @@ void okcrypto_aes_gcm_encrypt2(uint8_t *state, uint8_t *iv1, const uint8_t *key,
 		function1 = 2;
 		function2 = 1;
 	}
-	// OnlyKey Go encrypt outer
 	okcrypto_split_sundae(state, iv1, len, function1);
 	#endif
 
@@ -1426,7 +1424,6 @@ void okcrypto_aes_gcm_encrypt2(uint8_t *state, uint8_t *iv1, const uint8_t *key,
 	gcm.encrypt(state, state, len);
 
 	#ifdef FACTORYKEYS
-	// OnlyKey Go encrypt inner
 	okcrypto_split_sundae(state, iv1, len, function2);
 	#endif
 
@@ -1443,8 +1440,8 @@ void okcrypto_aes_gcm_decrypt2(uint8_t *state, uint8_t *iv1, const uint8_t *key,
 	#ifdef STD_VERSION
 	GCM<AES256> gcm;
 	//uint8_t tag[16];
-	uint8_t function3 = 3;
-	uint8_t function4 = 4;
+	uint8_t function3 = 4;
+	uint8_t function4 = 3;
 	#ifdef DEBUG
 	Serial.print("ENCRYPTED STATE");
 	byteprint(state, len);
@@ -1453,10 +1450,9 @@ void okcrypto_aes_gcm_decrypt2(uint8_t *state, uint8_t *iv1, const uint8_t *key,
 	#ifdef FACTORYKEYS
 	// Even/Odd IV different encryption algorithm sequence
 	if (iv1[0] % 2 == 0) {
-		function3 = 4;
-		function4 = 3;
+		function3 = 3;
+		function4 = 4;
 	}
-	// OnlyKey Go decrypt inner
 	okcrypto_split_sundae(state, iv1, len, function3);
 	#endif
 
@@ -1466,7 +1462,6 @@ void okcrypto_aes_gcm_decrypt2(uint8_t *state, uint8_t *iv1, const uint8_t *key,
 	gcm.decrypt(state, state, len);
 
 	#ifdef FACTORYKEYS
-	// OnlyKey Go decrypt outer
 	okcrypto_split_sundae(state, iv1, len, function4);
 	#endif
 
@@ -1560,49 +1555,21 @@ void okcrypto_split_sundae(uint8_t *state, uint8_t *iv, int len, uint8_t functio
 	// a single algorithm or key. State is split so that each crypto function only 
 	// has access to part of the state.
 	//
-	// Here is how it works for example on a 32 byte uint8_t *state:
+	// Here is how it works 
 	// 
-	// Each outer and inner crypto function only has access to half (or less) of the input/output
+	// Each function only has access to half (or less) of the input/output
 	//
-	// Inner
-	// crypto_inner1 has access to bytes 16-31
-	// crypto_inner2 has access to bytes 0-15
+	// 1 has access to first 1/3 bytes
+	// 2 has access to last 1/3 bytes
+	// 3 has access to middle 1/3 bytes
 	//
-	// Middle
-	// crypto_middle as its in the middle has access to all bytes
+	// AES-256 GCM has access to all bytes
 	//
-	// Outer
-	// crypto_outer1 has access to bytes 8-23
-	// crypto_outer2 has access to bytes 0-7 
-	// crypto_outer3 has access to bytes 24-31
+	// 1 has access to last 1/2 bytes
+	// 2 has access to first 1/2 bytes
 	//
-	// Each byte is triple encrypted using different algorithms
+	// Each byte is double or triple encrypted using different algorithms
 	// The middle algorithm is a FIPS 140-2 compliant algorithm for FIPS compliance
-	//
-    // Ingredients for okcrypto_split_sundae function:
-    // key1 - banana[32] - crypto_inner1 key (NACL crypto_stream_xsalsa20)
-    // key2 - ice_cream[32] - crypto_inner2 key (NACL crypto_stream_salsa20)
-    // key3 - chocolate_syrup[32] - crypto_outer1 key (AES256-CBC)
-    // key4 - whipped_cream[32] - crypto_outer2 key (NACL crypto_stream_salsa20)
-    // key5 - cherry_on_top[32] - crypto_outer3 key (NACL crypto_stream_xsalsa20)
-	//
-	// Inner 
-	// crypto_inner1 - Algorithm1(key1) 
-	// crypto_inner2 - Algorithm2(key2) 
-	//
-	// Middle
-	// Algorithm3(profilekey) - AES256-GCM
-	//
-	// Outer
-	// crypto_outer1 - Algorithm4(key3) 
-	// crypto_outer2 - Algorithm5(key4) 
-	// crypto_outer3 - Algorithm6(key5) 
-	//
-	// function variable selects from the following functions:
-	// 1 = encrypt outer
-	// 2 = encrypt inner
-	// 3 = decrypt inner
-	// 4 = decrypt outer
 	//
 	// Encrypt usage:
 	// okcrypto_split_sundae(<plaintext>, <plaintext len>, <iv>, <encrypt outer>)
@@ -1621,52 +1588,90 @@ void okcrypto_split_sundae(uint8_t *state, uint8_t *iv, int len, uint8_t functio
 	// crypto_stream_xsalsa20 requires 24 NONCEBYTES, a difererent nonce is required for each message
 	// "...crypto_stream_xor with a different nonce for each message, the ciphertexts are indistinguishable 
 	// from uniform random strings of the same length" https://nacl.cr.yp.to/stream.html
-	uint8_t iv2[24]; 
+
+	if (certified_hw != 1) return; 
+
+	uint8_t iv2[24] = {0}; 
 	memcpy(iv2,iv,12);
+	uint8_t tempkey[32];
 
-	if (function==1) { //encrypt outer
-		// chocolate_syrup[32] - crypto_outer1 key (AES256-CBC)
-		// crypto_outer1 has access to bytes 8-23
-		okcrypto_aes_cbc_encrypt(state+(len/4), iv2, chocolate_syrup, len-(len/4));
+	if (function==1) { 
+		// chocolate_syrup[32] (ChaCha 256)
+		// has access to last 1/3 bytes
+		memcpy((uint8_t *)tempkey, (uint8_t *)chocolate_syrup, 32);
+		ChaCha chacha;
+		uint8_t counter[8];
+		chacha.clear();
+		chacha.setKey(tempkey, 32);
+		chacha.setIV(iv2, 8);
+		chacha.setCounter(counter, 8);
+		chacha.encrypt(state+(len-(len/3)), state+(len-(len/3)), len/3);
 
-    	// whipped_cream[32] - crypto_outer2 key (NACL crypto_stream_salsa20)
-		// crypto_outer2 has access to bytes 0-7
-		crypto_stream_salsa20_xor(state,state,(len/4),iv2,whipped_cream); 
+    	// whipped_cream[32]  (NACL crypto_stream_salsa20)
+		// has access to first 1/3 bytes
+		memcpy((uint8_t *)tempkey, (uint8_t *)whipped_cream, 32);
+		crypto_stream_salsa20_xor(state,state,(len/3),iv2,tempkey); 
 
-    	// cherry_on_top[32] - crypto_outer3 key (NACL crypto_stream_xsalsa20)
-		// crypto_outer3 has access to bytes 24-31
-		crypto_stream_xsalsa20_xor(state+(len-(len/4)),state+(len-(len/4)),(len/4),iv2,cherry_on_top); 
+    	// cherry_on_top[32] (NACL crypto_stream_xsalsa20)
+		// has access to middle 1/3 bytes
+		memcpy((uint8_t *)tempkey, (uint8_t *)cherry_on_top, 32);
+		crypto_stream_xsalsa20_xor(state+(len/3),state+(len/3),len/3,iv2,tempkey); 
 
-	} else if (function==2) { //encrypt inner
-		// banana[32] - crypto_inner1 key (NACL crypto_stream_xsalsa20)
-		// crypto_inner1 has access to bytes 16-31
-		crypto_stream_xsalsa20_xor(state+(len/2),state+(len/2),(len/2),iv2,banana); 
+	} else if (function==2) { 
+		// banana[32] (ChaCha)
+		// has access to first 1/2 bytes
+		memcpy((uint8_t *)tempkey, (uint8_t *)banana, 32);
+		ChaCha chacha;
+		uint8_t counter[8];
+		chacha.clear();
+		chacha.setKey(tempkey, 32);
+		chacha.setIV(iv2, 8);
+		chacha.setCounter(counter, 8);
+		chacha.encrypt(state, state, len/2);
 
-    	// ice_cream[32] - crypto_inner2 key (NACL crypto_stream_salsa20)
-		// crypto_inner2 has access to bytes 0-15
-		crypto_stream_salsa20_xor(state,state,(len/2),iv2,ice_cream); 
+    	// ice_cream[32] (NACL crypto_stream_salsa20)
+		// has access to last 1/2 bytes
+		memcpy((uint8_t *)tempkey, (uint8_t *)ice_cream, 32);
+		crypto_stream_salsa20_xor(state+(len-(len/2)),state+(len-(len/2)),(len/2),iv2,tempkey); 
 
-	} else if (function==3) { //decrypt inner
-		// cherry_on_top[16] - crypto_outer3 key (NACL crypto_stream_xsalsa20)
-		// crypto_outer3 has access to bytes 24-31
-		crypto_stream_xsalsa20_xor(state+(len-(len/4)),state+(len-(len/4)),(len/4),iv2,cherry_on_top); 
+	} else if (function==3) { 
+		// cherry_on_top[32] - (NACL crypto_stream_xsalsa20)
+		// has access to middle 1/3 bytes
+		memcpy((uint8_t *)tempkey, (uint8_t *)cherry_on_top, 32);
+		crypto_stream_xsalsa20_xor(state+(len/3),state+(len/3),len/3,iv2,tempkey); 
 		
-		// whipped_cream[16] - crypto_outer2 key (NACL crypto_stream_salsa20)
-		// crypto_outer2 has access to bytes 0-7
-		crypto_stream_salsa20_xor(state,state,(len/4),iv2,whipped_cream); 
+		// whipped_cream[32] (NACL crypto_stream_salsa20)
+		// has access to first 1/3 bytes
+		memcpy((uint8_t *)tempkey, (uint8_t *)whipped_cream, 32);
+		crypto_stream_salsa20_xor(state,state,(len/3),iv2,tempkey); 
 
-		// chocolate_syrup[32] - crypto_outer1 key (AES256-CBC)
-		// crypto_outer1 has access to bytes 8-23
-		okcrypto_aes_cbc_decrypt(state+(len/4), iv2, chocolate_syrup, len-(len/4));
+		// chocolate_syrup[32] (ChaCha 256)
+		// has access to last 1/3 bytes
+		memcpy((uint8_t *)tempkey, (uint8_t *)chocolate_syrup, 32);
+		ChaCha chacha;
+		uint8_t counter[8];
+		chacha.clear();
+		chacha.setKey(tempkey, 32);
+		chacha.setIV(iv2, 8);
+		chacha.setCounter(counter, 8);
+		chacha.decrypt(state+(len-(len/3)), state+(len-(len/3)), len/3);
 
-	} else if (function==4) { //decrypt outer
-		// banana[32] - crypto_inner1 key (NACL crypto_stream_xsalsa20)
-		// crypto_inner1 has access to bytes 16-31
-		crypto_stream_xsalsa20_xor(state+(len/2),state+(len/2),(len/2),iv2,banana); 
+	} else if (function==4) { 
+		// ice_cream[32](NACL crypto_stream_salsa20)
+		// has access to last 1/2 bytes
+		memcpy((uint8_t *)tempkey, (uint8_t *)ice_cream, 32);
+		crypto_stream_salsa20_xor(state+(len-(len/2)),state+(len-(len/2)),(len/2),iv2,tempkey); 
 
-    	// ice_cream[32] - crypto_inner2 key (NACL crypto_stream_salsa20)
-		// crypto_inner2 has access to bytes 0-15
-		crypto_stream_salsa20_xor(state,state,(len/2),iv2,ice_cream); 
+		// banana[32] (ChaCha 256)
+		// has access to first 1/2 bytes
+		memcpy((uint8_t *)tempkey, (uint8_t *)banana, 32);
+		ChaCha chacha;
+		uint8_t counter[8];
+		chacha.clear();
+		chacha.setKey(tempkey, 32);
+		chacha.setIV(iv2, 8);
+		chacha.setCounter(counter, 8);
+		chacha.decrypt(state, state, len/2);
 	}
 }
 

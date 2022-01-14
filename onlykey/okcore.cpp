@@ -103,7 +103,7 @@ Adafruit_NeoPixel pixels = Adafruit_NeoPixel(NUMPIXELS, NEOPIN, NEO_GRB + NEO_KH
 #endif
 uint8_t NEO_Color;
 uint8_t NEO_Brightness[1];
-uint8_t Profile_Offset = 0;
+int Profile_Offset = 0;
 /*************************************/
 //Additional Libraries to Load for STD firmware version
 //These libraries will only be used if STD_VERSION is defined
@@ -244,10 +244,8 @@ extern uint8_t type;
 /*************************************/
 //FIDO2 assignments
 /*************************************/
-extern uint16_t attestation_cert_der_size;
 extern uint16_t attestation_key_size;
 extern uint8_t attestation_key[33];
-extern uint8_t attestation_cert_der[768];
 #endif
 int large_buffer_len;
 int large_buffer_offset;
@@ -278,6 +276,7 @@ uint8_t stored_key_challenge_mode = 0;
 /*************************************/
 size_t length = 48; // First block should wait for the pool to fill up.
 /*************************************/
+uint8_t Duo_config[2];
 
 // Main loop to receive data
 void recvmsg(int n)
@@ -347,7 +346,7 @@ void recvmsg(int n)
 			{
 				if (!initcheck || configmode == true) {
 					if (recv_buffer[5]>='0') okcore_quick_setup(SETUP_MANUAL); // Received request to set PINs/passphrase
-					else set_primary_pin(recv_buffer, 0); // Received request to enter primary PIN on OnlyKey (not Go)
+					else set_primary_pin(recv_buffer, 0); // Received request to enter primary PIN on OnlyKey (not DUO)
 				} 
 			}
 			else
@@ -587,27 +586,38 @@ void recvmsg(int n)
 			}
 			return;
 		default:
-			if (profilemode != NONENCRYPTEDPROFILE && initialized == true && unlocked == true && FTFL_FSEC == 0x44 && integrityctr1 == integrityctr2)
+			if (profilemode != NONENCRYPTEDPROFILE && FTFL_FSEC == 0x44 && integrityctr1 == integrityctr2)
 			{
 				#ifdef STD_VERSION
-				if (!useinterface) {
-					// Android bug, Android selects random interface for FIDO if there are 
-					// multiple interfaces, doesn't even check if the interface has usage page 0xf1d0
-					delay(100);
-					useinterface=n;
-					n = RawHID.recv(recv_buffer, 0);
-					if (n) useinterface=n;
+				extern uint8_t onlykeyhw;
+				if (onlykeyhw == OK_HW_DUO && initialized == false) { 
+					// User attempting to use unconfigured OnlyKey for FIDO without first setting up with app
+					// Provision OnlyKey with no device PIN and lock backup
+					ctaphid_handle_packet(recv_buffer);
+					set_built_in_pin();
+					// Lock backup key since there is no PIN required
+					okeeprom_eeset_backupkeymode((uint8_t*)1);
+				}
+				if (initialized == true && unlocked == true) {
+					if (!useinterface) {
+						// Android bug, Android selects random interface for FIDO if there are 
+						// multiple interfaces, doesn't even check if the interface has usage page 0xf1d0
+						delay(100);
+						useinterface=n;
+						n = RawHID.recv(recv_buffer, 0);
+						if (n) useinterface=n;
+						recv_fido_msg(recv_buffer);	
+					} else if (useinterface == n) {
 					recv_fido_msg(recv_buffer);	
-				} else if (useinterface == n) {
-				recv_fido_msg(recv_buffer);	
-				} else {
-					// Fix for Android bug causes some OSes to select wrong interface if a user tries to do FIDO2 while OnlyKey is locked
-					useinterface = n;
-					recv_fido_msg(recv_buffer);	
-					useinterface = 0;
+					} else {
+						// Fix for Android bug causes some OSes to select wrong interface if a user tries to do FIDO2 while OnlyKey is locked
+						useinterface = n;
+						recv_fido_msg(recv_buffer);	
+						useinterface = 0;
+					}
 				}
 				#endif
-			}
+			}     
 			return;
 		}
 	}
@@ -651,10 +661,12 @@ void okcore_quick_setup(uint8_t step)
 		keytype("PINs AND PASSPHRASE. STORE IN A SECURE LOCATION SUCH AS A SAFE");
 		keytype("WHEN FINISHED DELETE THIS TEXT");
 		Keyboard.println();
-		keytype("Three different PIN codes will be set up on your OnlyKey");
-		keytype("The first PIN unlocks your primary profile (i.e Personal Accounts)"); 
-		keytype("The second PIN unlocks an additional profile (i.e. Work Accounts)");
-		keytype("The third PIN is your self-destruct PIN use this to wipe/factory default device");
+		if (onlykeyhw!=OK_HW_DUO) {
+			keytype("Three different PIN codes will be set up on your OnlyKey");
+			keytype("The first PIN unlocks your primary profile (i.e Personal Accounts)"); 
+			keytype("The second PIN unlocks an additional profile (i.e. Work Accounts)");
+			keytype("The third PIN is your self-destruct PIN use this to wipe/factory default device");
+		} 
 		keytype("To choose the PINs yourself press 1 on OnlyKey, for random PINs press 2");
 		keytype("You have 20 seconds starting now...");
 		pin_set = 10;
@@ -666,7 +678,8 @@ void okcore_quick_setup(uint8_t step)
 	{ //Manual Set PIN
 		pin_set = 0;
 		keytype("You will now enter a PIN on the OnlyKey 6 button keypad");
-		keytype("Choose a PIN 7-10 digits long");
+		keytype("Choose a PIN 7-10 digits long");	
+
 		set_primary_pin(NULL, 1);
 		return;
 	}
@@ -683,16 +696,17 @@ void okcore_quick_setup(uint8_t step)
 		Keyboard.println();
 		keytype("YOUR ONLYKEY PIN IS:");
 		keytype((char *)buffer);
-		pin_set = 9;
-		generate_random_pin(buffer);
+		if (onlykeyhw!=OK_HW_DUO) {
+			pin_set = 9;
+			generate_random_pin(buffer);
 
-		//memset(buffer, '2', 7);
+			//memset(buffer, '2', 7);
 
-		set_secondary_pin(buffer, KEYBOARD_AUTO_PIN_SET);
+			set_secondary_pin(buffer, KEYBOARD_AUTO_PIN_SET);
 
-		keytype("YOUR ONLYKEY SECOND PROFILE PIN IS:");
-		keytype((char *)buffer);
-
+			keytype("YOUR ONLYKEY SECOND PROFILE PIN IS:");
+			keytype((char *)buffer);
+		}
 		pin_set = 6;
 		generate_random_pin(buffer);
 
@@ -703,13 +717,13 @@ void okcore_quick_setup(uint8_t step)
 		keytype("YOUR ONLYKEY SELF-DESTRUCT PIN IS:");
 		keytype((char *)buffer);
 
-	} else if (step == KEYBOARD_ONLYKEY_GO) {
-		keytype("*** WELCOME TO ONLYKEY GO QUICK SETUP ***");
+	} else if (step == KEYBOARD_ONLYKEY_DUO_BACKUP) {
+		keytype("*** WELCOME TO ONLYKEY DUO QUICK SETUP ***");
 		keytype("RUN THIS SETUP FROM A TRUSTED COMPUTER AND CAREFULLY WRITE DOWN");
 		keytype("YOUR BACKUP PASSPHRASE. STORE IN A SECURE LOCATION SUCH AS A SAFE");
 		keytype("WHEN FINISHED DELETE THIS TEXT");
 		Keyboard.println();
-	} else if (step == KEYBOARD_ONLYKEY_GO_NO_BACKUP) {
+	} else if (step == KEYBOARD_ONLYKEY_DUO_NO_BACKUP) {
 		set_built_in_pin();
 	} else if (step == SETUP_MANUAL) {
 		changeoutputmode(RAW_USB); //USB
@@ -720,11 +734,13 @@ void okcore_quick_setup(uint8_t step)
 			//byteprint(buffer+5, 16);
 			set_primary_pin(buffer+5, SETUP_MANUAL);
 		}
-		if (buffer[21]>='0') { // 16 max length
-			pin_set = 9;
-			//Serial.println("SETTING SEC PIN");
-			//byteprint(buffer+21, 16);
-			set_secondary_pin(buffer+21, SETUP_MANUAL);
+		if (onlykeyhw!=OK_HW_DUO) {
+			if (buffer[21]>='0') { // 16 max length
+				pin_set = 9;
+				//Serial.println("SETTING SEC PIN");
+				//byteprint(buffer+21, 16);
+				set_secondary_pin(buffer+21, SETUP_MANUAL);
+			}
 		}
 		if (buffer[37]>='0') { // 16 max length
 			//Serial.println("SETTING SD PIN");
@@ -741,7 +757,7 @@ void okcore_quick_setup(uint8_t step)
 	SHA256_CTX hash;
 	sha256_init(&hash);
 
-	if (step != KEYBOARD_ONLYKEY_GO_NO_BACKUP) {
+	if (step != KEYBOARD_ONLYKEY_DUO_NO_BACKUP) {
 		keytype("YOUR ONLYKEY BACKUP PASSPHRASE IS:");
 		generate_random_passphrase(buffer + 7);
 		keytype((char *)(buffer + 7));
@@ -750,16 +766,18 @@ void okcore_quick_setup(uint8_t step)
 		sha256_update(&hash, buffer + 7, 27);
 		sha256_final(&hash, buffer + 7);
 		set_private(buffer); //set backup ECC key
-		if (onlykeyhw!=OK_HW_DUO) keytype("To start using OnlyKey enter your primary or secondary PIN on the OnlyKey 6 button keypad");
+		if (onlykeyhw!=OK_HW_DUO) {
+			keytype("To start using OnlyKey enter your primary or secondary PIN on the OnlyKey 6 button keypad");
+		}
 		keytype("OnlyKey is ready for use as a security key (FIDO2/U2F) and for challenge-response");
 		keytype("For additional features such as password management install the OnlyKey desktop app");
 		keytype("https://onlykey.io/app ");
 		keytype("*** SETUP COMPLETE, DELETE THIS TEXT ***");
 	} 
 
-	if (step == KEYBOARD_ONLYKEY_GO || step == KEYBOARD_ONLYKEY_GO_NO_BACKUP) {
-		// If KEYBOARD_ONLYKEY_GO this disables changing backup key
-		// If KEYBOARD_ONLYKEY_GO_NO_BACKUP this disables backup feature	
+	if (step == KEYBOARD_ONLYKEY_DUO_BACKUP || step == KEYBOARD_ONLYKEY_DUO_NO_BACKUP) {
+		// If KEYBOARD_ONLYKEY_DUO_BACKUP this disables changing backup key
+		// If KEYBOARD_ONLYKEY_DUO_NO_BACKUP this disables backup feature	
 		okeeprom_eeset_backupkeymode((uint8_t*)1);
 	}
 
@@ -795,10 +813,14 @@ void set_built_in_pin() {
 	pin_set = 3;
 	// 19-35 bytes of chip ID used instead of primary PIN
 	set_primary_pin((uint8_t*)recv_buffer, KEYBOARD_AUTO_PIN_SET);
-	pin_set = 9;
-	// 20-36 bytes of chip ID used instead of secondary PIN
-	set_secondary_pin((uint8_t*)recv_buffer, KEYBOARD_AUTO_PIN_SET);
 	okeeprom_eeset_timeout(0); // No timeout as there is no PIN required
+	initcheck = okcore_flashget_noncehash ((uint8_t*)nonce, 32); 
+	okcore_flashget_pinhashpublic ((uint8_t*)p1hash, 32); //store PIN hash
+    initialized = true;
+	if (password.profile1hashevaluate()) {
+		unlocked = true;
+    	U2Finit();
+	}
 }
 
 void set_primary_pin(uint8_t *buffer, uint8_t keyboard_mode)
@@ -923,7 +945,11 @@ void set_primary_pin(uint8_t *buffer, uint8_t keyboard_mode)
 				if (keyboard_mode == KEYBOARD_MANUAL_PIN_SET)
 				{
 					keytype("Successfully set PIN");
-					set_secondary_pin(NULL, KEYBOARD_MANUAL_PIN_SET);
+					if (onlykeyhw!=OK_HW_DUO) {
+						set_secondary_pin(NULL, KEYBOARD_MANUAL_PIN_SET);
+					} else {
+						set_sd_pin(NULL, KEYBOARD_MANUAL_PIN_SET);
+					}
 				}
 				else
 					hidprint("Successfully set PIN");
@@ -1068,7 +1094,7 @@ void set_sd_pin(uint8_t *buffer, uint8_t keyboard_mode)
 				if (keyboard_mode == KEYBOARD_MANUAL_PIN_SET)
 				{
 					keytype("Successfully set PIN");
-					okcore_quick_setup(3); //Done setting PINs
+					okcore_quick_setup(7); //Done setting PINs
 				}
 				else
 					hidprint("Successfully set PIN");
@@ -1201,8 +1227,7 @@ void set_secondary_pin(uint8_t *buffer, uint8_t keyboard_mode)
 				SHA256_CTX pinhash;
 				sha256_init(&pinhash);
 				if (keyboard_mode == KEYBOARD_AUTO_PIN_SET) {
-					if (onlykeyhw==OK_HW_DUO) memcpy(password.guess, (ID+19), 16);
-					else memcpy(password.guess, buffer, 7);
+					memcpy(password.guess, buffer, 7);
 				} else if (keyboard_mode == SETUP_MANUAL) {
 					memcpy(password.guess, buffer, 16);
 				}
@@ -1420,7 +1445,7 @@ void get_slot_labels(uint8_t output)
 	Serial.println();
 	Serial.println("OKGETSLOTLABELS MESSAGE RECEIVED");
 #endif
-	uint8_t label[EElen_label + 4] = {0};
+	uint8_t label[EElen_label + 4 + 7] = {0};
 	int offset = 0;
 	int maxslots;
 	if (profilemode) offset = 12;
@@ -1437,15 +1462,56 @@ void get_slot_labels(uint8_t output)
 		label[1] = (uint8_t)0x7C;
 		if (output == 1)
 		{
-			if (i <= 6)
-			{
-				label[0] = (i + '0');
-				label[1] = 'a';
-			}
-			else
-			{
-				label[0] = (i - 6 + '0');
-				label[1] = 'b';
+			if (onlykeyhw==OK_HW_DUO) {
+				if (i == 1) keytype("GREEN");
+				if (i == 7) keytype("BLUE");
+				if (i == 13) keytype("YELLOW");
+				if (i == 19) keytype("PURPLE");
+				if (i <= 3)
+				{
+					label[0] = (i + '0');
+					label[1] = 'a';
+				}
+				else if (i <= 6)
+				{
+					label[0] = (i - 3 + '0');
+					label[1] = 'b';
+				} else if (i <= 9)
+				{
+					label[0] = (i - 6 + '0');
+					label[1] = 'a';
+				} else if (i <= 12)
+				{
+					label[0] = (i - 9 + '0');
+					label[1] = 'b';
+				} else if (i <= 15)
+				{
+					label[0] = (i - 12 + '0');
+					label[1] = 'a';
+				} else if (i <= 18)
+				{
+					label[0] = (i - 15 + '0');
+					label[1] = 'b';
+				} else if (i <= 21)
+				{
+					label[0] = (i - 18 + '0');
+					label[1] = 'a';
+				} else if (i <= 24)
+				{
+					label[0] = (i - 21 + '0');
+					label[1] = 'b';
+				}
+			} else {
+				if (i <= 6)
+				{
+					label[0] = (i + '0');
+					label[1] = 'a';
+				}
+				else
+				{
+					label[0] = (i - 6 + '0');
+					label[1] = 'b';
+				}
 			}
 			memmove(label + 3, label + 2, EElen_label);
 			label[2] = 0x20;
@@ -2197,14 +2263,14 @@ int touch_sense_loop () {
 	if (touchoffset == 0) touchoffset = 12; // DEFAULT
 
 	// Any Button reads 20% lower than ref, recalibrate
-	if (touchread1+(touchread1/5)<touchread1ref || touchread2+(touchread2/5)<touchread2ref || touchread3+(touchread3/5)<touchread3ref || touchread4+(touchread4/5)<touchread4ref || touchread5+(touchread5/5)<touchread5ref || touchread6+(touchread6/5)<touchread6ref) {
-		key_on = 0;
-		key_press = 0;
-		rainbowCycle();
-		return 0;
-	}
+	//if (touchread1+(touchread1/5)<touchread1ref || touchread2+(touchread2/5)<touchread2ref || touchread3+(touchread3/5)<touchread3ref || touchread4+(touchread4/5)<touchread4ref || touchread5+(touchread5/5)<touchread5ref || touchread6+(touchread6/5)<touchread6ref) {
+	//	key_on = 0;
+	//	key_press = 0;
+	//	rainbowCycle();
+	//	return 0;
+	//}
 
-	// All Buttons reads 5% higher than ref, recalibrate
+	// All Buttons read 5% higher than ref, recalibrate
 	if (onlykeyhw!=OK_HW_DUO && (touchread1ref+(touchread1ref/20)<touchread1 && touchread2ref+(touchread2ref/20)<touchread2 && touchread3ref+(touchread3ref/20)<touchread3 && touchread4ref+(touchread4ref/20)<touchread4 && touchread5ref+(touchread5ref/20)<touchread5 && touchread6ref+(touchread6ref/20)<touchread6)) {
 		key_on = 0;
 		key_press = 0;
@@ -5498,7 +5564,9 @@ bool fadeoffafter20sec(Task *me)
 		}
 		else if (pin_set <= 9)
 		{
-			set_secondary_pin(NULL, KEYBOARD_MANUAL_PIN_SET); //Done PIN entry
+			if (onlykeyhw!=OK_HW_DUO) {
+				set_secondary_pin(NULL, KEYBOARD_MANUAL_PIN_SET); //Done PIN entry
+			}
 		}
 		else
 		{
@@ -7395,14 +7463,16 @@ void okcore_aes_cbc_decrypt (uint8_t * state, const uint8_t * key, int len)
 }
 
 char * HW_MODEL(char const * in) {
-	// HW_MODEL d=OnlyKey DUO, c=OnlyKey LQFP, e=Onlykey BGA w/dual LEDs, o=Discontinued OnlyKey Orignal
+	// HW_MODEL p=OnlyKey DUO with PIN, n=OnlyKey DUO without PIN, c=OnlyKey LQFP or BGA w/dual LEDs, o=Discontinued OnlyKey Orignal
 	char out[strlen(in)+2];
 	memcpy(out,in,strlen(in));
 	#ifdef OK_Color
 	if (onlykeyhw==OK_HW_DUO) {
-		out[sizeof(out)-2] = 'p';
-		// TODO read state of DUO, with pin (p) or without (n)
-		//out[sizeof(out)-2] = 'p';
+		if (Duo_config[0]==1) {
+			out[sizeof(out)-2] = 'n';
+		} else {
+			out[sizeof(out)-2] = 'p';	
+		}
 	} else {
 		out[sizeof(out)-2] = 'c';
 	}
