@@ -400,7 +400,7 @@ void recvmsg(int n)
 			{
 				if (recv_buffer[0] != 0xBA)
 					if (mod_keys_enabled && configmode == false) {
-						hidprint("Error not in config mode, hold button 6 down for 5 sec");
+						hidprint("Error not in config mode");
 						return;
 					} else set_slot(recv_buffer);
 			}
@@ -439,7 +439,7 @@ void recvmsg(int n)
 			}
 			else if (initialized == true && unlocked == true && FTFL_FSEC == 0x44 && integrityctr1 == integrityctr2 && configmode == false)
 			{
-				hidprint("Error not in config mode, hold button 6 down for 5 sec");
+				hidprint("Error not in config mode");
 			}
 			else if (recv_buffer[6] > 0x80 && onlykeyhw == OK_HW_DUO && initialized == false) { // App Setup of backup key, no pin
 				memcpy(large_buffer, recv_buffer, 64);
@@ -558,7 +558,7 @@ void recvmsg(int n)
 			}
 			else if (initialized == true && unlocked == true && FTFL_FSEC == 0x44 && integrityctr1 == integrityctr2 && configmode == false)
 			{
-				hidprint("Error not in config mode, hold button 6 down for 5 sec");
+				hidprint("Error not in config mode");
 			}
 			else
 			{
@@ -577,7 +577,7 @@ void recvmsg(int n)
 			}
 			else if (initialized == true && unlocked == true && FTFL_FSEC == 0x44 && integrityctr1 == integrityctr2 && configmode == false)
 			{
-				hidprint("Error not in config mode, hold button 6 down for 5 sec");
+				hidprint("Error not in config mode");
 			}
 			else
 			{
@@ -1718,6 +1718,14 @@ void set_slot(uint8_t *buffer)
 		#endif
 		if (mode != NONENCRYPTEDPROFILE)
 		{
+			if (Duo_config[0]==1) { // No PIN set
+				okeeprom_eeget_2FAtype(&temp, slot);
+				if (temp != 0) {
+					hidprint("Error MFA already enabled on this slot, device PIN required");
+					blink(1);
+					return;
+				}
+			}
 			#ifdef DEBUG
 			Serial.println("Unencrypted");
 			byteprint(buffer + 7, 32);
@@ -1774,6 +1782,15 @@ void set_slot(uint8_t *buffer)
 		Serial.println(); //newline
 		Serial.print("Writing 2FA Type to EEPROM...");
 		#endif
+		if (Duo_config[0]==1) { // No PIN set
+			temp = okeeprom_eeget_password(large_buffer, slot);
+			memset(large_buffer, 0, 64);
+			if (temp != 0) {
+				hidprint("Error password already enabled on this slot, device PIN required");
+				blink(1);
+				return;
+			}
+		}
 		okeeprom_eeset_2FAtype(buffer + 7, slot);
 		hidprint("Successfully set 2FA Type");
 		break;
@@ -1784,6 +1801,15 @@ void set_slot(uint8_t *buffer)
 		byteprint(buffer + 7, 57);
 		Serial.println();
 		#endif
+		if (Duo_config[0]==1) { // No PIN set
+			temp = okeeprom_eeget_password(large_buffer, slot);
+			memset(large_buffer, 0, 64);
+			if (temp != 0) {
+				hidprint("Error password already enabled on this slot, device PIN required");
+				blink(1);
+				return;
+			}
+		}
 		okcore_aes_gcm_encrypt((buffer + 7), slot, value, profilekey, length);
 		okcore_flashset_2fa_key(buffer + 7, length, slot);
 		temp = MFAGOOGLEAUTH;
@@ -1802,6 +1828,15 @@ void set_slot(uint8_t *buffer)
 		byteprint(buffer + 7, 57);
 		Serial.println();
 		#endif
+		if (Duo_config[0]==1) { // No PIN set
+			temp = okeeprom_eeget_password(large_buffer, slot);
+			memset(large_buffer, 0, 64);
+			if (temp != 0) {
+				hidprint("Error password already enabled on this slot, device PIN required");
+				blink(1);
+				return;
+			}
+		}
 		uint8_t tempbuf[21];
 		okeeprom_eeget_2FAtype(&temp, slot);
 		okcore_aes_gcm_encrypt((buffer + 7), slot, 29, profilekey, 21);
@@ -1838,6 +1873,15 @@ void set_slot(uint8_t *buffer)
 				okeeprom_eeset_private_DEPRICATED((buffer + 7 + EElen_public));
 				okeeprom_eeset_aeskey_DEPRICATED(buffer + 7 + EElen_public + EElen_private);
 			} else if (slot >= 1 && slot <= 24) {
+				if (Duo_config[0]==1) { // No PIN set
+					temp = okeeprom_eeget_password(large_buffer, slot);
+					memset(large_buffer, 0, 64);
+					if (temp != 0) {
+						hidprint("Error password already enabled on this slot, device PIN required");
+						blink(1);
+						return;
+					}
+				}
 				okeeprom_eeget_2FAtype(&temp, slot);
 				uint8_t tempbuf[38];
 				okcore_aes_gcm_encrypt((buffer + 7), slot, 10, profilekey, (16+EElen_private+EElen_aeskey));
@@ -1923,7 +1967,7 @@ void set_slot(uint8_t *buffer)
 		}
 		else
 		{
-			hidprint("Error not in config mode, hold button 6 down for 5 sec");
+			hidprint("Error not in config mode");
 		}
 		break;
 	case 22:
@@ -1939,7 +1983,7 @@ void set_slot(uint8_t *buffer)
 		}
 		else
 		{
-			hidprint("Error not in config mode, hold button 6 down for 5 sec");
+			hidprint("Error not in config mode");
 		}
 		break;
 	case 26:
@@ -1955,7 +1999,7 @@ void set_slot(uint8_t *buffer)
 		}
 		else
 		{
-			hidprint("Error not in config mode, hold button 6 down for 5 sec");
+			hidprint("Error not in config mode");
 		}
 		break;
 	case 27:
@@ -1971,7 +2015,7 @@ void set_slot(uint8_t *buffer)
 		}
 		else
 		{
-			hidprint("Error not in config mode, hold button 6 down for 5 sec");
+			hidprint("Error not in config mode");
 		}
 		break;
 	case 23:
@@ -2020,7 +2064,7 @@ void set_slot(uint8_t *buffer)
 		}
 		else
 		{
-			hidprint("Error not in config mode, hold button 6 down for 5 sec");
+			hidprint("Error not in config mode");
 		}
 		break;
 	case 25:
