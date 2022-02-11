@@ -209,18 +209,16 @@ int okeeprom_eeget_typespeed (uint8_t *ptr, int slot) {
     return EElen_typespeed;
 }
 void okeeprom_eeset_typespeed (uint8_t *ptr, int slot) {
-	uint8_t temp;
-	okeeprom_eeget_common(temp, EEpos_slottypespeed+slot-1, EElen_typespeed);
+	okeeprom_eeget_common(ptr+1, EEpos_slottypespeed+slot-1, EElen_typespeed);
 	if (slot == 0) {
 		okeeprom_eeset_common(ptr, EEpos_typespeed, EElen_typespeed);
 	} else if (slot > 0 && slot < 13) {
-		temp &= 0xF0;
-		temp += *ptr;
-		okeeprom_eeset_common((uint8_t *)temp, EEpos_slottypespeed+slot-1, EElen_typespeed);
+		*ptr += (*(ptr+1) & 0xF0);
+		okeeprom_eeset_common(ptr, EEpos_slottypespeed+slot-1, EElen_typespeed);
 	} else if (slot > 12 && slot < 25) {
-		temp &= 0x0F;
-		temp += (*ptr<<4);
-		okeeprom_eeset_common((uint8_t *)temp, EEpos_slottypespeed+slot-1, EElen_typespeed);
+		*ptr = (*ptr<<4);
+		*ptr += (*(ptr+1) & 0x0F);
+		okeeprom_eeset_common(ptr, EEpos_slottypespeed+slot-1, EElen_typespeed);
 	}
 }
 /*********************************/

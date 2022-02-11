@@ -366,7 +366,7 @@ void recvmsg(int n)
 		case OKGETLABELS:
 			if (initialized == false && unlocked == true)
 			{
-				hidprint("Error you must set a PIN first on OnlyKey");
+				hidprint("Error OnlyKey must be initialized first");
 				return;
 			}
 			else if (initialized == true && unlocked == true && FTFL_FSEC == 0x44 && integrityctr1 == integrityctr2)
@@ -392,7 +392,7 @@ void recvmsg(int n)
 				}
 				else
 				{
-					hidprint("Error you must set a PIN first on OnlyKey");
+					hidprint("Error OnlyKey must be initialized first");
 				}
 				return;
 			}
@@ -413,7 +413,7 @@ void recvmsg(int n)
 		case OKWIPESLOT:
 			if (initialized == false && unlocked == true)
 			{
-				hidprint("Error you must set a PIN first on OnlyKey");
+				hidprint("Error OnlyKey must be initialized first");
 				return;
 			}
 			else if (initialized == true && unlocked == true && FTFL_FSEC == 0x44 && integrityctr1 == integrityctr2)
@@ -2083,8 +2083,8 @@ void set_slot(uint8_t *buffer)
 			temp += buffer[7];
 			okeeprom_eeset_autolockslot(&temp);
 		}
-	hidprint("Successfully set lock button");
-	break;
+		hidprint("Successfully set lock button");
+		break;
 	case 13:
 		#ifdef DEBUG
 		Serial.println(); //newline
@@ -2094,12 +2094,12 @@ void set_slot(uint8_t *buffer)
 		if (buffer[7] <= 10)
 		{
 			buffer[7] = 11 - buffer[7];
-			okeeprom_eeset_typespeed(buffer + 7, buffer[8]);
+			okeeprom_eeset_typespeed(buffer + 7, buffer[5]);
 			if (buffer[8] == 0) {
 				TYPESPEED[0] = buffer[7];
 			}
 		}
-		hidprint("Successfully set keyboard typespeed");
+		hidprint("Successfully set typespeed");
 		break;
 	case 14:
 		#ifdef DEBUG
