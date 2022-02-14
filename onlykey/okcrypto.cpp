@@ -1551,9 +1551,10 @@ void newhope_test ()
 
 void okcrypto_split_sundae(uint8_t *state, uint8_t *iv, int len, uint8_t function) {
 	// Just like an ice cream sundae, this function mixes the best crypto algorithms 
-	// together with multiple keys in order to mitigate side channel attacks against 
-	// a single algorithm or key. State is split so that each crypto function only 
-	// has access to part of the state.
+	// together in variable order with multiple variable keys and in order to mitigate 
+	// side channel attacks against a single algorithm or key. State is split so that 
+	// each crypto function only has access to part of the state. Order of algorithms 
+	// vary depending on IV. Keys vary depending on the IV and shift 0-12 bytes.
 	//
 	// Here is how it works 
 	// 
@@ -1589,7 +1590,7 @@ void okcrypto_split_sundae(uint8_t *state, uint8_t *iv, int len, uint8_t functio
 	// "...crypto_stream_xor with a different nonce for each message, the ciphertexts are indistinguishable 
 	// from uniform random strings of the same length" https://nacl.cr.yp.to/stream.html
 
-	if (certified_hw != 1) return; 
+	if (*certified_hw != 1 && *certified_hw != 3) return;
 
 	uint8_t iv2[24] = {0}; 
 	memcpy(iv2,iv,12);
@@ -1598,58 +1599,53 @@ void okcrypto_split_sundae(uint8_t *state, uint8_t *iv, int len, uint8_t functio
 	if (function==1) { 
 		// chocolate_syrup[32] (ChaCha 256)
 		// has access to last 1/3 bytes
-		memcpy((uint8_t *)tempkey, (uint8_t *)chocolate_syrup, 32);
+		memcpy((uint8_t *)tempkey, (uint8_t *)(chocolate_syrup+(((iv2[0]+iv2[1]) % 4)*4)), 32);
 		ChaCha chacha;
-		uint8_t counter[8];
+		uint8_t counter[8] = {0};
 		chacha.clear();
 		chacha.setKey(tempkey, 32);
 		chacha.setIV(iv2, 8);
 		chacha.setCounter(counter, 8);
 		chacha.encrypt(state+(len-(len/3)), state+(len-(len/3)), len/3);
-
     	// whipped_cream[32]  (NACL crypto_stream_salsa20)
 		// has access to first 1/3 bytes
-		memcpy((uint8_t *)tempkey, (uint8_t *)whipped_cream, 32);
+		memcpy((uint8_t *)tempkey, (uint8_t *)(whipped_cream+(((iv2[0]+iv2[1]) % 4)*4)), 32);
 		crypto_stream_salsa20_xor(state,state,(len/3),iv2,tempkey); 
-
     	// cherry_on_top[32] (NACL crypto_stream_xsalsa20)
 		// has access to middle 1/3 bytes
-		memcpy((uint8_t *)tempkey, (uint8_t *)cherry_on_top, 32);
+		memcpy((uint8_t *)tempkey, (uint8_t *)(cherry_on_top+(((iv2[0]+iv2[1]) % 4)*4)), 32);
 		crypto_stream_xsalsa20_xor(state+(len/3),state+(len/3),len/3,iv2,tempkey); 
 
 	} else if (function==2) { 
 		// banana[32] (ChaCha)
 		// has access to first 1/2 bytes
-		memcpy((uint8_t *)tempkey, (uint8_t *)banana, 32);
+		memcpy((uint8_t *)tempkey, (uint8_t *)(banana+(((iv2[0]+iv2[1]) % 4)*4)), 32);
 		ChaCha chacha;
-		uint8_t counter[8];
+		uint8_t counter[8] = {0};
 		chacha.clear();
 		chacha.setKey(tempkey, 32);
 		chacha.setIV(iv2, 8);
 		chacha.setCounter(counter, 8);
 		chacha.encrypt(state, state, len/2);
-
     	// ice_cream[32] (NACL crypto_stream_salsa20)
 		// has access to last 1/2 bytes
-		memcpy((uint8_t *)tempkey, (uint8_t *)ice_cream, 32);
+		memcpy((uint8_t *)tempkey, (uint8_t *)(ice_cream+(((iv2[0]+iv2[1]) % 4)*4)), 32);
 		crypto_stream_salsa20_xor(state+(len-(len/2)),state+(len-(len/2)),(len/2),iv2,tempkey); 
 
 	} else if (function==3) { 
 		// cherry_on_top[32] - (NACL crypto_stream_xsalsa20)
 		// has access to middle 1/3 bytes
-		memcpy((uint8_t *)tempkey, (uint8_t *)cherry_on_top, 32);
-		crypto_stream_xsalsa20_xor(state+(len/3),state+(len/3),len/3,iv2,tempkey); 
-		
+		memcpy((uint8_t *)tempkey, (uint8_t *)(cherry_on_top+(((iv2[0]+iv2[1]) % 4)*4)), 32);			
+		crypto_stream_xsalsa20_xor(state+(len/3),state+(len/3),len/3,iv2,tempkey); 	
 		// whipped_cream[32] (NACL crypto_stream_salsa20)
 		// has access to first 1/3 bytes
-		memcpy((uint8_t *)tempkey, (uint8_t *)whipped_cream, 32);
+		memcpy((uint8_t *)tempkey, (uint8_t *)(whipped_cream+(((iv2[0]+iv2[1]) % 4)*4)), 32);	
 		crypto_stream_salsa20_xor(state,state,(len/3),iv2,tempkey); 
-
 		// chocolate_syrup[32] (ChaCha 256)
 		// has access to last 1/3 bytes
-		memcpy((uint8_t *)tempkey, (uint8_t *)chocolate_syrup, 32);
+		memcpy((uint8_t *)tempkey, (uint8_t *)(chocolate_syrup+(((iv2[0]+iv2[1]) % 4)*4)), 32);
 		ChaCha chacha;
-		uint8_t counter[8];
+		uint8_t counter[8] = {0}; 
 		chacha.clear();
 		chacha.setKey(tempkey, 32);
 		chacha.setIV(iv2, 8);
@@ -1659,14 +1655,13 @@ void okcrypto_split_sundae(uint8_t *state, uint8_t *iv, int len, uint8_t functio
 	} else if (function==4) { 
 		// ice_cream[32](NACL crypto_stream_salsa20)
 		// has access to last 1/2 bytes
-		memcpy((uint8_t *)tempkey, (uint8_t *)ice_cream, 32);
+		memcpy((uint8_t *)tempkey, (uint8_t *)(ice_cream+(((iv2[0]+iv2[1]) % 4)*4)), 32);
 		crypto_stream_salsa20_xor(state+(len-(len/2)),state+(len-(len/2)),(len/2),iv2,tempkey); 
-
 		// banana[32] (ChaCha 256)
 		// has access to first 1/2 bytes
-		memcpy((uint8_t *)tempkey, (uint8_t *)banana, 32);
+		memcpy((uint8_t *)tempkey, (uint8_t *)(banana+(((iv2[0]+iv2[1]) % 4)*4)), 32);
 		ChaCha chacha;
-		uint8_t counter[8];
+		uint8_t counter[8] = {0};
 		chacha.clear();
 		chacha.setKey(tempkey, 32);
 		chacha.setIV(iv2, 8);

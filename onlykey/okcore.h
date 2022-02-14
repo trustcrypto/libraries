@@ -100,12 +100,7 @@ extern "C"
 #define chocolate_syrup    (enckeysectoradr+64) // 32 byte AES/ECC key
 #define whipped_cream    (enckeysectoradr+96) // 32 byte AES/ECC key
 #define cherry_on_top    (enckeysectoradr+128) // 32 byte AES/ECC key
-// FIDO2 attestation kek
-#define attestation_kek    (enckeysectoradr+448) // 32 byte AES-256 key
-#define attestation_kek_iv    (enckeysectoradr+436) // 12 byte AES-GCM IV
-// FIDO2 attestation key
-#define encrypted_attestation_key    (enckeysectoradr+480) // 32 byte ecc key (0x0000_5BE0)
-#define certified_hw (enckeysectoradr+447)
+#define certified_hw (uint8_t *)(enckeysectoradr+432)
 // Start of firmware
 // 0x0000_6060 - 0x0003_A05F used for firmware (13 blocks of 16384 = 212992 bytes max size fw)
 #define fwstartadr 0x6060

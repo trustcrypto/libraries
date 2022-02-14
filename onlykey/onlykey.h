@@ -78,7 +78,7 @@
 #ifndef ONLYKEY_H
 #define ONLYKEY_H
 
-#define DEBUG //Enable Serial Monitor
+//#define DEBUG //Enable Serial Monitor
 #define STD_VERSION //Define for STD edition firmare, undefine for IN TRVL edition firmware
 #define OK_Color //Define for hardware with color LED
 #define FACTORYKEYS // Attestation key and other keys encrypted using CHIP ID and RNG for unique keys per device
