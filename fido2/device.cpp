@@ -47,7 +47,6 @@ int u2f_button = 0;
 void U2Finit()
 {
     uint8_t tempbuf[513];
-    device_init();
     #ifdef FACTORYKEYS
     if (*certified_hw == 1) {
         // New method decrypt attestation with device keys
@@ -56,6 +55,7 @@ void U2Finit()
         memcpy(attestation_key, tempbuf+480, 32);
     }
     #endif
+    device_init();
 }
 
 void fido_msg_timeout() {
@@ -300,6 +300,7 @@ int ctap_user_presence_test(uint32_t wait)
     uint32_t t1 = millis();
     uint8_t blink = 0;
     extern uint8_t isfade;
+    extern int Profile_Offset;
 
     if (_up_disabled)
     {
@@ -326,17 +327,24 @@ int ctap_user_presence_test(uint32_t wait)
         while (! IS_BUTTON_PRESSED());
         
     } else {
-        
         do
         {
+            if (Profile_Offset==84) {
+                Profile_Offset = 42;
+            }
             if (t1 + (wait) < millis()) {
                 fadeoff(0);
                 break;
             }
             setcolor(170); //blue 
+
             if (touch_sense_loop()) u2f_button=1;
         }
         while (! IS_BUTTON_PRESSED());
+        
+        if (Profile_Offset==42) {
+            Profile_Offset = 84;
+        }
     }
 
     if(IS_BUTTON_PRESSED()) {
@@ -468,11 +476,11 @@ uint16_t device_attestation_cert_der_get_size() {
     }
 }
 
-void device_attestation_read_cert_der(uint8_t * dst) {
+void device_attestation_read_cert_der(uint8_t * dst) { 
     if (*certified_hw == 1) {
         memmove(dst, certified_attestation_cert_der, device_attestation_cert_der_get_size());
     } else {
-        memmove(dst, attestation_cert_der, device_attestation_cert_der_get_size());
+        memmove(dst, attestation_cert_der, device_attestation_cert_der_get_size());   
     }
 }
 

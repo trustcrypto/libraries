@@ -1565,9 +1565,8 @@ void set_slot(uint8_t *buffer)
 	{
 		mode = profilemode;
 	}
-
-	if (profilemode && buffer[0] != 0xBA)
-		slot = slot + 12; // 2nd profile slots 12 -24 0xBA is loading from backup
+	if (profilemode && slot <= 12 && buffer[0] != 0xBA)  // 2nd profile slots 12 -24 0xBA is loading from backup
+		slot = slot + 12;
 	switch (value)
 	{
 	case 1:
@@ -2148,9 +2147,9 @@ void wipe_slot(uint8_t *buffer)
 		okeeprom_eeset_private_DEPRICATED(buffer + 7 + EElen_aeskey);
 		okeeprom_eeset_public_DEPRICATED(buffer + 7 + EElen_aeskey + EElen_private);
 	}
-	else if (slot >= 1 && slot <= 12)
+	else if (slot >= 1 && slot <= 24)
 	{
-		if (profilemode)
+		if (profilemode && slot <= 12)
 			slot = slot + 12;
 		#ifdef DEBUG
 		Serial.println(); //newline
