@@ -345,7 +345,7 @@ void recvmsg(int n)
 			if (profilemode != NONENCRYPTEDPROFILE)
 			{
 				if (!initcheck || configmode == true) {
-					if (recv_buffer[5]>='0') okcore_quick_setup(SETUP_MANUAL); // Received request to set PINs/passphrase
+					if (recv_buffer[5]==0xff) okcore_quick_setup(SETUP_MANUAL); // Received request to set PINs/passphrase
 					else set_primary_pin(recv_buffer, 0); // Received request to enter primary PIN on OnlyKey (not DUO)
 				} 
 			}
@@ -448,6 +448,7 @@ void recvmsg(int n)
 				// Lock backup key since there is no PIN required
 				okeeprom_eeset_backupkeymode((uint8_t*)1);
 				memset(large_buffer, 0, 64);
+				initcheck = false;
 			}
 			else 
 			{
@@ -728,25 +729,25 @@ void okcore_quick_setup(uint8_t step)
 	} else if (step == SETUP_MANUAL) {
 		changeoutputmode(RAW_USB); //USB
 		memcpy(buffer, recv_buffer, 64);
-		if (buffer[5]>='0') { // 16 max length
+		if (buffer[6]>='0') { // 16 max length
 			pin_set = 3;
 			//Serial.println("SETTING PRIMARY PIN");
-			//byteprint(buffer+5, 16);
-			set_primary_pin(buffer+5, SETUP_MANUAL);
+			//byteprint(buffer+6, 16);
+			set_primary_pin(buffer+6, SETUP_MANUAL);
 		}
 		if (onlykeyhw!=OK_HW_DUO) {
-			if (buffer[21]>='0') { // 16 max length
+			if (buffer[22]>='0') { // 16 max length
 				pin_set = 9;
 				//Serial.println("SETTING SEC PIN");
-				//byteprint(buffer+21, 16);
-				set_secondary_pin(buffer+21, SETUP_MANUAL);
+				//byteprint(buffer+22, 16);
+				set_secondary_pin(buffer+22, SETUP_MANUAL);
 			}
 		}
-		if (buffer[37]>='0') { // 16 max length
+		if (buffer[38]>='0') { // 16 max length
 			//Serial.println("SETTING SD PIN");
-			//byteprint(buffer+37, 16);
+			//byteprint(buffer+38, 16);
 			pin_set = 6;
-			set_sd_pin(buffer+37, SETUP_MANUAL);
+			set_sd_pin(buffer+38, SETUP_MANUAL);
 		}
 		return;
 	} 
