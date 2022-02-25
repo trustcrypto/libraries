@@ -3266,7 +3266,7 @@ void okcore_flashset_profilekey(uint8_t *secret)
 	if (profilemode != NONENCRYPTEDPROFILE)
 	{
 	#ifdef STD_VERSION
-	okcrypto_aes_gcm_encrypt2(secret, (uint8_t*)ID, temp, 32);
+	okcrypto_aes_gcm_encrypt2(secret, (uint8_t*)ID, temp, 32, true);
 	#endif
 	}
 	ptr=secret;
@@ -6401,7 +6401,7 @@ void backup()
 		if (profilemode != NONENCRYPTEDPROFILE)
 		{
 		#ifdef STD_VERSION
-		okcrypto_aes_gcm_encrypt2(large_temp, iv, secret, large_buffer_offset);
+		okcrypto_aes_gcm_encrypt2(large_temp, iv, secret, large_buffer_offset, false);
 		#endif
 		}
 		memcpy(large_temp + large_buffer_offset, iv, 12);
@@ -6429,7 +6429,7 @@ void backup()
 		if (profilemode != NONENCRYPTEDPROFILE)
 		{
 		#ifdef STD_VERSION
-		okcrypto_aes_gcm_encrypt2(large_temp, iv, temp, large_buffer_offset);
+		okcrypto_aes_gcm_encrypt2(large_temp, iv, temp, large_buffer_offset, false);
 		#endif
 		}
 		//No need for unique IVs when random key used
@@ -6673,7 +6673,7 @@ void RESTORE(uint8_t *buffer)
 				if (profilemode != NONENCRYPTEDPROFILE)
 				{
 				#ifdef STD_VERSION
-				okcrypto_aes_gcm_decrypt2(large_temp, iv, temp, offset);
+				okcrypto_aes_gcm_decrypt2(large_temp, iv, temp, offset, false);
 				#endif
 				}
 			}
@@ -6707,7 +6707,7 @@ void RESTORE(uint8_t *buffer)
 				if (profilemode != NONENCRYPTEDPROFILE)
 				{
 				#ifdef STD_VERSION
-				okcrypto_aes_gcm_decrypt2(large_temp, iv, temp2, offset);
+				okcrypto_aes_gcm_decrypt2(large_temp, iv, temp2, offset, false);
 				#endif
 				}
 				//No need for unique IVs when random key used

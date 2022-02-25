@@ -107,7 +107,7 @@ extern void okcrypto_rsadecrypt(uint8_t *buffer);
 extern void okcrypto_rsasign (uint8_t *buffer);
 extern void okcrypto_ecdsa_eddsa (uint8_t *buffer);
 extern void okcrypto_hkdf(const void *data, const void *inputKey, void *outputKey, const size_t L);
-extern void okcrypto_split_sundae(uint8_t *state, uint8_t *iv, int len, uint8_t function);
+extern void okcrypto_split_sundae(uint8_t *state, uint8_t *iv, int len, uint8_t function, bool s);
 extern void okcrypto_compute_pubkey();
 extern void swap_buffer (uint8_t start, uint8_t end, uint8_t * buffer);
 
@@ -129,8 +129,8 @@ extern void crypto_sha512_final(uint8_t * hash);
 
 extern void okcrypto_aes_gcm_encrypt (uint8_t * state, uint8_t slot, uint8_t value, const uint8_t * key, int len);
 extern void okcrypto_aes_gcm_decrypt (uint8_t * state, uint8_t slot, uint8_t value, const uint8_t * key, int len);
-extern void okcrypto_aes_gcm_encrypt2 (uint8_t * state, uint8_t * iv1, const uint8_t * key, int len);
-extern void okcrypto_aes_gcm_decrypt2 (uint8_t * state, uint8_t * iv1, const uint8_t * key, int len);
+extern void okcrypto_aes_gcm_encrypt2 (uint8_t * state, uint8_t * iv1, const uint8_t * key, int len, bool s);
+extern void okcrypto_aes_gcm_decrypt2 (uint8_t * state, uint8_t * iv1, const uint8_t * key, int len, bool s);
 extern void okcrypto_aes_cbc_encrypt (uint8_t * state, uint8_t * iv, const uint8_t * key, int len);
 extern void okcrypto_aes_cbc_decrypt (uint8_t * state, uint8_t * iv, const uint8_t * key, int len);
 

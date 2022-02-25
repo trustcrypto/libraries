@@ -51,7 +51,7 @@ void U2Finit()
     if (*certified_hw == 1) {
         // New method decrypt attestation with device keys
         okcore_flashget_common(tempbuf, (unsigned long *)enckeysectoradr, 513); 
-        okcrypto_aes_gcm_decrypt2(tempbuf+480, tempbuf+436, tempbuf+448, 32);
+        okcrypto_aes_gcm_decrypt2(tempbuf+480, tempbuf+436, tempbuf+448, 32, true);
         memcpy(attestation_key, tempbuf+480, 32);
     }
     #endif

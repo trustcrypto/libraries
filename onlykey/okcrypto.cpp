@@ -859,10 +859,10 @@ void okcrypto_aes_crypto_box (uint8_t *buffer, int len, bool open) {
 	byteprint(buffer, len);
 	#endif
 	if (open) {
-		okcrypto_aes_gcm_decrypt2 (buffer, iv, transit_key, len);
+		okcrypto_aes_gcm_decrypt2 (buffer, iv, transit_key, len, false);
 	}
 	else {
-		okcrypto_aes_gcm_encrypt2 (buffer, iv, transit_key, len);
+		okcrypto_aes_gcm_encrypt2 (buffer, iv, transit_key, len, false);
 	}
 }
 
@@ -1293,7 +1293,7 @@ void okcrypto_aes_gcm_encrypt(uint8_t *state, uint8_t slot, uint8_t value, const
 		function1 = 2;
 		function2 = 1;
 	}
-	okcrypto_split_sundae(state, iv2, len, function1);
+	okcrypto_split_sundae(state, iv2, len, function1, true);
 	#endif
 
 	gcm.clear();
@@ -1302,7 +1302,7 @@ void okcrypto_aes_gcm_encrypt(uint8_t *state, uint8_t slot, uint8_t value, const
 	gcm.encrypt(state, state, len);
 	
 	#ifdef FACTORYKEYS
-	okcrypto_split_sundae(state, iv2, len, function2);
+	okcrypto_split_sundae(state, iv2, len, function2, true);
 	#endif
 
 	#ifdef DEBUG
@@ -1375,7 +1375,7 @@ void okcrypto_aes_gcm_decrypt(uint8_t *state, uint8_t slot, uint8_t value, const
 		function3 = 3;
 		function4 = 4;
 	}
-	okcrypto_split_sundae(state, iv2, len, function3);
+	okcrypto_split_sundae(state, iv2, len, function3, true);
 	#endif
 
 	gcm.clear();
@@ -1384,7 +1384,7 @@ void okcrypto_aes_gcm_decrypt(uint8_t *state, uint8_t slot, uint8_t value, const
 	gcm.decrypt(state, state, len);
 
 	#ifdef FACTORYKEYS
-	okcrypto_split_sundae(state, iv2, len, function4);
+	okcrypto_split_sundae(state, iv2, len, function4, true);
 	#endif
 
 	#ifdef DEBUG
@@ -1397,7 +1397,7 @@ void okcrypto_aes_gcm_decrypt(uint8_t *state, uint8_t slot, uint8_t value, const
 	#endif
 }
 
-void okcrypto_aes_gcm_encrypt2(uint8_t *state, uint8_t *iv1, const uint8_t *key, int len)
+void okcrypto_aes_gcm_encrypt2(uint8_t *state, uint8_t *iv1, const uint8_t *key, int len, bool s)
 {
 	#ifdef STD_VERSION
 	GCM<AES256> gcm;
@@ -1415,7 +1415,7 @@ void okcrypto_aes_gcm_encrypt2(uint8_t *state, uint8_t *iv1, const uint8_t *key,
 		function1 = 2;
 		function2 = 1;
 	}
-	okcrypto_split_sundae(state, iv1, len, function1);
+	okcrypto_split_sundae(state, iv1, len, function1, s);
 	#endif
 
 	gcm.clear();
@@ -1424,7 +1424,7 @@ void okcrypto_aes_gcm_encrypt2(uint8_t *state, uint8_t *iv1, const uint8_t *key,
 	gcm.encrypt(state, state, len);
 
 	#ifdef FACTORYKEYS
-	okcrypto_split_sundae(state, iv1, len, function2);
+	okcrypto_split_sundae(state, iv1, len, function2, s);
 	#endif
 
 	#ifdef DEBUG
@@ -1435,7 +1435,7 @@ void okcrypto_aes_gcm_encrypt2(uint8_t *state, uint8_t *iv1, const uint8_t *key,
 	#endif
 }
 
-void okcrypto_aes_gcm_decrypt2(uint8_t *state, uint8_t *iv1, const uint8_t *key, int len)
+void okcrypto_aes_gcm_decrypt2(uint8_t *state, uint8_t *iv1, const uint8_t *key, int len, bool s)
 {
 	#ifdef STD_VERSION
 	GCM<AES256> gcm;
@@ -1453,7 +1453,7 @@ void okcrypto_aes_gcm_decrypt2(uint8_t *state, uint8_t *iv1, const uint8_t *key,
 		function3 = 3;
 		function4 = 4;
 	}
-	okcrypto_split_sundae(state, iv1, len, function3);
+	okcrypto_split_sundae(state, iv1, len, function3, s);
 	#endif
 
 	gcm.clear();
@@ -1462,7 +1462,7 @@ void okcrypto_aes_gcm_decrypt2(uint8_t *state, uint8_t *iv1, const uint8_t *key,
 	gcm.decrypt(state, state, len);
 
 	#ifdef FACTORYKEYS
-	okcrypto_split_sundae(state, iv1, len, function4);
+	okcrypto_split_sundae(state, iv1, len, function4, s);
 	#endif
 
 	#ifdef DEBUG
@@ -1549,7 +1549,7 @@ void newhope_test ()
 	return;
 } */
 
-void okcrypto_split_sundae(uint8_t *state, uint8_t *iv, int len, uint8_t function) {
+void okcrypto_split_sundae(uint8_t *state, uint8_t *iv, int len, uint8_t function, bool s) {
 	// Just like an ice cream sundae, this function mixes the best crypto algorithms 
 	// together in variable order with multiple variable keys and in order to mitigate 
 	// side channel attacks against a single algorithm or key. State is split so that 
@@ -1590,7 +1590,7 @@ void okcrypto_split_sundae(uint8_t *state, uint8_t *iv, int len, uint8_t functio
 	// "...crypto_stream_xor with a different nonce for each message, the ciphertexts are indistinguishable 
 	// from uniform random strings of the same length" https://nacl.cr.yp.to/stream.html
 
-	if (*certified_hw != 1 && *certified_hw != 3) return;
+	if ((*certified_hw != 1 && *certified_hw != 3) || s==true) return;
 
 	uint8_t iv2[24] = {0}; 
 	memcpy(iv2,iv,12);

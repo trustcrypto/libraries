@@ -222,7 +222,7 @@ bool Password::profile1hashevaluate(){
 				sha256_update(&pinhash, temp, sizeof(temp)); //Add generated shared secret
 				sha256_update(&pinhash, nonce, 32); //Add nonce to hash
 				sha256_final(&pinhash, KEK); //Create hash and store in KEK
-				okcrypto_aes_gcm_decrypt2(profilekey, (uint8_t*)ID, KEK, 32);
+				okcrypto_aes_gcm_decrypt2(profilekey, (uint8_t*)ID, KEK, 32, true);
 				#ifdef DEBUG
 				Serial.print("Profile Key "); 
 				byteprint(profilekey, 32);
@@ -251,7 +251,7 @@ bool Password::profile1hashevaluate(){
 				sha256_update(&pinhash, temp, sizeof(temp)); //Add generated shared secret
 				sha256_update(&pinhash, nonce, 32); //Add nonce to hash
 				sha256_final(&pinhash, KEK); //Create hash and store in KEK
-				okcrypto_aes_gcm_decrypt2(profilekey, (uint8_t*)ID, KEK, 32);
+				okcrypto_aes_gcm_decrypt2(profilekey, (uint8_t*)ID, KEK, 32, true);
 				#ifdef DEBUG
 				Serial.print("Profile Key "); 
 				byteprint(profilekey, 32);
@@ -362,7 +362,7 @@ bool Password::profile2hashevaluate(){
 				sha256_update(&pinhash, temp, sizeof(temp)); //Add generated shared secret
 				sha256_update(&pinhash, nonce, 32); //Add nonce to hash
 				sha256_final(&pinhash, KEK); //Create hash and store in KEK
-				okcrypto_aes_gcm_decrypt2(profilekey, (uint8_t*)ID, KEK, 32);
+				okcrypto_aes_gcm_decrypt2(profilekey, (uint8_t*)ID, KEK, 32, true);
 				#ifdef DEBUG
 				Serial.print("Profile Key "); 
 				byteprint(profilekey, 32);
