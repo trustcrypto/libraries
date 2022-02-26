@@ -92,7 +92,6 @@
 #include "device.h"
 #include "okcrypto.h"
 
-
 #if !defined(MBEDTLS_CONFIG_FILE)
 #include "config.h"
 #else
@@ -1590,7 +1589,7 @@ void okcrypto_split_sundae(uint8_t *state, uint8_t *iv, int len, uint8_t functio
 	// "...crypto_stream_xor with a different nonce for each message, the ciphertexts are indistinguishable 
 	// from uniform random strings of the same length" https://nacl.cr.yp.to/stream.html
 
-	if ((*certified_hw != 1 && *certified_hw != 3) || s==true) return;
+	if ((*certified_hw != 1 && *certified_hw != 3) || s==false) return;
 
 	uint8_t iv2[24] = {0}; 
 	memcpy(iv2,iv,12);

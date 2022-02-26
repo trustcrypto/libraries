@@ -4806,7 +4806,7 @@ void set_private(uint8_t *buffer)
 	Serial.print("Profile Key "); 
 	byteprint(profilekey, 32);
 	#endif
-	if ((buffer[6] > 0x80 && backupkeymode && initcheck) || ((backupkeymode || onlykeyhw==OK_HW_DUO) && backupkeyslot == buffer[5] && initcheck))
+	if ((buffer[6] > 0x80 && backupkeymode && initcheck) || (backupkeymode && backupkeyslot == buffer[5] && initcheck))
 	{
 		hidprint("Error backup key mode set to locked");
 		integrityctr1++;
