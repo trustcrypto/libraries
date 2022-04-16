@@ -186,7 +186,7 @@ License along with NeoPixel.  If not, see
 OnlyKey libraries are released under the OnlyKey Open Source license
 
 /* 
- * Copyright (c) 2015-2020, CryptoTrust LLC.
+ * Copyright (c) 2015-2022, CryptoTrust LLC.
  * All rights reserved.
  * 
  * Author : Tim Steiner <t@crp.to>
