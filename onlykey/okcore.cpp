@@ -399,10 +399,19 @@ void recvmsg(int n)
 			else if ((initialized == true && unlocked == true && FTFL_FSEC == 0x44 && integrityctr1 == integrityctr2) || (!initcheck && unlocked == true && initialized == true && integrityctr1 == integrityctr2))
 			{
 				if (recv_buffer[0] != 0xBA)
-					if (mod_keys_enabled && configmode == false) {
-						hidprint("Error not in config mode");
-						return;
-					} else set_slot(recv_buffer);
+				{
+					if (profilemode != NONENCRYPTEDPROFILE) 
+					{
+						#ifdef STD_VERSION
+						if (mod_keys_enabled && configmode == false) {
+						
+							hidprint("Error not in config mode");
+							return;
+						}
+						#endif
+					}
+					set_slot(recv_buffer);
+				}
 			}
 			else
 			{
@@ -5374,13 +5383,13 @@ void yubikeyinit(uint8_t slot)
 	} else if (slot > 0 && slot < 25) {
 		okcore_flashget_yubiotp(ptr, slot);
 		okcore_aes_gcm_decrypt(temp, slot, 10, profilekey, (EElen_aeskey + EElen_private + 16));
-		for (int i = 37; i > 27; i--) {
-			 if (temp[i]!=0) {
+		memcpy(pubID, temp, publen);
+		for (int i = 15; i > 1; i--) { // Public ID 2-16 bytes
+			 if (pubID[i]!=0) {
 				 break;
 			 }
 			 publen--;
 		}
-		memcpy(pubID, temp, publen);
 		memcpy(privID, temp+publen, 6);
 		memcpy(yaeskey, temp+publen+EElen_private, EElen_aeskey);
 		yubikey_hex_encode(public_id, (char *)pubID, publen);
@@ -6834,7 +6843,7 @@ void RESTORE(uint8_t *buffer)
 						rklen=441;
 					} else if (*(ptr + 392 + 1) == 0) {
 						rklen=392;
-					} else if (*(ptr + 441 + 1) == 0) {
+					} else {
 						rklen=441;
 					}
 					ctap_flash((*ptr-200), ptr+1, rklen, 2);
@@ -7111,22 +7120,16 @@ void done_process_packets()
 	if (packet_buffer_details[1] < 5 || (packet_buffer_details[1] > 100 && packet_buffer_details[1] <= 116)) { 
 		okeeprom_eeget_stored_key_challenge_mode(&stored_key_challenge_mode);
 	}
-	if (derived_key_challenge_mode || stored_key_challenge_mode) {
+	if ((is_bit_set(derived_key_challenge_mode, 0))  || stored_key_challenge_mode) {
 		CRYPTO_AUTH = 3;
 	} else {
 		SHA256_CTX msg_hash;
 		sha256_init(&msg_hash);
 		sha256_update(&msg_hash, packet_buffer, packet_buffer_offset); //add data to sign
 		sha256_final(&msg_hash, temp);					//Temporarily store hash
-		if (onlykeyhw==OK_HW_DUO) {
-			Challenge_button1 = (temp[0] % 3) + '0' + 1;	//Get value 1-3 for challenge 1
-			Challenge_button2 = (temp[15] % 3) + '0' + 1;	//Get value 1-3 for challenge 2
-			Challenge_button3 = (temp[31] % 3) + '0' + 1;	//Get value 1-3 for challenge 3
-		} else {
-			Challenge_button1 = (temp[0] % 6) + '0' + 1;	//Get value 1-6 for challenge 1
-			Challenge_button2 = (temp[15] % 6) + '0' + 1;	//Get value 1-6 for challenge 2
-			Challenge_button3 = (temp[31] % 6) + '0' + 1;	//Get value 1-6 for challenge 3	
-		}
+		Challenge_button1 = (temp[0] % 6) + '0' + 1;	//Get value 1-6 for challenge 1
+		Challenge_button2 = (temp[15] % 6) + '0' + 1;	//Get value 1-6 for challenge 2
+		Challenge_button3 = (temp[31] % 6) + '0' + 1;	//Get value 1-6 for challenge 3	
 	}
 #ifdef DEBUG
 	Serial.println("Received Message");
@@ -7295,15 +7298,15 @@ void process_setreport()
 					// Pacing
 					if (keyboard_buffer[47] == CFGFLAG_PACING_10MS) {
 						// set speed to medium
-						TYPESPEED[0] = 2;
+						TYPESPEED[0] = 4;
 						okeeprom_eeset_typespeed((uint8_t*)TYPESPEED, 0);
 					} else if (keyboard_buffer[47] == CFGFLAG_PACING_20MS) {
 						// set speed to slow
-						TYPESPEED[0] = 4;
+						TYPESPEED[0] = 5;
 						okeeprom_eeset_typespeed((uint8_t*)TYPESPEED, 0);
 					} else {
 						// set speed to fast
-						TYPESPEED[0] = 1;
+						TYPESPEED[0] = 3;
 						okeeprom_eeset_typespeed((uint8_t*)TYPESPEED, 0);
 					}
 					// After OTP

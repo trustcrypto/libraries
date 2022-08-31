@@ -90,6 +90,7 @@ int webcryptcheck (uint8_t * _appid, uint8_t * buffer) {
     int appid_match1;
 	int appid_match2;
     extern uint8_t ctap_buffer[CTAPHID_BUFFER_SIZE];
+    extern uint8_t derived_key_challenge_mode;
     memcpy(rpid, ctap_buffer+4, 12); 
     #ifdef DEBUG
 	Serial.println("Ctap buffer:");
@@ -107,9 +108,9 @@ int webcryptcheck (uint8_t * _appid, uint8_t * buffer) {
     
     appid_match1 = memcmp (stored_apprpid, rpid, 12);
 	appid_match2 = memcmp (stored_appid, _appid, 32);
-    if (appid_match1 == 0 || appid_match2 == 0) {
+    if ((appid_match1 == 0 || appid_match2 == 0) && !(is_bit_set(derived_key_challenge_mode, 1))) {
         return 2;
-    } else if (buffer[0]==0xFF && buffer[1]==0xFF && buffer[2]==0xFF && buffer[3]==0xFF && buffer[4]==OKCONNECT) {
+    } else if (buffer[0]==0xFF && buffer[1]==0xFF && buffer[2]==0xFF && buffer[3]==0xFF && buffer[4]==OKCONNECT && is_bit_set(derived_key_challenge_mode, 2)) {
         return 1;
     }
     else return 0;

@@ -125,6 +125,7 @@ int16_t bridge_to_onlykey(uint8_t * _appid, uint8_t * keyh, int handle_len, uint
 	uint8_t os;
 	uint8_t temp[256];
 	uint8_t pubsize;
+	extern uint8_t derived_key_challenge_mode;
 
 	memcpy(client_handle, keyh+10, handle_len);
 		
@@ -199,6 +200,11 @@ int16_t bridge_to_onlykey(uint8_t * _appid, uint8_t * keyh, int handle_len, uint
 				uint8_t additional_data[33] = {0};
 				if (opt1 == DERIVE_PUBLIC_KEY_REQ_PRESS || opt1 == DERIVE_SHAREDSEC_REQ_PRESS) {
 					additional_data[0] = 1; // Generate different key for REQ_PRESS than non REQ_PRESS
+				} else if (!(is_bit_set(derived_key_challenge_mode, 3))) {
+					//derived keys per site without touch not enabeled
+					ret = CTAP2_ERR_EXTENSION_NOT_SUPPORTED; //APPID doesn't match
+					wipedata();
+					return ret;
 				}
 				memcpy(additional_data+1, client_handle+43, 32); // 32 bytes of data to include in key derivation
 				opt2++; 
