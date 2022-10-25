@@ -104,6 +104,9 @@
 #define OK_HW_DUO 9 
 #define OK_HW_COLOR 5
 //#define DEFINED_HWID OK_HW_DUO
+#ifndef STD_VERSION
+#undef FACTORYKEYS
+#endif
 
 
 #ifdef __cplusplus
