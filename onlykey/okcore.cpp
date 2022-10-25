@@ -829,7 +829,9 @@ void set_built_in_pin() {
     initialized = true;
 	if (password.profile1hashevaluate()) {
 		unlocked = true;
+		#ifdef STD_VERSION
     	U2Finit();
+		#endif
 	}
 }
 
@@ -7120,6 +7122,7 @@ void done_process_packets()
 	if (packet_buffer_details[1] < 5 || (packet_buffer_details[1] > 100 && packet_buffer_details[1] <= 116)) { 
 		okeeprom_eeget_stored_key_challenge_mode(&stored_key_challenge_mode);
 	}
+	#ifdef STD_VERSION
 	if ((is_bit_set(derived_key_challenge_mode, 0))  || stored_key_challenge_mode) {
 		CRYPTO_AUTH = 3;
 	} else {
@@ -7131,10 +7134,11 @@ void done_process_packets()
 		Challenge_button2 = (temp[15] % 6) + '0' + 1;	//Get value 1-6 for challenge 2
 		Challenge_button3 = (temp[31] % 6) + '0' + 1;	//Get value 1-6 for challenge 3	
 	}
-#ifdef DEBUG
+	#endif
+	#ifdef DEBUG
 	Serial.println("Received Message");
 	byteprint(packet_buffer, packet_buffer_offset);
-#endif
+	#endif
 	okcore_aes_gcm_encrypt(packet_buffer, packet_buffer_details[0], packet_buffer_details[1], profilekey, packet_buffer_offset);
 	// Just in case there is still a response stored
 	large_resp_buffer_offset = 0;
@@ -7143,10 +7147,10 @@ void done_process_packets()
 	large_buffer_offset = packet_buffer_offset;
 	memmove(large_buffer, packet_buffer, packet_buffer_offset);
 	packet_buffer_offset=0;
-#ifdef DEBUG
+	#ifdef DEBUG
 	Serial.println("Encrypted Buffer");
 	byteprint(large_buffer, large_buffer_offset);
-#endif
+	#endif
 	fadeon(NEO_Color);
 }
 
