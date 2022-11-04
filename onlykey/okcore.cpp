@@ -2105,7 +2105,7 @@ void set_slot(uint8_t *buffer)
 		if (buffer[7] <= 10)
 		{
 			buffer[7] = 11 - buffer[7];
-			okeeprom_eeset_typespeed(buffer + 7, buffer[5]);
+			okeeprom_eeset_typespeed(buffer + 7, slot);
 			if (buffer[8] == 0) {
 				TYPESPEED[0] = buffer[7];
 			}
@@ -5385,16 +5385,17 @@ void yubikeyinit(uint8_t slot)
 	} else if (slot > 0 && slot < 25) {
 		okcore_flashget_yubiotp(ptr, slot);
 		okcore_aes_gcm_decrypt(temp, slot, 10, profilekey, (EElen_aeskey + EElen_private + 16));
-		memcpy(pubID, temp, publen);
-		for (int i = 15; i > 1; i--) { // Public ID 2-16 bytes
-			 if (pubID[i]!=0) {
+		for (int i = 37; i > 1; i--) { // Public ID 2-16 bytes
+			 if (temp[i]!=0) {
 				 break;
 			 }
 			 publen--;
 		}
+		memcpy(pubID, temp, publen);
 		memcpy(privID, temp+publen, 6);
 		memcpy(yaeskey, temp+publen+EElen_private, EElen_aeskey);
 		yubikey_hex_encode(public_id, (char *)pubID, publen);
+		ctx.publen = publen;
 	}
 
 	yubikey_hex_encode(private_id, (char *)privID, 6);
@@ -5415,6 +5416,7 @@ void yubikeyinit(uint8_t slot)
 	counter = ctr[0] << 8 | ctr[1];
 	uint32_t time = 0x010203;
 	usage = ctx.usage;
+	
 	yubikey_init1(&ctx, yaeskey, public_id, private_id, counter, time, seed);
 	ctx.usage = usage + 1;
 	#endif
