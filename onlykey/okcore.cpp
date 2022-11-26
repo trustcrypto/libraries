@@ -7344,10 +7344,16 @@ void process_setreport()
 					}
 					recv_buffer[5] = slot; //OTP_SLOT_1 - OTP_SLOT_12
 					recv_buffer[6] = 10; // Yubi OTP
-					memmove(recv_buffer+7, keyboard_buffer, 16); //Public
-					memmove(recv_buffer+7 + 16, keyboard_buffer+16, 6); //Private
-					memmove(recv_buffer+7 + 22, keyboard_buffer+22, 16); //Secret			
-					memset(recv_buffer+46, 0, 18);
+					uint8_t publen = 16; // Max public size
+					memset(recv_buffer+7, 0, sizeof(recv_buffer)-7);
+					memmove(recv_buffer+7, keyboard_buffer, publen); //Public
+					for (publen; publen > 1; publen--) { // Public ID 2-16 bytes
+						if (recv_buffer[7+publen-1] != 0) {
+							break;
+						}
+					}
+					memmove(recv_buffer+7 + publen, keyboard_buffer+16, 6); //Private
+					memmove(recv_buffer+7 + publen + 6, keyboard_buffer+22, 16); //Secret			
 					byteprint(recv_buffer,64);
 					if (recv_buffer[7]+recv_buffer[8]+recv_buffer[9]+recv_buffer[10]+recv_buffer[11] == 0) {
 						wipe_slot(recv_buffer);
