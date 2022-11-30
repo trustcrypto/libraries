@@ -84,7 +84,7 @@
 #define FACTORYKEYS // Attestation key and other keys encrypted using CHIP ID and RNG for unique keys per device
 #define OKversionmaj "3"
 #define OKversionmin "0"
-#define OKversionpat "3"
+#define OKversionpat "4"
 
 #ifndef OKCORE_H
 #include "okcore.h"
