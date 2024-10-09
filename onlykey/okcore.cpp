@@ -7132,9 +7132,15 @@ void done_process_packets()
 		sha256_init(&msg_hash);
 		sha256_update(&msg_hash, packet_buffer, packet_buffer_offset); //add data to sign
 		sha256_final(&msg_hash, temp);					//Temporarily store hash
-		Challenge_button1 = (temp[0] % 6) + '0' + 1;	//Get value 1-6 for challenge 1
-		Challenge_button2 = (temp[15] % 6) + '0' + 1;	//Get value 1-6 for challenge 2
-		Challenge_button3 = (temp[31] % 6) + '0' + 1;	//Get value 1-6 for challenge 3	
+        if (onlykeyhw==OK_HW_DUO) {
+            Challenge_button1 = (temp[0] % 3) + '0' + 1;	//Get value 1-6 for challenge 1
+            Challenge_button2 = (temp[15] % 3) + '0' + 1;	//Get value 1-6 for challenge 2
+            Challenge_button3 = (temp[31] % 3) + '0' + 1;	//Get value 1-6 for challenge 3	
+        } else {
+            Challenge_button1 = (temp[0] % 6) + '0' + 1;	//Get value 1-6 for challenge 1
+            Challenge_button2 = (temp[15] % 6) + '0' + 1;	//Get value 1-6 for challenge 2
+            Challenge_button3 = (temp[31] % 6) + '0' + 1;	//Get value 1-6 for challenge 3	
+        }
 	}
 	#endif
 	#ifdef DEBUG
