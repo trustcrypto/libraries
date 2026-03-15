@@ -238,14 +238,14 @@ void okcrypto_getpubkey (uint8_t *buffer) {
 	if (buffer[5] < 5 && !buffer[6]) { //Slot 101-132 are for ECC, 1-4 are for RSA
 		if (okcore_flashget_RSA ((int)buffer[5])) okcrypto_getrsapubkey(buffer);
 	} else if (buffer[5] < 117) { //128-132 are reserved
-		if (okcore_flashget_ECC ((int)buffer[5])) okcrypto_geteccpubkey(buffer);
+		if (okcore_flashget_ECC ((int)buffer[5])) {
+			if (type == KEYTYPE_MLKEM768) okcrypto_mlkem_getpubkey(buffer);
+			else if (type == KEYTYPE_XWING) okcrypto_xwing_getpubkey(buffer);
+			else okcrypto_geteccpubkey(buffer);
+		}
 	} else if (buffer[5] == RESERVED_KEY_DERIVATION && buffer[6] <= KEYTYPE_CURVE25519) { // Generate key using provided data, return public
 	okcrypto_derive_key(buffer[6], buffer+7, NULL);
 	send_transport_response(ecc_public_key, 64, false, false);
-	} else if (buffer[5] == RESERVED_KEY_MLKEM) {
-		okcrypto_mlkem_getpubkey(buffer);
-	} else if (buffer[5] == RESERVED_KEY_XWING) {
-		okcrypto_xwing_getpubkey(buffer);
 	}
 }
 
@@ -275,10 +275,6 @@ void okcrypto_decrypt (uint8_t *buffer){
 		}
 	} else if (buffer[5] > 200 && buffer[5] < 205) { // SSH/GPG Derive Key
 		okcrypto_ecdh(buffer);
-	} else if (buffer[5] == RESERVED_KEY_MLKEM) { // ML-KEM-768 decapsulation
-		okcrypto_mlkem_decaps(buffer);
-	} else if (buffer[5] == RESERVED_KEY_XWING) { // X-Wing decapsulation
-		okcrypto_xwing_decaps(buffer);
 	} else {
 		if (buffer[5] > 100 && buffer[5] < 117) { // Keys 117 - 132 reserved
 			features = okcore_flashget_ECC ((int)buffer[5]);
@@ -288,7 +284,11 @@ void okcrypto_decrypt (uint8_t *buffer){
 			fadeoff(0);
 			return;
 		}
-		if (is_bit_set(features, 5)) {
+		if (type == KEYTYPE_MLKEM768) {
+			okcrypto_mlkem_decaps(buffer);
+		} else if (type == KEYTYPE_XWING) {
+			okcrypto_xwing_decaps(buffer);
+		} else if (is_bit_set(features, 5)) {
 			okcrypto_ecdh(buffer);
 		} else {
 			#ifdef DEBUG
@@ -303,22 +303,18 @@ void okcrypto_decrypt (uint8_t *buffer){
 
 void okcrypto_generate_random_key (uint8_t *buffer) {
 	uECC_set_rng(&RNG2);
-	//uint8_t backupslot;
-	//uint8_t temp[64];
 	#ifdef DEBUG
 	Serial.println();
 	Serial.println("GENERATE KEY MESSAGE RECEIVED");
 	#endif
-	if (buffer[5] == RESERVED_KEY_MLKEM) { // ML-KEM-768 keygen
-		okcrypto_mlkem_keygen(buffer);
-		return;
-	}
-	if (buffer[5] == RESERVED_KEY_XWING) { // X-Wing keygen
-		okcrypto_xwing_keygen(buffer);
-		return;
-	}
 	if (buffer[5] > 100) { //Slot 101-132 are for ECC, 1-4 are for RSA
-		if ((buffer[6] & 0x0F) == 1) {
+		if ((buffer[6] & 0x0F) == KEYTYPE_MLKEM768) {
+			okcrypto_mlkem_keygen(buffer);
+			return;
+		} else if ((buffer[6] & 0x0F) == KEYTYPE_XWING) {
+			okcrypto_xwing_keygen(buffer);
+			return;
+		} else if ((buffer[6] & 0x0F) == 1) {
 			crypto_box_keypair(ecc_public_key, buffer+7); //Curve25519
 		} else if ((buffer[6] & 0x0F) == 2) {
 			const struct uECC_Curve_t * curve = uECC_secp256r1(); //P-256
@@ -1739,15 +1735,11 @@ void okcrypto_split_sundae(uint8_t *state, uint8_t *iv, int len, uint8_t functio
 
 /*************************************/
 //ML-KEM-768 operations
+//Seed stored as 32-byte ECC key with KEYTYPE_MLKEM768
 /*************************************/
 
 void okcrypto_mlkem_keygen (uint8_t *buffer) {
 	extern uint8_t ctap_buffer[CTAPHID_BUFFER_SIZE];
-	// Use ctap_buffer as scratch:
-	//   [0..2399]    = secret key (2400 bytes)
-	//   [2400..3583] = public key (1184 bytes)
-	uint8_t *sk = ctap_buffer;
-	uint8_t *pk = ctap_buffer + MLKEM_SK_SIZE;
 	#ifdef DEBUG
 	Serial.println();
 	Serial.println("MLKEM KEYGEN MESSAGE RECEIVED");
@@ -1756,9 +1748,24 @@ void okcrypto_mlkem_keygen (uint8_t *buffer) {
 		pending_operation=CTAP2_ERR_USER_ACTION_PENDING;
 		return;
 	}
-	if (crypto_kem_keypair(pk, sk) != 0) {
+
+	// Generate 32-byte seed, store via existing ECC slot infrastructure
+	// buffer[5] = slot (set by caller), buffer[6] = type, buffer[7..38] = key data
+	RNG2(buffer + 7, 32);
+	buffer[6] = (KEYTYPE_MLKEM768 & 0x0F) | 0xD0; // type with decrypt feature bit
+	ecc_priv_flash(buffer, false);
+
+	// Expand seed to 64-byte coins: SHAKE256(seed, 64)
+	uint8_t coins[64];
+	xwing_shake256(coins, 64, buffer + 7, 32);
+
+	// Deterministic keygen
+	uint8_t *sk = ctap_buffer;
+	uint8_t *pk = ctap_buffer + MLKEM_SK_SIZE;
+	if (crypto_kem_keypair_derand(pk, sk, coins) != 0) {
 		hidprint("Error ML-KEM keygen failed");
 		fadeoff(0);
+		memset(coins, 0, 64);
 		memset(ctap_buffer, 0, MLKEM_SK_SIZE + MLKEM_PK_SIZE);
 		return;
 	}
@@ -1767,12 +1774,11 @@ void okcrypto_mlkem_keygen (uint8_t *buffer) {
 	Serial.print("PK first 16 bytes: ");
 	byteprint(pk, 16);
 	#endif
-	// Persist SK to flash (sectors 10-11, repurposed from FIDO2 resident keys)
-	okcore_flashset_mlkem_sk(sk, KEYTYPE_MLKEM768);
-	// Send PK to host (1184 bytes, multi-packet)
+
 	pending_operation=CTAP2_ERR_DATA_READY;
 	send_transport_response(pk, MLKEM_PK_SIZE, true, true);
-	// Wipe scratch
+
+	memset(coins, 0, 64);
 	memset(ctap_buffer, 0, MLKEM_SK_SIZE + MLKEM_PK_SIZE);
 	fadeoff(85);
 }
@@ -1789,32 +1795,34 @@ void okcrypto_mlkem_decaps (uint8_t *buffer) {
 		pending_operation=OKDECRYPT_ERR_USER_ACTION_PENDING;
 	}
 	else if (CRYPTO_AUTH == 4) {
-		// CT arrived via process_packets -> large_buffer (1088 bytes, encrypted)
 		okcore_aes_gcm_decrypt(large_buffer, packet_buffer_details[0], packet_buffer_details[1], profilekey, large_buffer_offset);
-		#ifdef DEBUG
-		Serial.print("CT blob size: ");
-		Serial.println(large_buffer_offset);
-		#endif
 		if (large_buffer_offset != MLKEM_CT_SIZE) {
 			hidprint("Error ML-KEM CT wrong size");
 			fadeoff(0);
 			memset(large_buffer, 0, LARGE_BUFFER_SIZE);
 			return;
 		}
-		// Load SK from flash into ctap_buffer[0..2399]
-		// large_buffer is at ctap_buffer[5497+], no overlap
+
+		// Seed already loaded into ecc_private_key by okcore_flashget_ECC in dispatch
+		uint8_t coins[64];
+		xwing_shake256(coins, 64, ecc_private_key, 32);
+
 		uint8_t *sk = ctap_buffer;
-		if (okcore_flashget_mlkem_sk(sk) <= 0) {
-			hidprint("Error no ML-KEM key stored");
-			fadeoff(0);
+		uint8_t *pk = ctap_buffer + MLKEM_SK_SIZE;
+		if (crypto_kem_keypair_derand(pk, sk, coins) != 0) {
+			hidprint("Error ML-KEM key expansion failed");
+			memset(coins, 0, 64);
+			memset(ctap_buffer, 0, MLKEM_SK_SIZE + MLKEM_PK_SIZE);
 			memset(large_buffer, 0, LARGE_BUFFER_SIZE);
+			fadeoff(0);
 			return;
 		}
-		// Decapsulate: recover shared secret
+		memset(coins, 0, 64);
+
 		if (crypto_kem_dec(ss, large_buffer, sk) != 0) {
 			hidprint("Error ML-KEM decaps failed");
 			memset(ss, 0, sizeof(ss));
-			memset(sk, 0, MLKEM_SK_SIZE);
+			memset(ctap_buffer, 0, MLKEM_SK_SIZE + MLKEM_PK_SIZE);
 			memset(large_buffer, 0, LARGE_BUFFER_SIZE);
 			fadeoff(0);
 			return;
@@ -1823,15 +1831,16 @@ void okcrypto_mlkem_decaps (uint8_t *buffer) {
 		Serial.print("Shared secret: ");
 		byteprint(ss, MLKEM_SS_SIZE);
 		#endif
+
 		pending_operation=CTAP2_ERR_DATA_READY;
 		outputmode=packet_buffer_details[2];
 		send_transport_response(ss, MLKEM_SS_SIZE, true, true);
 		if (outputmode != WEBAUTHN) {
 			wipetasks();
 		}
-		// Wipe everything
+
 		memset(ss, 0, sizeof(ss));
-		memset(sk, 0, MLKEM_SK_SIZE);
+		memset(ctap_buffer, 0, MLKEM_SK_SIZE + MLKEM_PK_SIZE);
 		memset(large_buffer, 0, LARGE_BUFFER_SIZE);
 		fadeoff(85);
 	} else {
@@ -1847,22 +1856,24 @@ void okcrypto_mlkem_getpubkey (uint8_t *buffer) {
 	Serial.println();
 	Serial.println("MLKEM GETPUBKEY MESSAGE RECEIVED");
 	#endif
-	// Load SK from flash into ctap_buffer, then extract embedded PK
-	// ML-KEM-768 SK layout: sk_pke(1152) || pk(1184) || H(pk)(32) || z(32) = 2400
+
+	// Seed already loaded into ecc_private_key by okcore_flashget_ECC in dispatch
+	uint8_t coins[64];
+	xwing_shake256(coins, 64, ecc_private_key, 32);
+
 	uint8_t *sk = ctap_buffer;
-	if (okcore_flashget_mlkem_sk(sk) <= 0) {
-		hidprint("Error no ML-KEM key stored");
-		return;
-	}
-	// PK is embedded at offset 1152 in the secret key
-	uint8_t *pk = sk + (MLKEM_SK_SIZE - MLKEM_PK_SIZE - 64); // 2400 - 1184 - 64 = 1152
+	uint8_t *pk = ctap_buffer + MLKEM_SK_SIZE;
+	crypto_kem_keypair_derand(pk, sk, coins);
+	memset(coins, 0, 64);
+
 	send_transport_response(pk, MLKEM_PK_SIZE, true, true);
-	memset(ctap_buffer, 0, MLKEM_SK_SIZE);
+	memset(ctap_buffer, 0, MLKEM_SK_SIZE + MLKEM_PK_SIZE);
 }
 
 /*************************************/
 //X-Wing KEM operations (draft-connolly-cfrg-xwing-kem-09)
 //Compatible with age v1.3.0 mlkem768x25519 recipient type
+//Seed stored as 32-byte ECC key with KEYTYPE_XWING
 //PK: pk_M(1184) || pk_X(32) = 1216 bytes
 //CT: ct_M(1088) || ct_X(32) = 1120 bytes
 //SS: SHA3-256(ss_M || ss_X || ct_X || pk_X || XWingLabel) = 32 bytes
@@ -1879,43 +1890,31 @@ void okcrypto_xwing_keygen (uint8_t *buffer) {
 		return;
 	}
 
-	// X-Wing keygen: generate 32-byte seed, expand with SHAKE256
-	uint8_t seed[32];
-	RNG2(seed, 32);
+	// Generate 32-byte seed, store via existing ECC slot infrastructure
+	RNG2(buffer + 7, XWING_SEED_SIZE);
+	buffer[6] = (KEYTYPE_XWING & 0x0F) | 0xD0; // type with decrypt feature bit
+	ecc_priv_flash(buffer, false);
 
-	// expanded = SHAKE256(seed, 96)
-	// expanded[0:32] = d (ML-KEM coin 1)
-	// expanded[32:64] = z (ML-KEM coin 2)
-	// expanded[64:96] = sk_X (X25519 secret key)
+	// Expand seed: SHAKE256(seed, 96)
 	uint8_t expanded[96];
-	xwing_shake256(expanded, 96, seed, 32);
+	xwing_shake256(expanded, 96, buffer + 7, XWING_SEED_SIZE);
 
-	// ML-KEM-768 deterministic keygen from expanded[0:64] = d||z
-	uint8_t *sk_M = ctap_buffer;                     // [0..2399]
-	uint8_t *pk_M = ctap_buffer + MLKEM_SK_SIZE;     // [2400..3583]
+	// ML-KEM-768 deterministic keygen from expanded[0:64]
+	uint8_t *sk_M = ctap_buffer;
+	uint8_t *pk_M = ctap_buffer + MLKEM_SK_SIZE;
 	if (crypto_kem_keypair_derand(pk_M, sk_M, expanded) != 0) {
 		hidprint("Error X-Wing ML-KEM keygen failed");
 		fadeoff(0);
-		memset(seed, 0, 32);
 		memset(expanded, 0, 96);
 		memset(ctap_buffer, 0, MLKEM_SK_SIZE + MLKEM_PK_SIZE);
 		return;
 	}
 
-	// X25519 keygen: pk_X = X25519(sk_X, BASE)
-	uint8_t *sk_X = expanded + 64; // 32 bytes
+	// X25519: pk_X = X25519(expanded[64:96], BASE)
 	uint8_t pk_X[32];
-	crypto_scalarmult_base(pk_X, sk_X);
+	crypto_scalarmult_base(pk_X, expanded + 64);
 
-	// Build expanded SK in ctap_buffer: sk_M(2400) || sk_X(32) || pk_X(32) = 2464
-	memcpy(ctap_buffer + MLKEM_SK_SIZE, sk_X, 32);
-	memcpy(ctap_buffer + MLKEM_SK_SIZE + 32, pk_X, 32);
-
-	// Persist expanded SK to flash
-	okcore_flashset_xwing_sk(ctap_buffer);
-
-	// Build PK: pk_M(1184) || pk_X(32) = 1216 bytes
-	// pk_M is at ctap_buffer[2400], append pk_X after it
+	// Build PK: pk_M(1184) || pk_X(32)
 	memcpy(pk_M + MLKEM_PK_SIZE, pk_X, 32);
 
 	#ifdef DEBUG
@@ -1926,15 +1925,12 @@ void okcrypto_xwing_keygen (uint8_t *buffer) {
 	byteprint(pk_X, 32);
 	#endif
 
-	// Send PK to host (1216 bytes, multi-packet)
 	pending_operation=CTAP2_ERR_DATA_READY;
 	send_transport_response(pk_M, XWING_PK_SIZE, true, true);
 
-	// Wipe
-	memset(seed, 0, 32);
 	memset(expanded, 0, 96);
 	memset(pk_X, 0, 32);
-	memset(ctap_buffer, 0, XWING_SK_SIZE + XWING_PK_SIZE);
+	memset(ctap_buffer, 0, MLKEM_SK_SIZE + XWING_PK_SIZE);
 	fadeoff(85);
 }
 
@@ -1952,13 +1948,7 @@ void okcrypto_xwing_decaps (uint8_t *buffer) {
 		pending_operation=OKDECRYPT_ERR_USER_ACTION_PENDING;
 	}
 	else if (CRYPTO_AUTH == 4) {
-		// CT arrived via process_packets -> large_buffer
-		// X-Wing CT format: ct_M(1088) || ct_X(32) = 1120 bytes
 		okcore_aes_gcm_decrypt(large_buffer, packet_buffer_details[0], packet_buffer_details[1], profilekey, large_buffer_offset);
-		#ifdef DEBUG
-		Serial.print("X-Wing CT size: ");
-		Serial.println(large_buffer_offset);
-		#endif
 		if (large_buffer_offset != XWING_CT_SIZE) {
 			hidprint("Error X-Wing CT wrong size");
 			fadeoff(0);
@@ -1966,28 +1956,36 @@ void okcrypto_xwing_decaps (uint8_t *buffer) {
 			return;
 		}
 
-		// Parse CT: ct_M = ct[0:1088], ct_X = ct[1088:1120]
 		uint8_t *ct_M = large_buffer;
 		uint8_t *ct_X = large_buffer + MLKEM_CT_SIZE;
 
-		// Load expanded SK from flash into ctap_buffer[0..2463]
-		// large_buffer is at ctap_buffer[5465+], no overlap
-		if (okcore_flashget_xwing_sk(ctap_buffer) <= 0) {
-			hidprint("Error no X-Wing key stored");
-			fadeoff(0);
+		// Seed already loaded into ecc_private_key by okcore_flashget_ECC in dispatch
+		uint8_t expanded[96];
+		xwing_shake256(expanded, 96, ecc_private_key, XWING_SEED_SIZE);
+
+		// Reconstruct ML-KEM keypair from expanded[0:64]
+		uint8_t *sk_M = ctap_buffer;
+		uint8_t *pk_M = ctap_buffer + MLKEM_SK_SIZE;
+		if (crypto_kem_keypair_derand(pk_M, sk_M, expanded) != 0) {
+			hidprint("Error X-Wing key expansion failed");
+			memset(expanded, 0, 96);
+			memset(ctap_buffer, 0, MLKEM_SK_SIZE + MLKEM_PK_SIZE);
 			memset(large_buffer, 0, LARGE_BUFFER_SIZE);
+			fadeoff(0);
 			return;
 		}
-		// Parse expanded SK: sk_M(2400) || sk_X(32) || pk_X(32)
-		uint8_t *sk_M = ctap_buffer;
-		uint8_t *sk_X = ctap_buffer + MLKEM_SK_SIZE;
-		uint8_t *pk_X = ctap_buffer + MLKEM_SK_SIZE + 32;
+
+		// X25519 keys from expanded[64:96]
+		uint8_t *sk_X = expanded + 64;
+		uint8_t pk_X[32];
+		crypto_scalarmult_base(pk_X, sk_X);
 
 		// ML-KEM-768 decapsulation
 		if (crypto_kem_dec(ss_M, ct_M, sk_M) != 0) {
 			hidprint("Error X-Wing ML-KEM decaps failed");
 			memset(ss_M, 0, 32);
-			memset(ctap_buffer, 0, XWING_SK_SIZE);
+			memset(expanded, 0, 96);
+			memset(ctap_buffer, 0, MLKEM_SK_SIZE + MLKEM_PK_SIZE);
 			memset(large_buffer, 0, LARGE_BUFFER_SIZE);
 			fadeoff(0);
 			return;
@@ -1996,7 +1994,7 @@ void okcrypto_xwing_decaps (uint8_t *buffer) {
 		// X25519 ECDH: ss_X = X25519(sk_X, ct_X)
 		crypto_scalarmult(ss_X, sk_X, ct_X);
 
-		// X-Wing Combiner: SHA3-256(ss_M || ss_X || ct_X || pk_X || XWingLabel)
+		// X-Wing Combiner
 		xwing_combiner(ss, ss_M, ss_X, ct_X, pk_X);
 
 		#ifdef DEBUG
@@ -2012,11 +2010,12 @@ void okcrypto_xwing_decaps (uint8_t *buffer) {
 			wipetasks();
 		}
 
-		// Wipe everything
 		memset(ss_M, 0, 32);
 		memset(ss_X, 0, 32);
 		memset(ss, 0, XWING_SS_SIZE);
-		memset(ctap_buffer, 0, XWING_SK_SIZE);
+		memset(expanded, 0, 96);
+		memset(pk_X, 0, 32);
+		memset(ctap_buffer, 0, MLKEM_SK_SIZE + MLKEM_PK_SIZE);
 		memset(large_buffer, 0, LARGE_BUFFER_SIZE);
 		fadeoff(85);
 	} else {
@@ -2032,23 +2031,25 @@ void okcrypto_xwing_getpubkey (uint8_t *buffer) {
 	Serial.println();
 	Serial.println("XWING GETPUBKEY MESSAGE RECEIVED");
 	#endif
-	// Load expanded SK from flash: sk_M(2400) || sk_X(32) || pk_X(32)
-	if (okcore_flashget_xwing_sk(ctap_buffer) <= 0) {
-		hidprint("Error no X-Wing key stored");
-		return;
-	}
-	// Extract pk_M from sk_M (embedded at offset 1152 in ML-KEM SK)
-	uint8_t *pk_M = ctap_buffer + (MLKEM_SK_SIZE - MLKEM_PK_SIZE - 64); // offset 1152
-	// Extract pk_X from expanded SK
-	uint8_t *pk_X = ctap_buffer + MLKEM_SK_SIZE + 32; // offset 2432
 
-	// Build PK: pk_M(1184) || pk_X(32) in staging area
-	uint8_t *pk_out = ctap_buffer + XWING_SK_SIZE; // after the SK
-	memcpy(pk_out, pk_M, MLKEM_PK_SIZE);
-	memcpy(pk_out + MLKEM_PK_SIZE, pk_X, 32);
+	// Seed already loaded into ecc_private_key by okcore_flashget_ECC in dispatch
+	uint8_t expanded[96];
+	xwing_shake256(expanded, 96, ecc_private_key, XWING_SEED_SIZE);
 
-	send_transport_response(pk_out, XWING_PK_SIZE, true, true);
-	memset(ctap_buffer, 0, XWING_SK_SIZE + XWING_PK_SIZE);
+	uint8_t *sk_M = ctap_buffer;
+	uint8_t *pk_M = ctap_buffer + MLKEM_SK_SIZE;
+	crypto_kem_keypair_derand(pk_M, sk_M, expanded);
+
+	uint8_t pk_X[32];
+	crypto_scalarmult_base(pk_X, expanded + 64);
+
+	memcpy(pk_M + MLKEM_PK_SIZE, pk_X, 32);
+
+	send_transport_response(pk_M, XWING_PK_SIZE, true, true);
+
+	memset(expanded, 0, 96);
+	memset(pk_X, 0, 32);
+	memset(ctap_buffer, 0, MLKEM_SK_SIZE + XWING_PK_SIZE);
 }
 
 void okcrypto_compute_pubkey() {

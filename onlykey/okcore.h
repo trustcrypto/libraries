@@ -209,8 +209,7 @@ extern "C"
 #define MAX_RSA_KEY_SIZE 512
 #define MAX_ECC_KEY_SIZE 32
 #define RESERVED_KEY_DERIVATION 132
-#define RESERVED_KEY_MLKEM      133
-#define RESERVED_KEY_XWING      134
+// KEYTYPE_MLKEM768 and KEYTYPE_XWING can be stored in any ECC slot (101-132)
 #define RESERVED_KEY_DEFAULT_BACKUP 131
 #define RESERVED_KEY_HMACSHA1_1 130
 #define RESERVED_KEY_HMACSHA1_2 129
@@ -237,11 +236,10 @@ extern "C"
 //X-Wing sizes (draft-connolly-cfrg-xwing-kem-09)
 //X25519 + ML-KEM-768 hybrid KEM
 /*************************************/
-#define XWING_SK_SIZE            2464   /* sk_M(2400) || sk_X(32) || pk_X(32) */
 #define XWING_PK_SIZE            1216   /* pk_M(1184) || pk_X(32) */
 #define XWING_CT_SIZE            1120   /* ct_M(1088) || ct_X(32) */
 #define XWING_SS_SIZE            32     /* SHA3-256 output */
-#define XWING_SEED_SIZE          32     /* compact seed for key derivation */
+#define XWING_SEED_SIZE          32     /* seed stored in ECC slot */
 
 /*************************************/
 /*************************************/
@@ -324,10 +322,6 @@ extern void okcore_flashget_label (uint8_t *ptr, uint8_t slot);
 extern void okcore_flashset_label (uint8_t *ptr, uint8_t slot);
 extern int okcore_flashget_ECC (uint8_t slot);
 extern int okcore_flashget_RSA (uint8_t slot);
-extern int okcore_flashget_mlkem_sk (uint8_t *sk);
-extern void okcore_flashset_mlkem_sk (uint8_t *sk, uint8_t features);
-extern int okcore_flashget_xwing_sk (uint8_t *sk);
-extern void okcore_flashset_xwing_sk (uint8_t *sk);
 extern uint8_t okcore_flashget_hmac(uint8_t *ptr, uint8_t slot);
 void okcore_aes_gcm_encrypt(uint8_t *state, uint8_t slot, uint8_t value, const uint8_t *key, int len);
 void okcore_aes_gcm_decrypt(uint8_t *state, uint8_t slot, uint8_t value, const uint8_t *key, int len);

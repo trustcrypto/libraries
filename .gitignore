@@ -47,3 +47,4 @@ Temporary Items
 .apdisk
 .vscode/settings.json
 mlkem_native/test/test_mlkem768
+*.o
