@@ -1752,7 +1752,7 @@ void okcrypto_mlkem_keygen (uint8_t *buffer) {
 	// Generate 32-byte seed, store via existing ECC slot infrastructure
 	// buffer[5] = slot (set by caller), buffer[6] = type, buffer[7..38] = key data
 	RNG2(buffer + 7, 32);
-	buffer[6] = (KEYTYPE_MLKEM768 & 0x0F) | 0xD0; // type with decrypt feature bit
+	buffer[6] = (KEYTYPE_MLKEM768 & 0x0F) | 0x20; // type with decrypt feature (bit 5)
 	ecc_priv_flash(buffer, false);
 
 	// Expand seed to 64-byte coins: SHAKE256(seed, 64)
@@ -1892,7 +1892,7 @@ void okcrypto_xwing_keygen (uint8_t *buffer) {
 
 	// Generate 32-byte seed, store via existing ECC slot infrastructure
 	RNG2(buffer + 7, XWING_SEED_SIZE);
-	buffer[6] = (KEYTYPE_XWING & 0x0F) | 0xD0; // type with decrypt feature bit
+	buffer[6] = (KEYTYPE_XWING & 0x0F) | 0x20; // type with decrypt feature (bit 5)
 	ecc_priv_flash(buffer, false);
 
 	// Expand seed: SHAKE256(seed, 96)
@@ -2054,6 +2054,10 @@ void okcrypto_xwing_getpubkey (uint8_t *buffer) {
 
 void okcrypto_compute_pubkey() {
 	memset(ecc_public_key, 0, sizeof(ecc_public_key));
+
+	// PQ key types store seeds, not traditional ECC keys — pubkey is
+	// derived on demand via SHAKE256 expansion, not from ecc_private_key
+	if (type == KEYTYPE_MLKEM768 || type == KEYTYPE_XWING) return;
 
 	if (type == KEYTYPE_ED25519) {
 		Ed25519::derivePublicKey(ecc_public_key, ecc_private_key);
