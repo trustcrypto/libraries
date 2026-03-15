@@ -121,8 +121,8 @@ extern "C"
 //Global Buffer Sizes
 /*************************************/
 #define LARGE_RESP_BUFFER_SIZE         1024
-#define LARGE_BUFFER_SIZE         1088
-#define PACKET_BUFFER_SIZE         1088
+#define LARGE_BUFFER_SIZE         1120
+#define PACKET_BUFFER_SIZE         1120
 #define ATTESTATION_DER_BUFFER_SIZE 768
 #define KEYBOARD_BUFFER_SIZE         80
 /*************************************/
@@ -210,6 +210,7 @@ extern "C"
 #define MAX_ECC_KEY_SIZE 32
 #define RESERVED_KEY_DERIVATION 132
 #define RESERVED_KEY_MLKEM      133
+#define RESERVED_KEY_HYBRID_PQ  134
 #define RESERVED_KEY_DEFAULT_BACKUP 131
 #define RESERVED_KEY_HMACSHA1_1 130
 #define RESERVED_KEY_HMACSHA1_2 129
@@ -224,6 +225,7 @@ extern "C"
 #define KEYTYPE_ECDH_P256K   103
 #define KEYTYPE_ECDH_CURVE25519  104
 #define KEYTYPE_MLKEM768         5
+#define KEYTYPE_HYBRID_PQ        6
 /*************************************/
 //ML-KEM-768 sizes (FIPS 203)
 /*************************************/
@@ -231,6 +233,12 @@ extern "C"
 #define MLKEM_PK_SIZE            1184
 #define MLKEM_CT_SIZE            1088
 #define MLKEM_SS_SIZE            32
+/*************************************/
+//Hybrid X25519 + ML-KEM-768 sizes
+/*************************************/
+#define HYBRID_PK_SIZE           (32 + MLKEM_PK_SIZE)   /* 1216: X25519_pk || ML-KEM_pk */
+#define HYBRID_CT_SIZE           (32 + MLKEM_CT_SIZE)    /* 1120: X25519_eph_pk || ML-KEM_ct */
+#define HYBRID_SS_SIZE           32                       /* SHA256(X25519_ss || ML-KEM_ss) */
 
 /*************************************/
 /*************************************/
@@ -315,6 +323,8 @@ extern int okcore_flashget_ECC (uint8_t slot);
 extern int okcore_flashget_RSA (uint8_t slot);
 extern int okcore_flashget_mlkem_sk (uint8_t *sk);
 extern void okcore_flashset_mlkem_sk (uint8_t *sk, uint8_t features);
+extern int okcore_flashget_hybrid_sk (uint8_t *mlkem_sk, uint8_t *x25519_sk);
+extern void okcore_flashset_hybrid_sk (uint8_t *mlkem_sk, uint8_t *x25519_sk);
 extern uint8_t okcore_flashget_hmac(uint8_t *ptr, uint8_t slot);
 void okcore_aes_gcm_encrypt(uint8_t *state, uint8_t slot, uint8_t value, const uint8_t *key, int len);
 void okcore_aes_gcm_decrypt(uint8_t *state, uint8_t slot, uint8_t value, const uint8_t *key, int len);

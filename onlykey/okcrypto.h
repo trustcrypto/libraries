@@ -137,6 +137,9 @@ extern void okcrypto_aes_cbc_decrypt (uint8_t * state, uint8_t * iv, const uint8
 extern void okcrypto_mlkem_keygen (uint8_t *buffer);
 extern void okcrypto_mlkem_decaps (uint8_t *buffer);
 extern void okcrypto_mlkem_getpubkey (uint8_t *buffer);
+extern void okcrypto_hybrid_keygen (uint8_t *buffer);
+extern void okcrypto_hybrid_decaps (uint8_t *buffer);
+extern void okcrypto_hybrid_getpubkey (uint8_t *buffer);
 
 
 #ifdef __cplusplus

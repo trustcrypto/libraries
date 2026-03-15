@@ -217,6 +217,8 @@ void okcrypto_getpubkey (uint8_t *buffer) {
 	send_transport_response(ecc_public_key, 64, false, false);
 	} else if (buffer[5] == RESERVED_KEY_MLKEM) {
 		okcrypto_mlkem_getpubkey(buffer);
+	} else if (buffer[5] == RESERVED_KEY_HYBRID_PQ) {
+		okcrypto_hybrid_getpubkey(buffer);
 	}
 }
 
@@ -248,6 +250,8 @@ void okcrypto_decrypt (uint8_t *buffer){
 		okcrypto_ecdh(buffer);
 	} else if (buffer[5] == RESERVED_KEY_MLKEM) { // ML-KEM-768 decapsulation
 		okcrypto_mlkem_decaps(buffer);
+	} else if (buffer[5] == RESERVED_KEY_HYBRID_PQ) { // Hybrid X25519+ML-KEM decapsulation
+		okcrypto_hybrid_decaps(buffer);
 	} else {
 		if (buffer[5] > 100 && buffer[5] < 117) { // Keys 117 - 132 reserved
 			features = okcore_flashget_ECC ((int)buffer[5]);
@@ -280,6 +284,10 @@ void okcrypto_generate_random_key (uint8_t *buffer) {
 	#endif
 	if (buffer[5] == RESERVED_KEY_MLKEM) { // ML-KEM-768 keygen
 		okcrypto_mlkem_keygen(buffer);
+		return;
+	}
+	if (buffer[5] == RESERVED_KEY_HYBRID_PQ) { // Hybrid X25519+ML-KEM keygen
+		okcrypto_hybrid_keygen(buffer);
 		return;
 	}
 	if (buffer[5] > 100) { //Slot 101-132 are for ECC, 1-4 are for RSA
@@ -838,6 +846,12 @@ int okcrypto_shared_secret (uint8_t *pub, uint8_t *secret) {
 		// ML-KEM uses KEM (encaps/decaps), not DH shared secret
 		// Use okcrypto_mlkem_decaps() instead
 		hidprint("Error use ML-KEM decaps for this key type");
+		return 1;
+
+	case KEYTYPE_HYBRID_PQ:
+		// Hybrid uses combined KEM, not DH shared secret
+		// Use okcrypto_hybrid_decaps() instead
+		hidprint("Error use hybrid decaps for this key type");
 		return 1;
 
 	default:
@@ -1817,6 +1831,197 @@ void okcrypto_mlkem_getpubkey (uint8_t *buffer) {
 	uint8_t *pk = sk + (MLKEM_SK_SIZE - MLKEM_PK_SIZE - 64); // 2400 - 1184 - 64 = 1152
 	send_transport_response(pk, MLKEM_PK_SIZE, true, true);
 	memset(ctap_buffer, 0, MLKEM_SK_SIZE);
+}
+
+/*************************************/
+//Hybrid X25519 + ML-KEM-768 operations
+//Combined PK: X25519_pk(32) || ML-KEM_pk(1184) = 1216 bytes
+//Decaps input: X25519_eph_pk(32) || ML-KEM_ct(1088) = 1120 bytes
+//Combined SS: SHA256(X25519_ss || ML-KEM_ss) = 32 bytes
+/*************************************/
+
+void okcrypto_hybrid_keygen (uint8_t *buffer) {
+	extern uint8_t ctap_buffer[CTAPHID_BUFFER_SIZE];
+	#ifdef DEBUG
+	Serial.println();
+	Serial.println("HYBRID PQ KEYGEN MESSAGE RECEIVED");
+	#endif
+	if (!CRYPTO_AUTH) {
+		pending_operation=CTAP2_ERR_USER_ACTION_PENDING;
+		return;
+	}
+
+	// Step 1: Generate ML-KEM-768 keypair
+	uint8_t *mlkem_sk = ctap_buffer;             // [0..2399]
+	uint8_t *mlkem_pk = ctap_buffer + MLKEM_SK_SIZE; // [2400..3583]
+	if (crypto_kem_keypair(mlkem_pk, mlkem_sk) != 0) {
+		hidprint("Error hybrid ML-KEM keygen failed");
+		fadeoff(0);
+		memset(ctap_buffer, 0, MLKEM_SK_SIZE + MLKEM_PK_SIZE);
+		return;
+	}
+
+	// Step 2: Generate X25519 keypair (uses existing globals)
+	uint8_t x25519_sk[32];
+	uint8_t x25519_pk[32];
+	crypto_box_keypair(x25519_pk, x25519_sk);
+
+	// Step 3: Persist both keys to flash
+	okcore_flashset_hybrid_sk(mlkem_sk, x25519_sk);
+
+	// Step 4: Build combined PK in ctap_buffer: X25519_pk(32) || ML-KEM_pk(1184)
+	// ML-KEM SK already stored to flash, safe to overwrite ctap_buffer
+	memmove(ctap_buffer + 32, mlkem_pk, MLKEM_PK_SIZE);
+	memcpy(ctap_buffer, x25519_pk, 32);
+
+	#ifdef DEBUG
+	Serial.println("Hybrid keypair generated");
+	Serial.print("X25519 PK: ");
+	byteprint(ctap_buffer, 32);
+	Serial.print("ML-KEM PK first 16: ");
+	byteprint(ctap_buffer + 32, 16);
+	#endif
+
+	// Step 5: Send combined PK to host (1216 bytes, multi-packet)
+	pending_operation=CTAP2_ERR_DATA_READY;
+	send_transport_response(ctap_buffer, HYBRID_PK_SIZE, true, true);
+
+	// Wipe
+	memset(x25519_sk, 0, 32);
+	memset(ctap_buffer, 0, MLKEM_SK_SIZE + MLKEM_PK_SIZE + 32);
+	fadeoff(85);
+}
+
+void okcrypto_hybrid_decaps (uint8_t *buffer) {
+	extern uint8_t ctap_buffer[CTAPHID_BUFFER_SIZE];
+	uint8_t x25519_ss[32];
+	uint8_t mlkem_ss[MLKEM_SS_SIZE];
+	uint8_t combined_ss[HYBRID_SS_SIZE];
+	uint8_t x25519_sk[32];
+	#ifdef DEBUG
+	Serial.println();
+	Serial.println("HYBRID PQ DECAPS MESSAGE RECEIVED");
+	#endif
+	if (!CRYPTO_AUTH) {
+		process_packets(buffer, 0, 0);
+		pending_operation=OKDECRYPT_ERR_USER_ACTION_PENDING;
+	}
+	else if (CRYPTO_AUTH == 4) {
+		// Payload arrived via process_packets -> large_buffer
+		// Format: X25519_eph_pk(32) || ML-KEM_ct(1088) = 1120 bytes
+		okcore_aes_gcm_decrypt(large_buffer, packet_buffer_details[0], packet_buffer_details[1], profilekey, large_buffer_offset);
+		#ifdef DEBUG
+		Serial.print("Hybrid blob size: ");
+		Serial.println(large_buffer_offset);
+		#endif
+		if (large_buffer_offset != HYBRID_CT_SIZE) {
+			hidprint("Error hybrid payload wrong size");
+			fadeoff(0);
+			memset(large_buffer, 0, LARGE_BUFFER_SIZE);
+			return;
+		}
+
+		// Parse payload
+		uint8_t *x25519_peer_pk = large_buffer;        // [0..31]
+		uint8_t *mlkem_ct = large_buffer + 32;          // [32..1119]
+
+		// Load keys from flash
+		// ML-KEM SK into ctap_buffer[0..2399], X25519 SK into x25519_sk
+		// large_buffer is at ctap_buffer[5465+], no overlap
+		uint8_t *mlkem_sk = ctap_buffer;
+		if (okcore_flashget_hybrid_sk(mlkem_sk, x25519_sk) <= 0) {
+			hidprint("Error no hybrid key stored");
+			fadeoff(0);
+			memset(large_buffer, 0, LARGE_BUFFER_SIZE);
+			return;
+		}
+
+		// X25519 ECDH
+		Curve25519::eval(x25519_ss, x25519_sk, x25519_peer_pk);
+
+		// ML-KEM-768 decapsulation
+		if (crypto_kem_dec(mlkem_ss, mlkem_ct, mlkem_sk) != 0) {
+			hidprint("Error hybrid ML-KEM decaps failed");
+			memset(x25519_ss, 0, 32);
+			memset(mlkem_ss, 0, MLKEM_SS_SIZE);
+			memset(x25519_sk, 0, 32);
+			memset(mlkem_sk, 0, MLKEM_SK_SIZE);
+			memset(large_buffer, 0, LARGE_BUFFER_SIZE);
+			fadeoff(0);
+			return;
+		}
+
+		// Combine: SHA256(X25519_ss || ML-KEM_ss)
+		SHA256_CTX combiner;
+		sha256_init(&combiner);
+		sha256_update(&combiner, x25519_ss, 32);
+		sha256_update(&combiner, mlkem_ss, MLKEM_SS_SIZE);
+		sha256_final(&combiner, combined_ss);
+
+		#ifdef DEBUG
+		Serial.print("X25519 SS: ");
+		byteprint(x25519_ss, 32);
+		Serial.print("ML-KEM SS: ");
+		byteprint(mlkem_ss, MLKEM_SS_SIZE);
+		Serial.print("Combined SS: ");
+		byteprint(combined_ss, HYBRID_SS_SIZE);
+		#endif
+
+		pending_operation=CTAP2_ERR_DATA_READY;
+		outputmode=packet_buffer_details[2];
+		send_transport_response(combined_ss, HYBRID_SS_SIZE, true, true);
+		if (outputmode != WEBAUTHN) {
+			wipetasks();
+		}
+
+		// Wipe everything
+		memset(x25519_ss, 0, 32);
+		memset(mlkem_ss, 0, MLKEM_SS_SIZE);
+		memset(combined_ss, 0, HYBRID_SS_SIZE);
+		memset(x25519_sk, 0, 32);
+		memset(mlkem_sk, 0, MLKEM_SK_SIZE);
+		memset(large_buffer, 0, LARGE_BUFFER_SIZE);
+		fadeoff(85);
+	} else {
+		#ifdef DEBUG
+		Serial.println("Waiting for challenge buttons to be pressed");
+		#endif
+	}
+}
+
+void okcrypto_hybrid_getpubkey (uint8_t *buffer) {
+	extern uint8_t ctap_buffer[CTAPHID_BUFFER_SIZE];
+	uint8_t x25519_sk[32];
+	#ifdef DEBUG
+	Serial.println();
+	Serial.println("HYBRID PQ GETPUBKEY MESSAGE RECEIVED");
+	#endif
+	// Load keys from flash
+	uint8_t *mlkem_sk = ctap_buffer;
+	if (okcore_flashget_hybrid_sk(mlkem_sk, x25519_sk) <= 0) {
+		hidprint("Error no hybrid key stored");
+		return;
+	}
+	// Build combined PK in ctap_buffer:
+	// X25519 PK: derive from SK, then prepend to ML-KEM PK
+	uint8_t x25519_pk[32];
+	// NaCl format: need to compute pk from sk
+	// For Curve25519, pk = scalar_mult(sk, basepoint)
+	swap_buffer(0, 31, x25519_sk);
+	Curve25519::eval(x25519_pk, x25519_sk, 0);
+
+	// Extract ML-KEM PK from SK (at offset 1152)
+	uint8_t *mlkem_pk = mlkem_sk + (MLKEM_SK_SIZE - MLKEM_PK_SIZE - 64);
+
+	// Build combined PK: X25519_pk(32) || ML-KEM_pk(1184)
+	// Use ctap_buffer[2400..] as staging area
+	uint8_t *combined_pk = ctap_buffer + MLKEM_SK_SIZE;
+	memcpy(combined_pk, x25519_pk, 32);
+	memcpy(combined_pk + 32, mlkem_pk, MLKEM_PK_SIZE);
+
+	send_transport_response(combined_pk, HYBRID_PK_SIZE, true, true);
+	memset(x25519_sk, 0, 32);
+	memset(ctap_buffer, 0, MLKEM_SK_SIZE + HYBRID_PK_SIZE);
 }
 
 void okcrypto_compute_pubkey() {
