@@ -19,6 +19,17 @@ at your option.
 https://github.com/trustcrypto/libraries/blob/master/mbedtls-2.4.0/apache-2.0.txt
 https://www.apache.org/licenses/LICENSE-2.0
 
+## mlkem-native (ML-KEM / FIPS 203)
+https://github.com/pq-code-package/mlkem-native
+
+Licensed under your choice of:
+
+Apache License, Version 2.0 (http://www.apache.org/licenses/LICENSE-2.0)
+ISC License (https://opensource.org/licenses/ISC)
+MIT License (https://opensource.org/licenses/MIT)
+
+Post-Quantum Cryptography Alliance, a project of the Linux Foundation.
+
 ## Base64, Sha1, Sha256
 
 https://github.com/B-Con/crypto-algorithms

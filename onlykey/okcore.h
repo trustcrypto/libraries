@@ -121,8 +121,8 @@ extern "C"
 //Global Buffer Sizes
 /*************************************/
 #define LARGE_RESP_BUFFER_SIZE         1024
-#define LARGE_BUFFER_SIZE         1024
-#define PACKET_BUFFER_SIZE         768
+#define LARGE_BUFFER_SIZE         1120
+#define PACKET_BUFFER_SIZE         1120
 #define ATTESTATION_DER_BUFFER_SIZE 768
 #define KEYBOARD_BUFFER_SIZE         80
 /*************************************/
@@ -209,6 +209,7 @@ extern "C"
 #define MAX_RSA_KEY_SIZE 512
 #define MAX_ECC_KEY_SIZE 32
 #define RESERVED_KEY_DERIVATION 132
+// KEYTYPE_MLKEM768 and KEYTYPE_XWING can be stored in any ECC slot (101-132)
 #define RESERVED_KEY_DEFAULT_BACKUP 131
 #define RESERVED_KEY_HMACSHA1_1 130
 #define RESERVED_KEY_HMACSHA1_2 129
@@ -222,6 +223,23 @@ extern "C"
 #define KEYTYPE_ECDH_P256R   102
 #define KEYTYPE_ECDH_P256K   103
 #define KEYTYPE_ECDH_CURVE25519  104
+#define KEYTYPE_MLKEM768         5
+#define KEYTYPE_XWING            6
+/*************************************/
+//ML-KEM-768 sizes (FIPS 203)
+/*************************************/
+#define MLKEM_SK_SIZE            2400
+#define MLKEM_PK_SIZE            1184
+#define MLKEM_CT_SIZE            1088
+#define MLKEM_SS_SIZE            32
+/*************************************/
+//X-Wing sizes (draft-connolly-cfrg-xwing-kem-09)
+//X25519 + ML-KEM-768 hybrid KEM
+/*************************************/
+#define XWING_PK_SIZE            1216   /* pk_M(1184) || pk_X(32) */
+#define XWING_CT_SIZE            1120   /* ct_M(1088) || ct_X(32) */
+#define XWING_SS_SIZE            32     /* SHA3-256 output */
+#define XWING_SEED_SIZE          32     /* seed stored in ECC slot */
 
 /*************************************/
 /*************************************/

@@ -134,6 +134,13 @@ extern void okcrypto_aes_gcm_decrypt2 (uint8_t * state, uint8_t * iv1, const uin
 extern void okcrypto_aes_cbc_encrypt (uint8_t * state, uint8_t * iv, const uint8_t * key, int len);
 extern void okcrypto_aes_cbc_decrypt (uint8_t * state, uint8_t * iv, const uint8_t * key, int len);
 
+extern void okcrypto_mlkem_keygen (uint8_t *buffer);
+extern void okcrypto_mlkem_decaps (uint8_t *buffer);
+extern void okcrypto_mlkem_getpubkey (uint8_t *buffer);
+extern void okcrypto_xwing_keygen (uint8_t *buffer);
+extern void okcrypto_xwing_decaps (uint8_t *buffer);
+extern void okcrypto_xwing_getpubkey (uint8_t *buffer);
+
 
 #ifdef __cplusplus
 }
