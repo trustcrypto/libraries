@@ -5097,97 +5097,89 @@ int okcore_flashget_mlkem_sk(uint8_t *sk)
 }
 
 /*************************************/
-//Hybrid X25519 + ML-KEM-768 flash storage
-//Shares sectors 10-11 with standalone ML-KEM
-//Sector 11 layout: ML-KEM overflow(352) + features(1) + X25519_sk(32)
-//Features byte distinguishes: KEYTYPE_MLKEM768(5) vs KEYTYPE_HYBRID_PQ(6)
+//X-Wing flash storage (draft-connolly-cfrg-xwing-kem-09)
+//Stores expanded SK: sk_M(2400) || sk_X(32) || pk_X(32) = 2464 bytes
+//Sectors 10-11: shared with standalone ML-KEM
+//Features byte distinguishes: KEYTYPE_MLKEM768(5) vs KEYTYPE_XWING(6)
 /*************************************/
 
-void okcore_flashset_hybrid_sk(uint8_t *mlkem_sk, uint8_t *x25519_sk)
+void okcore_flashset_xwing_sk(uint8_t *sk)
 {
 	if (profilemode == NONENCRYPTEDPROFILE)
 		return;
 #ifdef STD_VERSION
 #ifdef DEBUG
-	Serial.println("Storing hybrid PQ secret keys to flash");
+	Serial.println("Storing X-Wing expanded SK to flash");
 #endif
-	okcore_aes_gcm_encrypt(mlkem_sk, RESERVED_KEY_HYBRID_PQ, KEYTYPE_HYBRID_PQ, profilekey, MLKEM_SK_SIZE);
+	// Encrypt full 2464-byte expanded SK
+	okcore_aes_gcm_encrypt(sk, RESERVED_KEY_XWING, KEYTYPE_XWING, profilekey, XWING_SK_SIZE);
 
 	uintptr_t adr = (unsigned long)flashstorestart;
 	uint8_t temp[2048];
 	uint8_t *tptr = temp;
 
-	// Sector 10: first 2048 bytes of ML-KEM SK
-	memcpy(temp, mlkem_sk, 2048);
+	// Sector 10: first 2048 bytes of expanded SK
+	memcpy(temp, sk, 2048);
 	flashEraseSector((unsigned long *)(adr + 18432));
 	delay(10);
 	okcore_flashset_common(tptr, (unsigned long *)(adr + 18432), 2048);
 
-	// Sector 11: ML-KEM overflow(352) + features(1) + X25519_sk(32)
+	// Sector 11: remaining 416 bytes (2464-2048) + features tag
 	memset(temp, 0xFF, 2048);
-	memcpy(temp, mlkem_sk + 2048, MLKEM_SK_SIZE - 2048); // 352 bytes
-	temp[352] = KEYTYPE_HYBRID_PQ;                         // features tag
-	// Encrypt X25519 SK in-place before storing
-	uint8_t x25519_enc[32];
-	memcpy(x25519_enc, x25519_sk, 32);
-	okcore_aes_gcm_encrypt(x25519_enc, RESERVED_KEY_HYBRID_PQ, 0x25, profilekey, 32);
-	memcpy(temp + 353, x25519_enc, 32);
+	memcpy(temp, sk + 2048, XWING_SK_SIZE - 2048); // 416 bytes
+	temp[XWING_SK_SIZE - 2048] = KEYTYPE_XWING;     // features at offset 416
 	flashEraseSector((unsigned long *)(adr + 20480));
 	delay(10);
 	okcore_flashset_common(tptr, (unsigned long *)(adr + 20480), 2048);
 
-	memset(x25519_enc, 0, 32);
 #ifdef DEBUG
-	Serial.println("Hybrid PQ secret keys stored");
+	Serial.println("X-Wing expanded SK stored");
 #endif
 #endif
 }
 
-int okcore_flashget_hybrid_sk(uint8_t *mlkem_sk, uint8_t *x25519_sk)
+int okcore_flashget_xwing_sk(uint8_t *sk)
 {
 	if (profilemode == NONENCRYPTEDPROFILE)
 		return 0;
 #ifdef STD_VERSION
 #ifdef DEBUG
-	Serial.println("Loading hybrid PQ secret keys from flash");
+	Serial.println("Loading X-Wing expanded SK from flash");
 #endif
 	uintptr_t adr = (unsigned long)flashstorestart;
 
-	// Read sector 10: first 2048 bytes of ML-KEM SK
-	okcore_flashget_common(mlkem_sk, (unsigned long *)(adr + 18432), 2048);
+	// Read sector 10: first 2048 bytes
+	okcore_flashget_common(sk, (unsigned long *)(adr + 18432), 2048);
 
-	// Read sector 11: ML-KEM overflow + features + X25519 SK
+	// Read sector 11: remaining 416 bytes + features
 	uint8_t tail[512];
-	okcore_flashget_common(tail, (unsigned long *)(adr + 20480), 385);
-	memcpy(mlkem_sk + 2048, tail, 352);
+	okcore_flashget_common(tail, (unsigned long *)(adr + 20480), XWING_SK_SIZE - 2048 + 1);
+	memcpy(sk + 2048, tail, XWING_SK_SIZE - 2048);
 
-	uint8_t features = tail[352];
-	if (features != KEYTYPE_HYBRID_PQ)
+	uint8_t features = tail[XWING_SK_SIZE - 2048]; // at offset 416
+
+	if (features != KEYTYPE_XWING)
 	{
 #ifdef DEBUG
-		Serial.println("No hybrid PQ key stored (wrong features tag)");
+		Serial.println("No X-Wing key stored (wrong features tag)");
 #endif
 		return 0;
 	}
 
-	// Check if populated (erased flash = 0xFF)
-	if (mlkem_sk[0] == 0xFF && mlkem_sk[1] == 0xFF && mlkem_sk[2] == 0xFF && mlkem_sk[3] == 0xFF)
+	// Check if populated
+	if (sk[0] == 0xFF && sk[1] == 0xFF && sk[2] == 0xFF && sk[3] == 0xFF)
 	{
 #ifdef DEBUG
-		Serial.println("No hybrid PQ key stored");
+		Serial.println("No X-Wing key stored");
 #endif
 		return 0;
 	}
 
-	// Decrypt ML-KEM SK
-	okcore_aes_gcm_decrypt(mlkem_sk, RESERVED_KEY_HYBRID_PQ, KEYTYPE_HYBRID_PQ, profilekey, MLKEM_SK_SIZE);
-
-	// Extract and decrypt X25519 SK
-	memcpy(x25519_sk, tail + 353, 32);
-	okcore_aes_gcm_decrypt(x25519_sk, RESERVED_KEY_HYBRID_PQ, 0x25, profilekey, 32);
+	// Decrypt full expanded SK
+	okcore_aes_gcm_decrypt(sk, RESERVED_KEY_XWING, KEYTYPE_XWING, profilekey, XWING_SK_SIZE);
 
 #ifdef DEBUG
-	Serial.println("Hybrid PQ secret keys loaded and decrypted");
+	Serial.println("X-Wing expanded SK loaded and decrypted");
 #endif
 	return (int)features;
 #endif
