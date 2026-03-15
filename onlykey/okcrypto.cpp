@@ -92,6 +92,19 @@
 #include "device.h"
 #include "okcrypto.h"
 
+/*************************************/
+//ML-KEM-768 (FIPS 203) support
+/*************************************/
+extern "C" {
+#include "mlkem_native/mlkem_native.h"
+}
+
+// Bridge OnlyKey RNG to mlkem-native expected signature
+extern "C" int onlykey_mlkem_randombytes(uint8_t *out, size_t outlen) {
+    RNG.rand(out, (unsigned)outlen);
+    return 0;
+}
+
 #if !defined(MBEDTLS_CONFIG_FILE)
 #include "config.h"
 #else
@@ -202,6 +215,8 @@ void okcrypto_getpubkey (uint8_t *buffer) {
 	} else if (buffer[5] == RESERVED_KEY_DERIVATION && buffer[6] <= KEYTYPE_CURVE25519) { // Generate key using provided data, return public
 	okcrypto_derive_key(buffer[6], buffer+7, NULL);
 	send_transport_response(ecc_public_key, 64, false, false);
+	} else if (buffer[5] == RESERVED_KEY_MLKEM) {
+		okcrypto_mlkem_getpubkey(buffer);
 	}
 }
 
@@ -231,6 +246,8 @@ void okcrypto_decrypt (uint8_t *buffer){
 		}
 	} else if (buffer[5] > 200 && buffer[5] < 205) { // SSH/GPG Derive Key
 		okcrypto_ecdh(buffer);
+	} else if (buffer[5] == RESERVED_KEY_MLKEM) { // ML-KEM-768 decapsulation
+		okcrypto_mlkem_decaps(buffer);
 	} else {
 		if (buffer[5] > 100 && buffer[5] < 117) { // Keys 117 - 132 reserved
 			features = okcore_flashget_ECC ((int)buffer[5]);
@@ -261,6 +278,10 @@ void okcrypto_generate_random_key (uint8_t *buffer) {
 	Serial.println();
 	Serial.println("GENERATE KEY MESSAGE RECEIVED");
 	#endif
+	if (buffer[5] == RESERVED_KEY_MLKEM) { // ML-KEM-768 keygen
+		okcrypto_mlkem_keygen(buffer);
+		return;
+	}
 	if (buffer[5] > 100) { //Slot 101-132 are for ECC, 1-4 are for RSA
 		if ((buffer[6] & 0x0F) == 1) {
 			crypto_box_keypair(ecc_public_key, buffer+7); //Curve25519
@@ -812,6 +833,12 @@ int okcrypto_shared_secret (uint8_t *pub, uint8_t *secret) {
 		if (uECC_shared_secret2(pub, ecc_private_key, secret, curve)) {
 		return 0;
 		}
+
+	case KEYTYPE_MLKEM768:
+		// ML-KEM uses KEM (encaps/decaps), not DH shared secret
+		// Use okcrypto_mlkem_decaps() instead
+		hidprint("Error use ML-KEM decaps for this key type");
+		return 1;
 
 	default:
 		hidprint("Error ECC type incorrect");
@@ -1667,6 +1694,129 @@ void okcrypto_split_sundae(uint8_t *state, uint8_t *iv, int len, uint8_t functio
 		chacha.setCounter(counter, 8);
 		chacha.decrypt(state, state, len/2);
 	}
+}
+
+/*************************************/
+//ML-KEM-768 operations
+/*************************************/
+
+void okcrypto_mlkem_keygen (uint8_t *buffer) {
+	extern uint8_t ctap_buffer[CTAPHID_BUFFER_SIZE];
+	// Use ctap_buffer as scratch:
+	//   [0..2399]    = secret key (2400 bytes)
+	//   [2400..3583] = public key (1184 bytes)
+	uint8_t *sk = ctap_buffer;
+	uint8_t *pk = ctap_buffer + MLKEM_SK_SIZE;
+	#ifdef DEBUG
+	Serial.println();
+	Serial.println("MLKEM KEYGEN MESSAGE RECEIVED");
+	#endif
+	if (!CRYPTO_AUTH) {
+		pending_operation=CTAP2_ERR_USER_ACTION_PENDING;
+		return;
+	}
+	if (crypto_kem_keypair(pk, sk) != 0) {
+		hidprint("Error ML-KEM keygen failed");
+		fadeoff(0);
+		memset(ctap_buffer, 0, MLKEM_SK_SIZE + MLKEM_PK_SIZE);
+		return;
+	}
+	#ifdef DEBUG
+	Serial.println("ML-KEM keypair generated");
+	Serial.print("PK first 16 bytes: ");
+	byteprint(pk, 16);
+	#endif
+	// Persist SK to flash (sectors 10-11, repurposed from FIDO2 resident keys)
+	okcore_flashset_mlkem_sk(sk, KEYTYPE_MLKEM768);
+	// Send PK to host (1184 bytes, multi-packet)
+	pending_operation=CTAP2_ERR_DATA_READY;
+	send_transport_response(pk, MLKEM_PK_SIZE, true, true);
+	// Wipe scratch
+	memset(ctap_buffer, 0, MLKEM_SK_SIZE + MLKEM_PK_SIZE);
+	fadeoff(85);
+}
+
+void okcrypto_mlkem_decaps (uint8_t *buffer) {
+	extern uint8_t ctap_buffer[CTAPHID_BUFFER_SIZE];
+	uint8_t ss[MLKEM_SS_SIZE];
+	#ifdef DEBUG
+	Serial.println();
+	Serial.println("MLKEM DECAPS MESSAGE RECEIVED");
+	#endif
+	if (!CRYPTO_AUTH) {
+		process_packets(buffer, 0, 0);
+		pending_operation=OKDECRYPT_ERR_USER_ACTION_PENDING;
+	}
+	else if (CRYPTO_AUTH == 4) {
+		// CT arrived via process_packets -> large_buffer (1088 bytes, encrypted)
+		okcore_aes_gcm_decrypt(large_buffer, packet_buffer_details[0], packet_buffer_details[1], profilekey, large_buffer_offset);
+		#ifdef DEBUG
+		Serial.print("CT blob size: ");
+		Serial.println(large_buffer_offset);
+		#endif
+		if (large_buffer_offset != MLKEM_CT_SIZE) {
+			hidprint("Error ML-KEM CT wrong size");
+			fadeoff(0);
+			memset(large_buffer, 0, LARGE_BUFFER_SIZE);
+			return;
+		}
+		// Load SK from flash into ctap_buffer[0..2399]
+		// large_buffer is at ctap_buffer[5497+], no overlap
+		uint8_t *sk = ctap_buffer;
+		if (okcore_flashget_mlkem_sk(sk) <= 0) {
+			hidprint("Error no ML-KEM key stored");
+			fadeoff(0);
+			memset(large_buffer, 0, LARGE_BUFFER_SIZE);
+			return;
+		}
+		// Decapsulate: recover shared secret
+		if (crypto_kem_dec(ss, large_buffer, sk) != 0) {
+			hidprint("Error ML-KEM decaps failed");
+			memset(ss, 0, sizeof(ss));
+			memset(sk, 0, MLKEM_SK_SIZE);
+			memset(large_buffer, 0, LARGE_BUFFER_SIZE);
+			fadeoff(0);
+			return;
+		}
+		#ifdef DEBUG
+		Serial.print("Shared secret: ");
+		byteprint(ss, MLKEM_SS_SIZE);
+		#endif
+		pending_operation=CTAP2_ERR_DATA_READY;
+		outputmode=packet_buffer_details[2];
+		send_transport_response(ss, MLKEM_SS_SIZE, true, true);
+		if (outputmode != WEBAUTHN) {
+			wipetasks();
+		}
+		// Wipe everything
+		memset(ss, 0, sizeof(ss));
+		memset(sk, 0, MLKEM_SK_SIZE);
+		memset(large_buffer, 0, LARGE_BUFFER_SIZE);
+		fadeoff(85);
+	} else {
+		#ifdef DEBUG
+		Serial.println("Waiting for challenge buttons to be pressed");
+		#endif
+	}
+}
+
+void okcrypto_mlkem_getpubkey (uint8_t *buffer) {
+	extern uint8_t ctap_buffer[CTAPHID_BUFFER_SIZE];
+	#ifdef DEBUG
+	Serial.println();
+	Serial.println("MLKEM GETPUBKEY MESSAGE RECEIVED");
+	#endif
+	// Load SK from flash into ctap_buffer, then extract embedded PK
+	// ML-KEM-768 SK layout: sk_pke(1152) || pk(1184) || H(pk)(32) || z(32) = 2400
+	uint8_t *sk = ctap_buffer;
+	if (okcore_flashget_mlkem_sk(sk) <= 0) {
+		hidprint("Error no ML-KEM key stored");
+		return;
+	}
+	// PK is embedded at offset 1152 in the secret key
+	uint8_t *pk = sk + (MLKEM_SK_SIZE - MLKEM_PK_SIZE - 64); // 2400 - 1184 - 64 = 1152
+	send_transport_response(pk, MLKEM_PK_SIZE, true, true);
+	memset(ctap_buffer, 0, MLKEM_SK_SIZE);
 }
 
 void okcrypto_compute_pubkey() {

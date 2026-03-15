@@ -5016,6 +5016,86 @@ void ecc_priv_flash(uint8_t *buffer, bool wipe)
 	return;
 }
 
+/*************************************/
+//ML-KEM-768 flash storage
+//Uses sectors 10-11 (repurposed from FIDO2 resident key slots 5-8)
+//  Sector 10: flashstorestart + 18432, 2048 bytes -> SK[0..2047]
+//  Sector 11: flashstorestart + 20480, 2048 bytes -> SK[2048..2399] + features
+/*************************************/
+
+void okcore_flashset_mlkem_sk(uint8_t *sk, uint8_t features)
+{
+	if (profilemode == NONENCRYPTEDPROFILE)
+		return;
+#ifdef STD_VERSION
+#ifdef DEBUG
+	Serial.println("Storing ML-KEM secret key to flash");
+#endif
+	okcore_aes_gcm_encrypt(sk, RESERVED_KEY_MLKEM, features, profilekey, MLKEM_SK_SIZE);
+
+	uintptr_t adr = (unsigned long)flashstorestart;
+	uint8_t temp[2048];
+	uint8_t *tptr = temp;
+
+	// Sector 10: first 2048 bytes of SK
+	memcpy(temp, sk, 2048);
+	flashEraseSector((unsigned long *)(adr + 18432));
+	delay(10);
+	okcore_flashset_common(tptr, (unsigned long *)(adr + 18432), 2048);
+
+	// Sector 11: remaining 352 bytes + features tag
+	memset(temp, 0xFF, 2048);
+	memcpy(temp, sk + 2048, MLKEM_SK_SIZE - 2048);
+	temp[MLKEM_SK_SIZE - 2048] = features;
+	flashEraseSector((unsigned long *)(adr + 20480));
+	delay(10);
+	okcore_flashset_common(tptr, (unsigned long *)(adr + 20480), 2048);
+
+#ifdef DEBUG
+	Serial.println("ML-KEM secret key stored");
+#endif
+#endif
+}
+
+int okcore_flashget_mlkem_sk(uint8_t *sk)
+{
+	if (profilemode == NONENCRYPTEDPROFILE)
+		return 0;
+#ifdef STD_VERSION
+#ifdef DEBUG
+	Serial.println("Loading ML-KEM secret key from flash");
+#endif
+	uintptr_t adr = (unsigned long)flashstorestart;
+
+	// Read sector 10: first 2048 bytes
+	okcore_flashget_common(sk, (unsigned long *)(adr + 18432), 2048);
+
+	// Read sector 11: remaining 352 bytes + features
+	uint8_t tail[512];
+	okcore_flashget_common(tail, (unsigned long *)(adr + 20480), MLKEM_SK_SIZE - 2048 + 1);
+	memcpy(sk + 2048, tail, MLKEM_SK_SIZE - 2048);
+
+	uint8_t features = tail[MLKEM_SK_SIZE - 2048];
+
+	// Check if key exists (erased flash = 0xFF)
+	if (sk[0] == 0xFF && sk[1] == 0xFF && sk[2] == 0xFF && sk[3] == 0xFF)
+	{
+#ifdef DEBUG
+		Serial.println("No ML-KEM key stored");
+#endif
+		return 0;
+	}
+
+	okcore_aes_gcm_decrypt(sk, RESERVED_KEY_MLKEM, features, profilekey, MLKEM_SK_SIZE);
+
+#ifdef DEBUG
+	Serial.println("ML-KEM secret key loaded and decrypted");
+#endif
+	return (int)features;
+#endif
+	return 0;
+}
+
 int okcore_flashget_RSA(uint8_t slot)
 {
 
