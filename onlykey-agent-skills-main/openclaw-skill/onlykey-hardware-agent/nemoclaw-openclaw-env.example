@@ -1,0 +1,4 @@
+# Host-side environment for NemoClaw / OpenShell launch
+ONLYKEY_APPROVAL_URL=http://host.docker.internal:8765/approve
+ONLYKEY_AUDIT_LOG=/tmp/onlykey-audit.jsonl
+ONLYKEY_REQUIRE_ATTESTATION=0
