@@ -14,34 +14,33 @@
 #include "sha256.h"
 
 
-typedef struct SHA256_HashContext{
+typedef struct SHA256_HashContext {
     const uECC_HashContext uECC;
     SHA256_CTX ctx;
 } SHA256_HashContext;
 
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 extern void fido_msg_timeout();
 extern void recv_fido_msg(uint8_t *buffer);
 extern void init_SHA256(const uECC_HashContext *base);
 extern void update_SHA256(const uECC_HashContext *base,
-                   const uint8_t *message,
-                   unsigned message_size);
+    const uint8_t *message,
+    unsigned message_size);
 extern void finish_SHA256(const uECC_HashContext *base, uint8_t *hash_result);
 
 extern void U2Finit();
-extern void store_FIDO_response (uint8_t *data, int len, uint8_t encrypt);
-extern int webcryptcheck (uint8_t * _appid, uint8_t * buffer);
+extern void store_FIDO_response(uint8_t *data, int len, uint8_t encrypt);
+extern int webcryptcheck(uint8_t *_appid, uint8_t *buffer);
 void device_init();
 
 #define NVIC_SystemReset CPU_RESTART
 // Storage of FIDO2 resident keys
-#define PAGE_SIZE		2048
-#define PAGES			2
+#define PAGE_SIZE 2048
+#define PAGES 2
 //#define RK_NUM_PAGES    1
 //#define RK_START_PAGE   (PAGES - 14)
 //#define RK_END_PAGE     (PAGES - 14 + RK_NUM_PAGES)     // not included
@@ -52,7 +51,7 @@ void device_init();
 #define ENABLE_U2F_EXTENSIONS
 #define BRIDGE_TO_WALLET
 // HID message size in bytes
-#define HID_MESSAGE_SIZE        64
+#define HID_MESSAGE_SIZE 64
 #define ONLYKEY_SOLO
 
 /** Return a millisecond timestamp.  Does not need to be synchronized to anything.
@@ -68,7 +67,7 @@ void device_init();
  * 
  *  **Required** to compile and work for FIDO application.
 */
-extern void usbhid_send(uint8_t * msg);
+extern void usbhid_send(uint8_t *msg);
 extern int handle_packets();
 
 
@@ -77,7 +76,7 @@ extern int handle_packets();
 */
 //void device_reboot();
 
-extern int authenticator_read_state(AuthenticatorState * s);
+extern int authenticator_read_state(AuthenticatorState *s);
 
 /** Store changes in the authenticator state to nonvolatile memory.
  *  @param s pointer to valid Authenticator state to write to NV memory.
@@ -85,7 +84,7 @@ extern int authenticator_read_state(AuthenticatorState * s);
  *  *Optional* this is required to make persistant updates to FIDO2 State (PIN and device master secret).
  *             Without it, changes simply won't be persistant.
  */
-extern void authenticator_write_state(AuthenticatorState * s);
+extern void authenticator_write_state(AuthenticatorState *s);
 
 // sets status that's uses for sending status updates ~100ms.
 // A timer should be set up to call `ctaphid_update_status`
@@ -124,6 +123,7 @@ int device_is_button_pressed();
  * *Optional*, the default implementation will return 1, unless a FIDO2 operation calls for no UP, where this will then return 2.
 */
 extern int ctap_user_presence_test(uint32_t delay);
+extern int ctap_challenge_test(uint32_t delay, uint8_t b1, uint8_t b2, uint8_t b3);
 
 /** Disable the next user presence test.  This is called by FIDO2 layer when a transaction
  *  requests UP to be disabled.  The next call to ctap_user_presence_test should return 2,
@@ -145,7 +145,7 @@ extern void device_disable_up(bool request_active);
  * 
  * *Optional*, if not implemented, the random numbers will be from rand() and an error will be logged.
 */
-extern int ctap_generate_rng(uint8_t * dst, size_t num);
+extern int ctap_generate_rng(uint8_t *dst, size_t num);
 
 /** Increment an atomic (non-volatile) counter and return the value.
  * 
@@ -176,7 +176,7 @@ extern uint32_t ctap_rk_size();
  * 
  * *Optional*, if not implemented, operates on non-persistant RK's.
 */
-extern void ctap_store_rk(int index,CTAP_residentKey * rk);
+extern void ctap_store_rk(int index, CTAP_residentKey *rk);
 
 /** Delete a resident key from an index.
  * @param index to delete resident key from.  Has no effect if no RK exists at index.
@@ -191,7 +191,7 @@ extern void ctap_delete_rk(int index);
  * 
  * *Optional*, if not implemented, operates on non-persistant RK's.
 */
-extern void ctap_load_rk(int index,CTAP_residentKey * rk);
+extern void ctap_load_rk(int index, CTAP_residentKey *rk);
 
 /** Overwrite the RK located in index with a new RK.
  * @param index to write resident key to.
@@ -199,7 +199,7 @@ extern void ctap_load_rk(int index,CTAP_residentKey * rk);
  * 
  * *Optional*, if not implemented, operates on non-persistant RK's.
 */
-extern void ctap_overwrite_rk(int index,CTAP_residentKey * rk);
+extern void ctap_overwrite_rk(int index, CTAP_residentKey *rk);
 
 /** Called by HID layer to indicate that a wink behavior should be performed.
  *  Should not block, and the wink behavior should occur in parallel to FIDO operations.
@@ -240,14 +240,14 @@ int device_is_nfc();
 /** Return pointer to attestation key.
  * @return pointer to attestation private key, raw encoded.  For P256, this is 32 bytes.
 */
-uint8_t * device_get_attestation_key();
+uint8_t *device_get_attestation_key();
 
 /** Read the device's attestation certificate into buffer @dst.
  * @param dst the destination to write the certificate.
  * 
  * The size of the certificate can be retrieved using `device_attestation_cert_der_get_size()`.
 */
-void device_attestation_read_cert_der(uint8_t * dst);
+void device_attestation_read_cert_der(uint8_t *dst);
 
 /** Returns the size in bytes of attestation_cert_der.
  * @return number of bytes in attestation_cert_der, not including any C string null byte.
@@ -257,10 +257,9 @@ uint16_t device_attestation_cert_der_get_size();
 /** Read the device's 16 byte AAGUID into a buffer.
  * @param dst buffer to write 16 byte AAGUID into.
  * */
-void device_read_aaguid(uint8_t * dst);
+void device_read_aaguid(uint8_t *dst);
 
 #ifdef __cplusplus
 }
 #endif
 #endif
-

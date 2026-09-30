@@ -75,17 +75,16 @@
  */
 
 
-
 #ifndef OKCORE_H
 #define OKCORE_H
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 #include <SoftTimer.h>
 #include "base64.h"
+#include "okpqc.h"
 
 /*************************************/
 //Firmware Memory Locations
@@ -95,12 +94,12 @@ extern "C"
 // Encrypted Values
 #define enckeysectoradr (factorysectoradr + 512) //23552 - 24575
 // Crypto Split Sundae keys
-#define banana    (enckeysectoradr) // 32 byte AES/ECC key
-#define ice_cream    (enckeysectoradr+32) // 32 byte AES/ECC key
-#define chocolate_syrup    (enckeysectoradr+64) // 32 byte AES/ECC key
-#define whipped_cream    (enckeysectoradr+96) // 32 byte AES/ECC key
-#define cherry_on_top    (enckeysectoradr+128) // 32 byte AES/ECC key
-#define certified_hw (uint8_t *)(enckeysectoradr+432)
+#define banana (enckeysectoradr) // 32 byte AES/ECC key
+#define ice_cream (enckeysectoradr + 32) // 32 byte AES/ECC key
+#define chocolate_syrup (enckeysectoradr + 64) // 32 byte AES/ECC key
+#define whipped_cream (enckeysectoradr + 96) // 32 byte AES/ECC key
+#define cherry_on_top (enckeysectoradr + 128) // 32 byte AES/ECC key
+#define certified_hw (uint8_t *)(enckeysectoradr + 432)
 // Start of firmware
 // 0x0000_6060 - 0x0003_A05F used for firmware (13 blocks of 16384 = 212992 bytes max size fw)
 #define fwstartadr 0x6060
@@ -120,58 +119,60 @@ extern "C"
 /*************************************/
 //Global Buffer Sizes
 /*************************************/
-#define LARGE_RESP_BUFFER_SIZE         1024
-#define LARGE_BUFFER_SIZE         1024
-#define PACKET_BUFFER_SIZE         768
+/* Holds the largest staged response: an ML-DSA-65 signature (3309 bytes)
+ * plus 20 bytes of transit framing. */
+#define LARGE_RESP_BUFFER_SIZE 3392
+#define LARGE_BUFFER_SIZE 1120
+#define PACKET_BUFFER_SIZE 1120
 #define ATTESTATION_DER_BUFFER_SIZE 768
-#define KEYBOARD_BUFFER_SIZE         80
+#define KEYBOARD_BUFFER_SIZE 80
 /*************************************/
 //USB MSG Type assignments
 /*************************************/
-#define TYPE_INIT               0x80  // Initial frame identifier
-#define OKPIN 			(TYPE_INIT | 0x61) 
-#define OKPINSD			(TYPE_INIT | 0x62)
-#define OKPINSEC 			(TYPE_INIT | 0x63)
-#define OKCONNECT 			(TYPE_INIT | 0x64)
-#define OKGETLABELS 		(TYPE_INIT | 0x65)
-#define OKSETSLOT  			(TYPE_INIT | 0x66)
-#define OKWIPESLOT  		(TYPE_INIT | 0x67)
+#define TYPE_INIT 0x80 // Initial frame identifier
+#define OKPIN (TYPE_INIT | 0x61)
+#define OKPINSD (TYPE_INIT | 0x62)
+#define OKPINSEC (TYPE_INIT | 0x63)
+#define OKCONNECT (TYPE_INIT | 0x64)
+#define OKGETLABELS (TYPE_INIT | 0x65)
+#define OKSETSLOT (TYPE_INIT | 0x66)
+#define OKWIPESLOT (TYPE_INIT | 0x67)
 // Removed custom U2F cert feature, msg types available for future new features
 // #define OKSETU2FPRIV 		(TYPE_INIT | 0x68)
 // #define OKWIPEU2FPRIV 		(TYPE_INIT | 0x69)
 // #define OKSETU2FCERT 		(TYPE_INIT | 0x6A)
 // #define OKWIPEU2FCERT  		(TYPE_INIT | 0x6B)
-#define OKGETPUBKEY          (TYPE_INIT | 0x6C)
-#define OKSIGN      (TYPE_INIT | 0x6D)
-#define OKWIPEPRIV           (TYPE_INIT | 0x6E)
-#define OKSETPRIV           (TYPE_INIT | 0x6F)
-#define OKDECRYPT      (TYPE_INIT | 0x70)
-#define OKRESTORE            (TYPE_INIT | 0x71)
-#define OKGETRESPONSE            (TYPE_INIT | 0x72)
-#define OKPING           (TYPE_INIT | 0x73)
-#define OKFWUPDATE           (TYPE_INIT | 0x74)
-#define OKHMAC           (TYPE_INIT | 0x75)
-#define OKWEBAUTHN           (TYPE_INIT | 0x76)
+#define OKGETPUBKEY (TYPE_INIT | 0x6C)
+#define OKSIGN (TYPE_INIT | 0x6D)
+#define OKWIPEPRIV (TYPE_INIT | 0x6E)
+#define OKSETPRIV (TYPE_INIT | 0x6F)
+#define OKDECRYPT (TYPE_INIT | 0x70)
+#define OKRESTORE (TYPE_INIT | 0x71)
+#define OKGETRESPONSE (TYPE_INIT | 0x72)
+#define OKPING (TYPE_INIT | 0x73)
+#define OKFWUPDATE (TYPE_INIT | 0x74)
+#define OKHMAC (TYPE_INIT | 0x75)
+#define OKWEBAUTHN (TYPE_INIT | 0x76)
 
 /*************************************/
 //ykpers BSD license
 /*************************************/
-#define	TKTFLAG_TAB_FIRST	0x01	/* Send TAB before first part */
-#define	TKTFLAG_APPEND_TAB1	0x02	/* Send TAB after first part */
-#define	TKTFLAG_APPEND_TAB2	0x04	/* Send TAB after second part */
-#define	TKTFLAG_APPEND_DELAY1	0x08	/* Add 0.5s delay after first part */
-#define	TKTFLAG_APPEND_DELAY2	0x10	/* Add 0.5s delay after second part */
-#define	TKTFLAG_APPEND_CR	0x20	/* Append CR as final character */
-#define TKTFLAG_PROTECT_CFG2	0x80	/* Block update of config 2 unless config 2 is configured and has this bit set */
-#define SLOT_CHAL_OTP1		0x20	/* Write 6 byte challenge to slot 1, get Yubico OTP response */
-#define SLOT_CHAL_OTP2		0x28	/* Write 6 byte challenge to slot 2, get Yubico OTP response */
-#define CFGFLAG_SEND_REF	0x01	/* Send reference string (0..F) before data */
-#define CFGFLAG_PACING_10MS	0x04	/* Add 10ms intra-key pacing */
-#define CFGFLAG_PACING_20MS	0x08	/* Add 20ms intra-key pacing */
-#define CFGFLAG_STATIC_TICKET	0x20	/* Static ticket generation */
-#define EXTFLAG_SERIAL_BTN_VISIBLE	0x01	/* Serial number visible at startup (button press) */
-#define EXTFLAG_SERIAL_USB_VISIBLE	0x02	/* Serial number visible in USB iSerial field */
-#define EXTFLAG_SERIAL_API_VISIBLE	0x04	/* Serial number visible via API call */
+#define TKTFLAG_TAB_FIRST 0x01 /* Send TAB before first part */
+#define TKTFLAG_APPEND_TAB1 0x02 /* Send TAB after first part */
+#define TKTFLAG_APPEND_TAB2 0x04 /* Send TAB after second part */
+#define TKTFLAG_APPEND_DELAY1 0x08 /* Add 0.5s delay after first part */
+#define TKTFLAG_APPEND_DELAY2 0x10 /* Add 0.5s delay after second part */
+#define TKTFLAG_APPEND_CR 0x20 /* Append CR as final character */
+#define TKTFLAG_PROTECT_CFG2 0x80 /* Block update of config 2 unless config 2 is configured and has this bit set */
+#define SLOT_CHAL_OTP1 0x20 /* Write 6 byte challenge to slot 1, get Yubico OTP response */
+#define SLOT_CHAL_OTP2 0x28 /* Write 6 byte challenge to slot 2, get Yubico OTP response */
+#define CFGFLAG_SEND_REF 0x01 /* Send reference string (0..F) before data */
+#define CFGFLAG_PACING_10MS 0x04 /* Add 10ms intra-key pacing */
+#define CFGFLAG_PACING_20MS 0x08 /* Add 20ms intra-key pacing */
+#define CFGFLAG_STATIC_TICKET 0x20 /* Static ticket generation */
+#define EXTFLAG_SERIAL_BTN_VISIBLE 0x01 /* Serial number visible at startup (button press) */
+#define EXTFLAG_SERIAL_USB_VISIBLE 0x02 /* Serial number visible in USB iSerial field */
+#define EXTFLAG_SERIAL_API_VISIBLE 0x04 /* Serial number visible via API call */
 /*************************************/
 //Types of MFA (one per slot)
 /*************************************/
@@ -209,47 +210,75 @@ extern "C"
 #define MAX_RSA_KEY_SIZE 512
 #define MAX_ECC_KEY_SIZE 32
 #define RESERVED_KEY_DERIVATION 132
+// Agent (SSH/GPG) derivation from slot 132. v1: SHA256(K132 || data),
+// getpubkey 132, sign/decrypt 201-204. v2: HKDF-SHA256, getpubkey 232,
+// sign/decrypt 221-224 (keytype = code - 220). v1 is the default; the host
+// selects v2.
+#define DERIVATION_V2_PUBKEY_CODE 232
+#define DERIVATION_V2_CODE_BASE 220
+// KEYTYPE_MLKEM768 and KEYTYPE_XWING can be stored in any ECC slot (101-132)
 #define RESERVED_KEY_DEFAULT_BACKUP 131
 #define RESERVED_KEY_HMACSHA1_1 130
 #define RESERVED_KEY_HMACSHA1_2 129
-#define RESERVED_KEY_WEB_DERIVATION 128
+/* Slot 128: label-derived keys for the web app (FIDO2) and local tools over
+ * USB. Input mode: field 30. */
+#define RESERVED_KEY_WEB_AGENT_DERIVATION 128
+#define RESERVED_KEY_WEB_DERIVATION RESERVED_KEY_WEB_AGENT_DERIVATION
+
 #define KEYTYPE_NACL 1
 #define KEYTYPE_ED25519 1
 #define KEYTYPE_P256R1 2
 #define KEYTYPE_P256K1 3
 #define KEYTYPE_CURVE25519 4
 #define KEYTYPE_HMACSHA1 9
-#define KEYTYPE_ECDH_P256R   102
-#define KEYTYPE_ECDH_P256K   103
-#define KEYTYPE_ECDH_CURVE25519  104
+#define KEYTYPE_ECDH_P256R 102
+#define KEYTYPE_ECDH_P256K 103
+#define KEYTYPE_ECDH_CURVE25519 104
+#define KEYTYPE_MLKEM768 5
+#define KEYTYPE_XWING 6
+/*************************************/
+//ML-KEM-768 sizes (FIPS 203)
+/*************************************/
+#define MLKEM_SK_SIZE 2400
+#define MLKEM_PK_SIZE 1184
+#define MLKEM_CT_SIZE 1088
+#define MLKEM_SS_SIZE 32
+/*************************************/
+//X-Wing sizes (draft-connolly-cfrg-xwing-kem-09)
+//X25519 + ML-KEM-768 hybrid KEM
+/*************************************/
+#define XWING_PK_SIZE 1216 /* pk_M(1184) || pk_X(32) */
+#define XWING_CT_SIZE 1120 /* ct_M(1088) || ct_X(32) */
+#define XWING_SS_SIZE 32 /* SHA3-256 output */
+#define XWING_SEED_SIZE 32 /* seed stored in ECC slot */
 
 /*************************************/
 /*************************************/
 //Hardware Models
 /*************************************/
-#define SIM_SDID_PINID                  ((SIM_SDID & 0x000F) >> 0)      // Pincount identification
+#define SIM_SDID_PINID ((SIM_SDID & 0x000F) >> 0) // Pincount identification
 
 extern void colorWipe(int color, int wait);
-extern int internal_temp ();
+extern int internal_temp();
 extern void recvmsg(int n);
 extern void blink(int times);
 extern void fadein();
 extern void fadeout();
 extern void printDigits(int digits);
 extern void digitalClockDisplay();
-extern void get_slot_labels (uint8_t output);
-extern uint8_t get_key_labels (uint8_t output);
+extern void get_slot_labels(uint8_t output);
+extern uint8_t get_key_labels(uint8_t output);
 extern void okcore_quick_setup(uint8_t step);
 extern void set_built_in_pin();
-extern void set_time (uint8_t *buffer);
-extern void wipe_slot (uint8_t *buffer);
-extern void set_slot (uint8_t *buffer);
-extern void set_primary_pin (uint8_t *buffer, uint8_t keyboard_mode);
-extern void set_secondary_pin (uint8_t *buffer, uint8_t keyboard_mode);
-extern void set_sd_pin (uint8_t *buffer, uint8_t keyboard_mode);
-extern void set_private (uint8_t *buffer);
-extern void wipe_private (uint8_t *buffer, bool response);
-extern int ctap_flash (int index, uint8_t *buffer, int size, uint8_t mode);
+extern void set_time(uint8_t *buffer);
+extern void wipe_slot(uint8_t *buffer);
+extern void set_slot(uint8_t *buffer);
+extern void set_primary_pin(uint8_t *buffer, uint8_t keyboard_mode);
+extern void set_secondary_pin(uint8_t *buffer, uint8_t keyboard_mode);
+extern void set_sd_pin(uint8_t *buffer, uint8_t keyboard_mode);
+extern void set_private(uint8_t *buffer);
+extern void wipe_private(uint8_t *buffer, bool response);
+extern int ctap_flash(int index, uint8_t *buffer, int size, uint8_t mode);
 extern void setOtherTimeout();
 extern void processPacket(uint8_t *buffer);
 extern void setCounter(uint32_t counter);
@@ -262,14 +291,15 @@ extern int initResponse(uint8_t *buffer);
 extern int allocate_channel(int channel_id);
 extern int allocate_new_channel();
 extern void cleanup_timeout();
-extern int touch_sense_loop ();
+extern int touch_sense_loop();
 extern uint32_t Wheel(uint8_t WheelPos);
 extern void rngloop();
 extern void printHex(const uint8_t *data, unsigned len);
-extern void hidprint(char const * chars);
-extern void keytype(char const * chars);
-extern void byteprint(uint8_t* bytes, int size);
+extern void hidprint(char const *chars);
+extern void keytype(char const *chars);
+extern void byteprint(uint8_t *bytes, int size);
 extern void factorydefault();
+extern void wipeuserspace();
 extern void wipeEEPROM();
 extern void wipeflashdata();
 extern bool unlocked;
@@ -278,49 +308,79 @@ extern bool configmode;
 extern bool PDmode;
 extern int pin_set;
 extern int u2f_button;
+// User input modes for OKSETSLOT 21 (derived keys), 22 (stored keys) and
+// 30 (slot 128 derived keys): 0 = 3-digit challenge code, 1 = button press,
+// 2 = none. For 21/22, 2 is accepted only in OK_ALLOW_NO_PRESS builds. For
+// 30 the default is 1.
+// user_input_mode is the mode resolved for the pending operation.
+#define USER_INPUT_CHALLENGE 0
+#define USER_INPUT_PRESS 1
+#define USER_INPUT_NONE 2
+extern uint8_t user_input_mode;
+extern uint8_t pending_op_no_press;
+extern void okcore_run_pending_op();
+extern uint8_t okcore_user_input_mode_for_slot(uint8_t slot);
+extern uint8_t okcore_web_agent_derive_mode();
+
+/* Field 31: webcrypt policy, what the web app may do over the FIDO2
+ * extension. Stored as (policy | OKWC_WRITTEN), so that blank EEPROM
+ * (0xFF new, 0x00 after wipeEEPROM()) reads as unset. When unset,
+ * okcore_webcrypt_policy() returns OKWC_ALLOW_STORED_KEY, plus
+ * OKWC_DISABLE_EXT if legacy field 21 bit 1 is set. */
+#define OKWC_ALLOW_STORED_KEY 0x01 /* stored-slot OKSIGN/OKDECRYPT over FIDO2 */
+#define OKWC_DISABLE_EXT 0x02 /* no OnlyKey FIDO2 extension at all */
+#define OKWC_VALID_MASK (OKWC_ALLOW_STORED_KEY | OKWC_DISABLE_EXT)
+#define OKWC_WRITTEN 0x80 /* set on every field 31 write */
+#define OKWC_IS_WRITTEN(raw) ((((uint8_t)(raw)) & (uint8_t)~OKWC_VALID_MASK) == OKWC_WRITTEN)
+#define OKWC_UNSET 0xFF /* blank EEPROM; 0x00 also reads as unset */
+extern uint8_t okcore_webcrypt_policy();
+/* Set up user confirmation (LED, challenge code or press) for a staged
+ * operation. The challenge code is derived from SHA-256 of msg. */
+extern void okcore_prime_user_confirmation(uint8_t opcode, uint8_t slot,
+    const uint8_t *msg, size_t msg_len);
 extern int large_buffer_offset;
 
-extern void okcore_flashset_2ndpinhashpublic (uint8_t *ptr);
-extern int okcore_flashget_2ndpinhashpublic (uint8_t *ptr);
-extern void okcore_flashset_selfdestructhash (uint8_t *ptr);
-extern int okcore_flashget_selfdestructhash (uint8_t *ptr);
-extern void okcore_flashset_pinhashpublic (uint8_t *ptr);
-extern int okcore_flashget_pinhashpublic (uint8_t *ptr, int size);
-extern void okcore_flashset_noncehash (uint8_t *ptr);
-extern int okcore_flashget_noncehash (uint8_t *ptr, int size);
-extern int okcore_flashget_profilekey (uint8_t *ptr);
-extern void okcore_flashset_profilekey (uint8_t *secret);
-extern void okcore_flashset_common (uint8_t *ptr, unsigned long *adr, int len);
-extern void okcore_flashget_common (uint8_t *ptr, unsigned long *adr, int len);
+extern void okcore_flashset_2ndpinhashpublic(uint8_t *ptr);
+extern int okcore_flashget_2ndpinhashpublic(uint8_t *ptr);
+extern void okcore_flashset_selfdestructhash(uint8_t *ptr);
+extern int okcore_flashget_selfdestructhash(uint8_t *ptr);
+extern void okcore_flashset_pinhashpublic(uint8_t *ptr);
+extern int okcore_flashget_pinhashpublic(uint8_t *ptr, int size);
+extern void okcore_flashset_noncehash(uint8_t *ptr);
+extern int okcore_flashget_noncehash(uint8_t *ptr, int size);
+extern int okcore_flashget_profilekey(uint8_t *ptr);
+extern void okcore_flashset_profilekey(uint8_t *secret);
+extern void okcore_flashset_common(uint8_t *ptr, unsigned long *adr, int len);
+extern void okcore_flashget_common(uint8_t *ptr, unsigned long *adr, int len);
 extern void okcore_flashsector(uint8_t *ptr, unsigned long *adr, int len);
-extern int okcore_flashget_2fa_key (uint8_t *ptr, int slot);
-extern void okcore_flashset_2fa_key (uint8_t *ptr, int size, int slot);
+extern int okcore_flashget_2fa_key(uint8_t *ptr, int slot);
+extern void okcore_flashset_2fa_key(uint8_t *ptr, int size, int slot);
 extern void okcore_flashget_yubiotp(uint8_t *ptr, uint8_t slot);
-extern int okcore_flashget_username (uint8_t *ptr, int slot);
-extern void okcore_flashset_username (uint8_t *ptr, int size, int slot);
-extern int okcore_flashget_url (uint8_t *ptr, int slot);
-extern void okcore_flashset_url (uint8_t *ptr, int size, int slot);
-extern void okcore_flashget_label (uint8_t *ptr, uint8_t slot);
-extern void okcore_flashset_label (uint8_t *ptr, uint8_t slot);
-extern int okcore_flashget_ECC (uint8_t slot);
-extern int okcore_flashget_RSA (uint8_t slot);
+extern int okcore_flashget_username(uint8_t *ptr, int slot);
+extern void okcore_flashset_username(uint8_t *ptr, int size, int slot);
+extern int okcore_flashget_url(uint8_t *ptr, int slot);
+extern void okcore_flashset_url(uint8_t *ptr, int size, int slot);
+extern void okcore_flashget_label(uint8_t *ptr, uint8_t slot);
+extern void okcore_flashset_label(uint8_t *ptr, uint8_t slot);
+extern int okcore_flashget_ECC(uint8_t slot);
+extern int okcore_flashget_RSA(uint8_t slot);
 extern uint8_t okcore_flashget_hmac(uint8_t *ptr, uint8_t slot);
 void okcore_aes_gcm_encrypt(uint8_t *state, uint8_t slot, uint8_t value, const uint8_t *key, int len);
 void okcore_aes_gcm_decrypt(uint8_t *state, uint8_t slot, uint8_t value, const uint8_t *key, int len);
-void okcore_aes_cbc_decrypt (uint8_t * state, const uint8_t * key, int len);
-void okcore_aes_cbc_encrypt (uint8_t * state, const uint8_t * key, int len);
-void okcore_pin_login ();
-int avganalog ();
+void okcore_aes_cbc_decrypt(uint8_t *state, const uint8_t *key, int len);
+void okcore_aes_cbc_encrypt(uint8_t *state, const uint8_t *key, int len);
+void okcore_pin_login();
+int avganalog();
 
 extern void yubikeyinit(uint8_t slot);
 extern int yubikeysim(char *ptr, uint8_t slot);
 extern void yubikey_incr_time();
-extern void increment(Task* me);
-extern void decrement(Task* me);
-extern bool wipebuffersafter5sec(Task* me);
-extern bool fadeoffafter20sec(Task* me);
-extern bool fadeendafter2sec(Task* me);
-extern void typeoutbackup(Task* me);
+extern void increment(Task *me);
+extern void decrement(Task *me);
+extern bool wipebuffersafter5sec(Task *me);
+extern bool fadeoffafter20sec(Task *me);
+extern bool fadeendafter2sec(Task *me);
+extern void typeoutbackup(Task *me);
 extern void wipedata();
 extern void wipetasks();
 extern void fadeoffafter20();
@@ -329,26 +389,28 @@ extern void fadeoff(uint8_t color);
 extern void fadeon(uint8_t color);
 extern void rainbowCycle();
 extern void initColor();
-extern void setcolor (uint8_t Color);
+extern void setcolor(uint8_t Color);
 extern void backup();
-extern void rsa_priv_flash (uint8_t *buffer, bool wipe);
-extern void ecc_priv_flash (uint8_t *buffer, bool wipe);
-extern void flash_modify (int index, uint8_t *sector, uint8_t *data, int size, bool wipe);
-extern void RESTORE (uint8_t *buffer);
-extern void process_packets (uint8_t *buffer, int len, uint8_t *blocknum);
-extern void done_process_packets ();
-extern void done_process_single ();
-extern void send_transport_response (uint8_t* data, int len, uint8_t encrypt, uint8_t store);
+extern void rsa_priv_flash(uint8_t *buffer, bool wipe);
+// `quiet` suppresses the "Successfully set ECC Key" message, for callers
+// that reply with the public key instead.
+extern void ecc_priv_flash(uint8_t *buffer, bool wipe, bool quiet = false);
+extern void flash_modify(int index, uint8_t *sector, uint8_t *data, int size, bool wipe);
+extern void RESTORE(uint8_t *buffer);
+extern void process_packets(uint8_t *buffer, int len, uint8_t *blocknum);
+extern void done_process_packets();
+extern void done_process_single();
+extern void send_transport_response(uint8_t *data, int len, uint8_t encrypt, uint8_t store);
 extern void apdu_data(uint8_t *data, int len);
 extern int store_keyboard_response();
 extern void changeoutputmode(uint8_t mode);
 extern int RNG2(uint8_t *dest, unsigned size);
-extern int calibratecaptouch (uint16_t j);
-extern void process_setreport ();
-extern void generate_random_pin (uint8_t *buffer);
-extern void generate_random_passphrase (uint8_t *buffer);
-extern int check_crc(uint8_t* buffer);
-extern char * HW_MODEL(char const * in);
+extern int calibratecaptouch(uint16_t j);
+extern void process_setreport();
+extern void generate_random_pin(uint8_t *buffer);
+extern void generate_random_passphrase(uint8_t *buffer);
+extern int check_crc(uint8_t *buffer);
+extern char *HW_MODEL(char const *in);
 extern void ByteToChar2(uint8_t *bytes, char *chars, unsigned int count, unsigned int index);
 extern void fw_version_changes();
 

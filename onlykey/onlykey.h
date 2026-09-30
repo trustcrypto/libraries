@@ -78,13 +78,18 @@
 #ifndef ONLYKEY_H
 #define ONLYKEY_H
 
-#define DEBUG //Enable Serial Monitor
+//#define DEBUG //Enable Serial Monitor
+//#define OK_ALLOW_NO_PRESS // Allow user-input mode 2 (no press) for stored/derived keys. When off, setting mode 2 is refused and a stored 2 is read as challenge code.
+//#define OK_ALLOW_PQC_SEED_EXPORT // With DEBUG only: lets the host read the raw ML-DSA private seed (okpqc.cpp).
+//#define DEBUG_CTAP_VERBOSE //Enable verbose per-request CTAP/U2F presence-test logging
+//#define DEBUG_BULK_DUMPS //Hex-dump whole staged buffers (large_resp_buffer, AES in/out). Slows FIDO2 responses.
+
 #define STD_VERSION //Define for STD edition firmare, undefine for IN TRVL edition firmware
 #define OK_Color //Define for hardware with color LED
 #define FACTORYKEYS // Attestation key and other keys encrypted using CHIP ID and RNG for unique keys per device
 #define OKversionmaj "3"
-#define OKversionmin "0"
-#define OKversionpat "4"
+#define OKversionmin "1"
+#define OKversionpat "0"
 
 #ifndef OKCORE_H
 #include "okcore.h"
@@ -101,7 +106,7 @@
 #define UNLOCKED "UNLOCKED" OKversion
 #define UNINITIALIZED "UNINITIALIZED" OKversion
 #define HW_ID SIM_SDID_PINID // SIM_SDID_PINID =9 if MK20 BGA, =5 if MK20 LQFP
-#define OK_HW_DUO 9 
+#define OK_HW_DUO 9
 #define OK_HW_COLOR 5
 //#define DEFINED_HWID OK_HW_DUO
 #ifndef STD_VERSION
@@ -110,8 +115,7 @@
 
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 #include "okeeprom.h"

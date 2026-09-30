@@ -18,6 +18,8 @@ The following cryptographic software is included in this distribution:
                       "MICRO-ECC PROJECT" - https://github.com/kmackay/micro-ecc
                       "ARDUINOLIBS PROJECT" - https://rweather.github.io/arduinolibs/crypto.html
                       "YUBICO-C PROJECT" - https://github.com/Yubico/yubico-c
+                      "MLKEM-NATIVE PROJECT" - https://github.com/pq-code-package/mlkem-native
+                      "MLDSA-NATIVE PROJECT" - https://github.com/pq-code-package/mldsa-native
 
 For more information on export restrictions see: http://www.apache.org/licenses/exports/
 

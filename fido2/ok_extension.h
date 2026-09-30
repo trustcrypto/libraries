@@ -79,12 +79,11 @@
 #include <stdint.h>
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
-int16_t bridge_to_onlykey(uint8_t * _appid, uint8_t * client_handle, int handle_len, uint8_t * output);
-int16_t send_stored_response(uint8_t * output);
+int16_t bridge_to_onlykey(uint8_t *_appid, uint8_t *client_handle, int handle_len, uint8_t *output);
+int16_t send_stored_response(uint8_t *output, uint8_t opt3);
 
 #ifdef __cplusplus
 }
