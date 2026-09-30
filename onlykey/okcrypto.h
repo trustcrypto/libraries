@@ -87,52 +87,81 @@
 
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 
-extern void okcrypto_sign (uint8_t *buffer);
-extern void okcrypto_decrypt (uint8_t *buffer);
-extern void okcrypto_hmacsha1 ();
-extern void okcrypto_derive_key (uint8_t type, uint8_t *data, uint8_t slot);
-extern int okcrypto_shared_secret (uint8_t *pub, uint8_t *secret);
-extern void okcrypto_aes_crypto_box (uint8_t *buffer, int len, bool open);
-extern void okcrypto_getpubkey (uint8_t *buffer);
-extern void okcrypto_generate_random_key (uint8_t *buffer);
-extern void okcrypto_geteccpubkey (uint8_t *buffer);
-extern void okcrypto_getrsapubkey (uint8_t *buffer);
-extern void okcrypto_ecdh (uint8_t *buffer);
+extern void okcrypto_sign(uint8_t *buffer);
+extern void okcrypto_decrypt(uint8_t *buffer);
+extern void okcrypto_hmacsha1();
+extern void okcrypto_derive_key(uint8_t type, uint8_t *data, uint8_t slot);
+extern int okcrypto_shared_secret(uint8_t *pub, uint8_t *secret);
+
+/* FIDO2 transit encryption v2. Frame, both directions:
+ *
+ *     [counter big-endian(4)][ciphertext(n)][tag(16)]
+ *
+ * IV = [dir(1)][counter(4)][zero(7)]. */
+#define OKCRYPTO_TRANSIT_TAG_LEN 16
+#define OKCRYPTO_TRANSIT_CTR_LEN 4
+#define OKCRYPTO_TRANSIT_OVERHEAD (OKCRYPTO_TRANSIT_CTR_LEN + OKCRYPTO_TRANSIT_TAG_LEN)
+#define OKCRYPTO_TRANSIT_DIR_OUT 0 /* device -> host */
+#define OKCRYPTO_TRANSIT_DIR_IN 1 /* host -> device */
+/* Largest inbound frame: 224 payload bytes plus OKCRYPTO_TRANSIT_OVERHEAD. */
+#define OKCRYPTO_TRANSIT_MAX_FRAME 244
+extern void okcrypto_transit_reset(void);
+extern int okcrypto_transit_seal(uint8_t *frame, int len);
+extern int okcrypto_transit_open(uint8_t *frame, int len);
+extern void okcrypto_getpubkey(uint8_t *buffer);
+extern void okcrypto_generate_random_key(uint8_t *buffer);
+extern void okcrypto_geteccpubkey(uint8_t *buffer);
+extern void okcrypto_getrsapubkey(uint8_t *buffer);
+extern void okcrypto_ecdh(uint8_t *buffer);
 extern void okcrypto_rsadecrypt(uint8_t *buffer);
-extern void okcrypto_rsasign (uint8_t *buffer);
-extern void okcrypto_ecdsa_eddsa (uint8_t *buffer);
+extern void okcrypto_rsasign(uint8_t *buffer);
+extern void okcrypto_ecdsa_eddsa(uint8_t *buffer);
 extern void okcrypto_hkdf(const void *data, const void *inputKey, void *outputKey, const size_t L);
+extern void okcrypto_hkdf_info(const void *salt, const void *inputKey, void *outputKey, const size_t L,
+    const uint8_t *info, size_t info_len);
 extern void okcrypto_split_sundae(uint8_t *state, uint8_t *iv, int len, uint8_t function, bool s);
 extern void okcrypto_compute_pubkey();
-extern void swap_buffer (uint8_t start, uint8_t end, uint8_t * buffer);
+extern void swap_buffer(uint8_t start, uint8_t end, uint8_t *buffer);
 
 extern uint8_t Challenge_button1;
 extern uint8_t Challenge_button2;
 extern uint8_t Challenge_button3;
 extern uint8_t CRYPTO_AUTH;
 
-extern int rsa_decrypt (unsigned int *olen, const uint8_t *in, uint8_t *out);
-extern int rsa_sign (int mlen, const uint8_t *msg, uint8_t *out);
-extern void rsa_getpub (uint8_t type);
+extern int rsa_decrypt(unsigned int *olen, const uint8_t *in, uint8_t *out);
+extern int rsa_sign(int mlen, const uint8_t *msg, uint8_t *out);
+extern void rsa_getpub(uint8_t type);
 extern bool is_bit_set(unsigned char byte, int index);
-extern int mbedtls_rand( void *rng_state, unsigned char *output, size_t len);
-extern int rsa_encrypt (int len, const uint8_t *in, uint8_t *out);
+extern int mbedtls_rand(void *rng_state, unsigned char *output, size_t len);
+extern int rsa_encrypt(int len, const uint8_t *in, uint8_t *out);
 
 extern void crypto_sha512_init();
-extern void crypto_sha512_update(const uint8_t * data, size_t len);
-extern void crypto_sha512_final(uint8_t * hash);
+extern void crypto_sha512_update(const uint8_t *data, size_t len);
+extern void crypto_sha512_final(uint8_t *hash);
 
-extern void okcrypto_aes_gcm_encrypt (uint8_t * state, uint8_t slot, uint8_t value, const uint8_t * key, int len);
-extern void okcrypto_aes_gcm_decrypt (uint8_t * state, uint8_t slot, uint8_t value, const uint8_t * key, int len);
-extern void okcrypto_aes_gcm_encrypt2 (uint8_t * state, uint8_t * iv1, const uint8_t * key, int len, bool s);
-extern void okcrypto_aes_gcm_decrypt2 (uint8_t * state, uint8_t * iv1, const uint8_t * key, int len, bool s);
-extern void okcrypto_aes_cbc_encrypt (uint8_t * state, uint8_t * iv, const uint8_t * key, int len);
-extern void okcrypto_aes_cbc_decrypt (uint8_t * state, uint8_t * iv, const uint8_t * key, int len);
+extern void okcrypto_aes_gcm_encrypt(uint8_t *state, uint8_t slot, uint8_t value, const uint8_t *key, int len);
+extern void okcrypto_aes_gcm_decrypt(uint8_t *state, uint8_t slot, uint8_t value, const uint8_t *key, int len);
+extern void okcrypto_aes_gcm_encrypt2(uint8_t *state, uint8_t *iv1, const uint8_t *key, int len, bool s);
+extern void okcrypto_aes_gcm_decrypt2(uint8_t *state, uint8_t *iv1, const uint8_t *key, int len, bool s);
+extern void okcrypto_aes_cbc_encrypt(uint8_t *state, uint8_t *iv, const uint8_t *key, int len);
+extern void okcrypto_aes_cbc_decrypt(uint8_t *state, uint8_t *iv, const uint8_t *key, int len);
+
+extern void okcrypto_mlkem_keygen(uint8_t *buffer);
+extern void okcrypto_mlkem_decaps(uint8_t *buffer);
+extern void okcrypto_mlkem_getpubkey(uint8_t *buffer);
+extern void okcrypto_xwing_keygen(uint8_t *buffer);
+extern void okcrypto_xwing_decaps(uint8_t *buffer);
+extern void okcrypto_xwing_getpubkey(uint8_t *buffer);
+extern void okcrypto_hkdf_expand(const uint8_t *prk, const uint8_t *info, size_t info_len,
+    uint8_t *out, size_t L);
+extern void okcrypto_xwing_derive_seed(const uint8_t *label32, uint8_t *seed_out);
+extern void okcrypto_xwing_derive_getpubkey(const uint8_t *label32, uint8_t *out); /* XWING_PK_SIZE */
+extern int okcrypto_xwing_derive_decaps(const uint8_t *label32, const uint8_t *ct, uint8_t *out);
+extern void okcrypto_derive_reset(void);
 
 
 #ifdef __cplusplus
