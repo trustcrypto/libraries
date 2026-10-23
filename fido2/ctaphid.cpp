@@ -237,6 +237,12 @@ static int buffer_status()
     }
 }
 
+/* True while a multi-packet message is part-way through reassembly. */
+int ctaphid_buffering(void)
+{
+    return buffer_status() == BUFFERING;
+}
+
 static int buffer_cmd()
 {
     return ctap_buffer_cmd;

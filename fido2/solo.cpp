@@ -34,29 +34,27 @@
 //#include APP_CONFIG
 
 // output must be at least 71 bytes
-int16_t bridge_u2f_to_solo(uint8_t * _appid, uint8_t * output, uint8_t * keyh, int keylen)
-{
+int16_t bridge_u2f_to_solo(uint8_t *_appid, uint8_t *output, uint8_t *keyh, int keylen) {
     int8_t ret = 0;
 
-    wallet_request * req = (wallet_request *) keyh;
+    wallet_request *req = (wallet_request *)keyh;
     extension_writeback_init(output, 71);
 
-    printf1(TAG_WALLET, "u2f-solo [%d]: ", keylen); dump_hex1(TAG_WALLET, keyh, keylen);
+    printf1(TAG_WALLET, "u2f-solo [%d]: ", keylen);
+    dump_hex1(TAG_WALLET, keyh, keylen);
 
-    switch(req->operation)
-    {
+    switch (req->operation) {
         case WalletVersion:
             output[0] = SOLO_VERSION_MAJ;
             output[1] = SOLO_VERSION_MIN;
             output[2] = SOLO_VERSION_PATCH;
             break;
         case WalletRng:
-            printf1(TAG_WALLET,"SoloRng\n");
+            printf1(TAG_WALLET, "SoloRng\n");
 
             ret = ctap_generate_rng(output, 71);
-            if (ret != 1)
-            {
-                printf1(TAG_WALLET,"Rng failed\n");
+            if (ret != 1) {
+                printf1(TAG_WALLET, "Rng failed\n");
                 ret = CTAP2_ERR_PROCESSING;
                 goto cleanup;
             }
@@ -72,17 +70,19 @@ int16_t bridge_u2f_to_solo(uint8_t * _appid, uint8_t * output, uint8_t * keyh, i
             return bridge_to_wallet(keyh, keylen);
 #endif
 #ifdef ONLYKEY_SOLO
-       case OKPING:
-       case OKDECRYPT:
-       case OKSIGN:
-       //case OKGETPUBKEY:
-       case OKCONNECT:
-          return bridge_to_onlykey(_appid, keyh, keylen, output);
+        case OKPING:
+        case OKDECRYPT:
+        case OKSIGN:
+        //case OKGETPUBKEY:
+        case OKCONNECT:
+            // Size 0 means nothing written; send_stored_response() sets it.
+            extension_writeback_init(output, 0);
+            return bridge_to_onlykey(_appid, keyh, keylen, output);
 
 #endif
 
         default:
-            printf2(TAG_ERR,"Invalid wallet command: %x\n",req->operation);
+            printf2(TAG_ERR, "Invalid wallet command: %x\n", req->operation);
             ret = CTAP1_ERR_INVALID_COMMAND;
             break;
     }
