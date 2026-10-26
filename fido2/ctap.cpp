@@ -1218,6 +1218,9 @@ uint8_t ctap_end_get_assertion(CborEncoder *map, CTAP_credentialDescriptor *cred
 
 #ifdef ENABLE_U2F_EXTENSIONS
     // OnlyKey required change start
+    // An extension op that writes back less than it claims (or nothing) must
+    // not return stack contents: the fallback below sends 72 bytes.
+    memset(sigder, 0, sizeof(sigder));
     if (extend_fido2(&cred->credential.id, &cred->type, sigder)) {
         // sigder[0] is the status byte; output_buffer_offset payload bytes follow,
         // or none when output_buffer_size is 0.
