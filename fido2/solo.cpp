@@ -44,23 +44,30 @@ int16_t bridge_u2f_to_solo(uint8_t *_appid, uint8_t *output, uint8_t *keyh, int 
     dump_hex1(TAG_WALLET, keyh, keylen);
 
     switch (req->operation) {
-        case WalletVersion:
-            output[0] = SOLO_VERSION_MAJ;
-            output[1] = SOLO_VERSION_MIN;
-            output[2] = SOLO_VERSION_PATCH;
+        case WalletVersion: {
+            // Write back through extension_writeback() so the response length
+            // is what was written. Filling output[] directly left the offset
+            // at 0 and the caller fell back to a 72-byte reply, 68 bytes of
+            // which were whatever the caller's buffer held before.
+            uint8_t version[3] = { SOLO_VERSION_MAJ, SOLO_VERSION_MIN, SOLO_VERSION_PATCH };
+            extension_writeback(version, sizeof(version));
             break;
-        case WalletRng:
+        }
+        case WalletRng: {
             printf1(TAG_WALLET, "SoloRng\n");
 
-            ret = ctap_generate_rng(output, 71);
+            uint8_t rng[71];
+            ret = ctap_generate_rng(rng, sizeof(rng));
             if (ret != 1) {
                 printf1(TAG_WALLET, "Rng failed\n");
                 ret = CTAP2_ERR_PROCESSING;
                 goto cleanup;
             }
+            extension_writeback(rng, sizeof(rng));
             ret = 0;
 
             break;
+        }
 
 #ifdef ENABLE_WALLET
         case WalletSign:

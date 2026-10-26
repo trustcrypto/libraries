@@ -56,6 +56,7 @@ int16_t bridge_u2f_to_extensions(uint8_t *_chal, uint8_t *_appid, uint8_t klen, 
     uint32_t count;
     uint8_t up = 1;
     uint8_t sig[513];
+    memset(sig, 0, sizeof(sig));
     if (extension_needs_atomic_count(klen, keyh)) {
         count = htonl(ctap_atomic_count(0));
     } else {

@@ -1129,14 +1129,26 @@ int okcrypto_shared_secret(uint8_t *pub, uint8_t *secret) {
                 return 1;
             else
                 return 0;
+        // micro-ecc does not check that a peer's point lies on the curve.
+        // Without that check a host can hand over points on other curves of
+        // small order and recover the private scalar from the shared secrets
+        // (an invalid-curve attack). Validate first, on every path.
         case KEYTYPE_P256R1:
             curve = uECC_secp256r1();
+            if (!uECC_valid_public_key(pub, curve)) {
+                hidprint("Error invalid ECC public key");
+                return 1;
+            }
             if (uECC_shared_secret(pub, ecc_private_key, secret, curve)) {
                 return 0;
             } else
                 return 1;
         case KEYTYPE_P256K1:
             curve = uECC_secp256k1();
+            if (!uECC_valid_public_key(pub, curve)) {
+                hidprint("Error invalid ECC public key");
+                return 1;
+            }
             if (uECC_shared_secret(pub, ecc_private_key, secret, curve)) {
                 return 0;
             } else
@@ -1149,14 +1161,24 @@ int okcrypto_shared_secret(uint8_t *pub, uint8_t *secret) {
         }
         case KEYTYPE_ECDH_P256R:
             curve = uECC_secp256r1();
+            if (!uECC_valid_public_key(pub, curve)) {
+                hidprint("Error invalid ECC public key");
+                return 1;
+            }
             if (uECC_shared_secret2(pub, ecc_private_key, secret, curve)) {
                 return 0;
             }
+            return 1;
         case KEYTYPE_ECDH_P256K:
             curve = uECC_secp256k1();
+            if (!uECC_valid_public_key(pub, curve)) {
+                hidprint("Error invalid ECC public key");
+                return 1;
+            }
             if (uECC_shared_secret2(pub, ecc_private_key, secret, curve)) {
                 return 0;
             }
+            return 1;
 
         case KEYTYPE_MLKEM768:
             hidprint("Error use ML-KEM decaps for this key type");

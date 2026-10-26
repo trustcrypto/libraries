@@ -1396,14 +1396,21 @@ void set_slot(uint8_t *buffer) {
     Serial.print("Value #");
     Serial.println((int)value, DEC);
 #endif
-    for (int z = 0; (z + 10) < 64 &&
-        buffer[z + 7] + buffer[z + 8] + buffer[z + 9] + buffer[z + 10] != 0x00;
+    // The value occupies buffer[7..63], 57 bytes at most. It ends at the first
+    // run of four zero bytes; bytes past the end of the 64-byte report read as
+    // zero, so a value that fills the report to the last byte still counts
+    // as 57. (Stopping the scan at z + 10 < 64 cut 55-57-byte values to 54
+    // and stored a different value than the one sent, with no error.)
+#define SET_SLOT_BYTE(i) ((i) < 64 ? buffer[(i)] : 0)
+    for (int z = 0; z < 57 &&
+        SET_SLOT_BYTE(z + 7) + SET_SLOT_BYTE(z + 8) + SET_SLOT_BYTE(z + 9) + SET_SLOT_BYTE(z + 10) != 0x00;
         z++) {
         length = z + 1;
 #ifdef DEBUG
         Serial.print(buffer[z + 7], HEX);
 #endif
     }
+#undef SET_SLOT_BYTE
 #ifdef DEBUG
     Serial.println(); //newline
     Serial.print("Length = ");
@@ -4783,6 +4790,15 @@ void set_private(uint8_t *buffer) {
         return;
 #ifdef STD_VERSION
     if (buffer[6] > 0x80) { //Type is Backup key
+        // The backup key must be an RSA (1-4) or ECC key: backup() RSA-encrypts
+        // the backup AES key with it and RESTORE() sizes its buffers from the
+        // key type. A composite PQC PGP key (type 7) is a 160-byte seed blob
+        // with no RSA modulus, and type * 128 would overrun every buffer on
+        // that path.
+        if (buffer[5] <= 4 && (buffer[6] & 0x0F) == KEYTYPE_PQC_PGP) {
+            hidprint("Error PQC key may not be used as the backup key");
+            return;
+        }
         buffer[6] = buffer[6] - 0x80;
         okeeprom_eeset_backupkey(buffer + 5); //Set this key slot as the backup key
     }
@@ -6199,13 +6215,17 @@ void backup() {
         if (slot == backupslot)
             features = features + 0x80;
         if (features != 0x00) {
+            // A composite PQC PGP key is a PQC_PGP_BLOB_LEN seed blob, not a
+            // type * 128 RSA key; copying 896 bytes read past the key into
+            // adjacent memory and produced a backup RESTORE() cannot read.
+            unsigned int keylen = (type == KEYTYPE_PQC_PGP) ? PQC_PGP_BLOB_LEN : (type * 128);
             large_temp[large_buffer_offset] = 0xFE; //delimiter
             large_temp[large_buffer_offset + 1] = slot;
             large_temp[large_buffer_offset + 2] = features;
-            memcpy(large_temp + large_buffer_offset + 3, rsa_private_key, (type * 128));
-            large_buffer_offset = large_buffer_offset + (type * 128) + 3;
+            memcpy(large_temp + large_buffer_offset + 3, rsa_private_key, keylen);
+            large_buffer_offset = large_buffer_offset + keylen + 3;
 #ifdef DEBUG
-            byteprint(rsa_private_key, (type * 128));
+            byteprint(rsa_private_key, keylen);
 #endif
         } else {
 #ifdef DEBUG
@@ -6363,6 +6383,10 @@ void backup() {
         large_buffer_offset++;
     } else if (slot <= 4) {
         okcore_flashget_RSA(slot);
+        if (type < 1 || type > 4) {
+            hidprint("Error backup key is not an RSA key");
+            return;
+        }
         uint8_t iv[12] = "BACKUP12345";
         uint8_t temp2[512];
 #ifdef DEBUG
@@ -6594,7 +6618,7 @@ void RESTORE(uint8_t *buffer) {
         } else if (slot <= 4) {
             unsigned int len = 0;
             okcore_flashget_RSA(slot);
-            if (type != large_temp[offset]) {
+            if (type != large_temp[offset] || type < 1 || type > 4) {
                 hidprint("Error key type used for backup does not match");
                 NEO_Color = 1;
                 blink(6);
@@ -6795,6 +6819,15 @@ void RESTORE(uint8_t *buffer) {
                         set_private(temp);
                         ptr = ptr + 512;
                         offset = offset - 515;
+                    } else if ((temp[6] & 0x0F) == KEYTYPE_PQC_PGP) { //Expect PQC_PGP_BLOB_LEN bytes
+#ifdef DEBUG
+                        Serial.print("Restore composite PQC PGP key");
+#endif
+                        ptr++;
+                        memcpy(temp + 7, ptr, PQC_PGP_BLOB_LEN);
+                        set_private(temp);
+                        ptr = ptr + PQC_PGP_BLOB_LEN;
+                        offset = offset - (PQC_PGP_BLOB_LEN + 3);
                     } else {
 #ifdef DEBUG
                         Serial.print("Error key configuration backup file format incorrect");
