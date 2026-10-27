@@ -5542,6 +5542,7 @@ uint8_t okcore_user_input_mode_for_slot(uint8_t slot) {
 // Runs the operation staged by done_process_packets(). CRYPTO_AUTH must
 // already be 4.
 void okcore_run_pending_op() {
+    cancelfadeoffafter20(); /* the request is decided: its 20 s wait for the user is over */
     derived_key_challenge_mode = 0;
     stored_key_challenge_mode = 0;
     if (packet_buffer_details[0] == OKSIGN) {
