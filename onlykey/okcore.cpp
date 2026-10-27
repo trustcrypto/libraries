@@ -5052,6 +5052,12 @@ void rsa_priv_flash(uint8_t *buffer, bool wipe) {
         flash_modify(buffer[5], temp, buffer, MAX_RSA_KEY_SIZE, 1);
         //Write buffer to flash
         okcore_flashset_common(tptr, (unsigned long *)adr, 2048);
+        /* The key is gone, so clear its type as well, as an ECC wipe does
+         * (ecc_priv_flash stores the zeroed type byte). Left set, the slot
+         * still reads as an RSA key: okcore_flashget_RSA decrypts the zeroed
+         * flash into keystream and rsa_getpub answers its product. */
+        uint8_t no_key = 0;
+        okeeprom_eeset_rsakey(&no_key, (int)buffer[5]);
         hidprint("Successfully wiped RSA Private Key");
         blink(2);
         return;
