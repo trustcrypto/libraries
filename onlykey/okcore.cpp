@@ -527,6 +527,27 @@ void recvmsg(int n) {
                     return;
                 }
                 return;
+            case OKBACKUP:
+                if (initialized == false && unlocked == true) {
+                    hidprint("No PIN set, You must set a PIN first");
+                    return;
+                } else if (initialized == true && unlocked == true && FTFL_FSEC == 0x44 && integrityctr1 == integrityctr2 && !CRYPTO_AUTH) {
+                    if (profilemode != NONENCRYPTEDPROFILE) {
+#ifdef STD_VERSION
+                        // Bytes 5-36 are a host nonce; the challenge code is
+                        // derived from SHA-256 of it, as for OKSIGN data.
+                        // The backup is sent once the user confirms.
+                        fadeon(45); //Yellow
+                        okcore_prime_user_confirmation(OKBACKUP, 0, recv_buffer + 5, 32);
+#endif
+                    } else {
+                        hidprint("Error backup not available in this profile");
+                    }
+                } else {
+                    hidprint("Error device locked");
+                    return;
+                }
+                return;
             case OKFWUPDATE:
                 if ((initialized == true && unlocked == true && FTFL_FSEC == 0x44 && integrityctr1 == integrityctr2 && configmode == true) || (!initcheck && integrityctr1 == integrityctr2)) //Only permit loading firmware on first use and while in config mode
                 {
@@ -5561,6 +5582,8 @@ void okcore_run_pending_op() {
         okcrypto_decrypt(recv_buffer);
     } else if (packet_buffer_details[0] == OKHMAC) {
         okcrypto_hmacsha1();
+    } else if (packet_buffer_details[0] == OKBACKUP) {
+        okcore_backup_hid();
     } else if (packet_buffer_details[0] == OKWEBAUTHN) {
         u2f_button = 1;
         unsigned long u2fwait = millis() + 4000;
@@ -5846,10 +5869,82 @@ void setcolor(uint8_t Color) {
 }
 #endif
 
+// backup() output goes either to the keyboard (button 1 hold) or, for
+// OKBACKUP, over raw HID as the same text packed into 64-byte packets.
+static uint8_t backup_to_hid;
+static uint8_t backup_hid_packet[64];
+static uint8_t backup_hid_len;
+static uint8_t backup_hid_failed;
+
+static void backup_hid_flush() {
+    if (!backup_hid_len || backup_hid_failed) return;
+    memset(backup_hid_packet + backup_hid_len, 0, sizeof(backup_hid_packet) - backup_hid_len);
+    int tries;
+    for (tries = 0; tries < 5; tries++) {
+        if (RawHID.send2(backup_hid_packet, 100) > 0) break;
+    }
+    if (tries == 5) backup_hid_failed = 1; // Host stopped reading, drop the rest
+    backup_hid_len = 0;
+}
+
+static void backup_putc(uint8_t c) {
+    if (backup_to_hid) {
+        // String terminators are typed as no-ops, not sent
+        if (!c || backup_hid_failed) return;
+        backup_hid_packet[backup_hid_len++] = c;
+        if (backup_hid_len == sizeof(backup_hid_packet)) backup_hid_flush();
+    } else {
+        Keyboard.press(c);
+        delay((TYPESPEED[0] * TYPESPEED[0] / 3) * 8);
+        Keyboard.releaseAll();
+        delay((TYPESPEED[0] * TYPESPEED[0] / 3) * 8);
+    }
+}
+
+static void backup_newline() {
+    if (backup_to_hid) {
+        backup_putc('\n');
+    } else {
+        Keyboard.press(KEY_RETURN);
+        delay((TYPESPEED[0] * TYPESPEED[0] / 3) * 8);
+        Keyboard.releaseAll();
+        delay((TYPESPEED[0] * TYPESPEED[0] / 3) * 8);
+    }
+}
+
+static void backup_puts(const unsigned char *s, size_t len) {
+    for (size_t z = 0; z < len; z++) backup_putc(s[z]);
+}
+
+// Clears the collected backup data and the AES key buffer when backup_write()
+// stops before the data is written out.
+static void backup_wipe(uint8_t *data, size_t data_len, uint8_t *key, size_t key_len) {
+    memset(data, 0, data_len);
+    memset(key, 0, key_len);
+    large_buffer_offset = 0;
+}
+
+static int backup_write(uint8_t to_hid);
+
 void backup() {
-    if (profilemode == NONENCRYPTEDPROFILE)
-        return;
+    backup_write(0);
+}
+
+// Sends the encrypted backup to the host over raw HID. Returns 0 on success.
+int okcore_backup_hid() {
+    outputmode = RAW_USB;
+    return backup_write(1);
+}
+
+static int backup_write(uint8_t to_hid) {
+    if (profilemode == NONENCRYPTEDPROFILE) {
+        if (to_hid) hidprint("Error backup not available in this profile");
+        return -1;
+    }
 #ifdef STD_VERSION
+    backup_to_hid = to_hid;
+    backup_hid_len = 0;
+    backup_hid_failed = 0;
     uint8_t temp[MAX_RSA_KEY_SIZE];
     uint8_t large_temp[18000];
     int urllength;
@@ -5876,12 +5971,9 @@ void backup() {
 #ifdef OK_Color
     setcolor(45); //Yellow
 #endif
-    for (uint8_t z = 0; z < sizeof(beginbackup); z++) {
-        Keyboard.press(beginbackup[z]);
-        delay((TYPESPEED[0] * TYPESPEED[0] / 3) * 8);
-        Keyboard.releaseAll();
-        delay((TYPESPEED[0] * TYPESPEED[0] / 3) * 8);
-    }
+    // Over HID the header waits until encryption succeeds, so an error
+    // reaches the host on its own.
+    if (!backup_to_hid) backup_puts(beginbackup, sizeof(beginbackup));
 
     for (slot = 1; slot <= 61; slot++) {
 #ifdef DEBUG
@@ -6333,13 +6425,9 @@ void backup() {
     RNG2(ptr, 32); //Fill temp with random data
     if (slot == 0) {
         hidprint("Error no backup key set");
-        for (uint8_t z = 0; z < sizeof(nobackupkey); z++) {
-            Keyboard.press(nobackupkey[z]);
-            delay((TYPESPEED[0] * TYPESPEED[0] / 3) * 8);
-            Keyboard.releaseAll();
-            delay((TYPESPEED[0] * TYPESPEED[0] / 3) * 8);
-        }
-        return;
+        if (!backup_to_hid) backup_puts(nobackupkey, sizeof(nobackupkey));
+        backup_wipe(large_temp, sizeof(large_temp), temp, sizeof(temp));
+        return -1;
     } else if (slot > 100) {
         uint8_t iv[12];
         uint8_t secret[64];
@@ -6353,7 +6441,9 @@ void backup() {
 #endif
         if (okcrypto_shared_secret(ecc_public_key, secret)) {
             hidprint("Error with ECC Shared Secret");
-            return;
+            memset(secret, 0, sizeof(secret));
+            backup_wipe(large_temp, sizeof(large_temp), temp, sizeof(temp));
+            return -1;
         }
 #ifdef DEBUG
         Serial.println("Secret = ");
@@ -6392,7 +6482,8 @@ void backup() {
         okcore_flashget_RSA(slot);
         if (type < 1 || type > 4) {
             hidprint("Error backup key is not an RSA key");
-            return;
+            backup_wipe(large_temp, sizeof(large_temp), temp, sizeof(temp));
+            return -1;
         }
         uint8_t iv[12] = "BACKUP12345";
         uint8_t temp2[512];
@@ -6408,7 +6499,9 @@ void backup() {
         //No need for unique IVs when random key used
         if (rsa_encrypt(32, temp, temp2)) {
             hidprint("Error with RSA Encryption");
-            return;
+            memset(temp2, 0, sizeof(temp2));
+            backup_wipe(large_temp, sizeof(large_temp), temp, sizeof(temp));
+            return -1;
         }
 #ifdef DEBUG
         Serial.println("RSA Encrypted AES KEY = ");
@@ -6431,14 +6524,13 @@ void backup() {
     Serial.println();
 #endif
 
+    if (backup_to_hid) backup_puts(beginbackup, sizeof(beginbackup));
+
     int i = 0;
     uint8_t backuphash[32] = {0};
     SHA256_CTX bhash;
-    while (i <= large_buffer_offset && i < (int)sizeof(large_temp)) {
-        Keyboard.press(KEY_RETURN);
-        delay((TYPESPEED[0] * TYPESPEED[0] / 3) * 8);
-        Keyboard.releaseAll();
-        delay((TYPESPEED[0] * TYPESPEED[0] / 3) * 8);
+    while (i <= large_buffer_offset && i < (int)sizeof(large_temp) && !backup_hid_failed) {
+        backup_newline();
         if ((large_buffer_offset - i) < 57) {
             sha256_init(&bhash);
             sha256_update(&bhash, backuphash, 32);
@@ -6446,32 +6538,19 @@ void backup() {
             sha256_final(&bhash, backuphash);
 
             int enclen = base64_encode(large_temp + i, temp, (large_buffer_offset - i), 0);
-            for (int z = 0; z < enclen; z++) {
-                Keyboard.press(temp[z]);
-                delay((TYPESPEED[0] * TYPESPEED[0] / 3) * 8);
-                Keyboard.releaseAll();
-                delay((TYPESPEED[0] * TYPESPEED[0] / 3) * 8);
-            }
+            backup_puts(temp, enclen);
         } else {
             sha256_init(&bhash);
             sha256_update(&bhash, backuphash, 32);
             sha256_update(&bhash, large_temp + i, 57);
             sha256_final(&bhash, backuphash);
             base64_encode(large_temp + i, temp, 57, 0);
-            for (int z = 0; z < 4 * (57 / 3); z++) {
-                Keyboard.press(temp[z]);
-                delay((TYPESPEED[0] * TYPESPEED[0] / 3) * 8);
-                Keyboard.releaseAll();
-                delay((TYPESPEED[0] * TYPESPEED[0] / 3) * 8);
-            }
+            backup_puts(temp, 4 * (57 / 3));
         }
         i = i + 57;
         memset(temp, 0, sizeof(temp));
     }
-    Keyboard.press(KEY_RETURN);
-    delay((TYPESPEED[0] * TYPESPEED[0] / 3) * 8);
-    Keyboard.releaseAll();
-    delay((TYPESPEED[0] * TYPESPEED[0] / 3) * 8);
+    backup_newline();
 #ifdef DEBUG
     Serial.println("Encoded");
     byteprint(large_temp, large_buffer_offset);
@@ -6480,29 +6559,18 @@ void backup() {
 
     // backup hash
     int enclen = base64_encode(backuphash, temp, 32, 0);
-    for (uint8_t z = 0; z < 2; z++) {
-        Keyboard.press(dashes[z]);
-        delay((TYPESPEED[0] * TYPESPEED[0] / 3) * 8);
-        Keyboard.releaseAll();
-        delay((TYPESPEED[0] * TYPESPEED[0] / 3) * 8);
-    }
-    for (uint8_t z = 0; z < enclen; z++) {
-        Keyboard.press(temp[z]);
-        delay((TYPESPEED[0] * TYPESPEED[0] / 3) * 8);
-        Keyboard.releaseAll();
-        delay((TYPESPEED[0] * TYPESPEED[0] / 3) * 8);
-    }
-    Keyboard.println();
+    backup_puts(dashes, 2);
+    backup_puts(temp, enclen);
+    backup_newline();
     //End backup footer
-    for (uint8_t z = 0; z < sizeof(endbackup); z++) {
-        Keyboard.press(endbackup[z]);
-        delay((TYPESPEED[0] * TYPESPEED[0] / 3) * 8);
-        Keyboard.releaseAll();
-        delay((TYPESPEED[0] * TYPESPEED[0] / 3) * 8);
-    }
-    Keyboard.println();
+    backup_puts(endbackup, sizeof(endbackup));
+    backup_newline();
+    if (backup_to_hid) backup_hid_flush();
     large_buffer_offset = 0;
     memset(large_temp, 0, sizeof(large_temp));
+    return backup_hid_failed ? -1 : 0;
+#else
+    return -1;
 #endif
 }
 
@@ -7013,6 +7081,8 @@ void okcore_prime_user_confirmation(uint8_t opcode, uint8_t slot,
     // Input mode for this slot: field 30 for slot 128, field 21 for derived
     // keys (codes > 200), field 22 for stored keys.
     user_input_mode = okcore_user_input_mode_for_slot(slot);
+    // A backup always needs the user at the device.
+    if (opcode == OKBACKUP && user_input_mode == USER_INPUT_NONE) user_input_mode = USER_INPUT_PRESS;
 #ifdef STD_VERSION
     if (user_input_mode == USER_INPUT_NONE) {
         // No press: run from the main loop once this receive completes.
