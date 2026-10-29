@@ -1186,6 +1186,13 @@ static CTAP_credentialDescriptor *pop_credential() {
     }
 }
 
+#ifdef ENABLE_U2F_EXTENSIONS
+// True while an extension request is answered for a getAssertion with up
+// false. Such a request only asks whether the credential is known, so the
+// extension is not run: it runs once, for the request with user presence.
+static bool extension_silent = false;
+#endif
+
 // adds 2 to map, or 3 if add_user is true
 uint8_t ctap_end_get_assertion(CborEncoder *map, CTAP_credentialDescriptor *cred, uint8_t *auth_data_buf, unsigned int auth_data_buf_sz, uint8_t *clientDataHash) {
     int ret;
@@ -1221,7 +1228,7 @@ uint8_t ctap_end_get_assertion(CborEncoder *map, CTAP_credentialDescriptor *cred
     // An extension op that writes back less than it claims (or nothing) must
     // not return stack contents: the fallback below sends 72 bytes.
     memset(sigder, 0, sizeof(sigder));
-    if (extend_fido2(&cred->credential.id, &cred->type, sigder)) {
+    if (!extension_silent && extend_fido2(&cred->credential.id, &cred->type, sigder)) {
         // sigder[0] is the status byte; output_buffer_offset payload bytes follow,
         // or none when output_buffer_size is 0.
         extern uint16_t output_buffer_offset;
@@ -1744,7 +1751,11 @@ uint8_t ctap_get_assertion(CborEncoder *encoder, uint8_t *request, int length) {
         crypto_sha256_update(GA.rp.id, GA.rp.size);
         crypto_sha256_final(getAssertionState.buf.authData.rpIdHash);
 
-        getAssertionState.buf.authData.flags = (1 << 0);
+        // up false: the request only checks that the credential is known. It
+        // is answered with a plain assertion, without the user-present flag
+        // and without running the extension (ctap_end_get_assertion).
+        extension_silent = (GA.up == 0);
+        getAssertionState.buf.authData.flags = extension_silent ? 0 : (1 << 0);
         getAssertionState.buf.authData.flags |= (1 << 2);
     } else
 #endif
@@ -1770,6 +1781,9 @@ uint8_t ctap_get_assertion(CborEncoder *encoder, uint8_t *request, int length) {
     }
 
     ret = ctap_end_get_assertion(&map, cred, (uint8_t *)&getAssertionState.buf, auth_data_buf_sz, GA.clientDataHash); // 1,2,3,4
+#ifdef ENABLE_U2F_EXTENSIONS
+    extension_silent = false;
+#endif
     check_retr(ret);
 
     if (validCredCount > 1) {
