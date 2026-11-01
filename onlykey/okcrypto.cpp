@@ -2133,7 +2133,12 @@ void okcrypto_mlkem_keygen(uint8_t *buffer) {
     byteprint(pk, 16);
 #endif
 
-    pending_operation = CTAP2_ERR_DATA_READY;
+    /* Over raw HID the public key is written straight out below, so nothing is
+     * left to collect: DATA_READY here outlived the reply, and in config mode
+     * (where keygen runs) nothing cleared it - the main loop then held the LED
+     * yellow and ignored every button until the key was unplugged. Only a
+     * WebAuthn reply is stored for the host to poll. */
+    if (outputmode == WEBAUTHN) pending_operation = CTAP2_ERR_DATA_READY;
     send_transport_response(pk, MLKEM_PK_SIZE, true, true);
 
     memset(coins, 0, 64);
@@ -2280,7 +2285,12 @@ void okcrypto_xwing_keygen(uint8_t *buffer) {
     byteprint(pk_X, 32);
 #endif
 
-    pending_operation = CTAP2_ERR_DATA_READY;
+    /* Over raw HID the public key is written straight out below, so nothing is
+     * left to collect: DATA_READY here outlived the reply, and in config mode
+     * (where keygen runs) nothing cleared it - the main loop then held the LED
+     * yellow and ignored every button until the key was unplugged. Only a
+     * WebAuthn reply is stored for the host to poll. */
+    if (outputmode == WEBAUTHN) pending_operation = CTAP2_ERR_DATA_READY;
     send_transport_response(pk_M, XWING_PK_SIZE, true, true);
 
     memset(expanded, 0, 96);
