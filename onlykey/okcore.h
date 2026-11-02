@@ -153,6 +153,7 @@ extern "C" {
 #define OKFWUPDATE (TYPE_INIT | 0x74)
 #define OKHMAC (TYPE_INIT | 0x75)
 #define OKWEBAUTHN (TYPE_INIT | 0x76)
+#define OKBACKUP (TYPE_INIT | 0x77)
 
 /*************************************/
 //ykpers BSD license
@@ -391,6 +392,7 @@ extern void rainbowCycle();
 extern void initColor();
 extern void setcolor(uint8_t Color);
 extern void backup();
+extern int okcore_backup_hid();
 extern void rsa_priv_flash(uint8_t *buffer, bool wipe);
 // `quiet` suppresses the "Successfully set ECC Key" message, for callers
 // that reply with the public key instead.
