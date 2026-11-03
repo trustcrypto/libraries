@@ -1567,7 +1567,8 @@ cleanup:
     Serial.printf("\nRSA len = ");
     Serial.println(rsa.len);
 #endif
-    ret = mbedtls_rsa_check_privkey(&rsa);
+    if (ret == 0)
+        ret = mbedtls_rsa_check_privkey(&rsa);
     if (ret != 0) {
 #ifdef DEBUG
         Serial.print("MBEDTLS_ERR_RSA_XXX error code ");
@@ -1579,7 +1580,8 @@ cleanup:
 #ifdef DEBUG
         Serial.print("RSA decrypt ");
 #endif
-        ret = mbedtls_rsa_rsaes_pkcs1_v15_decrypt(&rsa, NULL, NULL, MBEDTLS_RSA_PRIVATE, olen, in, out, 512);
+        // The RNG turns on base blinding in mbedtls_rsa_private().
+        ret = mbedtls_rsa_rsaes_pkcs1_v15_decrypt(&rsa, mbedtls_rand, NULL, MBEDTLS_RSA_PRIVATE, olen, in, out, MAX_RSA_KEY_SIZE);
     }
     mbedtls_rsa_free(&rsa);
     if (ret == 0) {
