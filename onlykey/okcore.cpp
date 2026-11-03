@@ -5849,6 +5849,27 @@ void setcolor(uint8_t Color) {
 }
 #endif
 
+/* Writes a [0xFF][slot][value][data] record. RESTORE() ends an unprefixed
+ * field at the first record marker byte 0xFD to 0xFF, so data containing such
+ * a byte (Latin-1 ý þ ÿ) is written as [0xFF][slot][value | 0x80][len][data]. */
+static int backup_put_field(uint8_t *out, uint8_t slot, uint8_t value, const uint8_t *data, int len) {
+    int prefixed = 0;
+    for (int i = 0; i < len; i++) {
+        if (data[i] >= 0xFD) prefixed = 1;
+    }
+    out[0] = 0xFF; //delimiter
+    out[1] = slot;
+    if (prefixed) {
+        out[2] = value | 0x80;
+        out[3] = (uint8_t)len;
+        memcpy(out + 4, data, len);
+        return len + 4;
+    }
+    out[2] = value;
+    memcpy(out + 3, data, len);
+    return len + 3;
+}
+
 void backup() {
     if (profilemode == NONENCRYPTEDPROFILE)
         return;
@@ -5895,11 +5916,7 @@ void backup() {
         ptr = temp;
         okcore_flashget_label(ptr, slot);
         if (temp[0] != 0xFF && temp[0] != 0x00) {
-            large_temp[large_buffer_offset] = 0xFF; //delimiter
-            large_temp[large_buffer_offset + 1] = slot;
-            large_temp[large_buffer_offset + 2] = 1; //1 - Label
-            memcpy(large_temp + large_buffer_offset + 3, temp, EElen_label);
-            large_buffer_offset = large_buffer_offset + EElen_label + 3;
+            large_buffer_offset += backup_put_field(large_temp + large_buffer_offset, slot, 1, temp, EElen_label); //1 - Label
         }
     }
     for (slot = 1; slot <= 24; slot++) {
@@ -5931,11 +5948,7 @@ void backup() {
             byteprint(temp, urllength);
             Serial.println();
 #endif
-            large_temp[large_buffer_offset] = 0xFF; //delimiter
-            large_temp[large_buffer_offset + 1] = slot;
-            large_temp[large_buffer_offset + 2] = 15; //15 - URL
-            memcpy(large_temp + large_buffer_offset + 3, temp, urllength);
-            large_buffer_offset = large_buffer_offset + urllength + 3;
+            large_buffer_offset += backup_put_field(large_temp + large_buffer_offset, slot, 15, temp, urllength); //15 - URL
         }
         okeeprom_eeget_addchar(&addchar5, slot);
         addchar1 = addchar5 & 0x3; //After Username
@@ -6007,11 +6020,7 @@ void backup() {
             byteprint(temp, usernamelength);
             Serial.println();
 #endif
-            large_temp[large_buffer_offset] = 0xFF; //delimiter
-            large_temp[large_buffer_offset + 1] = slot;
-            large_temp[large_buffer_offset + 2] = 2; //2 - Username
-            memcpy(large_temp + large_buffer_offset + 3, temp, usernamelength);
-            large_buffer_offset = large_buffer_offset + usernamelength + 3;
+            large_buffer_offset += backup_put_field(large_temp + large_buffer_offset, slot, 2, temp, usernamelength); //2 - Username
         }
         okeeprom_eeget_delay2(ptr, slot);
         if (temp[0] > 0) {
@@ -6041,11 +6050,7 @@ void backup() {
             byteprint(temp, passwordlength);
             Serial.println();
 #endif
-            large_temp[large_buffer_offset] = 0xFF; //delimiter
-            large_temp[large_buffer_offset + 1] = slot;
-            large_temp[large_buffer_offset + 2] = 5; //5 - Password
-            memcpy(large_temp + large_buffer_offset + 3, temp, passwordlength);
-            large_buffer_offset = large_buffer_offset + passwordlength + 3;
+            large_buffer_offset += backup_put_field(large_temp + large_buffer_offset, slot, 5, temp, passwordlength); //5 - Password
         }
         okeeprom_eeget_delay3(ptr, slot);
         if (temp[0] > 0) {
@@ -6509,6 +6514,143 @@ void backup() {
 #endif
 }
 
+#ifdef STD_VERSION
+/* Parses the decrypted backup records in [p, end). Every read is checked
+ * against end. With apply == false nothing is written, so a truncated or
+ * malformed backup is refused before the first slot or key changes.
+ * Returns 0 when every record is well formed. */
+static int restore_records(uint8_t *p, uint8_t *end, bool apply) {
+    uint8_t temp[MAX_RSA_KEY_SIZE + 7];
+    int ret = -1;
+#define RESTORE_NEED(n) \
+    do { \
+        if ((size_t)(end - p) < (size_t)(n)) goto done; \
+    } while (0)
+    while (p < end) {
+        const uint8_t marker = *p;
+        memset(temp, 0, sizeof(temp));
+        temp[0] = 0xBA;
+        temp[1] = 0xFF;
+        temp[2] = 0xFF;
+        temp[3] = 0xFF;
+        if (marker == 0xFF) { // [0xFF][slot][value][data]
+            RESTORE_NEED(3);
+            const uint8_t slot = p[1];
+            const uint8_t value = p[2] & 0x7F;
+            const bool prefixed = p[2] & 0x80; // [len][data], see backup_put_field()
+            p += 3;
+            if (slot > 61 || (value != 1 && slot > 24))
+                goto done;
+            temp[4] = OKSETSLOT;
+            temp[5] = slot;
+            temp[6] = value;
+            if (prefixed || value == 9 || value == 29) { // length-prefixed, TOTP, HMAC
+                RESTORE_NEED(1);
+                const uint8_t len = *p++;
+                if (len > 57)
+                    goto done;
+                RESTORE_NEED(len);
+                memcpy(temp + 7, p, len);
+                p += len;
+                if (apply) set_slot(temp);
+            } else if (value == 10) { // Yubikey OTP, then a 2-byte counter
+                const size_t len = EElen_aeskey + EElen_private + (slot == 0 ? EElen_public : 16);
+                RESTORE_NEED(len + 2);
+                memcpy(temp + 7, p, len);
+                p += len;
+                if (apply) {
+                    set_slot(temp);
+                    uint16_t counter = (uint16_t)(p[0] << 8 | p[1]);
+                    counter += 300; //Increment by 300
+                    uint8_t ctr[2] = {(uint8_t)(counter >> 8), (uint8_t)(counter & 0xFF)};
+                    yubikey_eeset_counter(ctr, slot);
+                }
+                p += 2;
+            } else if (value == 11) { //lockout time
+                RESTORE_NEED(1);
+                temp[7] = *p++;
+                if (apply) set_slot(temp);
+            } else { // first byte, then up to the next record marker
+                // backup() writes no 0xFC marker, so 0xFC (Latin-1 ü) is data.
+                RESTORE_NEED(1);
+                int i = 7;
+                temp[i++] = *p++;
+                while (p < end && *p < 0xFD) {
+                    if (i >= 64) // set_slot() takes at most 57 bytes
+                        goto done;
+                    temp[i++] = *p++;
+                }
+                if (apply) set_slot(temp);
+            }
+        } else if (marker == 0xFE) {
+            RESTORE_NEED(2);
+            if (p[1] == 0) { //Authenticator state
+                RESTORE_NEED(2 + sizeof(AuthenticatorState));
+                if (apply) ctap_flash(0, p + 2, sizeof(AuthenticatorState), 4);
+                p += 2 + sizeof(AuthenticatorState);
+            } else if (p[1] >= 200) { //Resident Keys, [0xFE][200 + index][rk]
+                // Resident keys are the last records. 441 bytes since beta8,
+                // 392 before; the next record is another key with a higher
+                // index, or the end.
+                const size_t avail = (size_t)(end - p) - 2;
+                const size_t sizes[2] = {sizeof(CTAP_residentKey), 392};
+                size_t rklen = 0;
+                for (int k = 0; k < 2 && !rklen; k++) {
+                    if (avail == sizes[k] ||
+                        (avail > sizes[k] + 1 && p[2 + sizes[k]] == 0xFE && p[3 + sizes[k]] > p[1]))
+                        rklen = sizes[k];
+                }
+                if (!rklen)
+                    goto done;
+                if (apply) ctap_flash(p[1] - 200, p + 2, rklen, 2);
+                p += 2 + rklen;
+            } else { // Private key, [0xFE][slot][features][key]
+                RESTORE_NEED(3);
+                const uint8_t slot = p[1];
+                const uint8_t features = p[2];
+                size_t keylen;
+                if (slot >= 101 && slot <= 132) {
+                    keylen = MAX_ECC_KEY_SIZE;
+                } else if (slot >= 1 && slot <= 4 && (features & 0x0F) >= 1 && (features & 0x0F) <= 4) {
+                    keylen = (features & 0x0F) * 128;
+                } else if (slot >= 1 && slot <= 4 && (features & 0x0F) == KEYTYPE_PQC_PGP) {
+                    keylen = PQC_PGP_BLOB_LEN;
+                } else {
+                    goto done;
+                }
+                RESTORE_NEED(3 + keylen);
+                temp[4] = OKSETPRIV;
+                temp[5] = slot;
+                temp[6] = features;
+                memcpy(temp + 7, p + 3, keylen);
+                if (apply) set_private(temp);
+                p += 3 + keylen;
+            }
+        } else if (marker == 0xFD) { // Legacy U2F key and counter, not restored
+            RESTORE_NEED(1 + 32 + 2 + 2);
+            p += 1 + 32 + 2 + 2;
+        } else {
+            goto done;
+        }
+    }
+    ret = 0;
+done:
+#undef RESTORE_NEED
+    memset(temp, 0, sizeof(temp));
+    return ret;
+}
+
+static void restore_abort(uint8_t *large_temp, const char *msg) {
+    if (large_temp) memset(large_temp, 0, 18000);
+    hidprint(msg);
+    NEO_Color = 1;
+    blink(6);
+    CPU_RESTART();
+    while (1) {
+    }
+}
+#endif
+
 void RESTORE(uint8_t *buffer) {
     if (profilemode == NONENCRYPTEDPROFILE)
         return;
@@ -6517,8 +6659,12 @@ void RESTORE(uint8_t *buffer) {
     static unsigned int offset = 0;
 
     if (offset == 0) {
-        //free(large_temp);
-        large_temp = (uint8_t *)malloc(18000); //Max size for slots 7827 max size for keys 3072 + headers + Max RSA key size + 6144 for RKs + 208 Authenticator state + 24 for new yubiotp counters
+        if (!large_temp)
+            large_temp = (uint8_t *)malloc(18000); //Max size for slots 7827 max size for keys 3072 + headers + Max RSA key size + 6144 for RKs + 208 Authenticator state + 24 for new yubiotp counters
+        if (!large_temp) {
+            hidprint("Error not enough memory for restore");
+            return;
+        }
         memset(large_temp, 0, 18000);
     }
 
@@ -6537,10 +6683,7 @@ void RESTORE(uint8_t *buffer) {
 
             offset = offset + 57;
         } else {
-            hidprint("Error backup file too large");
-            NEO_Color = 1;
-            blink(6);
-            CPU_RESTART();
+            restore_abort(large_temp, "Error backup file too large");
         }
         return;
     } else { //last packet
@@ -6553,10 +6696,7 @@ void RESTORE(uint8_t *buffer) {
 
             offset = offset + buffer[5];
         } else {
-            hidprint("Error backup file too large");
-            NEO_Color = 1;
-            blink(6);
-            CPU_RESTART();
+            restore_abort(large_temp, "Error backup file too large");
         }
 #ifdef DEBUG
         Serial.print("Length of backup file = ");
@@ -6564,14 +6704,17 @@ void RESTORE(uint8_t *buffer) {
 #endif
 
         uint8_t temp[MAX_RSA_KEY_SIZE + 7];
-        uint8_t *ptr;
         uint8_t slot;
 
         if (offset == 0) {
             CPU_RESTART();
+            while (1) {
+            }
         }
 
         //DECRYPT
+        // The file is [records][iv(12)][100 + key type] for an ECC backup key,
+        // [records][RSA-encrypted AES key][key type] for an RSA backup key.
         okeeprom_eeget_backupkey(&slot);
         offset--;
 #ifdef DEBUG
@@ -6579,10 +6722,7 @@ void RESTORE(uint8_t *buffer) {
         Serial.println(large_temp[offset]);
 #endif
         if (slot == 0) {
-            hidprint("Error no backup key set");
-            NEO_Color = 1;
-            blink(6);
-            CPU_RESTART();
+            restore_abort(large_temp, "Error no backup key set");
         } else if (slot > 100) {
             okcore_flashget_ECC(slot);
 
@@ -6594,16 +6734,17 @@ void RESTORE(uint8_t *buffer) {
             Serial.println("Type = ");
             Serial.println(type);
 #endif
-            if (type != (large_temp[offset] - 100)) {
-                hidprint("Error key type used for backup does not match");
-                NEO_Color = 1;
-                blink(6);
-                CPU_RESTART();
+            if (type != (large_temp[offset] - 100) || offset < 12) {
+                restore_abort(large_temp, "Error key type used for backup does not match");
             } else {
                 uint8_t iv[12];
                 offset = offset - 12;
                 memcpy(iv, large_temp + offset, 12);
-                okcrypto_shared_secret(ecc_public_key, temp);
+                if (okcrypto_shared_secret(ecc_public_key, temp)) {
+                    memset(ecc_private_key, 0, sizeof(ecc_private_key));
+                    restore_abort(large_temp, "Error with ECC Shared Secret");
+                }
+                memset(ecc_private_key, 0, sizeof(ecc_private_key));
 
 #ifdef DEBUG
                 Serial.println("Secret = ");
@@ -6612,27 +6753,20 @@ void RESTORE(uint8_t *buffer) {
                 byteprint(iv, 12);
 #endif
 
-                byteprint(temp, 32);
                 SHA256_CTX context;
                 sha256_init(&context);
                 sha256_update(&context, temp, 32); //add secret
                 sha256_update(&context, ecc_public_key, 32); //add public key
                 sha256_update(&context, iv, 12); //add AES GCM IV
                 sha256_final(&context, temp);
-                if (profilemode != NONENCRYPTEDPROFILE) {
-#ifdef STD_VERSION
-                    okcrypto_aes_gcm_decrypt2(large_temp, iv, temp, offset, false);
-#endif
-                }
+                okcrypto_aes_gcm_decrypt2(large_temp, iv, temp, offset, false);
+                memset(temp, 0, sizeof(temp));
             }
         } else if (slot <= 4) {
             unsigned int len = 0;
             okcore_flashget_RSA(slot);
-            if (type != large_temp[offset] || type < 1 || type > 4) {
-                hidprint("Error key type used for backup does not match");
-                NEO_Color = 1;
-                blink(6);
-                CPU_RESTART();
+            if (type != large_temp[offset] || type < 1 || type > 4 || offset < (unsigned int)(type * 128)) {
+                restore_abort(large_temp, "Error key type used for backup does not match");
             } else {
                 uint8_t temp2[512];
                 offset = offset - (type * 128);
@@ -6641,252 +6775,44 @@ void RESTORE(uint8_t *buffer) {
                 Serial.println("RSA Encrypted AES Key = ");
                 byteprint(temp, (type * 128));
 #endif
-                rsa_decrypt(&len, temp, temp2);
+                if (rsa_decrypt(&len, temp, temp2) != 0 || len != 32) {
+                    memset(temp2, 0, sizeof(temp2));
+                    restore_abort(large_temp, "Error with RSA decryption of backup key");
+                }
 #ifdef DEBUG
                 Serial.println("AES KEY = ");
                 byteprint(temp2, 32);
 #endif
                 uint8_t iv[12] = "BACKUP12345";
-                if (profilemode != NONENCRYPTEDPROFILE) {
-#ifdef STD_VERSION
-                    okcrypto_aes_gcm_decrypt2(large_temp, iv, temp2, offset, false);
-#endif
-                }
+                okcrypto_aes_gcm_decrypt2(large_temp, iv, temp2, offset, false);
                 //No need for unique IVs when random key used
+                memset(temp2, 0, sizeof(temp2));
+                memset(temp, 0, sizeof(temp));
             }
+        } else {
+            restore_abort(large_temp, "Error no backup key set");
         }
 
 #ifdef DEBUG
         Serial.print("backup file received =");
         byteprint(large_temp, offset);
 #endif
-        large_temp[offset + 1] = 0xFC;
-        ptr = large_temp;
-        if (*ptr < 0xFD) {
-            hidprint("Error incorrect backup key set");
-#ifdef DEBUG
-            Serial.print("Error incorrect backup key set");
-#endif
-            blink(6);
-            CPU_RESTART();
+        // The records are large_temp[0, offset); the IV or key that follows
+        // them is not plaintext.
+        uint8_t *const end = large_temp + offset;
+        if (offset == 0 || large_temp[0] < 0xFD) {
+            restore_abort(large_temp, "Error incorrect backup key set");
+        }
+        if (restore_records(large_temp, end, false)) {
+            restore_abort(large_temp, "Error backup file format incorrect, nothing restored");
         }
 
 #ifdef OK_Color
         setcolor(45); //Yellow
 #endif
-        while (*ptr) {
-            if (*ptr == 0xFF) {
-                memset(temp, 0, sizeof(temp));
-                temp[0] = 0xBA;
-                temp[1] = 0xFF;
-                temp[2] = 0xFF;
-                temp[3] = 0xFF;
-                temp[4] = OKSETSLOT;
-                ptr++;
-                temp[5] = *ptr; //Slot
-                ptr++;
-                temp[6] = *ptr; //Value
-                ptr++;
-                if (temp[6] == 10) { //Yubikey OTP
-                    uint8_t ctr[2];
-                    uint8_t ykslot = temp[5];
-                    if (ykslot == 0) {
-                        memcpy(temp + 7, ptr, (EElen_aeskey + EElen_private + EElen_public));
-                        set_slot(temp);
-                        ptr = ptr + EElen_aeskey + EElen_private + EElen_public;
-                    } else {
-                        memcpy(temp + 7, ptr, (EElen_aeskey + EElen_private + 16));
-                        set_slot(temp);
-                        ptr = ptr + EElen_aeskey + EElen_private + 16;
-                    }
-                    ctr[0] = *ptr;
-                    ptr++;
-                    ctr[1] = *ptr;
-                    uint16_t counter = ctr[0] << 8 | ctr[1];
-                    counter += 300; //Increment by 300
-                    ctr[0] = counter >> 8 & 0xFF;
-                    ctr[1] = counter & 0xFF;
-
-                    yubikey_eeset_counter(ctr, ykslot);
-#ifdef DEBUG
-                    Serial.print("New Yubikey Counter =");
-                    byteprint(ctr, 2);
-#endif
-                    ptr++;
-                    memset(temp, 0, sizeof(temp));
-                } else if (temp[6] == 9 || temp[6] == 29) { //TOTP or HMAC
-                    int len = *ptr;
-                    ptr++;
-                    memcpy(temp + 7, ptr, len);
-                    set_slot(temp);
-                    memset(temp, 0, sizeof(temp));
-                    ptr = ptr + len;
-                } else if (temp[6] == 11) { //lockout time
-                    temp[7] = *ptr;
-                    set_slot(temp);
-                    memset(temp, 0, sizeof(temp));
-                    ptr++;
-                } else {
-                    temp[7] = *ptr;
-                    int i = 8;
-                    ptr++;
-                    while (*ptr != 0xFF && *ptr != 0xFE && *ptr != 0xFD && *ptr != 0xFC) {
-                        temp[i] = *ptr;
-                        ptr++;
-                        i++;
-                    }
-                    set_slot(temp);
-                }
-            } else if (*ptr == 0xFE) { //Finished slot restore
-                if (*(ptr + 1) == 0) { //Authenticator state
-                    ptr += 2;
-//set auth state
-#ifdef DEBUG
-                    Serial.print("Restore auth state");
-                    byteprint(ptr, sizeof(AuthenticatorState));
-#endif
-                    ctap_flash(0, ptr, sizeof(AuthenticatorState), 4);
-                    ptr = ptr + sizeof(AuthenticatorState);
-                    offset = offset - (sizeof(AuthenticatorState) + 2);
-                } else if (*(ptr + 1) >= 200) { //Resident Keys
-                    ptr++;
-                    //set rk # ptr - 200
-                    int rklen;
-#ifdef DEBUG
-                    Serial.print("Restore rk num = ");
-                    Serial.println(*ptr);
-                    byteprint(ptr + 1, sizeof(CTAP_residentKey));
-#endif
-                    if (*(ptr + 392 + 1) == 0xFE && *(ptr + 392 + 2) > *ptr) { // 392 size in beta8 fw
-                        rklen = 392;
-                    } else if (*(ptr + 441 + 1) == 0xFE && *(ptr + 441 + 2) > *ptr) { // 441 size after beta8 fw
-                        rklen = 441;
-                    } else if (*(ptr + 392 + 1) == 0) {
-                        rklen = 392;
-                    } else {
-                        rklen = 441;
-                    }
-                    ctap_flash((*ptr - 200), ptr + 1, rklen, 2);
-                    ptr = ptr + rklen + 1;
-                    offset = offset - rklen + 2;
-                } else {
-                    memset(temp, 0, sizeof(temp));
-                    temp[0] = 0xBA;
-                    temp[1] = 0xFF;
-                    temp[2] = 0xFF;
-                    temp[3] = 0xFF;
-                    temp[4] = OKSETPRIV;
-                    ptr++;
-                    temp[5] = *ptr; //Slot
-                    ptr++;
-                    temp[6] = *ptr; //Key type
-                    if (temp[5] > 100) { //We know its an ECC key
-#ifdef DEBUG
-                        Serial.print("Restore ECC key");
-                        Serial.print("Type");
-                        Serial.print(temp[6]);
-                        Serial.print("slot");
-                        Serial.print(temp[5]);
-#endif
-                        ptr++; //Start of Key
-                        memcpy(temp + 7, ptr, MAX_ECC_KEY_SIZE); //Size of ECC key 32
-                        set_private(temp);
-                        ptr = ptr + MAX_ECC_KEY_SIZE;
-                        offset = offset - (MAX_ECC_KEY_SIZE + 3);
-                    } else if ((temp[6] & 0x0F) == 1) { //Expect 128 Bytes
-#ifdef DEBUG
-                        Serial.print("Restore RSA 1024 key");
-#endif
-                        ptr++;
-                        memcpy(temp + 7, ptr, 128);
-                        set_private(temp);
-                        ptr = ptr + 128;
-                        offset = offset - 131;
-                    } else if ((temp[6] & 0x0F) == 2) { //Expect 256 Bytes
-#ifdef DEBUG
-                        Serial.print("Restore RSA 2048 key");
-#endif
-                        ptr++;
-                        memcpy(temp + 7, ptr, 256);
-                        set_private(temp);
-                        ptr = ptr + 256;
-                        offset = offset - 259;
-                    } else if ((temp[6] & 0x0F) == 3) { //Expect 384 Bytes
-#ifdef DEBUG
-                        Serial.print("Restore RSA 3072 key");
-#endif
-                        ptr++;
-                        memcpy(temp + 7, ptr, 384);
-                        set_private(temp);
-                        ptr = ptr + 384;
-                        offset = offset - 387;
-                    } else if ((temp[6] & 0x0F) == 4) { //Expect 512 Bytes
-#ifdef DEBUG
-                        Serial.print("Restore RSA 4096 key");
-#endif
-                        ptr++;
-                        memcpy(temp + 7, ptr, 512);
-                        set_private(temp);
-                        ptr = ptr + 512;
-                        offset = offset - 515;
-                    } else if ((temp[6] & 0x0F) == KEYTYPE_PQC_PGP) { //Expect PQC_PGP_BLOB_LEN bytes
-#ifdef DEBUG
-                        Serial.print("Restore composite PQC PGP key");
-#endif
-                        ptr++;
-                        memcpy(temp + 7, ptr, PQC_PGP_BLOB_LEN);
-                        set_private(temp);
-                        ptr = ptr + PQC_PGP_BLOB_LEN;
-                        offset = offset - (PQC_PGP_BLOB_LEN + 3);
-                    } else {
-#ifdef DEBUG
-                        Serial.print("Error key configuration backup file format incorrect");
-#endif
-                        hidprint("Error key configuration backup file format incorrect");
-                        NEO_Color = 1;
-                        blink(6);
-                        CPU_RESTART();
-                    }
-                }
-            } else if (*ptr == 0xFD) {
-                //int temp2;
-                //memset(temp, 0, sizeof(temp));
-                //temp[0] = 0xBA;
-                //temp[1] = 0xFF;
-                //temp[2] = 0xFF;
-                //temp[3] = 0xFF;
-                //temp[4] = OKSETU2FPRIV;
-                ptr++;
-                offset--;
-                //memcpy(temp + 5, ptr, 32);
-                //set_u2f_priv(temp);
-                ptr = ptr + 32;
-                offset = offset - 32;
-                // For backward compatability with older versions, used to backup U2F counter
-                offset = offset - 2;
-                ptr = ptr + 2;
-                //memcpy(temp, ptr, 2);
-                //temp2 = temp[0] << 8 | temp[1];
-                //Set U2F Certificate size
-                //okeeprom_eeset_U2Fcertlen(temp);
-                offset = offset - 2;
-                ptr = ptr + 2;
-                //large_temp[0] = 0xBA;
-                //large_temp[1] = 0xFF;
-                //large_temp[2] = 0xFF;
-                //large_temp[3] = 0xFF;
-                //large_temp[4] = OKSETU2FCERT;
-                //large_temp[5] = 0xBA;
-                //if (temp2 < 769)
-                //{
-                //	memcpy(large_temp + 6, ptr, temp2);
-                //	large_buffer_len = temp2;
-                //	set_u2f_cert(large_temp);
-                //}
-            } else {
-                break;
-            }
-        }
+        restore_records(large_temp, end, true);
+        memset(large_temp, 0, 18000);
+        offset = 0;
         hidprint("Successfully loaded backup");
 #ifdef DEBUG
         Serial.print("Successfully loaded backup");
