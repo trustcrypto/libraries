@@ -1435,6 +1435,7 @@ cleanup:
 #ifdef DEBUG
         Serial.printf("Error with key check =%d", ret);
 #endif
+        mbedtls_rsa_free(&rsa);
         hidprint("Error invalid key, key check failed");
         return -1;
     }
@@ -1648,6 +1649,7 @@ cleanup:
         Serial.print("MBEDTLS_ERR_RSA_XXX error code ");
         Serial.println(ret);
 #endif
+        mbedtls_rsa_free(&rsa);
         return ret;
     }
     if (ret == 0) {

@@ -5209,7 +5209,7 @@ int ctap_flash(int index, uint8_t *buffer, int size, uint8_t mode) {
         okcore_aes_gcm_decrypt(buffer, 0, 255, profilekey, size);
         return 1;
     } else if (mode == 4) { // write auth state to EEPROM
-        okcore_aes_gcm_decrypt(buffer, 0, 255, profilekey, size);
+        okcore_aes_gcm_encrypt(buffer, 0, 255, profilekey, size);
         okeeprom_eeset_ctap_authstate(buffer);
         return 0;
     }
@@ -6989,7 +6989,7 @@ void done_process_packets() {
     large_resp_buffer_offset = 0;
     large_resp_buffer_cursor = 0;
     large_resp_buffer_last_opt3 = 0;
-    memset(large_resp_buffer, 0, large_resp_buffer_offset);
+    memset(large_resp_buffer, 0, LARGE_RESP_BUFFER_SIZE);
     // Move encrypted data to large_buffer
     large_buffer_offset = packet_buffer_offset;
     memmove(large_buffer, packet_buffer, packet_buffer_offset);
