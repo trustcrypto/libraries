@@ -7128,7 +7128,9 @@ void process_setreport() {
         if (profilemode != NONENCRYPTEDPROFILE) {
 #ifdef STD_VERSION
             uint8_t slot = keyboard_buffer[64];
-            if (keyboard_buffer[45] == 5 || keyboard_buffer[45] == 0) { // Request to write or wipe
+            // Writing or wiping needs config mode (or first use), as OKSETPRIV does. Outside it the
+            // frame can only be an HMAC challenge on slots 1, 3-12, so it falls through to that code.
+            if ((keyboard_buffer[45] == 5 || keyboard_buffer[45] == 0) && (configmode == true || !initcheck)) { // Request to write or wipe
                 getBuffer[5] = 0;
                 getBuffer[7] = 0x89;
                 memset(setBuffer, 0, 9);
@@ -7215,6 +7217,10 @@ void process_setreport() {
                         slot = 1;
                     else
                         slot = slot - 1;
+                    if (slot > 24) {
+                        memset(keyboard_buffer, 0, KEYBOARD_BUFFER_SIZE);
+                        return;
+                    }
                     recv_buffer[4] = OKSETSLOT;
                     // Pacing
                     if (keyboard_buffer[47] == CFGFLAG_PACING_10MS) {
