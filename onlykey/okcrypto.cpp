@@ -840,8 +840,19 @@ void okcrypto_derive_key(uint8_t ktype, uint8_t *data, uint8_t slot) {
     okcrypto_compute_pubkey();
 }
 
+/* A failed ECC operation must not send anything that looks like a result. */
+static void okcrypto_ecc_abort(const char *msg) {
+    pending_operation = 0;
+    hidprint(msg);
+    memset(large_buffer, 0, LARGE_BUFFER_SIZE);
+    large_buffer_offset = 0;
+    memset(ecc_public_key, 0, sizeof(ecc_public_key));
+    memset(ecc_private_key, 0, sizeof(ecc_private_key));
+    fadeoff(1);
+}
+
 void okcrypto_ecdsa_eddsa(uint8_t *buffer) {
-    uint8_t ecc_signature[64];
+    uint8_t ecc_signature[64] = {0};
     uint8_t hash[64];
 #ifdef DEBUG
     Serial.println();
@@ -874,8 +885,7 @@ void okcrypto_ecdsa_eddsa(uint8_t *buffer) {
             if (buffer[5] != 201 && buffer[5] != 202 && buffer[5] != 203 &&
                 buffer[5] != 211 && buffer[5] != 212 && buffer[5] != 213 &&
                 buffer[5] != 221 && buffer[5] != 222 && buffer[5] != 223) {
-                hidprint("Error invalid derived key slot");
-                fadeoff(0);
+                okcrypto_ecc_abort("Error invalid derived key slot");
                 return;
             }
             if (buffer[5] == 201) {
@@ -899,6 +909,7 @@ void okcrypto_ecdsa_eddsa(uint8_t *buffer) {
             // Not using derived key, using stored key
             okcore_flashget_ECC(buffer[5]); //Default Key stored in ECC slot 32
         } else {
+            okcrypto_ecc_abort("Error invalid ECC key slot");
             return;
         }
 
@@ -922,8 +933,7 @@ void okcrypto_ecdsa_eddsa(uint8_t *buffer) {
 #endif
         pending_operation = CTAP2_ERR_OPERATION_PENDING;
         if (type != 0x01 && type != 0x02 && type != 0x03) {
-            hidprint("Error key not set as signature key");
-            fadeoff(0);
+            okcrypto_ecc_abort("Error key not set as signature key");
             return;
         }
         if (type == 0x01)
@@ -939,6 +949,9 @@ void okcrypto_ecdsa_eddsa(uint8_t *buffer) {
 #ifdef DEBUG
                 Serial.println("Signature Failed ");
 #endif
+                memset(ecc_signature, 0, sizeof(ecc_signature));
+                okcrypto_ecc_abort("Error with ECC signing");
+                return;
             }
         } else if (type == 0x03) {
             const struct uECC_Curve_t *curve = uECC_secp256k1();
@@ -951,6 +964,9 @@ void okcrypto_ecdsa_eddsa(uint8_t *buffer) {
 #ifdef DEBUG
                 Serial.println("Signature Failed ");
 #endif
+                memset(ecc_signature, 0, sizeof(ecc_signature));
+                okcrypto_ecc_abort("Error with ECC signing");
+                return;
             }
         }
 #ifdef DEBUG
@@ -965,6 +981,7 @@ void okcrypto_ecdsa_eddsa(uint8_t *buffer) {
             send_transport_response(ecc_signature, 64, true, true);
             wipetasks();
         }
+        memset(ecc_signature, 0, sizeof(ecc_signature));
         // Stop the fade in
         fadeoff(85);
         memset(large_buffer, 0, LARGE_BUFFER_SIZE);
@@ -1008,8 +1025,7 @@ void okcrypto_ecdh(uint8_t *buffer) {
             /* Ed25519 has no ECDH. */
             if (!((buffer[5] > 201 && buffer[5] < 205) || (buffer[5] > 211 && buffer[5] < 215) ||
                     (buffer[5] > DERIVATION_V2_CODE_BASE + 1 && buffer[5] < DERIVATION_V2_CODE_BASE + 5))) {
-                hidprint("Error invalid derived key slot");
-                fadeoff(0);
+                okcrypto_ecc_abort("Error invalid derived key slot");
                 return;
             }
             if (buffer[5] == 202) {
@@ -1032,6 +1048,7 @@ void okcrypto_ecdh(uint8_t *buffer) {
             // Not using derived key, using stored key
             okcore_flashget_ECC(buffer[5]);
         } else {
+            okcrypto_ecc_abort("Error invalid ECC key slot");
             return;
         }
 
@@ -1041,19 +1058,25 @@ void okcrypto_ecdh(uint8_t *buffer) {
             resplen = 32;
             okcrypto_compute_pubkey();
         }
-        if (large_buffer_offset == 33 || large_buffer_offset == 65) { // Remove public key first byte 0x04 or 0x40 for Trezor agent
+        // X25519 takes a 32-byte key, P-256 and secp256k1 a 64-byte X || Y;
+        // a shorter key would leave part of this key's own point in place.
+        const int keylen = (type == 4) ? 32 : 64;
+        if (large_buffer_offset == keylen + 1 && (type == 4 || large_buffer[0] == 0x04)) { // Remove public key first byte 0x04 or 0x40 for Trezor agent
             large_buffer_offset--;
             memcpy(ecc_public_key, large_buffer + 1, large_buffer_offset);
-        } else if (large_buffer_offset == 32 || large_buffer_offset == 64) {
+        } else if (large_buffer_offset == keylen) {
             memcpy(ecc_public_key, large_buffer, large_buffer_offset);
+        } else {
+            okcrypto_ecc_abort("Error invalid ECC public key size");
+            return;
         }
 
         pending_operation = CTAP2_ERR_USER_ACTION_PENDING;
         // Use ecc_private_key and provided pubkey to generate shared secret
-        if (large_buffer_offset == 64 || large_buffer_offset == 32) { // Public key sizes
-            if (okcrypto_shared_secret(ecc_public_key, temp)) {
-                //Error
-            }
+        if (okcrypto_shared_secret(ecc_public_key, temp)) {
+            memset(temp, 0, sizeof(temp));
+            okcrypto_ecc_abort("Error with ECC shared secret");
+            return;
         }
 
 #ifdef DEBUG
@@ -1074,6 +1097,7 @@ void okcrypto_ecdh(uint8_t *buffer) {
             send_transport_response(temp, resplen, true, true);
             wipetasks();
         }
+        memset(temp, 0, sizeof(temp));
         // Stop the fade in
         fadeoff(85);
         memset(large_buffer, 0, LARGE_BUFFER_SIZE);
