@@ -383,7 +383,7 @@ struct _getAssertionState {
     uint32_t time;
     uint8_t user_verified;
     uint8_t customCredId[256];
-    uint8_t customCredIdSize;
+    uint16_t customCredIdSize;
 };
 
 void ctap_response_init(CTAP_RESPONSE *resp);
