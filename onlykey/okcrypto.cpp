@@ -222,6 +222,7 @@ void okcrypto_decrypt(uint8_t *buffer) {
 static void okcrypto_sign_slot(uint8_t *buffer) {
     uECC_set_rng(&RNG2);
     uint8_t features = 0;
+    type = 0;
 #ifdef DEBUG
     Serial.println();
     Serial.println("OKSIGN MESSAGE RECEIVED");
@@ -250,7 +251,9 @@ static void okcrypto_sign_slot(uint8_t *buffer) {
             fadeoff(0);
         }
         return;
-    } else if ((buffer[5] > 200 && buffer[5] < 205) || (buffer[5] > DERIVATION_V2_CODE_BASE && buffer[5] < DERIVATION_V2_CODE_BASE + 5)) { // SSH/GPG Derive Key
+    } else if ((buffer[5] > 200 && buffer[5] < 205) ||
+               (buffer[5] >= 211 && buffer[5] <= 213) ||
+               (buffer[5] > DERIVATION_V2_CODE_BASE && buffer[5] < DERIVATION_V2_CODE_BASE + 5)) { // SSH/GPG Derive Key
         okcrypto_ecdsa_eddsa(buffer);
     } else {
         features = okcrypto_load_slot(buffer[5]); // Keys 117 - 132 reserved
@@ -464,6 +467,7 @@ void okcrypto_derive_reset(void) {
 static void okcrypto_decrypt_slot(uint8_t *buffer) {
     uECC_set_rng(&RNG2);
     uint8_t features = 0;
+    type = 0;
 #ifdef DEBUG
     Serial.println();
     Serial.println("OKDECRYPT MESSAGE RECEIVED");
@@ -580,7 +584,9 @@ static void okcrypto_decrypt_slot(uint8_t *buffer) {
             fadeoff(0);
             return;
         }
-    } else if ((buffer[5] > 200 && buffer[5] < 205) || (buffer[5] > DERIVATION_V2_CODE_BASE && buffer[5] < DERIVATION_V2_CODE_BASE + 5)) { // SSH/GPG Derive Key
+    } else if ((buffer[5] > 200 && buffer[5] < 205) ||
+               (buffer[5] >= 212 && buffer[5] <= 214) ||
+               (buffer[5] > DERIVATION_V2_CODE_BASE && buffer[5] < DERIVATION_V2_CODE_BASE + 5)) { // SSH/GPG Derive Key
         okcrypto_ecdh(buffer);
     } else {
         features = okcrypto_load_slot(buffer[5]); // Keys 117 - 132 reserved
@@ -879,12 +885,11 @@ void okcrypto_ecdsa_eddsa(uint8_t *buffer) {
                 okcrypto_derive_key(2, large_buffer + (large_buffer_offset - 32), 0);
             } else if (buffer[5] == 203) {
                 okcrypto_derive_key(3, large_buffer + (large_buffer_offset - 32), 0);
-            } else if (buffer[5] == 211) {
-                okcrypto_derive_key(1, large_buffer + (large_buffer_offset - 32), RESERVED_KEY_WEB_AGENT_DERIVATION);
-            } else if (buffer[5] == 212) {
-                okcrypto_derive_key(2, large_buffer + (large_buffer_offset - 32), RESERVED_KEY_WEB_AGENT_DERIVATION);
-            } else if (buffer[5] == 213) {
-                okcrypto_derive_key(3, large_buffer + (large_buffer_offset - 32), RESERVED_KEY_WEB_AGENT_DERIVATION);
+            } else if (buffer[5] >= 211 && buffer[5] <= 213) {
+                uint8_t web_salt[33] = {0};
+                memcpy(web_salt + 1, large_buffer + (large_buffer_offset - 32), 32);
+                okcrypto_derive_key(buffer[5] - 210, web_salt, RESERVED_KEY_WEB_AGENT_DERIVATION);
+                memset(web_salt, 0, sizeof(web_salt));
             } else if (buffer[5] > DERIVATION_V2_CODE_BASE && buffer[5] < DERIVATION_V2_CODE_BASE + 4) {
                 // v2 (HKDF) agent derivation: 221 ed25519, 222 p256, 223 secp256k1
                 okcrypto_derive_key(buffer[5] - DERIVATION_V2_CODE_BASE, large_buffer + (large_buffer_offset - 32), RESERVED_KEY_DERIVATION);
@@ -1013,12 +1018,11 @@ void okcrypto_ecdh(uint8_t *buffer) {
                 okcrypto_derive_key(3, large_buffer + (large_buffer_offset - 32), 0);
             } else if (buffer[5] == 204) {
                 okcrypto_derive_key(4, large_buffer + (large_buffer_offset - 32), 0);
-            } else if (buffer[5] == 212) {
-                okcrypto_derive_key(2, large_buffer + (large_buffer_offset - 32), RESERVED_KEY_WEB_AGENT_DERIVATION);
-            } else if (buffer[5] == 213) {
-                okcrypto_derive_key(3, large_buffer + (large_buffer_offset - 32), RESERVED_KEY_WEB_AGENT_DERIVATION);
-            } else if (buffer[5] == 214) {
-                okcrypto_derive_key(4, large_buffer + (large_buffer_offset - 32), RESERVED_KEY_WEB_AGENT_DERIVATION);
+            } else if (buffer[5] >= 212 && buffer[5] <= 214) {
+                uint8_t web_salt[33] = {0};
+                memcpy(web_salt + 1, large_buffer + (large_buffer_offset - 32), 32);
+                okcrypto_derive_key(buffer[5] - 210, web_salt, RESERVED_KEY_WEB_AGENT_DERIVATION);
+                memset(web_salt, 0, sizeof(web_salt));
             } else if (buffer[5] > DERIVATION_V2_CODE_BASE + 1 && buffer[5] < DERIVATION_V2_CODE_BASE + 5) {
                 // v2 (HKDF) agent derivation: 222 p256, 223 secp256k1, 224 curve25519
                 okcrypto_derive_key(buffer[5] - DERIVATION_V2_CODE_BASE, large_buffer + (large_buffer_offset - 32), RESERVED_KEY_DERIVATION);
