@@ -1330,6 +1330,18 @@ int okcrypto_transit_repeated(void) {
     return transit_ctr_in_repeat;
 }
 
+/* Inbound counters must not go backwards: a frame older than the last one
+ * opened is a replay. Returns -1 for a stale frame, otherwise records ctr and
+ * returns 1 when it repeats the previous counter, 0 when it is new. */
+static int okcrypto_transit_ctr_accept(uint32_t ctr) {
+    if (transit_ctr_in_seen && ctr < transit_ctr_in_last)
+        return -1;
+    int repeat = transit_ctr_in_seen && ctr == transit_ctr_in_last;
+    transit_ctr_in_last = ctr;
+    transit_ctr_in_seen = 1;
+    return repeat;
+}
+
 static void okcrypto_transit_iv(uint8_t *iv, uint8_t dir, uint32_t ctr) {
     memset(iv, 0, 12);
     iv[0] = dir;
@@ -1400,9 +1412,12 @@ int okcrypto_transit_open(uint8_t *frame, int len) {
         memset(frame, 0, len);
         return -1;
     }
-    transit_ctr_in_repeat = transit_ctr_in_seen && ctr == transit_ctr_in_last;
-    transit_ctr_in_last = ctr;
-    transit_ctr_in_seen = 1;
+    int ctr_state = okcrypto_transit_ctr_accept(ctr);
+    if (ctr_state < 0) {
+        memset(frame, 0, len);
+        return -1;
+    }
+    transit_ctr_in_repeat = ctr_state;
     memmove(frame, ct, ptlen);
     memset(frame + ptlen, 0, len - ptlen);
 #ifdef DEBUG
