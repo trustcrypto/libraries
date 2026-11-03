@@ -7173,7 +7173,7 @@ void process_setreport() {
                     uint8_t temp2;
                     uint8_t mask;
                     uint8_t addcharslot = slot;
-                    if (profilemode)
+                    if (profilemode && addcharslot <= 12) // must match the slot mapping in set_slot()
                         addcharslot = addcharslot + 12;
                     if (keyboard_buffer[46] == 0x04) {
                         okeeprom_eeget_addchar(&temp, addcharslot);
