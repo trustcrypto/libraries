@@ -122,13 +122,7 @@ bool Password::profile1hashevaluate() {
     uint8_t temp[32];
     uint8_t KEK[32];
     uint8_t nonce2[32];
-#ifdef OK_EMULATOR
-    /* Declared uint8_t to match profile2hashevaluate() below; GCC rejects
-	   conflicting block-scope declarations in one translation unit. */
-    extern uint8_t Profile_Offset;
-#else
-    extern int Profile_Offset;
-#endif
+    extern int Profile_Offset; // defined in okcore.cpp
     extern uint8_t onlykeyhw;
     extern uint8_t Duo_config[2];
 
@@ -295,7 +289,7 @@ bool Password::profile2hashevaluate() {
     uint8_t temp[32];
     uint8_t KEK[32];
     uint8_t nonce2[32];
-    extern uint8_t Profile_Offset;
+    extern int Profile_Offset;
     extern uint8_t onlykeyhw;
 
     size_t guesslen = strlen(guess);
