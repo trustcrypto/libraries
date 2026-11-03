@@ -1050,7 +1050,10 @@ uint8_t ctap_add_user_entity(CborEncoder *map, CTAP_userEntity *user, int is_ver
 static int cred_cmp_func(const void *_a, const void *_b) {
     CTAP_credentialDescriptor *a = (CTAP_credentialDescriptor *)_a;
     CTAP_credentialDescriptor *b = (CTAP_credentialDescriptor *)_b;
-    return b->credential.id.count - a->credential.id.count;
+    // Descending, so invalidated (count 0) entries sort last. count comes from
+    // the caller's credential ID; a subtraction would not be a valid ordering.
+    return (b->credential.id.count > a->credential.id.count) -
+           (b->credential.id.count < a->credential.id.count);
 }
 
 // Return 1 if existing info found, 0 otherwise
