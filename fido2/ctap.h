@@ -376,6 +376,9 @@ struct _getAssertionState {
     } __attribute__((packed)) buf;
     CTAP_extensions extensions;
     uint8_t clientDataHash[CLIENT_DATA_HASH_SIZE];
+    // SHA-256 of the parsed rp.id of the current getAssertion. Never copied
+    // from a credential: credential bytes come from the caller.
+    uint8_t rpIdHashVerified[32];
     CTAP_credentialDescriptor creds[ALLOW_LIST_MAX_SIZE];
     uint8_t lastcmd;
     uint32_t count;
