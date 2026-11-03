@@ -83,6 +83,7 @@ bool Password::append(char character) {
 //reset the guessed password, one can guess again
 void Password::reset() {
     currentIndex = 0;
+    memset(guess, 0, sizeof(guess));
     guess[currentIndex] = STRING_TERMINATOR;
 }
 

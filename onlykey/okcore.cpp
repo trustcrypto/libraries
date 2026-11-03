@@ -776,11 +776,13 @@ void set_primary_pin(uint8_t *buffer, uint8_t keyboard_mode) {
     Serial.println("OKPIN MESSAGE RECEIVED");
 #endif
 
+    static char passguess[11];
     if (pin_set > 3)
         pin_set = 0;
 
     switch (pin_set) {
         case 0:
+            memset(passguess, 0, sizeof(passguess));
             password.reset();
 #ifdef DEBUG
             Serial.println("Enter PIN");
@@ -803,7 +805,6 @@ void set_primary_pin(uint8_t *buffer, uint8_t keyboard_mode) {
                     hidprint("Successful PIN entry");
                 else
                     keytype("Successful PIN entry");
-                static char passguess[10];
                 for (unsigned int i = 0; i <= strlen(password.guess); i++) {
                     passguess[i] = password.guess[i];
                 }
@@ -911,6 +912,7 @@ void set_primary_pin(uint8_t *buffer, uint8_t keyboard_mode) {
                 if (keyboard_mode == KEYBOARD_MANUAL_PIN_SET)
                     set_primary_pin(NULL, KEYBOARD_MANUAL_PIN_SET);
             }
+            memset(passguess, 0, sizeof(passguess));
             password.reset();
             blink(3);
             return;
@@ -922,11 +924,13 @@ void set_sd_pin(uint8_t *buffer, uint8_t keyboard_mode) {
     Serial.println("OKPINSDMESSAGE RECEIVED");
 #endif
 
+    static char passguess[11];
     if (pin_set < 4 || pin_set > 6)
         pin_set = 0;
 
     switch (pin_set) {
         case 0:
+            memset(passguess, 0, sizeof(passguess));
             password.reset();
 #ifdef DEBUG
             Serial.println("Enter PIN");
@@ -949,7 +953,6 @@ void set_sd_pin(uint8_t *buffer, uint8_t keyboard_mode) {
                     hidprint("Successful PIN entry");
                 else
                     keytype("Successful PIN entry");
-                static char passguess[10];
                 for (unsigned int i = 0; i <= strlen(password.guess); i++) {
                     passguess[i] = password.guess[i];
                 }
@@ -1039,6 +1042,7 @@ void set_sd_pin(uint8_t *buffer, uint8_t keyboard_mode) {
                 if (keyboard_mode == KEYBOARD_MANUAL_PIN_SET)
                     set_sd_pin(NULL, KEYBOARD_MANUAL_PIN_SET);
             }
+            memset(passguess, 0, sizeof(passguess));
             password.reset();
             blink(3);
             return;
@@ -1049,11 +1053,13 @@ void set_secondary_pin(uint8_t *buffer, uint8_t keyboard_mode) {
 #ifdef DEBUG
     Serial.println("OKPINSEC MESSAGE RECEIVED");
 #endif
+    static char passguess[11];
     if (pin_set < 7)
         pin_set = 0;
 
     switch (pin_set) {
         case 0:
+            memset(passguess, 0, sizeof(passguess));
             password.reset();
 #ifdef DEBUG
             Serial.println("Enter PIN");
@@ -1075,7 +1081,6 @@ void set_secondary_pin(uint8_t *buffer, uint8_t keyboard_mode) {
                     hidprint("Successful PIN entry");
                 else
                     keytype("Successful PIN entry");
-                static char passguess[10];
                 for (unsigned int i = 0; i <= strlen(password.guess); i++) {
                     passguess[i] = password.guess[i];
                 }
@@ -1179,6 +1184,7 @@ void set_secondary_pin(uint8_t *buffer, uint8_t keyboard_mode) {
                 if (keyboard_mode == KEYBOARD_MANUAL_PIN_SET)
                     set_secondary_pin(NULL, KEYBOARD_MANUAL_PIN_SET);
             }
+            memset(passguess, 0, sizeof(passguess));
             password.reset();
             blink(3);
             return;
