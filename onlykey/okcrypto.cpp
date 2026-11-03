@@ -813,6 +813,13 @@ void okcrypto_ecdsa_eddsa(uint8_t *buffer) {
         uint8_t tmp[32 + 32 + 64];
         SHA256_HashContext ectx = {{&init_SHA256, &update_SHA256, &finish_SHA256, 64, 32, tmp}};
         if (buffer[5] > 200) {
+            if (large_buffer_offset < 32) {
+                hidprint("Error invalid derived key payload size");
+                memset(large_buffer, 0, LARGE_BUFFER_SIZE);
+                large_buffer_offset = 0;
+                fadeoff(0);
+                return;
+            }
             if (buffer[5] != 201 && buffer[5] != 202 && buffer[5] != 203 &&
                 buffer[5] != 211 && buffer[5] != 212 && buffer[5] != 213 &&
                 buffer[5] != 221 && buffer[5] != 222 && buffer[5] != 223) {
@@ -941,6 +948,13 @@ void okcrypto_ecdh(uint8_t *buffer) {
         byteprint(large_buffer, large_buffer_offset);
 #endif
         if (buffer[5] > 200) {
+            if (large_buffer_offset < 64) {
+                hidprint("Error invalid derived key payload size");
+                memset(large_buffer, 0, LARGE_BUFFER_SIZE);
+                large_buffer_offset = 0;
+                fadeoff(0);
+                return;
+            }
             /* Ed25519 has no ECDH. */
             if (!((buffer[5] > 201 && buffer[5] < 205) || (buffer[5] > 211 && buffer[5] < 215) ||
                     (buffer[5] > DERIVATION_V2_CODE_BASE + 1 && buffer[5] < DERIVATION_V2_CODE_BASE + 5))) {
