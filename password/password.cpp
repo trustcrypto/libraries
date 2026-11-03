@@ -110,6 +110,13 @@ bool Password::evaluate() {
 
 
 //is the hash of the current guessed password equal to the stored hash?
+static bool hash_equal(const uint8_t *a, const uint8_t *b) {
+    uint8_t diff = 0;
+    for (int i = 0; i < 32; i++)
+        diff |= a[i] ^ b[i];
+    return diff == 0;
+}
+
 bool Password::profile1hashevaluate() {
     uint8_t p2mode;
     uint8_t temp[32];
@@ -192,7 +199,7 @@ bool Password::profile1hashevaluate() {
     for (byte i = 1; i < 32; i++) {
         //check if guessed char is equal to the password char
         integrityctr1++;
-        if (i == 31 && pass2 == guessed2) {
+        if (i == 31 && pass2 == guessed2 && hash_equal(temp, profilekey)) {
             okeeprom_eeget_2ndprofilemode(&p2mode); //get 2nd profile mode
 #ifdef DEBUG
             Serial.print("Profile Mode");
@@ -344,7 +351,7 @@ bool Password::profile2hashevaluate() {
 
         //check if guessed char is equal to the password char
         integrityctr1++;
-        if (i == 31 && pass2 == guessed2) {
+        if (i == 31 && pass2 == guessed2 && hash_equal(temp, profilekey)) {
             okeeprom_eeget_2ndprofilemode(&p2mode); //get 2nd profile mode
             if (p2mode != NONENCRYPTEDPROFILE) { //profile key not used for plausible deniability mode
 #ifdef STD_VERSION
@@ -426,7 +433,7 @@ bool Password::sdhashevaluate() {
     for (byte i = 1; i < 32; i++) {
 
         //check if guessed char is equal to the password char
-        if (i == 31 && pass2 == guessed2) {
+        if (i == 31 && pass2 == guessed2 && hash_equal(sdhash, profilekey)) {
             return true; //both strings ended and all previous characters are equal
         } else if (pass2 != guessed2) {
             return false; //difference
