@@ -101,7 +101,7 @@ static inline double decode_half(unsigned short half)
 #endif
 
 #ifndef CBOR_PARSER_MAX_RECURSIONS
-#  define CBOR_PARSER_MAX_RECURSIONS 1024
+#  define CBOR_PARSER_MAX_RECURSIONS 32
 #endif
 
 /*
