@@ -436,7 +436,8 @@ void recvmsg(int n) {
                     set_built_in_pin();
                     set_private(large_buffer);
                     // Lock backup key since there is no PIN required
-                    okeeprom_eeset_backupkeymode((uint8_t *)1);
+                    uint8_t locked_mode = 1;
+                    okeeprom_eeset_backupkeymode(&locked_mode);
                     memset(large_buffer, 0, 64);
                     initcheck = false;
                 } else {
@@ -552,7 +553,8 @@ void recvmsg(int n) {
                         ctaphid_handle_packet(recv_buffer);
                         set_built_in_pin();
                         // Lock backup key since there is no PIN required
-                        okeeprom_eeset_backupkeymode((uint8_t *)1);
+                        uint8_t locked_mode = 1;
+                        okeeprom_eeset_backupkeymode(&locked_mode);
                     }
                     if (initialized == true && unlocked == true) {
                         if (!useinterface) {
@@ -724,7 +726,8 @@ void okcore_quick_setup(uint8_t step) {
     if (step == KEYBOARD_ONLYKEY_DUO_BACKUP || step == KEYBOARD_ONLYKEY_DUO_NO_BACKUP) {
         // If KEYBOARD_ONLYKEY_DUO_BACKUP this disables changing backup key
         // If KEYBOARD_ONLYKEY_DUO_NO_BACKUP this disables backup feature
-        okeeprom_eeset_backupkeymode((uint8_t *)1);
+        uint8_t locked_mode = 1;
+        okeeprom_eeset_backupkeymode(&locked_mode);
     }
 
     CPU_RESTART();
