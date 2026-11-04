@@ -3174,7 +3174,12 @@ void okcore_flashset_2ndpinhashpublic(uint8_t *ptr) {
     okeeprom_eeget_2ndprofilemode(&p2mode);
     if (p2mode != NONENCRYPTEDPROFILE) { //profile key not used for plausible deniability mode or international fw
 #ifdef STD_VERSION
-        if (!initcheck) {
+        // The profile key is wrapped below under the shared secret of the two
+        // PINs, and an unlock unwraps it with that secret only when the mode
+        // is STDPROFILE2 (password.cpp). Record the mode whenever a second PIN
+        // is set, not only at first setup, so a second PIN added in config
+        // mode is unwrapped with the secret it was wrapped with.
+        if (p2mode != STDPROFILE2) {
             // Default to standard profile
             p2mode = STDPROFILE2;
             okeeprom_eeset_2ndprofilemode(&p2mode);
