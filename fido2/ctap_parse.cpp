@@ -12,6 +12,7 @@
 #include "u2f.h"
 #include "ctap_parse.h"
 #include "ctap_errors.h"
+#include "extensions.h"
 #include "cose_key.h"
 #include "util.h"
 #include "log.h"
@@ -635,6 +636,7 @@ uint8_t ctap_parse_make_credential(CTAP_makeCredential *MC, CborEncoder *encoder
 
     memset(MC, 0, sizeof(CTAP_makeCredential));
     MC->up = 0xff;
+    getAssertionState.customCredIdSize = 0;
     ret = cbor_parser_init(request, length, CborValidateCanonicalFormat, &parser, &it);
     check_retr(ret);
 
@@ -817,15 +819,27 @@ uint8_t parse_credential_descriptor(CborValue *arr, CTAP_credentialDescriptor *c
         // Copy the full credential id into customCredId, then copy a bounded
         // prefix into cred->credential.id. is_extension_request() reads only the
         // leading tag from that prefix.
+        // customCredId is one buffer shared by the whole list, so it holds the one
+        // extension request; ids of other authenticators are not kept, and a
+        // second extension request is refused rather than overwriting the first.
         static_assert(sizeof(getAssertionState.customCredId) >= sizeof(cred->credential.id),
             "customCredId must be able to hold a whole CredentialId prefix");
-        buflen = sizeof(getAssertionState.customCredId);
-        ret = cbor_value_copy_byte_string(&val, getAssertionState.customCredId, &buflen, NULL);
-        getAssertionState.customCredIdSize = buflen;
+        uint8_t custom[sizeof(getAssertionState.customCredId)];
+        buflen = sizeof(custom);
+        ret = cbor_value_copy_byte_string(&val, custom, &buflen, NULL);
+        check_ret(ret);
 
         memset(&cred->credential.id, 0, sizeof(cred->credential.id));
-        memcpy(&cred->credential.id, getAssertionState.customCredId,
+        memcpy(&cred->credential.id, custom,
             buflen < sizeof(cred->credential.id) ? buflen : sizeof(cred->credential.id));
+        if (is_extension_request(custom, buflen)) {
+            if (getAssertionState.customCredIdSize) {
+                printf2(TAG_ERR, "Error, more than one extension request\n");
+                return CTAP2_ERR_INVALID_CREDENTIAL;
+            }
+            memcpy(getAssertionState.customCredId, custom, buflen);
+            getAssertionState.customCredIdSize = buflen;
+        }
         // OnlyKey required change end
     }
     check_ret(ret);
@@ -1049,6 +1063,7 @@ uint8_t ctap_parse_get_assertion(CTAP_getAssertion *GA, uint8_t *request, int le
     memset(GA, 0, sizeof(CTAP_getAssertion));
     GA->creds = getAssertionState.creds; // Save stack memory
     GA->up = 0xff;
+    getAssertionState.customCredIdSize = 0;
 
     ret = cbor_parser_init(request, length, CborValidateCanonicalFormat, &parser, &it);
     check_ret(ret);

@@ -170,7 +170,7 @@ static uint8_t last_request_opt3 = 0;
 
 int16_t bridge_to_onlykey(uint8_t *_appid, uint8_t *keyh, int handle_len, uint8_t *output) {
     int8_t ret = 0;
-    uint8_t client_handle[256];
+    uint8_t client_handle[256] = {0};
 
     if (handle_len < OK_KEYHANDLE_HEADER_LEN || handle_len > (int)sizeof(client_handle)) {
 #ifdef DEBUG
@@ -200,6 +200,9 @@ int16_t bridge_to_onlykey(uint8_t *_appid, uint8_t *keyh, int handle_len, uint8_
     if (wc_level) {
         outputmode = DISCARD; // Discard output
         if (cmd == OKCONNECT && !CRYPTO_AUTH) {
+            if (handle_len < 43) {
+                return CTAP1_ERR_INVALID_LENGTH;
+            }
             large_buffer_offset = 0;
             // Set time if not already set
             set_time(client_handle);
@@ -240,10 +243,14 @@ int16_t bridge_to_onlykey(uint8_t *_appid, uint8_t *keyh, int handle_len, uint8_
             //NACL for transit encryption, this setting isn't currently user configurable
             type = 1;
             if (okcrypto_shared_secret(ecc_public_key, transit_key)) {
+                memset(ecc_private_key, 0, sizeof(ecc_private_key));
+                memset(transit_key, 0, sizeof(transit_key));
                 ret = CTAP2_ERR_OPERATION_DENIED;
                 printf2(TAG_ERR, "Error with ECC Shared Secret\n");
                 return ret;
             }
+            // The ephemeral transit private key is not needed past this point.
+            memset(ecc_private_key, 0, sizeof(ecc_private_key));
 #ifdef DEBUG
             Serial.println("Transit Shared Secret = ");
             byteprint(transit_key, 32);
@@ -264,7 +271,7 @@ int16_t bridge_to_onlykey(uint8_t *_appid, uint8_t *keyh, int handle_len, uint8_
             // (HKDF). The origin is not an input, so every trusted origin gets
             // the same key for a label.
             if (opt1 >= DERIVE_PUBLIC_KEY) {
-                if (opt1 > DERIVE_OPCODE_MAX) {
+                if (opt1 > DERIVE_OPCODE_MAX || handle_len < 43 + 32) {
                     ret = CTAP2_ERR_EXTENSION_NOT_SUPPORTED;
                     wipedata();
                     return ret;
@@ -347,12 +354,19 @@ int16_t bridge_to_onlykey(uint8_t *_appid, uint8_t *keyh, int handle_len, uint8_
 #endif
 
                 if (opt1 == DERIVE_SHAREDSEC) { // Return DERIVE_PUBLIC_KEY and DERIVE_SHAREDSEC
+                    if (handle_len < 43 + 32 + pubsize || (pubsize == 65 && input_pubkey[0] != 0x04)) {
+                        memset(ecc_private_key, 0, sizeof(ecc_private_key));
+                        ret = CTAP1_ERR_INVALID_LENGTH;
+                        wipedata();
+                        return ret;
+                    }
 #ifdef DEBUG
                     Serial.println("Input Pubkey");
                     byteprint(input_pubkey, pubsize);
 #endif
                     if (os == 'W' && packet_buffer_details[3] == 'W') {
                         // Already generated shared secret, Windows duplicate request
+                        memset(ecc_private_key, 0, sizeof(ecc_private_key));
                         packet_buffer_details[3] = 0;
                         ret = send_stored_response(output, opt3);
                         return ret;
@@ -360,11 +374,18 @@ int16_t bridge_to_onlykey(uint8_t *_appid, uint8_t *keyh, int handle_len, uint8_
                         // Generate Shared Secret
                         {
                             int g = web_agent_derive_gate(USER_INPUT_NONE, client_handle + 43, 32 + pubsize);
-                            if (g) return g;
+                            if (g) {
+                                memset(ecc_private_key, 0, sizeof(ecc_private_key));
+                                return g;
+                            }
                             if (os == 'W') packet_buffer_details[3] = 'W';
                         }
                         // Use ecc_private_key and provided pubkey to generate shared secret
-                        if (okcrypto_shared_secret(input_pubkey, temp + 32 + sizeof(UNLOCKED) + 1 + pubsize)) { // Generate derived key shared secret in temp
+                        uint8_t *raw_pubkey = (pubsize == 65) ? (input_pubkey + 1) : input_pubkey;
+                        int ss = okcrypto_shared_secret(raw_pubkey, temp + 32 + sizeof(UNLOCKED) + 1 + pubsize); // Generate derived key shared secret in temp
+                        memset(ecc_private_key, 0, sizeof(ecc_private_key));
+                        if (ss) {
+                            memset(temp, 0, sizeof(temp));
                             ret = CTAP2_ERR_OPERATION_DENIED;
                             printf2(TAG_ERR, "Error with ECC Shared Secret\n");
                             return ret;
@@ -374,10 +395,12 @@ int16_t bridge_to_onlykey(uint8_t *_appid, uint8_t *keyh, int handle_len, uint8_
                         byteprint(temp + 32 + sizeof(UNLOCKED) + 1 + pubsize, 32);
 #endif
                         send_transport_response(temp, 32 + sizeof(UNLOCKED) + 1 + pubsize + sizeof(ecc_private_key), opt3, false); // Encrypt data in trasit using transit key if opt3 and send right away
+                        memset(temp, 0, sizeof(temp));
                         ret = send_stored_response(output, opt3);
                         return ret;
                     }
                 } else { // Just Return DERIVE_PUBLIC_KEY
+                    memset(ecc_private_key, 0, sizeof(ecc_private_key));
                     send_transport_response(temp, 32 + sizeof(UNLOCKED) + 1 + pubsize, opt3, false); //Encrypt if opt3 and send right away
                     ret = send_stored_response(output, opt3);
                     return ret;

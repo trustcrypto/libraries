@@ -112,10 +112,20 @@ extern "C" {
 /*************************************/
 //Hardware CPU Restart
 /*************************************/
-#define CPU_RESTART_ADDR (uint32_t *)0xE000ED0C
+#define CPU_RESTART_ADDR ((volatile uint32_t *)0xE000ED0C)
 #define CPU_RESTART_VAL 0x5FA0004
-// Restart device
-#define CPU_RESTART() (*CPU_RESTART_ADDR = CPU_RESTART_VAL);
+// Restart device. The reset request takes effect a few cycles after the
+// store, and callers rely on nothing after CPU_RESTART() running.
+#if defined(__arm__)
+#define CPU_RESTART() do { \
+        __asm__ volatile("dsb" ::: "memory"); \
+        *CPU_RESTART_ADDR = CPU_RESTART_VAL; \
+        __asm__ volatile("dsb" ::: "memory"); \
+        for (;;) {} \
+    } while (0)
+#else
+#define CPU_RESTART() (*CPU_RESTART_ADDR = CPU_RESTART_VAL)
+#endif
 /*************************************/
 //Global Buffer Sizes
 /*************************************/

@@ -821,8 +821,12 @@ int ctap_authenticate_credential(struct rpId *rp, CTAP_credentialDescriptor *des
             return u2f_authenticate_credential((struct u2f_key_handle *)&desc->credential.id, U2F_KEY_HANDLE_SIZE, rpIdHash);
             break;
         case PUB_KEY_CRED_CUSTOM:
-            return is_extension_request(getAssertionState.customCredId, getAssertionState.customCredIdSize);
-            break;
+            // OnlyKey required change: a custom id is never one of this token's
+            // credentials. Extension requests are counted by
+            // ctap_filter_invalid_credentials() from their own bytes; testing the
+            // shared customCredId here authenticated every custom descriptor in
+            // the list, without an rpId check.
+            return 0;
         default:
             printf1(TAG_ERR, "PUB_KEY_CRED_UNKNOWN %x\r\n", desc->type);
             break;
@@ -1046,7 +1050,10 @@ uint8_t ctap_add_user_entity(CborEncoder *map, CTAP_userEntity *user, int is_ver
 static int cred_cmp_func(const void *_a, const void *_b) {
     CTAP_credentialDescriptor *a = (CTAP_credentialDescriptor *)_a;
     CTAP_credentialDescriptor *b = (CTAP_credentialDescriptor *)_b;
-    return b->credential.id.count - a->credential.id.count;
+    // Descending, so invalidated (count 0) entries sort last. count comes from
+    // the caller's credential ID; a subtraction would not be a valid ordering.
+    return (b->credential.id.count > a->credential.id.count) -
+           (b->credential.id.count < a->credential.id.count);
 }
 
 // Return 1 if existing info found, 0 otherwise
@@ -1055,7 +1062,7 @@ static int add_existing_user_info(CTAP_credentialDescriptor *cred) {
     int index = STATE.rk_stored;
     int i;
     // OnlyKey required change start
-    if (!webcryptcheck(NULL, NULL)) {
+    if (!webcryptcheck(getAssertionState.rpIdHashVerified, NULL)) {
         for (i = 0; i < index; i++) {
             load_nth_valid_rk(i, &rk);
             if (is_matching_rk(&rk, (CTAP_residentKey *)&cred->credential)) {
@@ -1077,6 +1084,10 @@ int ctap_filter_invalid_credentials(CTAP_getAssertion *GA) {
     int count = 0;
     uint8_t rpIdHash[32];
     CTAP_residentKey rk;
+
+    crypto_sha256_init();
+    crypto_sha256_update(GA->rp.id, GA->rp.size);
+    crypto_sha256_final(getAssertionState.rpIdHashVerified);
 
     for (i = 0; i < (unsigned int)GA->credLen; i++) {
         if (!ctap_authenticate_credential(&GA->rp, &GA->creds[i])) {
@@ -1281,7 +1292,7 @@ uint8_t ctap_get_next_assertion(CborEncoder *encoder) {
     }
 
     auth_data_update_count(&getAssertionState.buf.authData);
-    memmove(getAssertionState.buf.authData.rpIdHash, cred->credential.id.rpIdHash, 32);
+    memmove(getAssertionState.buf.authData.rpIdHash, getAssertionState.rpIdHashVerified, 32);
 
     if (cred->credential.user.id_size) {
         printf1(TAG_GREEN, "adding user info to assertion response\r\n");

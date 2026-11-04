@@ -83,7 +83,7 @@ void finish_SHA256(const uECC_HashContext *base, uint8_t *hash_result) {
 
 int webcryptcheck(uint8_t *_appid, uint8_t *buffer) {
     /* Trusted webcrypt origins, compiled in. hash: SHA-256 of the rpId.
-     * name: the rpId followed by 0x02, compared with ctap_buffer+4. */
+     * name: the rpId, for debug output only. */
     struct trusted_origin {
         const char *hash;
         const char *name;
@@ -100,20 +100,12 @@ int webcryptcheck(uint8_t *_appid, uint8_t *buffer) {
             "\x61\x70\x70\x73\x2E\x6F\x6E\x6C\x79\x6B\x65\x79\x2E\x69\x6F\x02", 16},
     };
 #define TRUSTED_ORIGIN_COUNT ((int)(sizeof(trusted) / sizeof(trusted[0])))
-#define TRUSTED_NAME_MAX 16
 
     //const char stored_appid_u2f[] = "\x23\xCD\xF4\x07\xFD\x90\x4F\xEE\x8B\x96\x40\x08\xB0\x49\xC5\x5E\xA8\x81\x13\x36\xA3\xA5\x17\x1B\x58\xD6\x6A\xEC\xF3\x79\xE7\x4A";
     //const char stored_clientDataHash[] = "\x57\x81\xAF\x14\xB9\x71\x6D\x87\x24\x61\x8E\x8A\x6F\xD6\x50\xEB\x6B\x02\x6B\xEC\x6B\xAD\xB3\xB1\xA3\x01\xAA\x0D\x75\xF6\x0C\x14";
     //const char stored_clientDataHash_u2f[] = "\x78\x4E\x39\xF2\xDA\xF8\xE6\xA4\xBB\xD7\x15\x0D\x39\x34\xCC\x81\x5F\x6E\xE7\x6F\x57\xBC\x02\x6A\x0E\x49\x33\x13\xF4\x36\x63\x47";
-    uint8_t rpid[TRUSTED_NAME_MAX];
-    extern uint8_t ctap_buffer[CTAPHID_BUFFER_SIZE];
-    memcpy(rpid, ctap_buffer + 4, TRUSTED_NAME_MAX);
     uint8_t wc_policy = okcore_webcrypt_policy();
 #ifdef DEBUG
-    Serial.println("Ctap buffer:");
-    byteprint(ctap_buffer, 12);
-    Serial.println("rpid seen:");
-    byteprint((uint8_t *)rpid, TRUSTED_NAME_MAX);
     Serial.println("_appid seen:");
     byteprint(_appid, 32);
     for (int t = 0; t < TRUSTED_ORIGIN_COUNT; t++) {
@@ -126,13 +118,14 @@ int webcryptcheck(uint8_t *_appid, uint8_t *buffer) {
     return 2; // Trust all origins for debug firmware
 #endif
 
-    /* _appid is NULL when called from add_existing_user_info() (ctap.cpp);
-     * only the name is compared then. */
+    /* Only the SHA-256 of an rpId/appId parsed from the request is trusted.
+     * The bytes at a fixed offset of ctap_buffer are not a parsed field and
+     * are not compared. */
+    if (!_appid)
+        return 0;
     int origin_ok = 0;
     for (int t = 0; t < TRUSTED_ORIGIN_COUNT && !origin_ok; t++) {
-        if (_appid && memcmp(trusted[t].hash, _appid, 32) == 0)
-            origin_ok = 1;
-        else if (memcmp(trusted[t].name, rpid, trusted[t].namelen) == 0)
+        if (memcmp(trusted[t].hash, _appid, 32) == 0)
             origin_ok = 1;
     }
     if (origin_ok && !(wc_policy & OKWC_DISABLE_EXT)) {

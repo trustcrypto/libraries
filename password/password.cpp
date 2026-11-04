@@ -83,6 +83,7 @@ bool Password::append(char character) {
 //reset the guessed password, one can guess again
 void Password::reset() {
     currentIndex = 0;
+    memset(guess, 0, sizeof(guess));
     guess[currentIndex] = STRING_TERMINATOR;
 }
 
@@ -109,18 +110,19 @@ bool Password::evaluate() {
 
 
 //is the hash of the current guessed password equal to the stored hash?
+static bool hash_equal(const uint8_t *a, const uint8_t *b) {
+    uint8_t diff = 0;
+    for (int i = 0; i < 32; i++)
+        diff |= a[i] ^ b[i];
+    return diff == 0;
+}
+
 bool Password::profile1hashevaluate() {
     uint8_t p2mode;
     uint8_t temp[32];
     uint8_t KEK[32];
     uint8_t nonce2[32];
-#ifdef OK_EMULATOR
-    /* Declared uint8_t to match profile2hashevaluate() below; GCC rejects
-	   conflicting block-scope declarations in one translation unit. */
-    extern uint8_t Profile_Offset;
-#else
-    extern int Profile_Offset;
-#endif
+    extern int Profile_Offset; // defined in okcore.cpp
     extern uint8_t onlykeyhw;
     extern uint8_t Duo_config[2];
 
@@ -191,7 +193,7 @@ bool Password::profile1hashevaluate() {
     for (byte i = 1; i < 32; i++) {
         //check if guessed char is equal to the password char
         integrityctr1++;
-        if (i == 31 && pass2 == guessed2) {
+        if (i == 31 && pass2 == guessed2 && hash_equal(temp, profilekey)) {
             okeeprom_eeget_2ndprofilemode(&p2mode); //get 2nd profile mode
 #ifdef DEBUG
             Serial.print("Profile Mode");
@@ -287,7 +289,7 @@ bool Password::profile2hashevaluate() {
     uint8_t temp[32];
     uint8_t KEK[32];
     uint8_t nonce2[32];
-    extern uint8_t Profile_Offset;
+    extern int Profile_Offset;
     extern uint8_t onlykeyhw;
 
     size_t guesslen = strlen(guess);
@@ -343,7 +345,7 @@ bool Password::profile2hashevaluate() {
 
         //check if guessed char is equal to the password char
         integrityctr1++;
-        if (i == 31 && pass2 == guessed2) {
+        if (i == 31 && pass2 == guessed2 && hash_equal(temp, profilekey)) {
             okeeprom_eeget_2ndprofilemode(&p2mode); //get 2nd profile mode
             if (p2mode != NONENCRYPTEDPROFILE) { //profile key not used for plausible deniability mode
 #ifdef STD_VERSION
@@ -425,7 +427,7 @@ bool Password::sdhashevaluate() {
     for (byte i = 1; i < 32; i++) {
 
         //check if guessed char is equal to the password char
-        if (i == 31 && pass2 == guessed2) {
+        if (i == 31 && pass2 == guessed2 && hash_equal(sdhash, profilekey)) {
             return true; //both strings ended and all previous characters are equal
         } else if (pass2 != guessed2) {
             return false; //difference

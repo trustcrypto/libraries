@@ -172,15 +172,63 @@ extern int outputmode;
 extern uint8_t pending_operation;
 extern uint8_t transit_key[32];
 
+/* Feature byte of the key in a stored slot, with type set to its low nibble,
+ * like okcore_flashget_RSA()/okcore_flashget_ECC() but without reading or
+ * decrypting the key. Returns 0 and sets type to 0 when the slot is not a
+ * host-usable slot (RSA 1-4, ECC 101-116) or holds no key. */
+static uint8_t okcrypto_slot_features(uint8_t slot) {
+    uint8_t features = 0;
+    if (slot >= 1 && slot <= 4)
+        okeeprom_eeget_rsakey(&features, slot);
+    else if (slot >= 101 && slot <= 116)
+        okeeprom_eeget_ecckey(&features, slot);
+    type = features & 0x0F;
+    return features;
+}
+
+/* The stored key is read and decrypted only once the user has confirmed
+ * (CRYPTO_AUTH == 4); before that only its type and features are read. */
+static uint8_t okcrypto_load_slot(uint8_t slot) {
+    if (CRYPTO_AUTH != 4)
+        return okcrypto_slot_features(slot);
+    type = 0;
+    if (slot >= 1 && slot <= 4)
+        return okcore_flashget_RSA(slot);
+    if (slot >= 101 && slot <= 116)
+        return okcore_flashget_ECC(slot);
+    return 0;
+}
+
+static void okcrypto_wipe_slot_keys(void) {
+    memset(rsa_private_key, 0, sizeof(rsa_private_key));
+    memset(ecc_private_key, 0, sizeof(ecc_private_key));
+}
+
+static void okcrypto_sign_slot(uint8_t *buffer);
+static void okcrypto_decrypt_slot(uint8_t *buffer);
+
 void okcrypto_sign(uint8_t *buffer) {
+    const bool confirmed = (CRYPTO_AUTH == 4);
+    okcrypto_sign_slot(buffer);
+    if (confirmed) okcrypto_wipe_slot_keys();
+}
+
+void okcrypto_decrypt(uint8_t *buffer) {
+    const bool confirmed = (CRYPTO_AUTH == 4);
+    okcrypto_decrypt_slot(buffer);
+    if (confirmed) okcrypto_wipe_slot_keys();
+}
+
+static void okcrypto_sign_slot(uint8_t *buffer) {
     uECC_set_rng(&RNG2);
     uint8_t features = 0;
+    type = 0;
 #ifdef DEBUG
     Serial.println();
     Serial.println("OKSIGN MESSAGE RECEIVED");
 #endif
     if (buffer[5] < 101) { //Slot 101-132 are for ECC, 1-4 are for RSA
-        features = okcore_flashget_RSA((int)buffer[5]);
+        features = okcrypto_load_slot(buffer[5]);
         if (type == 0) {
             hidprint("Error no key set in this slot");
             fadeoff(0);
@@ -203,12 +251,12 @@ void okcrypto_sign(uint8_t *buffer) {
             fadeoff(0);
         }
         return;
-    } else if ((buffer[5] > 200 && buffer[5] < 205) || (buffer[5] > DERIVATION_V2_CODE_BASE && buffer[5] < DERIVATION_V2_CODE_BASE + 5)) { // SSH/GPG Derive Key
+    } else if ((buffer[5] > 200 && buffer[5] < 205) ||
+               (buffer[5] >= 211 && buffer[5] <= 213) ||
+               (buffer[5] > DERIVATION_V2_CODE_BASE && buffer[5] < DERIVATION_V2_CODE_BASE + 5)) { // SSH/GPG Derive Key
         okcrypto_ecdsa_eddsa(buffer);
     } else {
-        if (buffer[5] > 100 && buffer[5] < 117) { // Keys 117 - 132 reserved
-            features = okcore_flashget_ECC((int)buffer[5]);
-        }
+        features = okcrypto_load_slot(buffer[5]); // Keys 117 - 132 reserved
         if (type == 0) {
             hidprint("Error no key set in this slot");
             fadeoff(0);
@@ -360,7 +408,16 @@ int okcrypto_xwing_derive_decaps(const uint8_t *label32, const uint8_t *ct, uint
     return rc;
 }
 
+static void okcrypto_getpubkey_slot(uint8_t *buffer);
+
+/* Public keys are computed from the private key; it is not kept. */
 void okcrypto_getpubkey(uint8_t *buffer) {
+    okcrypto_getpubkey_slot(buffer);
+    memset(rsa_private_key, 0, sizeof(rsa_private_key));
+    memset(ecc_private_key, 0, sizeof(ecc_private_key));
+}
+
+static void okcrypto_getpubkey_slot(uint8_t *buffer) {
 #ifdef DEBUG
     Serial.println();
     Serial.println("OKGETPUBKEY MESSAGE RECEIVED");
@@ -407,9 +464,10 @@ void okcrypto_derive_reset(void) {
     memset(large_buffer, 0, LARGE_BUFFER_SIZE);
 }
 
-void okcrypto_decrypt(uint8_t *buffer) {
+static void okcrypto_decrypt_slot(uint8_t *buffer) {
     uECC_set_rng(&RNG2);
     uint8_t features = 0;
+    type = 0;
 #ifdef DEBUG
     Serial.println();
     Serial.println("OKDECRYPT MESSAGE RECEIVED");
@@ -506,7 +564,7 @@ void okcrypto_decrypt(uint8_t *buffer) {
         return;
     }
     if (buffer[5] < 101) { //Slot 101-132 are for ECC, 1-4 are for RSA
-        features = okcore_flashget_RSA(buffer[5]);
+        features = okcrypto_load_slot(buffer[5]);
         if (type == 0) {
             hidprint("Error no key set in this slot");
             fadeoff(0);
@@ -526,19 +584,12 @@ void okcrypto_decrypt(uint8_t *buffer) {
             fadeoff(0);
             return;
         }
-    } else if ((buffer[5] > 200 && buffer[5] < 205) || (buffer[5] > DERIVATION_V2_CODE_BASE && buffer[5] < DERIVATION_V2_CODE_BASE + 5)) { // SSH/GPG Derive Key
+    } else if ((buffer[5] > 200 && buffer[5] < 205) ||
+               (buffer[5] >= 212 && buffer[5] <= 214) ||
+               (buffer[5] > DERIVATION_V2_CODE_BASE && buffer[5] < DERIVATION_V2_CODE_BASE + 5)) { // SSH/GPG Derive Key
         okcrypto_ecdh(buffer);
     } else {
-        if (buffer[5] > 100 && buffer[5] < 117) { // Keys 117 - 132 reserved
-            // Before confirmation, read only the key type; the key is loaded and
-            // decrypted once CRYPTO_AUTH == 4.
-            if ((type == KEYTYPE_MLKEM768 || type == KEYTYPE_XWING) && CRYPTO_AUTH && CRYPTO_AUTH != 4) {
-                okeeprom_eeget_ecckey(&type, buffer[5]);
-                type = type & 0x0F;
-            } else {
-                features = okcore_flashget_ECC((int)buffer[5]);
-            }
-        }
+        features = okcrypto_load_slot(buffer[5]); // Keys 117 - 132 reserved
         if (type == 0) {
             hidprint("Error no key set in this slot");
             fadeoff(0);
@@ -789,8 +840,19 @@ void okcrypto_derive_key(uint8_t ktype, uint8_t *data, uint8_t slot) {
     okcrypto_compute_pubkey();
 }
 
+/* A failed ECC operation must not send anything that looks like a result. */
+static void okcrypto_ecc_abort(const char *msg) {
+    pending_operation = 0;
+    hidprint(msg);
+    memset(large_buffer, 0, LARGE_BUFFER_SIZE);
+    large_buffer_offset = 0;
+    memset(ecc_public_key, 0, sizeof(ecc_public_key));
+    memset(ecc_private_key, 0, sizeof(ecc_private_key));
+    fadeoff(1);
+}
+
 void okcrypto_ecdsa_eddsa(uint8_t *buffer) {
-    uint8_t ecc_signature[64];
+    uint8_t ecc_signature[64] = {0};
     uint8_t hash[64];
 #ifdef DEBUG
     Serial.println();
@@ -813,11 +875,17 @@ void okcrypto_ecdsa_eddsa(uint8_t *buffer) {
         uint8_t tmp[32 + 32 + 64];
         SHA256_HashContext ectx = {{&init_SHA256, &update_SHA256, &finish_SHA256, 64, 32, tmp}};
         if (buffer[5] > 200) {
+            if (large_buffer_offset < 32) {
+                hidprint("Error invalid derived key payload size");
+                memset(large_buffer, 0, LARGE_BUFFER_SIZE);
+                large_buffer_offset = 0;
+                fadeoff(0);
+                return;
+            }
             if (buffer[5] != 201 && buffer[5] != 202 && buffer[5] != 203 &&
                 buffer[5] != 211 && buffer[5] != 212 && buffer[5] != 213 &&
                 buffer[5] != 221 && buffer[5] != 222 && buffer[5] != 223) {
-                hidprint("Error invalid derived key slot");
-                fadeoff(0);
+                okcrypto_ecc_abort("Error invalid derived key slot");
                 return;
             }
             if (buffer[5] == 201) {
@@ -827,12 +895,11 @@ void okcrypto_ecdsa_eddsa(uint8_t *buffer) {
                 okcrypto_derive_key(2, large_buffer + (large_buffer_offset - 32), 0);
             } else if (buffer[5] == 203) {
                 okcrypto_derive_key(3, large_buffer + (large_buffer_offset - 32), 0);
-            } else if (buffer[5] == 211) {
-                okcrypto_derive_key(1, large_buffer + (large_buffer_offset - 32), RESERVED_KEY_WEB_AGENT_DERIVATION);
-            } else if (buffer[5] == 212) {
-                okcrypto_derive_key(2, large_buffer + (large_buffer_offset - 32), RESERVED_KEY_WEB_AGENT_DERIVATION);
-            } else if (buffer[5] == 213) {
-                okcrypto_derive_key(3, large_buffer + (large_buffer_offset - 32), RESERVED_KEY_WEB_AGENT_DERIVATION);
+            } else if (buffer[5] >= 211 && buffer[5] <= 213) {
+                uint8_t web_salt[33] = {0};
+                memcpy(web_salt + 1, large_buffer + (large_buffer_offset - 32), 32);
+                okcrypto_derive_key(buffer[5] - 210, web_salt, RESERVED_KEY_WEB_AGENT_DERIVATION);
+                memset(web_salt, 0, sizeof(web_salt));
             } else if (buffer[5] > DERIVATION_V2_CODE_BASE && buffer[5] < DERIVATION_V2_CODE_BASE + 4) {
                 // v2 (HKDF) agent derivation: 221 ed25519, 222 p256, 223 secp256k1
                 okcrypto_derive_key(buffer[5] - DERIVATION_V2_CODE_BASE, large_buffer + (large_buffer_offset - 32), RESERVED_KEY_DERIVATION);
@@ -842,6 +909,7 @@ void okcrypto_ecdsa_eddsa(uint8_t *buffer) {
             // Not using derived key, using stored key
             okcore_flashget_ECC(buffer[5]); //Default Key stored in ECC slot 32
         } else {
+            okcrypto_ecc_abort("Error invalid ECC key slot");
             return;
         }
 
@@ -865,8 +933,7 @@ void okcrypto_ecdsa_eddsa(uint8_t *buffer) {
 #endif
         pending_operation = CTAP2_ERR_OPERATION_PENDING;
         if (type != 0x01 && type != 0x02 && type != 0x03) {
-            hidprint("Error key not set as signature key");
-            fadeoff(0);
+            okcrypto_ecc_abort("Error key not set as signature key");
             return;
         }
         if (type == 0x01)
@@ -882,6 +949,9 @@ void okcrypto_ecdsa_eddsa(uint8_t *buffer) {
 #ifdef DEBUG
                 Serial.println("Signature Failed ");
 #endif
+                memset(ecc_signature, 0, sizeof(ecc_signature));
+                okcrypto_ecc_abort("Error with ECC signing");
+                return;
             }
         } else if (type == 0x03) {
             const struct uECC_Curve_t *curve = uECC_secp256k1();
@@ -894,6 +964,9 @@ void okcrypto_ecdsa_eddsa(uint8_t *buffer) {
 #ifdef DEBUG
                 Serial.println("Signature Failed ");
 #endif
+                memset(ecc_signature, 0, sizeof(ecc_signature));
+                okcrypto_ecc_abort("Error with ECC signing");
+                return;
             }
         }
 #ifdef DEBUG
@@ -908,6 +981,7 @@ void okcrypto_ecdsa_eddsa(uint8_t *buffer) {
             send_transport_response(ecc_signature, 64, true, true);
             wipetasks();
         }
+        memset(ecc_signature, 0, sizeof(ecc_signature));
         // Stop the fade in
         fadeoff(85);
         memset(large_buffer, 0, LARGE_BUFFER_SIZE);
@@ -941,11 +1015,17 @@ void okcrypto_ecdh(uint8_t *buffer) {
         byteprint(large_buffer, large_buffer_offset);
 #endif
         if (buffer[5] > 200) {
+            if (large_buffer_offset < 64) {
+                hidprint("Error invalid derived key payload size");
+                memset(large_buffer, 0, LARGE_BUFFER_SIZE);
+                large_buffer_offset = 0;
+                fadeoff(0);
+                return;
+            }
             /* Ed25519 has no ECDH. */
             if (!((buffer[5] > 201 && buffer[5] < 205) || (buffer[5] > 211 && buffer[5] < 215) ||
                     (buffer[5] > DERIVATION_V2_CODE_BASE + 1 && buffer[5] < DERIVATION_V2_CODE_BASE + 5))) {
-                hidprint("Error invalid derived key slot");
-                fadeoff(0);
+                okcrypto_ecc_abort("Error invalid derived key slot");
                 return;
             }
             if (buffer[5] == 202) {
@@ -954,12 +1034,11 @@ void okcrypto_ecdh(uint8_t *buffer) {
                 okcrypto_derive_key(3, large_buffer + (large_buffer_offset - 32), 0);
             } else if (buffer[5] == 204) {
                 okcrypto_derive_key(4, large_buffer + (large_buffer_offset - 32), 0);
-            } else if (buffer[5] == 212) {
-                okcrypto_derive_key(2, large_buffer + (large_buffer_offset - 32), RESERVED_KEY_WEB_AGENT_DERIVATION);
-            } else if (buffer[5] == 213) {
-                okcrypto_derive_key(3, large_buffer + (large_buffer_offset - 32), RESERVED_KEY_WEB_AGENT_DERIVATION);
-            } else if (buffer[5] == 214) {
-                okcrypto_derive_key(4, large_buffer + (large_buffer_offset - 32), RESERVED_KEY_WEB_AGENT_DERIVATION);
+            } else if (buffer[5] >= 212 && buffer[5] <= 214) {
+                uint8_t web_salt[33] = {0};
+                memcpy(web_salt + 1, large_buffer + (large_buffer_offset - 32), 32);
+                okcrypto_derive_key(buffer[5] - 210, web_salt, RESERVED_KEY_WEB_AGENT_DERIVATION);
+                memset(web_salt, 0, sizeof(web_salt));
             } else if (buffer[5] > DERIVATION_V2_CODE_BASE + 1 && buffer[5] < DERIVATION_V2_CODE_BASE + 5) {
                 // v2 (HKDF) agent derivation: 222 p256, 223 secp256k1, 224 curve25519
                 okcrypto_derive_key(buffer[5] - DERIVATION_V2_CODE_BASE, large_buffer + (large_buffer_offset - 32), RESERVED_KEY_DERIVATION);
@@ -969,6 +1048,7 @@ void okcrypto_ecdh(uint8_t *buffer) {
             // Not using derived key, using stored key
             okcore_flashget_ECC(buffer[5]);
         } else {
+            okcrypto_ecc_abort("Error invalid ECC key slot");
             return;
         }
 
@@ -978,19 +1058,25 @@ void okcrypto_ecdh(uint8_t *buffer) {
             resplen = 32;
             okcrypto_compute_pubkey();
         }
-        if (large_buffer_offset == 33 || large_buffer_offset == 65) { // Remove public key first byte 0x04 or 0x40 for Trezor agent
+        // X25519 takes a 32-byte key, P-256 and secp256k1 a 64-byte X || Y;
+        // a shorter key would leave part of this key's own point in place.
+        const int keylen = (type == 4) ? 32 : 64;
+        if (large_buffer_offset == keylen + 1 && (type == 4 || large_buffer[0] == 0x04)) { // Remove public key first byte 0x04 or 0x40 for Trezor agent
             large_buffer_offset--;
             memcpy(ecc_public_key, large_buffer + 1, large_buffer_offset);
-        } else if (large_buffer_offset == 32 || large_buffer_offset == 64) {
+        } else if (large_buffer_offset == keylen) {
             memcpy(ecc_public_key, large_buffer, large_buffer_offset);
+        } else {
+            okcrypto_ecc_abort("Error invalid ECC public key size");
+            return;
         }
 
         pending_operation = CTAP2_ERR_USER_ACTION_PENDING;
         // Use ecc_private_key and provided pubkey to generate shared secret
-        if (large_buffer_offset == 64 || large_buffer_offset == 32) { // Public key sizes
-            if (okcrypto_shared_secret(ecc_public_key, temp)) {
-                //Error
-            }
+        if (okcrypto_shared_secret(ecc_public_key, temp)) {
+            memset(temp, 0, sizeof(temp));
+            okcrypto_ecc_abort("Error with ECC shared secret");
+            return;
         }
 
 #ifdef DEBUG
@@ -1011,6 +1097,7 @@ void okcrypto_ecdh(uint8_t *buffer) {
             send_transport_response(temp, resplen, true, true);
             wipetasks();
         }
+        memset(temp, 0, sizeof(temp));
         // Stop the fade in
         fadeoff(85);
         memset(large_buffer, 0, LARGE_BUFFER_SIZE);
@@ -1243,6 +1330,18 @@ int okcrypto_transit_repeated(void) {
     return transit_ctr_in_repeat;
 }
 
+/* Inbound counters must not go backwards: a frame older than the last one
+ * opened is a replay. Returns -1 for a stale frame, otherwise records ctr and
+ * returns 1 when it repeats the previous counter, 0 when it is new. */
+static int okcrypto_transit_ctr_accept(uint32_t ctr) {
+    if (transit_ctr_in_seen && ctr < transit_ctr_in_last)
+        return -1;
+    int repeat = transit_ctr_in_seen && ctr == transit_ctr_in_last;
+    transit_ctr_in_last = ctr;
+    transit_ctr_in_seen = 1;
+    return repeat;
+}
+
 static void okcrypto_transit_iv(uint8_t *iv, uint8_t dir, uint32_t ctr) {
     memset(iv, 0, 12);
     iv[0] = dir;
@@ -1313,9 +1412,12 @@ int okcrypto_transit_open(uint8_t *frame, int len) {
         memset(frame, 0, len);
         return -1;
     }
-    transit_ctr_in_repeat = transit_ctr_in_seen && ctr == transit_ctr_in_last;
-    transit_ctr_in_last = ctr;
-    transit_ctr_in_seen = 1;
+    int ctr_state = okcrypto_transit_ctr_accept(ctr);
+    if (ctr_state < 0) {
+        memset(frame, 0, len);
+        return -1;
+    }
+    transit_ctr_in_repeat = ctr_state;
     memmove(frame, ct, ptlen);
     memset(frame + ptlen, 0, len - ptlen);
 #ifdef DEBUG
@@ -1372,6 +1474,7 @@ cleanup:
 #ifdef DEBUG
         Serial.printf("Error with key check =%d", ret);
 #endif
+        mbedtls_rsa_free(&rsa);
         hidprint("Error invalid key, key check failed");
         return -1;
     }
@@ -1479,7 +1582,8 @@ cleanup:
     Serial.printf("\nRSA len = ");
     Serial.println(rsa.len);
 #endif
-    ret = mbedtls_rsa_check_privkey(&rsa);
+    if (ret == 0)
+        ret = mbedtls_rsa_check_privkey(&rsa);
     if (ret != 0) {
 #ifdef DEBUG
         Serial.print("MBEDTLS_ERR_RSA_XXX error code ");
@@ -1491,7 +1595,8 @@ cleanup:
 #ifdef DEBUG
         Serial.print("RSA decrypt ");
 #endif
-        ret = mbedtls_rsa_rsaes_pkcs1_v15_decrypt(&rsa, NULL, NULL, MBEDTLS_RSA_PRIVATE, olen, in, out, 512);
+        // The RNG turns on base blinding in mbedtls_rsa_private().
+        ret = mbedtls_rsa_rsaes_pkcs1_v15_decrypt(&rsa, mbedtls_rand, NULL, MBEDTLS_RSA_PRIVATE, olen, in, out, MAX_RSA_KEY_SIZE);
     }
     mbedtls_rsa_free(&rsa);
     if (ret == 0) {
@@ -1585,6 +1690,7 @@ cleanup:
         Serial.print("MBEDTLS_ERR_RSA_XXX error code ");
         Serial.println(ret);
 #endif
+        mbedtls_rsa_free(&rsa);
         return ret;
     }
     if (ret == 0) {
