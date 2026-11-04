@@ -354,7 +354,7 @@ int16_t bridge_to_onlykey(uint8_t *_appid, uint8_t *keyh, int handle_len, uint8_
 #endif
 
                 if (opt1 == DERIVE_SHAREDSEC) { // Return DERIVE_PUBLIC_KEY and DERIVE_SHAREDSEC
-                    if (handle_len < 43 + 32 + pubsize || (pubsize == 65 && input_pubkey[0] != 0x04)) {
+                    if (handle_len < 43 + 32 + pubsize) {
                         memset(ecc_private_key, 0, sizeof(ecc_private_key));
                         ret = CTAP1_ERR_INVALID_LENGTH;
                         wipedata();
@@ -380,9 +380,10 @@ int16_t bridge_to_onlykey(uint8_t *_appid, uint8_t *keyh, int handle_len, uint8_
                             }
                             if (os == 'W') packet_buffer_details[3] = 'W';
                         }
-                        // Use ecc_private_key and provided pubkey to generate shared secret
-                        uint8_t *raw_pubkey = (pubsize == 65) ? (input_pubkey + 1) : input_pubkey;
-                        int ss = okcrypto_shared_secret(raw_pubkey, temp + 32 + sizeof(UNLOCKED) + 1 + pubsize); // Generate derived key shared secret in temp
+                        // Use ecc_private_key and provided pubkey to generate shared secret.
+                        // A P-256/secp256k1 peer key arrives as x || y followed by one trailing byte
+                        // (clients send x || y || 0x04); uECC reads the first 64 bytes, x || y.
+                        int ss = okcrypto_shared_secret(input_pubkey, temp + 32 + sizeof(UNLOCKED) + 1 + pubsize); // Generate derived key shared secret in temp
                         memset(ecc_private_key, 0, sizeof(ecc_private_key));
                         if (ss) {
                             memset(temp, 0, sizeof(temp));
