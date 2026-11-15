@@ -1921,7 +1921,11 @@ void set_slot(uint8_t *buffer) {
             if (mode == NONENCRYPTEDPROFILE)
                 return;
 #ifdef STD_VERSION
-            if (!initcheck) { //Only permit changing this on first use
+            // The second profile is always encrypted with its own PIN. A key
+            // already set to NONENCRYPTEDPROFILE keeps it; new setups may not.
+            if (buffer[7] != STDPROFILE1 && buffer[7] != STDPROFILE2) {
+                hidprint("Error unsupported second profile mode");
+            } else if (!initcheck) { //Only permit changing this on first use
                 okeeprom_eeset_2ndprofilemode(buffer + 7);
                 //hidprint("Successfully set 2nd profile mode");
             } else {
