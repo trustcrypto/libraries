@@ -391,6 +391,13 @@ int ctap_user_presence_test(uint32_t wait) {
     }
 }
 
+// A press on the CTAP path counts once its pad has stayed released this long.
+// This loop samples the pads faster than the main loop, and a finger on a
+// capacitive pad can drop below the touch threshold for a few samples in the
+// middle of a press. Counted at once, that dip ends the press and the rest of
+// it is read as a second press of the same button.
+#define CHALLENGE_RELEASE_MS 60
+
 // 3-digit challenge on the CTAP path: the user must press the three given
 // buttons in order within `wait` ms. Returns 1 = entered, 0 = timeout,
 // -2 = wrong button, 2 = presence disabled, -1 = cancelled.
@@ -400,25 +407,52 @@ int ctap_challenge_test(uint32_t wait, uint8_t b1, uint8_t b2, uint8_t b3) {
     int idx = 0;
     int ret = 0;
     uint8_t blink = 0;
+    uint8_t pending = 0;      // button of a press that is not counted yet
+    uint8_t last_touched = 0; // pad seen under the finger in the current press
+    uint32_t last_touch_ms = 0; // last sample with a finger on a pad
     uint32_t t1 = millis();
     if (_up_disabled) return 2;
     fadeon(171);
     while (1) {
         if (t1 + wait < millis()) {
             fadeoff(1);
+            button_selected = 0;
             return 0;
         }
-        if (touch_sense_loop()) {
-            uint8_t pressed = (uint8_t)(button_selected - '0');
-            button_selected = 0;
-            if (pressed != expected[idx]) {
+        button_selected = 0;
+        int duration = touch_sense_loop();
+        uint8_t touched = button_selected ? (uint8_t)(button_selected - '0') : 0;
+        uint8_t counted = 0;
+        if (duration) {
+            // A press ended. The same button again before the release window
+            // closed is the same press; a different one ends the earlier press.
+            uint8_t b = touched ? touched : last_touched;
+            last_touched = 0;
+            if (pending && b != pending) counted = pending;
+            pending = b;
+            last_touch_ms = millis();
+        } else if (touched) {
+            last_touched = touched;
+            last_touch_ms = millis();
+            if (pending && touched != pending) {
+                counted = pending;
+                pending = 0;
+            }
+        } else if (pending && millis() - last_touch_ms >= CHALLENGE_RELEASE_MS) {
+            counted = pending;
+            pending = 0;
+        }
+        if (counted) {
+            if (counted != expected[idx]) {
                 fadeoff(1);
                 u2f_button = 0;
+                button_selected = 0;
                 return -2;
             }
             if (++idx == 3) {
                 fadeoff(0);
                 u2f_button = 0;
+                button_selected = 0;
                 return 1;
             }
         }
