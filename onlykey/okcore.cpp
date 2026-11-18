@@ -5565,10 +5565,26 @@ uint8_t okcore_user_input_mode_for_slot(uint8_t slot) {
 
 // Runs the operation staged by done_process_packets(). CRYPTO_AUTH must
 // already be 4.
+/* A reply stored for a FIDO2 poll - a refusal or failure included - waits for the
+ * poll as long as a result does (wipebuffersafter5sec defers on DATA_READY). The
+ * page polls when its 10 s countdown ends; the 5 s wipe used to remove an error
+ * before that, and the poll reported "Error incorrect challenge was entered". */
+void okcore_hold_reply_for_poll(uint8_t requester) {
+    if (requester == WEBAUTHN && large_resp_buffer_offset) pending_operation = CTAP2_ERR_DATA_READY;
+}
+
 void okcore_run_pending_op() {
+    uint8_t requester = packet_buffer_details[2];
     cancelfadeoffafter20(); /* the request is decided: its 20 s wait for the user is over */
     derived_key_challenge_mode = 0;
     stored_key_challenge_mode = 0;
+    /* Report to whoever asked. outputmode has been changed by everything sent
+     * since the request was primed (send_transport_response() leaves RAW_USB,
+     * and each FIDO2 request enters as DISCARD), and the success paths restore
+     * it from packet_buffer_details[2] - but an error printed before that went
+     * to raw HID, and the web app saw "incorrect challenge" instead. */
+    if (packet_buffer_details[0] == OKSIGN || packet_buffer_details[0] == OKDECRYPT || packet_buffer_details[0] == OKHMAC)
+        changeoutputmode(packet_buffer_details[2]);
     if (packet_buffer_details[0] == OKSIGN) {
         recv_buffer[4] = packet_buffer_details[0];
         recv_buffer[5] = packet_buffer_details[1];
@@ -5587,6 +5603,7 @@ void okcore_run_pending_op() {
         }
         u2f_button = 0;
     }
+    okcore_hold_reply_for_poll(requester);
     CRYPTO_AUTH = 0;
     user_input_mode = USER_INPUT_CHALLENGE;
     pending_op_no_press = 0;
@@ -5645,7 +5662,12 @@ bool fadeoffafter20sec(Task *me) {
     Serial.println("wipe buffers after 20 sec");
 #endif
     if (isfade || CRYPTO_AUTH || pending_operation == CTAP2_ERR_DATA_WIPE) {
-        if (pending_operation == OKDECRYPT_ERR_USER_ACTION_PENDING || pending_operation == OKSIGN_ERR_USER_ACTION_PENDING) {
+        if (pending_operation == OKDECRYPT_ERR_USER_ACTION_PENDING || pending_operation == OKSIGN_ERR_USER_ACTION_PENDING ||
+                (CRYPTO_AUTH && (packet_buffer_details[0] == OKSIGN || packet_buffer_details[0] == OKDECRYPT))) {
+            /* To the requester: over FIDO2 this is what the page's next poll
+             * collects. It used to go to raw HID, and the page reported the
+             * timeout as "incorrect challenge". */
+            changeoutputmode(packet_buffer_details[2]);
             hidprint("Timeout occured while waiting for confirmation on OnlyKey");
         }
         fadeoff(1); //Fade Red, failed to enter PIN in 20 Seconds

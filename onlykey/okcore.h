@@ -414,6 +414,7 @@ extern void send_transport_response(uint8_t *data, int len, uint8_t encrypt, uin
 extern void apdu_data(uint8_t *data, int len);
 extern int store_keyboard_response();
 extern void changeoutputmode(uint8_t mode);
+extern void okcore_hold_reply_for_poll(uint8_t requester);
 extern int RNG2(uint8_t *dest, unsigned size);
 extern int calibratecaptouch(uint16_t j);
 extern void process_setreport();
