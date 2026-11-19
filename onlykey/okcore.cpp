@@ -5669,6 +5669,13 @@ bool fadeoffafter20sec(Task *me) {
              * timeout as "incorrect challenge". */
             changeoutputmode(packet_buffer_details[2]);
             hidprint("Timeout occured while waiting for confirmation on OnlyKey");
+            /* And keep it for that poll. Whether the 5 s wipe that fadeoff()
+             * arms waited for the poll depended on what pending_operation
+             * happened to hold: a page that had pinged while waiting left
+             * CTAP2_ERR_USER_ACTION_PENDING and it waited, but after a chunked
+             * request (an RSA-4096 ciphertext) it did not, and the page
+             * reported "incorrect challenge". */
+            okcore_hold_reply_for_poll(packet_buffer_details[2]);
         }
         fadeoff(1); //Fade Red, failed to enter PIN in 20 Seconds
     }
